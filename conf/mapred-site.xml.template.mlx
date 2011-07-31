@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+<!-- Put site-specific property overrides in this file. -->
+
+<configuration>
+      <property>
+           <name>mapred.job.tracker</name>
+           <value>eagle1-ib:9001</value>
+      </property>
+      <property>
+           <!-- Maximum current mappers running on each datanode -->
+           <name>mapred.tasktracker.map.tasks.maximum</name>
+           <value>4</value>
+      </property>
+      <property>
+           <!-- Maximum current reducers running on each datanode -->
+           <name>mapred.tasktracker.reduce.tasks.maximum</name>
+           <value>1</value>
+      </property>
+      <property>
+           <name>mapred.map.tasks.speculative.execution</name>
+           <value>false</value>
+      </property>
+      <property>
+           <name>mapred.reduce.tasks.speculative.execution</name>
+           <value>false</value>
+      </property>
+      <property>
+           <!-- mapred.roce.setting represents how users uses roce
+           0: disable roce.
+           1: use roce with roce-merger. -->
+           <name>mapred.roce.setting</name>
+           <value>0</value>
+      </property>
+      <property>
+           <!-- merging approach
+           0: on-disk merge
+           1: online merge
+           C++ cmd line tag: -a
+           -->
+           <name>mapred.netmerger.merge.approach</name>
+           <value>1</value>
+      </property>
+      <property>
+           <!-- mapred.roce.mofsupplier defines the location of C++ driver
+           for launching the roce map task side program -->
+           <name>mapred.roce.mofsupplier</name>
+	   <value>bin/MOFSupplier</value>
+      </property>
+      <property>
+           <!-- the port number used by task tracker to launch netmerger and mofsupplier
+           C++ cmd line tag: -j
+           -->
+           <name>mapred.taskTracker.roce.server.port</name>
+           <value>9010</value>
+      </property>
+      <property>
+           <!-- mapred.roce.netmerger defines the location of C++ driver
+           for launching the roce reduce task side program -->
+           <name>mapred.roce.netmerger</name>
+           <value>bin/NetMerger</value>
+      </property>
+      <property>
+            <!-- defines the port number used to do the rdma connection 
+            C++ cmd line tag: -r
+            -->            
+            <name>mapred.roce.cma.port</name>
+            <value>9011</value>
+      </property>
+      <property>
+            <!-- 
+             the log directory for roce
+             C++ cmd line tag: -g
+             -->
+            <name>mapred.roce.log.dir</name>
+            <value>/hadoop/logs</value>
+      </property>
+
+      <property>
+            <!-- the port number netmerger uses to listen to the launch
+            of number hadoop reduce task.
+            C++ cmd line tag: -l
+            -->
+            <name>mapred.netmerger.listener.port</name>
+            <value>9012</value>
+      </property>
+
+</configuration>

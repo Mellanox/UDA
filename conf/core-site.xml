@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+<!-- Put site-specific property overrides in this file. -->
+
+<configuration>
+     <property>
+         <name>fs.default.name</name>
+         <!-- Your Namenode -->
+         <value>hdfs://eagle1-ib:9000</value>
+     </property>
+     <property>
+         <!-- Your DFS direcroty -->
+         <name>hadoop.tmp.dir</name>
+         <value>/hadoop/dfs/tmp</value>
+     </property>
+</configuration>

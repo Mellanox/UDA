@@ -1,0 +1,117 @@
+C++ Coding Standard for Our Hadoop Project.
+Reference: http://www.possibility.com/Cpp/CppCodingStandard.html
+
+Boilerplate and footnote:
+0. Please place our copyright boilerplate at the beginning of every file
+
+1. Please include the footnote for vim/emacs indentation at the end of every file
+
+Naming:
+0. Be _DESCRIPTIVE_ and easily _DISTINCTIVE_ on all names.  
+
+1: End C++ header file with ".h" file extension.
+2: End C++ source file with ".cc" file extension.
+3: Class Name: 
+    -- Use Upper case letters as word separators, 
+    -- lower case for the rest of a word. 
+    -- First character in a name is upper case.
+    -- Example: DataEngine, NetMerger
+
+4: Methods Inside Class:
+    -- Use lower case words
+    -- Use '_' as the word separator.
+
+5: Class Attribute Names:
+    -- Use all lower case letters
+    -- Use '_' as the word separator
+
+6: Method Argument Names:
+    -- Use all lower case letter.
+    -- Use '_' as the word separator
+
+7: local variables inside method:
+    -- Use all lower case letters.
+
+8: Static Variables 
+
+9: Global functions name
+    -- all lower case words
+    -- Use '_' as the word separator.
+
+10: MACRO and ENUM names:
+    -- all upper case.
+    -- Use '_' as the word separator.
+
+Indentation:
+
+1. Line width 78
+
+2. Indentation, 
+-- block indentation is 4 spaces
+-- shiftwidth is 4 spaces
+-- no tabs, all expanded to spaces
+-- enable 'cindent' for vim
+
+3. Parentheses should follow at the end of a line
+   if (condition) {
+       /* statements */
+   } else if (condition 2) {
+       /* statements */
+   } 
+
+4. Leave a single space on both sides of a binary operator, such as *, +, -, /
+   for example
+   int a = (b + c) * d;
+
+5. Brackets and parentheses
+-- Leave a single space from keywords, such as "if (condition) " 
+-- Leave no space from varaibles, such as (a + c), array[index];
+
+6. Incomplete arguments to function calls/definitions should start 
+   at the same column as the one started by previous arguments.
+   For example:
+
+   int abc;
+   a = function_call_with_many_arguments(first_argument, second_argument,
+                                         third_argument, fourth_argument);
+
+7. All variable definitions should be grouped together
+
+8. Varible definitions should be separated by one line from block statements.
+
+9. Two different blocks of statements should be seprated by one line
+
+10. In Class definitions:
+-- group related functions together
+-- group related variables together
+-- group variables together
+-- group functions together
+
+11. Multiple variables
+-- Start the variable names from the same colunm
+-- Pointer variables should have `*' immediately before the variable names
+-- The '*' prefix should not be counted as the variable name.
+
+For example:
+    int                   a, b, c;
+    first_struct_name_t   name1;
+    another_pointer_t    *point;
+
+12: use 'FIXME' for un-resolved issue
+
+13: use 'XXX' for special reminders
+
+14: use /* */ for single line comments
+
+15: No need to provide comments for descriptive variables, field names
+
+16: use "#if 0" to disable multipel lines of code.
+#if 0
+
+#endif
+
+17: Please leave a space after a comma
+
+18: Please place the pointer sign "*" always in front of the variable, not
+    connected with the type name.
+
