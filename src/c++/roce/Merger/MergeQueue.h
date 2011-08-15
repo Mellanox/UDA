@@ -16,9 +16,29 @@
 
 #include <vector>
 #include <list>
+#include <string>
 
-#include "StreamRW.h"
-#include "MergeManager.h"
+#include <LinkList.h>
+#include <NetlevComm.h>
+
+#include "IOUtility.h"
+
+class RawKeyValueIterator;
+
+typedef struct mem_desc {
+    struct list_head     list;
+    char                *buff;
+    int32_t              buf_len;
+    int32_t              act_len;
+    volatile int         status; /* available or invalid*/
+    struct memory_pool  *owner;  /* owner pool */
+    pthread_mutex_t      lock;
+    pthread_cond_t       cond;
+} mem_desc_t;
+
+
+//#include "StreamRW.h"
+//#include "MergeManager.h"
 
 /****************************************************************************
  * A PriorityQueue maintains a partial ordering of its elements such that the
@@ -39,12 +59,12 @@ public:
      * Subclasses must define this one method. 
      */
     virtual bool lessThan(T a, T b) {
-        Segment *s_1 = (Segment *) a;
-        Segment *s_2 = (Segment *) b;
-        DataStream *key1 = &s_1->key;
-        DataStream *key2 = &s_2->key;
-        string strKey1 = string(key1->getData(), key1->getLength());
-        string strKey2 = string(key2->getData(), key2->getLength());
+        //Segment *s_1 = (Segment *) a;
+        //Segment *s_2 = (Segment *) b;
+        DataStream *key1 = &a->key;
+        DataStream *key2 = &b->key;  // AVNER: below is huge pure memcpy with absolutely no need - TODO
+        std::string strKey1 = std::string(key1->getData(), key1->getLength());
+        std::string strKey2 = std::string(key2->getData(), key2->getLength());
         
         return memcmp(strKey1.c_str(), strKey2.c_str(), strKey1.length()) < 0;
     }
@@ -181,39 +201,129 @@ private:
 /****************************************************************************
  * The implementation of PriorityQueue and RawKeyValueIterator
  ****************************************************************************/
+template <class T>
 class MergeQueue 
 {
 private:
-    std::list<Segment*> *mSegments;
-    Segment    *min_segment;
+    std::list<T> *mSegments;
+    T min_segment;
     DataStream *key;
     DataStream *val;
 
 public: 
-    virtual ~MergeQueue();
+
+    virtual ~MergeQueue(){}
     int        mergeq_flag;  /* flag to check the former k,v */
     RawKeyValueIterator* merge(int factor, int inMem, std::string &tmpDir);
     DataStream* getKey() { return this->key; }
     DataStream* getVal() { return this->val; }
-    bool next();  
-    bool insert(Segment*);
-    int32_t get_key_len();
-    int32_t get_val_len();
-    int32_t get_key_bytes();
-    int32_t get_val_bytes();
-    MergeQueue(int numMaps);  
-    MergeQueue(std::list<Segment*> *segments);
+    bool next() {
+        if(this->mergeq_flag) {
+            return true;
+        }
+
+        if (core_queue.size() == 0) {
+        	return false;
+        }
+
+        if (this->min_segment != NULL) {
+            this->adjustPriorityQueue(this->min_segment);
+            if (core_queue.size() == 0) {
+                this->min_segment = NULL;
+                return false;
+            }
+        }
+        this->min_segment = core_queue.top();
+        this->key = &this->min_segment->key;
+        this->val = &this->min_segment->val;
+        return true;
+    }
+
+    bool insert(T segment){
+        int ret = segment->nextKV();
+        switch (ret) {
+            case 0: { /*end of the map output*/
+                delete segment;
+                break;
+            }
+            case 1: { /*next keyVal exist*/
+                core_queue.put(segment);
+                break;
+            }
+            case -1: { /*break in the middle of the data*/
+                output_stderr("MergeQueue:break in the first KV pair");
+                segment->switch_mem();
+                break;
+            }
+            default:
+                output_stderr("MergeQueue: Error in insert");
+                break;
+        }
+
+        write_log(segment->get_task()->reduce_log,
+                  DBG_CLIENT, "MergeQueue: current size %d", core_queue.size());
+
+        return true;
+    }
+
+    int32_t get_key_len() {return this->min_segment->cur_key_len;}
+    int32_t get_val_len() {return this->min_segment->cur_val_len;}
+    int32_t get_key_bytes(){return this->min_segment->kbytes;}
+    int32_t get_val_bytes() {return this->min_segment->vbytes;}
+
+    MergeQueue(int numMaps){
+        this->mSegments = NULL;
+        this->min_segment = NULL;
+        this->key = NULL;
+        this->val = NULL;
+        this->mergeq_flag = 0;
+        this->staging_bufs[0] = NULL;
+        this->staging_bufs[1] = NULL;
+        core_queue.initialize(numMaps);
+        core_queue.clear();
+    }
+
+    MergeQueue(std::list<T> *segments){
+        this->mSegments = segments;
+        this->min_segment = NULL;
+    }
 
     mem_desc_t  *staging_bufs[2]; 
-    PriorityQueue<Segment*> core_queue;
+    PriorityQueue<T> core_queue;
 
 protected:
 
-    bool lessThan(Segment *a, Segment *b);
-    void adjustPriorityQueue(Segment *segment); 
+    bool lessThan(T a, T b);
+    void adjustPriorityQueue(T segment){
+        int ret = segment->nextKV();
+
+        switch (ret) {
+            case 0: { /*no more data for this segment*/
+                T s = core_queue.pop();
+                delete s;
+                break;
+            }
+            case 1: { /*next KV pair exist*/
+                core_queue.adjustTop();
+                break;
+            }
+            case -1: { /*break in the middle*/
+                if (segment->switch_mem() ){
+                    /* DBGPRINT(DBG_CLIENT, "adjust priority queue\n"); */
+                    core_queue.adjustTop();
+                } else {
+                    T s = core_queue.pop();
+                    delete s;
+                }
+                break;
+            }
+        }
+    }
+
+
     int  getPassFactor(int factor, int passNo, int numSegments);
-    void getSegmentDescriptors(std::list<Segment*> &inputs, 
-                               std::list<Segment*> &outputs,
+    void getSegmentDescriptors(std::list<T> &inputs,
+                               std::list<T> &outputs,
                                int numDescriptors);
 
 };

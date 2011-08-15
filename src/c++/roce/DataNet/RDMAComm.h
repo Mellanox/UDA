@@ -215,7 +215,7 @@ int netlev_post_send(void *buff, int bytes, uint64_t wqeid,
 int netlev_init_rdma_mem(void *, unsigned long total_size,
                          netlev_dev_t *dev);
 
-char* netlev_stropcode(int opcode);
+const char* netlev_stropcode(int opcode);
 
 #endif
 

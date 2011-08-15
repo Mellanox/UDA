@@ -663,7 +663,7 @@ netlev_post_send(void *buff, int bytes,
     return 0;
 }
 
-char* netlev_stropcode(int opcode) 
+const char* netlev_stropcode(int opcode)
 {
     switch (opcode) {
         case IBV_WC_SEND:

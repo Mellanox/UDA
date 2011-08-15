@@ -37,7 +37,7 @@ void *fetch_thread_main(void *context)
 {
     reduce_task_t  *task;
     FetchManager   *fetch_man;
-    host_list      *host;
+//    host_list      *host;
 
     task = (reduce_task_t *) context;
     fetch_man = task->fetch_man;
@@ -67,8 +67,8 @@ void *fetch_thread_main(void *context)
 
     }
 
-    write_log(task->reduce_log, DBG_CLIENT, 
-              "fetch thread exit");
+    write_log(task->reduce_log, DBG_CLIENT, "fetch thread exit");
+    return NULL;
 }
 
 FetchManager::FetchManager(reduce_task_t *task)
@@ -139,7 +139,7 @@ int FetchManager::update_fetch_req(client_part_req_t *req)
     recvd_data[2] = atoll(req->recvd_msg + (++i));
 
     MergeManager *merger = req->mop->task->merge_man;
-    /*in_queue = (req->mop->fetch_count != 0);*/
+    in_queue = (req->mop->fetch_count != 0);
         /*(merger->mops_in_queue.find(req->mop->mop_id) 
         != merger->mops_in_queue.end());*/
     req->last_fetched = recvd_data[2];
@@ -152,7 +152,7 @@ int FetchManager::update_fetch_req(client_part_req_t *req)
     req->mop->mop_bufs[req->mop->staging_mem_idx]->status = MERGE_READY;
     pthread_mutex_unlock(&req->mop->lock);
 
-    /*if (!in_queue) { */
+    if (!in_queue) {
         /* Insert into merge manager fetched_mops */
         pthread_mutex_lock(&merger->lock);
         merger->fetched_mops.push_back(req->mop);
@@ -160,14 +160,15 @@ int FetchManager::update_fetch_req(client_part_req_t *req)
         /* write_log(task->reduce_log, DBG_CLIENT, 
                   "First time return: %d", 
                   ++task->total_first_return); */
-        pthread_mutex_unlock(&task->merge_man->lock);
-    /* } else { */
+        pthread_mutex_unlock(&merger->lock);
+    } else {
         /* wake up the merging thread */
         /* pthread_mutex_lock(&req->mop->lock);
         pthread_cond_broadcast(&req->mop->cond); 
         pthread_mutex_unlock(&req->mop->lock); */
-    /*} */
-    /*pthread_cond_broadcast(&req->mop->cond); */
+        pthread_cond_broadcast(&merger->cond);
+    } 
+    pthread_cond_broadcast(&req->mop->cond);
    
     return 1;
 }

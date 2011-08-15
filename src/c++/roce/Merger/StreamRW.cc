@@ -18,6 +18,13 @@
 #include <ctime>
 #include <sys/stat.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
+#define __STDC_LIMIT_MACROS
+#include <stdint.h>
+
 #include "MergeManager.h"
 #include "MergeQueue.h"
 #include "StreamRW.h"
@@ -26,8 +33,8 @@
 
 using namespace std;
 
-bool write_kv_to_mem(MergeQueue *records, 
-                     char *src, int32_t len, int32_t &total_write) 
+
+bool write_kv_to_stream(MergeQueue<Segment*> *records, int32_t len, OutStream *stream, int32_t &total_write)
 {
     int32_t key_len, val_len, bytes_write;
     int32_t kbytes, vbytes;
@@ -36,9 +43,8 @@ bool write_kv_to_mem(MergeQueue *records,
     bytes_write = 0;
     key_len = val_len = kbytes = vbytes = 0;
 
-    DataStream *stream = new DataStream(src, len);
-   
     while (records->next()) {
+        //output_stdout(" << %s: in loop head ->", __func__);
         DataStream *k = records->getKey();
         DataStream *v = records->getVal();
     
@@ -67,28 +73,71 @@ bool write_kv_to_mem(MergeQueue *records,
         stream->write(v->getData(), val_len);
         bytes_write += record_len;
         records->mergeq_flag   = 0;
+        // output_stdout(" << %s: in loop tail <-", __func__);
     }
-   
+
     /* test for last -1, -1 */ 
     kbytes = StreamUtility::getVIntSize(EOF_MARKER); 
     vbytes = StreamUtility::getVIntSize(EOF_MARKER);
     record_len = kbytes + vbytes;
     if (record_len + bytes_write > len) {
         total_write = bytes_write;
-        records->mergeq_flag   = 1;
+        records->mergeq_flag = 1;
+    	output_stdout(" << %s: return false", __func__);
         return false;
     }
     
     /* -1:-1 */
     StreamUtility::serializeInt(EOF_MARKER, *stream);
     StreamUtility::serializeInt(EOF_MARKER, *stream);
-    delete stream;
     records->mergeq_flag = 0;
     bytes_write += record_len;  
    
     total_write = bytes_write; 
     return true;
 }
+
+
+bool write_kv_to_file(MergeQueue<Segment*> *records, FILE *f, int32_t &total_write)
+{
+    FileStream *stream = new FileStream(f);
+    int32_t len = INT32_MAX; //1<<30; //TODO: consider 64 bit - AVNER
+
+    bool ret = write_kv_to_stream(records, len, stream, total_write);
+
+    delete stream;
+    return ret;
+}
+
+bool write_kv_to_file(MergeQueue<Segment*> *records, const char *file_name, int32_t &total_write)
+{
+    FILE *file = fopen(file_name, "wb");
+    if (!file) {
+    	output_stderr("[%d:%s:%d] fail to open file(errno=%d: %m)\n"
+    			, getpid(), __FILE__, __LINE__, errno);
+    	exit(-1); //temp TODO
+    }
+
+    bool ret = write_kv_to_file(records, file, total_write);
+
+    fclose(file);
+    return ret;
+}
+
+
+
+bool write_kv_to_mem(MergeQueue<Segment*> *records,
+                     char *src, int32_t len, int32_t &total_write)
+{
+    DataStream *stream = new DataStream(src, len);
+
+    bool ret = write_kv_to_stream(records, len, stream, total_write);
+
+    delete stream;
+    return ret;
+}
+
+
 
 #if 0
 void write_kv_to_disk(RawKeyValueIterator *records, const char *file_name)
@@ -137,14 +186,32 @@ Segment::Segment(MapOutput *mapOutput)
     this->byte_read = 0;
 
     this->map_output = mapOutput;
-    mem_desc_t *mem = 
-        mapOutput->mop_bufs[mapOutput->staging_mem_idx]; 
-   
-    this->in_mem_data = new DataStream();
-    this->in_mem_data->reset(mem->buff, 
-                  mapOutput->part_req->last_fetched);
-    this->send_request();
+    if (mapOutput) {
+		mem_desc_t *mem =
+			mapOutput->mop_bufs[mapOutput->staging_mem_idx];
+
+		this->in_mem_data = new DataStream();
+		this->in_mem_data->reset(mem->buff,
+					  mapOutput->part_req->last_fetched);
+		this->send_request();
+    }
+    else {
+    	this->in_mem_data = NULL;
+    }
 }
+
+SuperSegment::SuperSegment(reduce_task *_task, const std::string &_path)
+	: Segment(NULL), task(_task), path(_path)
+{
+    this->file = fopen(path.c_str(), "rb");
+    if (this->file == NULL) {
+        output_stderr("Reader:cannot open file: %s", path.c_str());
+        this->file_stream = NULL;
+        return;
+    }
+    this->file_stream = new FileStream(this->file);
+}
+
 
 #if 0
 Segment::Segment(const string &path)
@@ -171,11 +238,12 @@ Segment::Segment(const string &path)
 
 Segment::~Segment()
 {
-    int id = this->map_output->mop_id;
-    reduce_task_t *task = 
-        this->map_output->task;
+    int id = 0;
+    FILE *log = NULL;
 
     if (this->map_output != NULL) {
+        id = this->map_output->mop_id;
+        log = this->map_output->task->reduce_log;
         delete this->map_output;
     }
     
@@ -196,14 +264,81 @@ Segment::~Segment()
     }
 #endif
 
-    write_log(task->reduce_log,DBG_CLIENT, 
-              "Segment %d: deleted", id);
+    if (log) write_log(log, DBG_CLIENT, "Segment %d: deleted", id);
+}
+
+SuperSegment::~SuperSegment()
+{
+    if (this->file_stream != NULL) {
+        delete this->file_stream;
+        fclose(this->file);
+        remove(this->path.c_str());
+    }
+}
+
+int Segment::nextKVInternal(InStream *stream)
+{
+	//TODO: this can only work with ((DataStream*)stream)
+
+    if (!stream) return 0;
+
+    /* key length */
+    bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
+    if (!k)  return -1;
+    int digested = 0;
+    digested += kbytes;
+
+    /* value length */
+    bool v = StreamUtility::deserializeInt(*stream, cur_val_len, &vbytes);
+    if (!v) {
+        stream->rewind(digested);
+        return -1;
+    }
+    digested += vbytes;
+
+    if (cur_key_len == EOF_MARKER
+     && cur_val_len == EOF_MARKER) {
+        eof = true;
+        byte_read += (kbytes + vbytes);
+        return 0;
+    }
+
+    /* Making a sanity check */
+    if (cur_key_len < 0 || cur_val_len < 0) {
+        output_stderr("Reader:Error in nextKV");
+        eof = true;
+        byte_read += (kbytes + vbytes);
+        return 0;
+    }
+
+    /* no enough for key + val */
+    if (!stream->hasMore(cur_key_len + cur_val_len)) {
+    	stream->rewind(digested);
+        return -1;
+    }
+
+    int   pos = -1;
+    char *mem = NULL;
+
+    /* key */
+    pos = ((DataStream*)stream)->getPosition();
+    mem = ((DataStream*)stream)->getData();
+    this->key.reset(mem + pos, cur_key_len);
+    stream->skip(cur_key_len);
+
+    /* val */
+    pos = ((DataStream*)stream)->getPosition();
+    mem = ((DataStream*)stream)->getData();
+    this->val.reset(mem + pos, cur_val_len);
+    stream->skip(cur_val_len);
+    byte_read += (kbytes + vbytes + cur_key_len + cur_val_len);
+    return 1;
+
 }
 
 int Segment::nextKV()
 {
-    int digested;
-    kbytes = vbytes = digested = 0;
+    kbytes = vbytes = 0;
 
     if (eof || byte_read >= this->map_output->total_len) {
         output_stderr("Reader: End of Stream");
@@ -212,59 +347,7 @@ int Segment::nextKV()
     
     /* in mem map output */
     if (map_output != NULL) {
-        
-        if (!in_mem_data) return 0;
-
-        /* key length */
-        bool k = StreamUtility::deserializeInt(*in_mem_data, cur_key_len, &kbytes);
-        if (!k)  return -1; 
-        digested += kbytes;
-
-        /* value length */
-        bool v = StreamUtility::deserializeInt(*in_mem_data, cur_val_len, &vbytes);
-        if (!v) {
-            this->in_mem_data->rewind(digested);
-            return -1;
-        }
-        digested += vbytes;
-
-        if (cur_key_len == EOF_MARKER 
-         && cur_val_len == EOF_MARKER) {
-            eof = true;
-            byte_read += (kbytes + vbytes);
-            return 0;
-        }
-
-        /* Making a sanity check */
-        if (cur_key_len < 0 || cur_val_len < 0) {
-            output_stderr("Reader:Error in nextKV");
-            eof = true;
-            byte_read += (kbytes + vbytes);
-            return 0;
-        }
-        
-        /* no enough for key + val */
-        if (!in_mem_data->hasMore(cur_key_len + cur_val_len)) {
-            in_mem_data->rewind(digested);
-            return -1;
-        }
-  
-        int   pos = -1;
-        char *mem = NULL;
-
-        /* key */
-        pos = in_mem_data->getPosition();
-        mem = in_mem_data->getData();
-        this->key.reset(mem + pos, cur_key_len);
-        in_mem_data->skip(cur_key_len); 
-
-        /* val */
-        pos = in_mem_data->getPosition();
-        mem = in_mem_data->getData();
-        this->val.reset(mem + pos, cur_val_len);
-        in_mem_data->skip(cur_val_len);
-        byte_read += (kbytes + vbytes + cur_key_len + cur_val_len);
-        return 1;
+    	return nextKVInternal(in_mem_data);
 
     } else { //on-disk map output
 #if 0        
@@ -298,6 +381,38 @@ int Segment::nextKV()
 #endif
     }
     return 0;
+}
+
+int SuperSegment::nextKV()
+{
+	int dummy;
+    StreamUtility::deserializeInt(*file_stream, cur_key_len, &dummy);//AVNER: TODO
+    StreamUtility::deserializeInt(*file_stream, cur_val_len, &dummy);
+    kbytes = StreamUtility::getVIntSize(cur_key_len);
+    vbytes = StreamUtility::getVIntSize(cur_val_len);
+
+    if (cur_key_len == EOF_MARKER
+        && cur_val_len == EOF_MARKER) {
+        eof = true;
+        return 0;
+    }
+    int32_t total = cur_key_len + cur_val_len;
+
+    if (temp_kv == NULL) {
+       /* Allocating enough memory to avoid repeated use of malloc */
+       temp_kv_len = total << 1;
+       temp_kv = (char *) malloc(temp_kv_len * sizeof(char));
+    } else {
+        if (temp_kv_len < total) {
+            free(temp_kv);
+            temp_kv_len = total << 1;
+            temp_kv= (char *) malloc(temp_kv_len * sizeof(char));
+        }
+    }
+    file_stream->read(temp_kv, total);
+    key.reset(temp_kv, cur_key_len);
+    val.reset(temp_kv + cur_key_len, cur_val_len);
+    return 1;
 }
 
 void Segment::close()
@@ -354,9 +469,8 @@ bool Segment::switch_mem()
         //if (staging_mem->status != MERGE_READY) {
         while (staging_mem->status != MERGE_READY) {
             //pthread_cond_wait(&map_output->cond, &map_output->lock);
-            pthread_cond_wait(&merger->cond,
-                              &merger->lock);
-            merger->fetched_mops.clear();
+            pthread_cond_wait(&merger->cond, &merger->lock);
+            /*merger->fetched_mops.clear();*/
         }
         pthread_mutex_unlock(&merger->lock);
         //pthread_mutex_unlock(&map_output->lock);

@@ -219,6 +219,7 @@ void *event_processor(void *context)
             }
         } 
     }
+    return NULL; //quite the compiler
 }
 
 
@@ -441,6 +442,7 @@ string C2JNexus::recv_string()
 void C2JNexus::send_int(int64_t t)
 {
     if (this->mode==STANDALONE) return;
+    output_stdout("======== >>>>>>> C2JNexus::%s: int=%d <<<<<<< ========", __func__, (int)t);
     StreamUtility::serializeInt(t, *stream);
 }
 

@@ -11,64 +11,10 @@
 **
 */
 
-using namespace std;
-
-#include "reducer.h"
 #include "MergeQueue.h"
+#include "reducer.h"
 
-MergeQueue::MergeQueue(std::list<Segment*> *segments) 
-{
-    this->mSegments = segments;    
-    this->min_segment = NULL;
-}
-
-
-MergeQueue::MergeQueue(int numMaps) 
-{
-    this->mSegments = NULL;
-    this->min_segment = NULL;
-    this->key = NULL;
-    this->val = NULL;
-    this->mergeq_flag = 0;
-    this->staging_bufs[0] = NULL;
-    this->staging_bufs[1] = NULL;
-    core_queue.initialize(numMaps);
-    core_queue.clear();
-}
-
-MergeQueue::~MergeQueue()
-{
-}
-
-
-bool MergeQueue::insert(Segment *segment) 
-{
-    int ret = segment->nextKV();
-    switch (ret) {
-        case 0: { /*end of the map output*/
-            delete segment;
-            break;
-        }
-        case 1: { /*next keyVal exist*/
-            core_queue.put(segment);
-            break;
-        }
-        case -1: { /*break in the middle of the data*/
-            output_stderr("MergeQueue:break in the first KV pair");
-            segment->switch_mem();
-            break;
-        }
-        default:
-            output_stderr("MergeQueue: Error in insert");
-            break;
-    }
-
-    write_log(segment->map_output->task->reduce_log, 
-              DBG_CLIENT, "MergeQueue: current size %d", 
-              core_queue.size());
-
-    return true;
-}
+using namespace std;
 
 #if 0
 int MergeQueue::getPassFactor(int factor, int passNo, int numSegments) 
@@ -166,74 +112,6 @@ MergeQueue::merge(int factor, int inMem, std::string &tmpDir)
     } while (true);
 }
 #endif
-
-int32_t MergeQueue::get_key_len()
-{
-    return this->min_segment->cur_key_len;
-}
-
-int32_t MergeQueue::get_val_len()
-{
-    return this->min_segment->cur_val_len;
-}
-
-int32_t MergeQueue::get_key_bytes()
-{
-    return this->min_segment->kbytes;
-}
-
-int32_t MergeQueue::get_val_bytes()
-{
-    return this->min_segment->vbytes;
-}
-
-bool MergeQueue::next()
-{
-    if(this->mergeq_flag)
-        return true;
-
-    if (core_queue.size() == 0) return false;
-  
-    if (this->min_segment != NULL) {
-        this->adjustPriorityQueue(this->min_segment);
-        if (core_queue.size() == 0) {
-            this->min_segment = NULL;
-            return false;
-        }
-    }
-    this->min_segment = core_queue.top();
-    this->key = &this->min_segment->key;
-    this->val = &this->min_segment->val;
-    return true; 
-}
-
-
-void MergeQueue::adjustPriorityQueue(Segment *segment)
-{
-    int ret = segment->nextKV();
-    
-    switch (ret) {
-        case 0: { /*no mre data for this segment*/
-            Segment *s = core_queue.pop();
-            delete s;
-            break;
-        } 
-        case 1: { /*next KV pair exist*/
-            core_queue.adjustTop();
-            break;
-        }
-        case -1: { /*break in the middle*/
-            if (segment->switch_mem() ){
-                /* DBGPRINT(DBG_CLIENT, "adjust priority queue\n"); */
-                core_queue.adjustTop();
-            } else {
-                Segment *s = core_queue.pop();
-                delete s;
-            }
-            break;
-        }
-    }
-}
 
 /*
  * Local variables:

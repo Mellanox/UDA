@@ -18,9 +18,10 @@
 #include <map>
 #include <list>
 
+#include "MergeQueue.h"
 #include "C2JNexus.h"
+class Segment;
 
-class MergeQueue;
 class MapOutput;
 class FetchRequest;
 class RawKeyValueIterator;
@@ -28,17 +29,6 @@ class RawKeyValueIterator;
 enum MEM_STATUS    {INIT, FETCH_READY, MERGE_READY, BUSY};
 enum MERGE_FLAG    {INIT_FLAG, NEW_MOP, FINAL_MERGE}; 
 
-
-typedef struct mem_desc {
-    struct list_head     list;  
-    char                *buff;    
-    int32_t              buf_len;
-    int32_t              act_len;
-    volatile int         status; /* available or invalid*/
-    struct memory_pool  *owner;  /* owner pool */
-    pthread_mutex_t      lock;
-    pthread_cond_t       cond;
-} mem_desc_t;
 
 
 /* XXX: in the future, we should attempt to enable a buddy system */
@@ -134,9 +124,12 @@ public:
      * -- a tree set of segments (ordered by size)
      * -- a priority queue of segments (ordered by first key)
      */
-    MergeQueue          *merge_queue;
+    MergeQueue<Segment*> *merge_queue;
     set<int>             mops_in_queue;
     list<MapOutput *>    fetched_mops;
+
+    int total_count;
+    int progress_count;
 };
 
 #endif

@@ -21,7 +21,7 @@
 
 class MapOutput;
 class RawKeyValueIterator;
-class MergeQueue;
+#include "MergeQueue.h"
 
 /* The following is for class Segment */
 class Segment
@@ -29,7 +29,7 @@ class Segment
 public:
     Segment (MapOutput *mapOutput);
     /* Segment (const std::string &path); */
-    ~Segment();
+    virtual ~Segment();
 
     /**
      *-1: data interruption;
@@ -39,16 +39,19 @@ public:
      * if there is an interruption, the current point need to rewind to 
      * the original position
      */ 
-    int         nextKV();
-    bool        join (char *src, int32_t src_len);
-    bool        switch_mem();
-    void        close();
-    void        send_request();
+    virtual int         nextKV();
+    virtual bool        switch_mem();
+    virtual void        close();
+    virtual void        send_request();
+    virtual reduce_task *get_task() {return map_output->task;}
 
     DataStream  key;
     DataStream  val;
-
-    MapOutput   *map_output; 
+protected:
+    virtual int         nextKVInternal(InStream *stream);
+    virtual bool        join (char *src, int32_t src_len);
+    MapOutput   *map_output;
+public:
     int32_t      cur_key_len;
     int32_t      cur_val_len;
     int32_t      kbytes;
@@ -67,8 +70,50 @@ public:
 #endif
 };
 
-bool write_kv_to_mem (MergeQueue *records, char *src,
+/* The following is for class SuperSegment */
+//
+// SuperSegment is built of several Segments that were all merged into one
+// big Segment.
+// I could name it FileSegment, since currently it is simply a Segment that
+// is taken from local file.  However, SuperSegment is better name, since we
+// may create it over memory in the future.
+//
+class SuperSegment : public Segment
+{
+public:
+	SuperSegment (reduce_task *_task, const std::string &_path);
+    /* SuperSegment (const std::string &path); */
+    ~SuperSegment();
+
+    /**
+     *-1: data interruption;
+     * 0: no more data, end of the map output;
+     * 1: next key/value exits;
+     *
+     * if there is an interruption, the current point need to rewind to
+     * the original position
+     */
+    virtual int  nextKV();
+    virtual bool join (char *src, int32_t src_len){output_stderr("shouldn't reach here"); throw "shouldn't reach here"; return true;} //TODO
+    virtual bool switch_mem() {output_stderr("shouldn't reach here"); throw "shouldn't reach here"; return true;} //TODO
+
+    virtual void close() {return this->Segment::close();}
+//    virtual void send_request() {} // nothing to do in derived class
+    virtual void send_request() {output_stderr("shouldn't reach here"); throw "shouldn't reach here";} //AVNER: TODO
+    virtual reduce_task *get_task() {return task;}
+
+    reduce_task *task;
+
+    FILE        *file;
+    FileStream  *file_stream;
+    std::string  path;
+};
+
+bool write_kv_to_mem (MergeQueue<Segment*> *records, char *src,
                       int32_t len, int32_t &total_write);
+
+bool write_kv_to_file(MergeQueue<Segment*> *records, const char *file_name, int32_t &total_write);
+
 void write_kv_to_disk(RawKeyValueIterator *records, const char *file_name);
 
 #endif

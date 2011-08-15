@@ -94,6 +94,36 @@ private:
     int socket;
 };
 
+
+/*******************************************
+ * A class to read a file as a stream.
+ * Imported by Avner from Auburn debug branch
+ *******************************************/
+class FileStream : public InStream,
+                   public OutStream
+{
+public:
+  FileStream(FILE *file);
+  virtual ~FileStream();
+  //InStream
+  size_t read(void *des,
+              const size_t len,
+              const char *extrasrc,
+              size_t size,
+              int &idx);
+  size_t read(void *buf, size_t len);
+  size_t rewind (size_t nbytes);
+  size_t skip(size_t nbytes);
+  bool   hasMore(size_t nbytes);
+  bool   close();
+  //OutStream
+  size_t write(const void *buf, size_t len);
+  void   flush();
+private:
+  FILE *mFile;
+};
+
+
 /*********************************************
  * In Memory input buffer
 *********************************************/
@@ -152,13 +182,15 @@ public:
 };
 
 /*log functions */ 
-void write_log(FILE *log, int dbg, char *fmt, ...);
-FILE* create_log(char *log_name); 
+void write_log(FILE *log, int dbg, const char *fmt, ...);
+FILE* create_log(const char *log_name);
 void close_log(FILE *log);
-void redirect_stderr(char *);
-void redirect_stdout(char *);
-void output_stderr(char *fmt, ...);
-void output_stdout(char *fmt, ...);
+void redirect_stderr(const char *);
+void redirect_stdout(const char *);
+void output_stderr(const char *fmt, ...);
+void output_stdout(const char *fmt, ...);
+
+void print_backtrace(void);
 
 #endif
 

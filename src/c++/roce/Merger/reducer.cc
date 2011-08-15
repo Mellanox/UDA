@@ -45,7 +45,7 @@ static void reduce_downcall_handler(progress_event_t *pevent, void *ctx)
 {
     reduce_task_t       *task;
     C2JNexus            *nexus;
-    host_list_t         *host;
+    //host_list_t         *host;
     client_part_req_t   *req;
     hadoop_cmd_t        *hadoop_cmd;
 
@@ -57,6 +57,8 @@ static void reduce_downcall_handler(progress_event_t *pevent, void *ctx)
     string msg = nexus->recv_string();
     parse_hadoop_cmd(msg, *hadoop_cmd);
     
+    output_stdout("%s: ===>>> GOT COMMAND FROM JAVA SIDE: hadoop_cmd->header=%d", __func__, (int)hadoop_cmd->header);
+
     if ( hadoop_cmd->header == INIT_MSG ) {
         task->num_maps = atoi(hadoop_cmd->params[0]); 
         task->job_id = strdup(hadoop_cmd->params[1]);
@@ -239,7 +241,7 @@ static void init_reduce_task(struct reduce_task *task)
 reduce_task_t *spawn_reduce_task(int mode, reduce_socket_t *sock) 
 {
     reduce_task_t     *task;
-    int               ret; 
+    //int               ret;
 
     task = (reduce_task_t *) malloc(sizeof(reduce_task_t));
     memset(task, 0, sizeof(*task));

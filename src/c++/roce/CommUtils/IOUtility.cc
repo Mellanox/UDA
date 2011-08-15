@@ -17,6 +17,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <execinfo.h>  // for backtrace
 
 #include "IOUtility.h"
 
@@ -32,7 +33,7 @@ NetStream::NetStream(int socket)
 size_t NetStream::read(void *buf, size_t len)
 { 
     size_t result = recv(socket, buf, len, 0); 
-    if (result == -1) {
+    if (result == (size_t)(-1)) {
         output_stderr("NetStream: recv error, %s",
                       strerror(errno));
     }
@@ -43,13 +44,93 @@ size_t NetStream::read(void *buf, size_t len)
 size_t NetStream::write(const void *buf, size_t len)
 {
     size_t result = send(socket, buf, len, 0);
-    if (result == -1) {
+    if (result == (size_t)(-1)) {
         output_stderr("NetStream: send error, %s",
                       strerror(errno));
         return 0;
     }
     return result;
 }
+
+/******************************************************************
+ * The following is for FileStream
+ * Imported by Avner from Auburn debug branch
+*******************************************************************/
+FileStream::FileStream(FILE *file)
+{
+  this->mFile = file;
+}
+
+
+size_t FileStream::read(void *des, const size_t len,
+                        const char *extrasrc, size_t size,
+                        int &idx)
+{
+  fprintf(stderr, "FileStream: read from two srcs not supported\n");
+  return -1;
+}
+
+
+bool FileStream::hasMore(size_t nbytes)
+{
+  fprintf(stderr, "FileStream: hasMore not supported\n");
+  return false;
+}
+
+
+size_t FileStream::rewind(size_t nbytes)
+{
+  fprintf(stderr, "FileStream: rewind not supported\n");
+  return -1;
+}
+
+
+size_t FileStream::read(void *buf, size_t len)
+{
+  size_t result = fread(buf, len, 1, this->mFile);
+  if (result == 0) {
+    if (feof(mFile)) {
+      output_stderr("FileStream: read EOF on file");
+     } else {
+         output_stderr("FileStream: read ERROR on file");
+     }
+  }
+  return result;
+}
+
+
+size_t FileStream::skip(size_t nbytes)
+{
+  bool b = 0==fseek(this->mFile, nbytes, SEEK_CUR);
+  return b ? nbytes : -1;
+}
+
+
+bool FileStream::close()
+{
+  return true;
+}
+
+
+size_t FileStream::write(const void *buf, size_t len)
+{
+  size_t result = fwrite(buf, len, 1, this->mFile);
+  if (result != 1) {
+    fprintf(stderr,"FileOutStream: write error\n");
+    return 0;
+  }
+  return result;
+}
+
+void FileStream::flush()
+{
+  fflush(this->mFile);
+}
+
+FileStream::~FileStream()
+{
+}
+
 
 /* DataStream class */
 DataStream::DataStream()
@@ -252,7 +333,7 @@ bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret,
 {
     int tempIdx = -1;
     int8_t b;
-    if (-1 == stream.read(&b, 1, extrasrc, size, tempIdx)) {
+    if ((size_t)(-1) == stream.read(&b, 1, extrasrc, size, tempIdx)) {
         return false;
     }
     if (b >= -112) {
@@ -272,7 +353,7 @@ bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret,
     }
     uint8_t barr[len];
     if (tempIdx < 0) {
-        if (-1 == stream.read(barr, len, extrasrc, size, tempIdx)) {
+        if ((size_t)(-1) == stream.read(barr, len, extrasrc, size, tempIdx)) {
             return false;
         }
     } else {
@@ -298,7 +379,7 @@ bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret, int *br)
 {
     int digested = 0;
     int8_t b;
-    if (-1 == stream.read(&b, 1)) {
+    if ((size_t)(-1) == stream.read(&b, 1)) {
         return false;
     }
     digested += 1;
@@ -317,7 +398,7 @@ bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret, int *br)
         len = -112 - b;
     }
     uint8_t barr[len];
-    if (-1 == stream.read(barr, len)) {
+    if ((size_t)(-1) == stream.read(barr, len)) {
         stream.rewind(digested);
         return false;
     }
@@ -348,7 +429,7 @@ bool StreamUtility::deserializeString(std::string& t, InStream& stream)
         int digested = 0;
         while (len > 0) {
             int chunkLength = len > bufSize ? bufSize : len;
-            if (-1 == stream.read(buf, chunkLength)) {
+            if ((size_t)(-1) == stream.read(buf, chunkLength)) {
                 output_stderr("deserialize string error, %s",
                               strerror(errno));
                 stream.rewind(digested);
@@ -384,11 +465,11 @@ int StreamUtility::getVIntSize(int64_t i)
 }
 
 
-char *rocelog_dir = "default";
+const char *rocelog_dir = "default";
 const char *default_log = "default";
 bool record = true;
 
-void write_log(FILE *log, int dbg, char *fmt, ...)
+void write_log(FILE *log, int dbg, const char *fmt, ...)
 {
     if (dbg && record && log != NULL) {
       time_t rawtime;
@@ -397,11 +478,14 @@ void write_log(FILE *log, int dbg, char *fmt, ...)
       time(&rawtime);
       ti = localtime(&rawtime);
 
-      char s1[256];
+      const int SIZE = 1024;
+      char s1[SIZE];
       va_list ap;
       va_start(ap, fmt);
-      vsprintf(s1, fmt, ap);
+      vsnprintf(s1, SIZE, fmt, ap);
       va_end(ap);
+      s1[SIZE-1] = '\0';
+
       if (ti) {
         fprintf(log, "Time %d:%d:%d LOG: %s\n",
                 ti->tm_hour,
@@ -415,52 +499,73 @@ void write_log(FILE *log, int dbg, char *fmt, ...)
     }
 }
 
-void output_stderr(char *fmt, ...) 
+void output_stderr(const char *fmt, ...)
 {
+    static FILE *stream = stderr; // will be evaluated at first call to the function
     if (!record) {
          return;
     }
-      
+
     time_t rawtime;
     struct tm *ti = NULL;
     time(&rawtime);
     ti = localtime(&rawtime);
 
-    char s1[256];
+    const int SIZE = 1024;
+    char s1[SIZE];
     va_list ap;
     va_start(ap, fmt);
-    vsprintf(s1, fmt, ap);
+    vsnprintf(s1, SIZE, fmt, ap);
     va_end(ap);
+    s1[SIZE-1] = '\0';
 
     if (ti) {
-      fprintf(stderr, "Time %d:%d:%d  Error: %s\n", 
+      fprintf(stream, "Time %d:%d:%d: %s\n",
               ti->tm_hour,
               ti->tm_min,
               ti->tm_sec,
               s1);
     } else {
-      fprintf(stderr, "Time is missing. Error: %s\n", s1);
+      fprintf(stream, "Time is missing: %s\n", s1);
     }
-    fflush(stderr);
+    fflush(stream);
 }
 
-void output_stdout(char *fmt, ...) 
+// TODO: combine with output_stderr
+void output_stdout(const char *fmt, ...)
 {
+    static FILE *stream = stdout; // will be evaluated at first call to the function
     if (!record) {
          return;
     }
-    
-    char s1[256];
+
+    time_t rawtime;
+    struct tm *ti = NULL;
+    time(&rawtime);
+    ti = localtime(&rawtime);
+
+    const int SIZE = 1024;
+    char s1[SIZE];
     va_list ap;
     va_start(ap, fmt);
-    vsprintf(s1, fmt, ap);
+    vsnprintf(s1, SIZE, fmt, ap);
     va_end(ap);
-    fprintf(stdout, "%s\n", s1);
-    fflush(stdout);
+    s1[SIZE-1] = '\0';
+
+    if (ti) {
+      fprintf(stream, "Time %d:%d:%d: %s\n",
+              ti->tm_hour,
+              ti->tm_min,
+              ti->tm_sec,
+              s1);
+    } else {
+      fprintf(stream, "Time is missing: %s\n", s1);
+    }
+    fflush(stream);
 }
 
 
-FILE* create_log(char *log_name)
+FILE* create_log(const char *log_name)
 {
     char full_path[256];
 
@@ -482,30 +587,53 @@ void close_log(FILE *log)
       fclose(log);
 }
 
-void redirect_stderr(char *proc) 
+void redirect_stderr(const char *proc)
 {
     char full_path[256];
 
     if (!record)
         return;
       
-    sprintf(full_path, "%s%s.stderr", 
-            rocelog_dir, proc);
+    char host[100] = {0};
+    int rc = gethostname(host, 99);
+    if (rc) fprintf(stderr, "gethostname failed: %m(%d)", errno);
+
+//    sprintf(full_path, "%s%s.stderr", rocelog_dir, proc);
+    sprintf(full_path, "%s/hadoop-%s-%s-%s.stderr", rocelog_dir, getlogin(), proc, host);
     freopen (full_path,"w",stderr);
 }
 
-void redirect_stdout(char *proc)
+void redirect_stdout(const char *proc)
 {
     char full_path[256];
     
     if (!record)
         return;
     
-    sprintf(full_path, "%s%s.stdout",
-            rocelog_dir, proc);
-    freopen (full_path,"w",stdout);
+    char host[100] = {0};
+    int rc = gethostname(host, 99);
+    if (rc) fprintf(stderr, "gethostname failed: %m(%d)", errno);
 
+
+//    sprintf(full_path, "%s%s.stdout", rocelog_dir, proc);
+    sprintf(full_path, "%s/hadoop-%s-%s-%s.stdout", rocelog_dir, getlogin(), proc, host);
+    freopen (full_path,"w",stdout);
 }
+
+
+//------------------------------------------------------------------------------
+void print_backtrace(void)
+{
+	char **strings;
+	void* _backtrace[25];
+	int backtrace_size = backtrace(_backtrace, 25);
+	output_stdout("=== printing _backtrace backtrace_size=%d", backtrace_size);
+	strings = backtrace_symbols(_backtrace, backtrace_size);
+	for (int i = 0; i < backtrace_size; i++)
+		output_stdout("=== [%i] %p: %s", i, _backtrace[i], strings[i]);
+	free(strings);
+}
+
 
 /*
  * Local variables:

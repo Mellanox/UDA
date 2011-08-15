@@ -72,7 +72,7 @@ client_downcall_handler(progress_event_t *pevent, void *ctx)
     string msg = nexus->recv_string();
     parse_hadoop_cmd(msg, hadoop_cmd); 
 
-    if (hadoop_cmd.header == INIT_MSG) {
+    if (hadoop_cmd.header == INIT_MSG) { // This command is not arrived at the moment
         /* at this point, netlev reduce task does not 
          receive this message */ 
         num_dirs = hadoop_cmd.count;
@@ -80,7 +80,8 @@ client_downcall_handler(progress_event_t *pevent, void *ctx)
             reduce_directory_t *dir;
             dir = (reduce_directory_t *)
                 malloc(sizeof(reduce_directory_t));
-            dir->path = strdup(hadoop_cmd.params[0]);
+            dir->path = strdup(hadoop_cmd.params[i]); // AVNER: i replaced [0] -> [i]
+            output_stdout(" NetMerger got directory: %s", hadoop_cmd.params[i]);
             list_add_tail(&dir->list, &merging_sm.dir_list);
         }
 
@@ -103,7 +104,7 @@ int main(int argc, char* argv[])
 
     redirect_stderr("NetMerger");
     redirect_stdout("NetMerger");
-
+	
     /* initalize merging_sm */
     memset(&merging_sm, 0, sizeof(merging_state_t));
     merging_sm.stop = 0;
