@@ -624,11 +624,11 @@ void DataEngine::add_new_mof(const char *jobid,
     p <<= 16;
     p |= out_pos;
     mof_path[key] = p;
-   
+/*   
     output_stdout("new [jobid:%s, mapid:%s]", jobid, mapid);
     output_stdout("dat path: %s", out_bdir);
     output_stdout("idx path: %s", idx_bdir);
-
+//*/
     pthread_mutex_unlock(&data_lock);
 }
 

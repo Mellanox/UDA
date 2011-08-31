@@ -129,7 +129,7 @@ public:
     list<MapOutput *>    fetched_mops;
 
     int total_count;
-    int progress_count;
+	int progress_count;
 };
 
 #endif

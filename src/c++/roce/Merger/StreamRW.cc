@@ -105,6 +105,7 @@ bool write_kv_to_file(MergeQueue<Segment*> *records, FILE *f, int32_t &total_wri
 
     bool ret = write_kv_to_stream(records, len, stream, total_write);
 
+    stream->flush();
     delete stream;
     return ret;
 }
@@ -464,16 +465,16 @@ bool Segment::switch_mem()
 
         time_t st, ed;
         time(&st);
-        //pthread_mutex_lock(&map_output->lock);
-        pthread_mutex_lock(&merger->lock);
+        pthread_mutex_lock(&map_output->lock);
+        //pthread_mutex_lock(&merger->lock);
         //if (staging_mem->status != MERGE_READY) {
         while (staging_mem->status != MERGE_READY) {
-            //pthread_cond_wait(&map_output->cond, &map_output->lock);
-            pthread_cond_wait(&merger->cond, &merger->lock);
-            /*merger->fetched_mops.clear();*/
+            pthread_cond_wait(&map_output->cond, &map_output->lock);
+            //pthread_cond_wait(&merger->cond, &merger->lock);
+            /* merger->fetched_mops.clear(); */
         }
-        pthread_mutex_unlock(&merger->lock);
-        //pthread_mutex_unlock(&map_output->lock);
+        //pthread_mutex_unlock(&merger->lock);
+        pthread_mutex_unlock(&map_output->lock);
         time(&ed);
 
         map_output->task->total_wait_mem_time += ((int)(ed - st));

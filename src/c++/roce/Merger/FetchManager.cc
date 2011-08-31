@@ -163,12 +163,12 @@ int FetchManager::update_fetch_req(client_part_req_t *req)
         pthread_mutex_unlock(&merger->lock);
     } else {
         /* wake up the merging thread */
-        /* pthread_mutex_lock(&req->mop->lock);
+        //pthread_mutex_lock(&req->mop->lock);
         pthread_cond_broadcast(&req->mop->cond); 
-        pthread_mutex_unlock(&req->mop->lock); */
-        pthread_cond_broadcast(&merger->cond);
+        //pthread_mutex_unlock(&req->mop->lock);
+        //pthread_cond_broadcast(&merger->cond);
     } 
-    pthread_cond_broadcast(&req->mop->cond);
+    //pthread_cond_broadcast(&req->mop->cond);
    
     return 1;
 }
