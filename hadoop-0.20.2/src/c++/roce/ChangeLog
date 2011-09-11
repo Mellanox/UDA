@@ -1,0 +1,4 @@
+2010-10-25:
+	* Recreate the build scripts
+	* to solve the cleanup problem
+	* to introduce autodetection of IB libraries
