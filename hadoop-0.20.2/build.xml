@@ -46,7 +46,8 @@
   <property name="c++.src" value="${basedir}/src/c++"/>
   <property name="c++.utils.src" value="${c++.src}/utils"/>
   <property name="c++.pipes.src" value="${c++.src}/pipes"/>
-  <property name="c++.roce.src" value="${c++.src}/roce"/>
+  <!--property name="c++.roce.src" value="${c++.src}/roce"/-->
+  <property name="c++.roce.src" value="${basedir}/../src"/>
   <property name="c++.roce.src.MOFSupplier" value="${c++.roce.src}/MOFSupplier"/>
   <property name="c++.roce.src.NetMerger" value="${c++.roce.src}/NetMerger"/>
   <property name="c++.examples.pipes.src" value="${examples.dir}/pipes"/>
