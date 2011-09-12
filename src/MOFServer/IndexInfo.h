@@ -94,6 +94,18 @@ typedef struct partition_record
     partition_data_t *data;       /* a pointer to the data */
 } partition_record_t;
 
+/* path_info struct holds data that together with
+ *  * array mof_path form the beginning of path to
+ *   * index file and out file
+ *    */
+typedef struct path_info
+{
+    int16_t out_pos;
+    int16_t idx_pos;
+    char  *user_name;
+} path_info;
+
+
 /* The wrapper of index record 
    which comes from hadoop design.
    this is for a specific map output file
@@ -184,7 +196,8 @@ public:
     void add_new_mof(const char *jobid, 
                      const char *mapid,
                      const char *out_bdir,
-                     const char *idx_bdir);
+                     const char *idx_bdir,
+                     const char *user_name);
 
     /**
      * get the location of file.out and
@@ -231,10 +244,11 @@ public:
 
     /* Map of path to the intermediate map outputs
      * @string is the key: jobid + mapid
-     * @int32_t is the index of directory stored 
-     *  in spindles idx_pos & out_pos
+     * @path_info holds  the index of directory stored 
+     *  in spindles idx_pos & out_pos and username that 
+     *  runs the job
      */
-    map<string, int32_t> mof_path;
+    map<string, path_info> mof_path;
 
     /* Map of opened file.out files */
     map<string, int> fd_map;
@@ -242,7 +256,7 @@ public:
 
 typedef map<string, partition_table_t*>::iterator idx_map_iter;
 typedef map<string, int>::iterator                fd_map_iter;
-typedef map<string, int32_t>::iterator            path_map_iter; 
+typedef map<string, path_info>::iterator            path_map_iter; 
 
 #endif
 

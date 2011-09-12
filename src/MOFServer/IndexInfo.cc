@@ -135,6 +135,7 @@ DataEngine::DataEngine(void *mem, size_t total_size,
 void DataEngine::clean_job()
 {
     pthread_mutex_lock(&index_lock);
+    path_map_iter it;
     idx_map_iter iter = ifile_map.begin();
     while (iter != ifile_map.end()) {
        partition_table_t *ifile = (*iter).second;
@@ -173,6 +174,13 @@ void DataEngine::clean_job()
 
     pthread_mutex_lock(&data_lock);
     /* clean all pathes */
+
+    for ( it=mof_path.begin() ; it != mof_path.end(); it++ ){
+        free (it->second.user_name);
+    }
+     
+
+
     mof_path.erase(mof_path.begin(),
                    mof_path.end());
     pthread_mutex_unlock(&data_lock);
@@ -562,17 +570,15 @@ bool DataEngine::retrieve_path(const string &jobid,
         pthread_mutex_unlock(&data_lock);
         return false;
     } else {
-        int32_t m = iter->second;
-        int idx_pos = (int) (m >> 16);
-        int out_pos = (int)((m << 16) >> 16) ;
+        path_info p_i = iter->second;       
 
-        idx_path = spindles[idx_pos] + "/taskTracker/jobcache/";
+        idx_path = spindles[p_i.idx_pos] + "/" + p_i.user_name + "/jobcache/";
         idx_path += jobid;
         idx_path += "/";
         idx_path += mapid;
         idx_path += "/output";
  
-        out_path = spindles[out_pos] + "/taskTracker/jobcache/";
+        out_path = spindles[p_i.out_pos] + "/" + p_i.user_name + "/jobcache/";
         out_path += jobid;
         out_path += "/";
         out_path += mapid;
@@ -585,7 +591,8 @@ bool DataEngine::retrieve_path(const string &jobid,
 void DataEngine::add_new_mof(const char *jobid, 
                              const char *mapid,
                              const char *out_bdir,
-                             const char *idx_bdir)
+                             const char *idx_bdir,
+                             const char *user_name)
 {
     int out_pos = -1;
     int idx_pos = -1;
@@ -618,17 +625,19 @@ void DataEngine::add_new_mof(const char *jobid,
         }
         idx_pos = spindles.size()-1;
     }
-    
-    int32_t p = 0;
-    p |= idx_pos;
-    p <<= 16;
-    p |= out_pos;
-    mof_path[key] = p;
-/*   
+   
+    path_info p_i;
+    p_i.idx_pos = idx_pos;
+    p_i.out_pos=out_pos;
+    p_i.user_name = strdup(user_name);
+
+    mof_path[key] = p_i;
+
+
     output_stdout("new [jobid:%s, mapid:%s]", jobid, mapid);
     output_stdout("dat path: %s", out_bdir);
     output_stdout("idx path: %s", idx_bdir);
-//*/
+
     pthread_mutex_unlock(&data_lock);
 }
 

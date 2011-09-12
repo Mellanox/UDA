@@ -45,11 +45,29 @@ void mof_downcall_handler(progress_event_t *pevent, void *ctx)
         comp->jobid = strdup(hadoop_cmd.params[0]);
         comp->mapid = strdup(hadoop_cmd.params[1]);
 
-        state_mac.data_mac->add_new_mof(comp->jobid,
+        if (hadoop_cmd.count>5){
+            /*hadoop version >=0.2.203. 
+             * user name is passed and is part of path to out and index files*/
+            state_mac.data_mac->add_new_mof(comp->jobid,
                                         comp->mapid,
                                         hadoop_cmd.params[2],
-                                        hadoop_cmd.params[3]);
+                                        hadoop_cmd.params[3],
+                                        hadoop_cmd.params[4]);
+        }
+        else{
+            /*hadoop version == 0.2.20 user name is not passed. 
+             * "taskTracker" is part of path to out and index files */
 
+            string taskTracker ("taskTracker");
+            const char * cTaskTracker = taskTracker.c_str();
+           state_mac.data_mac->add_new_mof(comp->jobid,
+                                        comp->mapid,
+                                        hadoop_cmd.params[2],
+                                        hadoop_cmd.params[3],
+                                        cTaskTracker);
+
+
+        }    
         pthread_mutex_lock(&state_mac.data_mac->index_lock);
         list_add_tail(&comp->list, 
                       &state_mac.data_mac->comp_mof_list);
