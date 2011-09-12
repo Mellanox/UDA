@@ -1,0 +1,192 @@
+------------------------------------------------------------------------------
+Sun Dec 26, CST 2010. 
+------------------------------------------------------------------------------
+TODO Tasks for Reorganization
+C2JNexus
+-- Completion of MOFs to MOFSupplier
+-- Insertion of new MOFs to DataEngine
+
+DataEngine
+-- Prefetch MOF
+-- Prefetch index records
+-- Prefetch data chunks
+-- Transmission of data for shuffle request
+-- Free data chunks upon the completion of a shuffle request
+
+RdmaServer
+-- Passing of registered memory to Data Engine
+-- Return of completed shuffle request to Data Engine
+
+NetMerger
+-- Just the beginning
+
+------------------------------------------------------------------------------
+Wednesday 28 Oct 2010 Briefing of the meeting
+------------------------------------------------------------------------------
+TaskTracker Side:
+1: When tasktracker finishes map task, tasktracker reports to the MOFSupplier
+   who will actively pre-fetch some data from the disk for later fetching request
+   from NetMerger. (we need to modify our current design to adapt to this revision,
+   and we need to think through about how to efficiently implement prefetching.)
+2: MOFSupplier has the same life cycle as tasktracker.
+
+ReduceTask Side:
+1: In fetch request, we need to include length LEN of the MOF data we expect to fetch.
+   LEN = MIN ( MAX(<key,value>, 64KB), LEN of RDMA BUFFER);
+2: Eliminate the redundant fetching. Because one segment may be broken in the middle of
+   value whose size can be very large, redundant fetching is inefficient.
+3: we need to modify the logic of Reduce Task so that ReduceTask will not expect
+   to get data from NetMerge until the later one finishes fetching and merging side.
+   --- We will replace the entire ReduceCopier probably.
+   --- We need to report progress to ReduceTask so that jobTracker will not think
+       this reduceTask is a straggler.
+
+Next Step:
+For Yandong:
+1: Integrate the MOFSupplier to the taskTracker according to the logic we discussed.
+2: Integrate the NetMerger to the ReduceTask according to the logic we discussed.
+
+For Bin:
+1: Implement the merger, and find the broken point. Save the data after the broken point,
+   and notify the fetcher to fetch the next piece of the segment.
+
+--------------------------------------------------------------------------------------
+Sun Oct 24 16:50:38 CDT 2010
+--------------------------------------------------------------------------------------
+1. Reorganize code for consistent coding style and modular structure
+2. Started integration of code into Hadoop
+3. Reorganize the memo with most recent first
+4. Start thinking about USENIX paper
+5. To complete the testing of data communication
+
+--------------------------------------------------------------------------------------
+Sun Oct 18 14:50:38 CDT 2010
+--------------------------------------------------------------------------------------
+1. Change back to version 0.20.2 because the immaturity of version 0.21.0
+
+--------------------------------------------------------------------------------------
+Monday Oct 11 10:00 am 2010
+-------------------------------------- --------------------------------------
+
+Yandong:
+1: A threadsafe index cache is added into the server side. which support multiple server
+   side threads to share the same index cache which is used to read the index information
+   of MOF file.
+2: Review the server side RDMA connection. For each connection request we need to create
+   a new thread to response. (Is this the simplest solution for designing the high-performance
+   server ?)
+   References: 
+  	(1): The C10K problem.
+	(2): High-Performance Server Architecture.
+	(3): Accelerating Web Protocols Using RDMA.
+
+--------------------------------------------------------------------------------------
+Saturday Oct 10 09:00pm 2010
+-------------------------------------- --------------------------------------
+Xinyu:
+Done: 
+1: Roce_Rdma_Server has been established.
+2: Flow:
+   (1):  server listens rdma connection request and completion queue.
+   (2):  server has different handlers to handle different events:
+         * rdma request from client: establish a IB connection with the client;
+         * regular send from client: copy the MOF specified by
+           the client into registered memory region and rmda write to the client
+           ;(haven't finished yet)
+         * rdma write to client: disconnect the connection of the client;
+
+Next:
+1: Debug the Roce_Rdma_server code with Yandong;
+2: Finish the handler which handles the incoming MOF request from client; 
+
+--------------------------------------------------------------------------------------
+ Friday Oct 8 8:04 am
+-------------------------------------- --------------------------------------
+ 
+ Yandong:
+ 1: New data organization of source code of roce_client.
+ 2: roce_communication includes all source code used to communication
+between JAVA and C++.
+ 3: roce_fetcher includes all source code used to do the data transfer
+operation.
+ 4: roce_client is ready to be debugged.
+
+ Next:
+ 1: Debug the client.
+ 2: Debug the server.
+ 3: Work at server side, read data from map output file.
+
+--------------------------------------------------------------------------------------
+Saturday Oct 2 10:03pm 2010
+-------------------------------------- --------------------------------------
+Yandong:
+What have been done:
+1: Roce_Rdma_Client has been basically established. Right now, client can send request which
+   includes jobID, reduceID, maps to the server, listen event from completion queue until 
+   the RDMA write or RDMA read is done from server.
+2: Data flow:
+   (1): client ---send connection request------> server 
+	(request includes the local buffer for RDMA operation) 
+   (2): client ---send MOF request-------------> server
+	(request includes the jobID, reduceID, maps)
+	(Format:"job=jobID;reudce=reduceID;maps=map1:map2:map3:....;")
+   (3): client ----
+          ^       |listen to the incoming event which
+	  |	  |indicate RDMA operation is done.
+          --------- 
+   (4): handle the input MOF (haven't finished this yet)
+
+Next
+1: Combine the Roce_Rdma_client into the hadoop for the next 2 ~ 3 days.
+   (Integrate RDMA Client to fetching phase)
+2: Help to write the Roce_Rdma_Server side.
+3: Thinking about how to deal with the input MOF after RDMA operation is done
+   (Above operation (4))
+
+-------------------------------------- --------------------------------------
+Wednesday Sep 29 12:00:00pm 2010
+-------------------------------------- --------------------------------------
+
+Yandong's goal for next two weeks:
+1: Finish the rdma_client.cc rdma_client.h
+2: Finish the roce_fetcher.cc roce_fetcher.h
+3: roce_client can be compiled successfully
+4: roce_client can provide robust functions for
+   fetching the data from roce_server.
+Appendix:
+1: All source code files will be under roce_proj/roce_client.
+2: All design document will be under roce_proj/roce_client/docs
+
+-------------------------------------- --------------------------------------
+Tue Sep 28 15:19:07 CDT 2010
+-------------------------------------- --------------------------------------
+Here is the brief work division for all of us after meeting. This is
+definitely not the final list, we can still decide who can work on which
+part later. Free discussion helps us grow.
+
+SVN Code Repository
+1. A new SVN repository with 0.21.0   -- Weikuan
+2. A walkthrough with the group on SVN usage -- Weikuan
+
+Build scripts
+1. Correct the scripts                -- (Adarsh, Bin)
+
+Mapper Task Side: 
+1: RDMA Server                                 --- (Xinyu, Yandong)
+2: Integrate RDMA Server to original hadoop    --- (Xinyu)
+
+Reducer Task Side:
+1: RDMA Client                                 --- (Yandong, Xinyu)
+2: Integrate RDMA Client to fetching phase     --- (Bin, Yandong)
+3: Merging / Sorting utility classes           --- (Bin, Yandong) 
+4: Merging / Sorting sorting classes           --- (Yandong, Bin)
+
+Hadoop applications and evaluation 
+1: How to write user-define Map and Reduce functions --- (Adarsh, Cong)
+2: Evaluate performance change --- (Adarsh, Cong)
+
+It will be of great help if people can reply to this thread about how long
+it may cost someone to finish each task.  we will give out the first deliverable 
+after two months.
+
+
