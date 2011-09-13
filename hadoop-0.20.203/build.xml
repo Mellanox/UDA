@@ -26,12 +26,11 @@
   <property file="${user.home}/build.properties" />
   <property file="${basedir}/build.properties" />
  
-  <property name="Name" value="Hadoop"/>
-  <property name="name" value="hadoop"/>
-  <property name="version" value="0.20.203.1-SNAPSHOT"/>
+  <property name="name" value="UDA"/>
+  <property name="version" value="2.0.0"/>
   <property name="final.name" value="${name}-${version}"/>
   <property name="test.final.name" value="${name}-test-${version}"/>
-  <property name="year" value="2009"/>
+  <property name="year" value="2011"/>
   
   <property name="core.final.name" value="${name}-core-${version}"/>
   <property name="test.final.name" value="${name}-test-${version}"/>
@@ -56,7 +55,7 @@
   <property name="c++.src" value="${basedir}/src/c++"/>
   <property name="c++.utils.src" value="${c++.src}/utils"/>
   <property name="c++.pipes.src" value="${c++.src}/pipes"/>
-  <property name="c++.roce.src" value="${c++.src}/roce"/>
+  <property name="c++.roce.src" value="${basedir}/../src"/>
   <property name="c++.roce.src.MOFSupplier" value="${c++.roce.src}/MOFSupplier"/>
   <property name="c++.roce.src.NetMerger" value="${c++.roce.src}/NetMerger"/>
   <property name="c++.examples.pipes.src" value="${examples.dir}/pipes"/>
@@ -1878,6 +1877,7 @@
 	<exec executable="bash" dir="${c++.roce.src}" searchpath="yes"	
 			  		failonerror="yes">
 	<arg value="autogen.sh"/>
+	<arg value="${basedir}/"/>
 	</exec>
 	<exec executable="./configure" dir="${c++.roce.src}" searchpath="yes"	
 					failonerror="yes">

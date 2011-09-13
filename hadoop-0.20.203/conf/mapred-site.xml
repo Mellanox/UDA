@@ -7,7 +7,7 @@
 
     <property>
            <name>mapred.job.tracker</name>
-           <value>hail4-ib:9001</value>
+           <value>eagle4-ib:9001</value>
           </property>
 
 

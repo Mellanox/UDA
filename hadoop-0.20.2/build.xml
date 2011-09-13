@@ -46,7 +46,6 @@
   <property name="c++.src" value="${basedir}/src/c++"/>
   <property name="c++.utils.src" value="${c++.src}/utils"/>
   <property name="c++.pipes.src" value="${c++.src}/pipes"/>
-  <!--property name="c++.roce.src" value="${c++.src}/roce"/-->
   <property name="c++.roce.src" value="${basedir}/../src"/>
   <property name="c++.roce.src.MOFSupplier" value="${c++.roce.src}/MOFSupplier"/>
   <property name="c++.roce.src.NetMerger" value="${c++.roce.src}/NetMerger"/>
@@ -1510,6 +1509,7 @@
     <exec executable="bash" dir="${c++.roce.src}" searchpath="yes"	
 		failonerror="yes">
 		<arg value="autogen.sh"/>
+		<arg value="${basedir}/"/>
     </exec>
     <exec executable="./configure" dir="${c++.roce.src}" searchpath="yes"	
 		failonerror="yes">
