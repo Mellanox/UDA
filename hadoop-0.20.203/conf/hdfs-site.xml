@@ -6,24 +6,40 @@
 <configuration>
 
 <property>
-  <name>dfs.name.dir</name>
-    <value>/data1/hadoop/dfs/name</value>
-      <description>A base for other temporary directories.</description>
-      </property>
+<name>dfs.name.dir</name>
+<value>/hadoop/dfs/name</value>
+<description>Determines where on the local filesystem the DFS name node
+should store the name table(fsimage).  If this is a comma-delimited list
+of directories then the name table is replicated in all of the
+directories, for redundancy. </description>
+</property>
 
 <property>
-  <name>dfs.data.dir</name>
-    <value>/data1/hadoop/dfs/data</value>
-      <description>A base for other temporary directories.</description>
-      </property>
-
-
+<name>dfs.data.dir</name>
+<value>/hadoop/dfs/data</value>
+<description>Determines where on the local filesystem an DFS data node
+should store its blocks.  If this is a comma-delimited
+list of directories, then data will be stored in all named
+directories, typically on different devices.
+Directories that do not exist are ignored.
+</description>
+</property>
 
 <property>
-  <name>dfs.replication</name>
-    <value>1</value>
- </property>
+<name>dfs.replication</name>
+<value>2</value>
+<description>Default block replication.
+The actual number of replications can be specified when the file is created.
+The default is used if replication is not specified in create time.
+</description>
+</property>
 
+<property>
+<name>dfs.block.size</name>
+<!-- Increase default block size to 256M -->
+<value>268435456</value>
+<description>The default block size for new files.</description>
+</property>
 
 
 </configuration>

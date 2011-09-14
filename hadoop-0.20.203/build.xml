@@ -27,6 +27,7 @@
   <property file="${basedir}/build.properties" />
  
   <property name="name" value="UDA"/>
+  <property name="Name" value="UDA"/>
   <property name="version" value="2.0.0"/>
   <property name="final.name" value="${name}-${version}"/>
   <property name="test.final.name" value="${name}-test-${version}"/>
@@ -341,6 +342,7 @@
     <tempfile property="touch.temp.file" destDir="${java.io.tmpdir}"/>
     <touch millis="0" file="${touch.temp.file}">
       <fileset dir="${conf.dir}" includes="**/*.template"/>
+      <fileset dir="${conf.dir}" includes="**/*.template.mlx"/>
       <fileset dir="${contrib.dir}" includes="**/*.template"/>
     </touch>
     <delete file="${touch.temp.file}"/>
@@ -353,7 +355,8 @@
 
     <copy todir="${conf.dir}" verbose="true">
       <fileset dir="${conf.dir}" includes="**/*.template"/>
-      <mapper type="glob" from="*.template" to="*"/>
+      <fileset dir="${conf.dir}" includes="**/*.template.mlx"/>
+      <mapper type="glob" from="*.template.mlx" to="*"/>
     </copy>
 
     <copy todir="${contrib.dir}" verbose="true">
