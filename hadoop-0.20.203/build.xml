@@ -29,7 +29,8 @@
   <property name="name" value="UDA"/>
   <property name="Name" value="UDA"/>
   <property name="version" value="2.0.0"/>
-  <property name="final.name" value="${name}-${version}"/>
+  <property name="vanilla.base.version" value="0.20.203"/>
+  <property name="final.name" value="${name}-${version}-BASEDON-${vanilla.base.version}"/>
   <property name="test.final.name" value="${name}-test-${version}"/>
   <property name="year" value="2011"/>
   
@@ -1379,7 +1380,7 @@
   <!-- ================================================================== -->
   <target name="package" depends="compile, jar, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio, jsvc, roce-compile"
 	  description="Build distribution">
-   <!-- target name="package" depends="compile, jar, javadoc, docs, cn-docs, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio, jsvc, roce-compile"
+   <!-- target name="package" depends="compile, jar, javadoc, docs, cn-docs, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio, jsvc, roce-compile, examples"
 	  description="Build distribution" -->
     <mkdir dir="${dist.dir}"/>
     <mkdir dir="${dist.dir}/lib"/>
