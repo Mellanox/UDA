@@ -59,14 +59,9 @@ public:
      * Subclasses must define this one method. 
      */
     virtual bool lessThan(T a, T b) {
-        //Segment *s_1 = (Segment *) a;
-        //Segment *s_2 = (Segment *) b;
         DataStream *key1 = &a->key;
-        DataStream *key2 = &b->key;  // AVNER: below is huge pure memcpy with absolutely no need - TODO
-        std::string strKey1 = std::string(key1->getData(), key1->getLength());
-        std::string strKey2 = std::string(key2->getData(), key2->getLength());
-        
-        return memcmp(strKey1.c_str(), strKey2.c_str(), strKey1.length()) < 0;
+        DataStream *key2 = &b->key;
+        return memcmp(key1->getData(), key2->getData(), key1->getLength()) < 0;
     }
 
     void initialize(int maxSize) {
