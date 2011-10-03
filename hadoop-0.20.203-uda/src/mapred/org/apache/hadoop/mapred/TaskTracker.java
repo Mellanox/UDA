@@ -55,7 +55,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/* follwoing is for roce project */
+/* follwoing is for rdma project */
 import java.net.Socket;
 import java.net.ServerSocket;
 import java.io.DataInputStream;
@@ -65,7 +65,7 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableUtils;
-/* above is for roce project */
+/* above is for rdma project */
 
 
 import org.apache.commons.logging.Log;
@@ -154,14 +154,14 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   private int httpPort;
 
   /**
-   * For communication with the roce process 
+   * For communication with the rdma process 
    */
-  private J2CNexus roceChannel; 
+  private J2CNexus rdmaChannel; 
   /**
-   * 0: disable roce.
-   * 1: use roce with roce-merger.
+   * 0: disable rdma.
+   * 1: use rdma with rdma-merger.
    */ 
-  private int roceSetting;
+  private int rdmaSetting;
   
   
   static enum State {NORMAL, STALE, INTERRUPTED, DENIED}
@@ -769,10 +769,10 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     oobHeartbeatDamper = 
       fConf.getInt(TT_OUTOFBAND_HEARTBEAT_DAMPER, 
           DEFAULT_OOB_HEARTBEAT_DAMPER);
-    /* The followings are for roce project */
-    this.roceSetting = fConf.getInt("mapred.roce.setting", 0);
-    if (this.roceSetting == 1) {
-      this.roceChannel = new J2CNexus(); 
+    /* The followings are for rdma project */
+    this.rdmaSetting = fConf.getInt("mapred.rdma.setting", 0);
+    if (this.rdmaSetting == 1) {
+      this.rdmaChannel = new J2CNexus(); 
     } 
   }
 
@@ -1298,9 +1298,9 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       healthChecker.stop();
       healthChecker = null;
     }
-    /* close roce processes */
-    if (this.roceSetting==1) {
-          this.roceChannel.close();
+    /* close rdma processes */
+    if (this.rdmaSetting==1) {
+          this.rdmaChannel.close();
         } 
     
   }
@@ -1870,9 +1870,9 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       runningJobs.remove(jobId);
     }
     getJobTokenSecretManager().removeTokenForJob(jobId.toString());  
-    /* inform roce processes of job over */ 
-    if (this.roceSetting == 1) {
-      this.roceChannel.jobOver(jobId.toString());
+    /* inform rdma processes of job over */ 
+    if (this.rdmaSetting == 1) {
+      this.rdmaChannel.jobOver(jobId.toString());
     }
   }      
     
@@ -3184,14 +3184,14 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     commitResponses.remove(taskid);
     if (tip != null) {
       tip.reportDone();
-    /* report to the roce */
-      if (roceSetting==1) {
+    /* report to the rdma */
+      if (rdmaSetting==1) {
          Task task = tip.getTask();
          String jobid = task.getJobID().toString();
          String tid= task.getTaskID().toString();
          String userName = task.getUser();
          if (task.isMapTask()) {
-           roceChannel.notifyMapDone(userName, jobid, tid);
+           rdmaChannel.notifyMapDone(userName, jobid, tid);
          }
        } 
     } else {
@@ -3641,7 +3641,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
         //seek to the correct offset for the reduce
         mapOutputIn.skip(info.startOffset);
         long rem = info.partLength;
-        //roce testing
+        //rdma testing
         LOG.info("MapOutputServelet: TESTING ("+ mapId +":"+info.partLength+ ")");
         int len =
           mapOutputIn.read(buffer, 0, (int)Math.min(rem, MAX_BYTES_TO_READ));
@@ -4100,16 +4100,16 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     private Socket[]           mClientSocket = new Socket[2];
     private DataOutputStream[] mStreamToCpp  = new DataOutputStream[2];
     private DataInputStream[]  mStreamFromCpp= new DataInputStream[2];
-    private Process[]          mRoceProcess  = new Process[2];
+    private Process[]          mRDMAProcess  = new Process[2];
     private Vector<String>     mParams       = new Vector<String>();
     private int                mPort;
     private boolean            mInit;
 
     public J2CNexus() 
                      throws IOException {
-      this.mDrivers[MOF]= fConf.get("mapred.roce.mofsupplier");
-      this.mDrivers[NET]= fConf.get("mapred.roce.netmerger");
-      this.mPort        = fConf.getInt("mapred.tasktracker.roce.server.port", 9010);
+      this.mDrivers[MOF]= fConf.get("mapred.rdma.mofsupplier");
+      this.mDrivers[NET]= fConf.get("mapred.rdma.netmerger");
+      this.mPort        = fConf.getInt("mapred.tasktracker.rdma.server.port", 9010);
       this.mServerSocket = new ServerSocket(this.mPort);
 
       // launch MOFSupplier
@@ -4128,7 +4128,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
         int num = 0;
         mParams.clear();
         mParams.add(jobId);
-        String msg = RoceCmd.formCmd(RoceCmd.JOB_OVER_COMMAND, mParams);
+        String msg = RDMACmd.formCmd(RDMACmd.JOB_OVER_COMMAND, mParams);
         LOG.info("J2CNexus: JOBOVER:(" + msg + ")");
         while (num < 2) {
           Text.writeString(mStreamToCpp[num],msg);
@@ -4164,7 +4164,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
         mParams.add(fout.toString()); 
         mParams.add(fidx.toString());
         mParams.add(userName);
-        String msg = RoceCmd.formCmd(RoceCmd.NEW_MAP_COMMAND, mParams);
+        String msg = RDMACmd.formCmd(RDMACmd.NEW_MAP_COMMAND, mParams);
         Text.writeString(mStreamToCpp[MOF], msg); 
         mStreamToCpp[MOF].flush();
 
@@ -4185,9 +4185,9 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       
       /* arguments */
       cmd.add("-c");
-      cmd.add(fConf.get("mapred.taskTracker.roce.server.port"));
+      cmd.add(fConf.get("mapred.taskTracker.rdma.server.port"));
       cmd.add("-r");
-      cmd.add(fConf.get("mapred.roce.cma.port"));      
+      cmd.add(fConf.get("mapred.rdma.cma.port"));      
       cmd.add("-l");     
       cmd.add(fConf.get("mapred.netmerger.listener.port"));
       cmd.add("-a");
@@ -4195,10 +4195,10 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       cmd.add("-m");
       cmd.add("1");
       cmd.add("-g");
-      cmd.add(fConf.get("mapred.roce.log.dir","default"));
+      cmd.add(fConf.get("mapred.rdma.log.dir","default"));
       
       ProcessBuilder pd = new ProcessBuilder(cmd);
-      this.mRoceProcess[proc_idx] = pd.start();
+      this.mRDMAProcess[proc_idx] = pd.start();
     }
 
     private void buildConn(int proc_idx) throws IOException {
@@ -4219,7 +4219,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       try {
         int num = 0;
         mParams.clear();
-        String msg = RoceCmd.formCmd(RoceCmd.EXIT_COMMAND, mParams);
+        String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
         while (num < 2) {
           Text.writeString(mStreamToCpp[num], msg);
           mStreamToCpp[num].flush();

@@ -26,7 +26,7 @@
 #include "RDMAComm.h"
 #include "IOUtility.h"
 
-int roce_debug_flag = 0x0;
+int rdma_debug_flag = 0x0;
 
 int 
 netlev_dealloc_dev_mem(struct netlev_dev *dev, netlev_mem_t *mem)

@@ -1,5 +1,5 @@
 
-Here is the list of what should we test in roce_client
+Here is the list of what should we test in rdma_client
 
 Correctness Test:  (Immediately after finishing the server side)
 

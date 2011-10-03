@@ -313,10 +313,10 @@ class MapTask extends Task {
 
     long map_end = System.currentTimeMillis();
 
-    /* for roce measurement */
-    LOG.info("ROCE-MEASUREMENT: Mapper start time [ " + map_start + " ]");
-    LOG.info("ROCE-MEASUREMENT: Mapper end time   [ " + map_end   + " ]");
-    LOG.info("ROCE-MEASUREMENT: Mapper used  time [ " + (map_end - map_start) + " ]");
+    /* for rdma measurement */
+    LOG.info("RDMA-MEASUREMENT: Mapper start time [ " + map_start + " ]");
+    LOG.info("RDMA-MEASUREMENT: Mapper end time   [ " + map_end   + " ]");
+    LOG.info("RDMA-MEASUREMENT: Mapper used  time [ " + (map_end - map_start) + " ]");
   }
 
   @SuppressWarnings("unchecked")

@@ -465,7 +465,7 @@ int StreamUtility::getVIntSize(int64_t i)
 }
 
 
-const char *rocelog_dir = "default";
+const char *rdmalog_dir = "default";
 const char *default_log = "default";
 bool record = true;
 
@@ -576,7 +576,7 @@ FILE* create_log(const char *log_name)
 
     /*log name*/
     sprintf(full_path, "%s%s", 
-            rocelog_dir, log_name);
+            rdmalog_dir, log_name);
     FILE *log = fopen(full_path, "w");
     return log;
 }
@@ -598,8 +598,8 @@ void redirect_stderr(const char *proc)
     int rc = gethostname(host, 99);
     if (rc) fprintf(stderr, "gethostname failed: %m(%d)", errno);
 
-//    sprintf(full_path, "%s%s.stderr", rocelog_dir, proc);
-    sprintf(full_path, "%s/hadoop-%s-%s-%s.stderr", rocelog_dir, getlogin(), proc, host);
+//    sprintf(full_path, "%s%s.stderr", rdmalog_dir, proc);
+    sprintf(full_path, "%s/hadoop-%s-%s-%s.stderr", rdmalog_dir, getlogin(), proc, host);
     freopen (full_path,"w",stderr);
 }
 
@@ -615,8 +615,8 @@ void redirect_stdout(const char *proc)
     if (rc) fprintf(stderr, "gethostname failed: %m(%d)", errno);
 
 
-//    sprintf(full_path, "%s%s.stdout", rocelog_dir, proc);
-    sprintf(full_path, "%s/hadoop-%s-%s-%s.stdout", rocelog_dir, getlogin(), proc, host);
+//    sprintf(full_path, "%s%s.stdout", rdmalog_dir, proc);
+    sprintf(full_path, "%s/hadoop-%s-%s-%s.stdout", rdmalog_dir, getlogin(), proc, host);
     freopen (full_path,"w",stdout);
 }
 

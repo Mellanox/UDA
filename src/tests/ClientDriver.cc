@@ -15,7 +15,7 @@
 
 int main()
 {
-    //const char *strPort = getenv("hadoop.roce.command.port");
+    //const char *strPort = getenv("hadoop.rdma.command.port");
     //int port = atoi(strPort);
     C2JNexus cs(55555,18515,1);
     cs.listenJavaProc();

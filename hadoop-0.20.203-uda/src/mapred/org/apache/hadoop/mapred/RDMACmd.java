@@ -20,7 +20,7 @@
 
 import java.util.List;
 
-public class RoceCmd {
+public class RDMACmd {
 
   public static final int EXIT_COMMAND        = 0; 
  

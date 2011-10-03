@@ -33,8 +33,8 @@ AM_CPPFLAGS = -I$(top_srcdir) -I. -I$(top_srcdir)/include \
 
 # Specify the source files for a library
 # Append additional directory to the end of this list
-lib_LIBRARIES = librocemove.a
-librocemove_a_SOURCES = \
+lib_LIBRARIES = librdmamove.a
+librdmamove_a_SOURCES = \
 						include/atomic.h         \
 						include/C2JNexus.h       \
 						include/IOUtility.h      \
@@ -71,7 +71,7 @@ librocemove_a_SOURCES = \
 # These programs will borrow all functions from the library
 bin_PROGRAMS = MOFSupplier NetMerger
 
-LDADD = librocemove.a -lpthread -L/usr/ofed-1.5.2/lib64 -libverbs -lrdmacm
+LDADD = librdmamove.a -lpthread -L/usr/ofed-1.5.2/lib64 -libverbs -lrdmacm
 MOFSupplier_SOURCES = MOFSupplier.cc
 NetMerger_SOURCES = NetMerger.cc
 # vim: sw=4: ts=4: noet

@@ -17,7 +17,7 @@ Preparing package ready for distribution.
 		sh build.sh -Ddist.dir=/usr/local/ant-1.8.2
 		export ANT_HOME=/usr/local/ant-1.8.2
 
-2. Prepare hadoop package witn Roce compiled. Two files - MOFSupplier and NetMerger - will be created under 'bin' directory as result of this operation and will be copied to the final package.
+2. Prepare hadoop package witn Rdma compiled. Two files - MOFSupplier and NetMerger - will be created under 'bin' directory as result of this operation and will be copied to the final package.
 	a) Obtain modifed hadoop sources from internal Git server (ssh://sol.voltaire.com/home/alekseys/scm/hadoop.git)
 	b) cd hadoop 
 	c) ant -Djava5.home=/usr/libjava/jdk1.6.0_25 package
@@ -39,8 +39,8 @@ cs17(master), cs19, and cs20.
 "/data" is mounted on the local filesystem cross all the nodes.
 #ssh cs17
 #cd /data/ywang-hadoop
-#mkdir roce-hadoop  hadoop /*top directory for the codes*/
-#cd roce-hadoop 
+#mkdir rdma-hadoop  hadoop /*top directory for the codes*/
+#cd rdma-hadoop 
 #svn co https://pasl.eng.auburn.edu/svn/hadoop/base-0.20.2/trunk .
 
 5. Copy "/data/ywang-hadoop" to all the slave nodes (cs19 and cs20) after you compiled and configured hadoop. Refer step 11 in the following section.
@@ -49,7 +49,7 @@ cs17(master), cs19, and cs20.
 
 
 ##########  Integrated Test ##############
-1. Change to the top directory("/data/ywang-hadoop/roce-hadoop").
+1. Change to the top directory("/data/ywang-hadoop/rdma-hadoop").
 # cd <top-directory>/
 
 1. Compile Hadoop and create an example program
@@ -95,20 +95,20 @@ EOF
 8. Change the conf/mapred-site.xml with the name of your master node
 For example, here is the content of our mapreduce-site.xml
 Please note that you need to change these paths
-"/data/ywang-hadoop/roce-hadoop/src/c++/roce/MOFSupplier"
-"/data/ywang-hadoop/roce-hadoop/src/c++/roce/NetMerger"
-"/data/ywang-hadoop/hadoop/rocelogs/"
+"/data/ywang-hadoop/rdma-hadoop/src/c++/rdma/MOFSupplier"
+"/data/ywang-hadoop/rdma-hadoop/src/c++/rdma/NetMerger"
+"/data/ywang-hadoop/hadoop/rdmalogs/"
 to the exact path of your compiled MOFSupplier, NetMerger and the log directory. 
 Please also change "cs17" to your master node.
 
 *******Parameters******************    ********************Value/Meaning********************
 
-mapred.roce.setting                    1: enable roce; 0: disable roce
+mapred.rdma.setting                    1: enable rdma; 0: disable rdma
 mapred.netmerger.merge.approach        1: on-disk merge(not available); 0: on-line merge    
-mapred.roce.mofsupplier                your compiled MOFSupplier location
-mapred.roce.netmerger                  your compiled NetMerger location
-mapred.taskTracker.roce.server.port    launching netmerger and mofsupplier C++ cmd line tag
-mapred.roce.cma.port                   for rdma connection 
+mapred.rdma.mofsupplier                your compiled MOFSupplier location
+mapred.rdma.netmerger                  your compiled NetMerger location
+mapred.taskTracker.rdma.server.port    launching netmerger and mofsupplier C++ cmd line tag
+mapred.rdma.cma.port                   for rdma connection 
 mapred.netmerger.listener.port         listen to the launch of number hadoop reduce task
   
 # cat > conf/mapred-site.xml <<EOF
@@ -136,10 +136,10 @@ mapred.netmerger.listener.port         listen to the launch of number hadoop red
            <value>false</value>
       </property>
       <property>
-           <!-- mapred.roce.setting represents how users uses roce
-           0: disable roce (use original hadoop).
-           1: use roce with roce-merger. -->
-           <name>mapred.roce.setting</name>
+           <!-- mapred.rdma.setting represents how users uses rdma
+           0: disable rdma (use original hadoop).
+           1: use rdma with rdma-merger. -->
+           <name>mapred.rdma.setting</name>
            <value>1</value>
       </property>
       <property>
@@ -152,38 +152,38 @@ mapred.netmerger.listener.port         listen to the launch of number hadoop red
            <value>1</value>
       </property>
       <property>
-           <!-- mapred.roce.mofsupplier defines the location of C++ driver
-           for launching the roce map task side program -->
-           <name>mapred.roce.mofsupplier</name>
-	   <value>/data/ywang-hadoop/roce-hadoop/src/c++/roce/MOFSupplier</value>
+           <!-- mapred.rdma.mofsupplier defines the location of C++ driver
+           for launching the rdma map task side program -->
+           <name>mapred.rdma.mofsupplier</name>
+	   <value>/data/ywang-hadoop/rdma-hadoop/src/c++/rdma/MOFSupplier</value>
       </property>
       <property>
            <!-- the port number used by task tracker to launch netmerger and mofsupplier
            C++ cmd line tag: -j
            -->
-           <name>mapred.taskTracker.roce.server.port</name>
+           <name>mapred.taskTracker.rdma.server.port</name>
            <value>9010</value>
       </property>
       <property>
-           <!-- mapred.roce.netmerger defines the location of C++ driver
-           for launching the roce reduce task side program -->
-           <name>mapred.roce.netmerger</name>
-           <value>/data/ywang-hadoop/roce-hadoop/src/c++/roce/NetMerger</value>
+           <!-- mapred.rdma.netmerger defines the location of C++ driver
+           for launching the rdma reduce task side program -->
+           <name>mapred.rdma.netmerger</name>
+           <value>/data/ywang-hadoop/rdma-hadoop/src/c++/rdma/NetMerger</value>
       </property>
       <property>
             <!-- defines the port number used to do the rdma connection 
             C++ cmd line tag: -r
             -->            
-            <name>mapred.roce.cma.port</name>
+            <name>mapred.rdma.cma.port</name>
             <value>9011</value>
       </property>
       <property>
             <!-- 
-             the log directory for roce
+             the log directory for rdma
              C++ cmd line tag: -g
              -->
-            <name>mapred.roce.log.dir</name>
-            <value>/data/ywang-hadoop/hadoop/rocelogs/</value>
+            <name>mapred.rdma.log.dir</name>
+            <value>/data/ywang-hadoop/hadoop/rdmalogs/</value>
       </property>
       <property>
             <!-- the port number netmerger uses to listen to the launch
@@ -243,7 +243,7 @@ the map side takes time to get fully started
 
 ##########  Appendix ##############
 0. For compiling everything from the top directory
--- Be sure to run ``make distclean'' in src/c++/roce
+-- Be sure to run ``make distclean'' in src/c++/rdma
 -- Then run the following command at the top directory
    ant -verbose -Dcompile.c++=yes jar examples
 

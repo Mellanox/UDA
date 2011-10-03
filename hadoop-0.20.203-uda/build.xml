@@ -57,9 +57,9 @@
   <property name="c++.src" value="${basedir}/src/c++"/>
   <property name="c++.utils.src" value="${c++.src}/utils"/>
   <property name="c++.pipes.src" value="${c++.src}/pipes"/>
-  <property name="c++.roce.src" value="${basedir}/../src"/>
-  <property name="c++.roce.src.MOFSupplier" value="${c++.roce.src}/MOFSupplier"/>
-  <property name="c++.roce.src.NetMerger" value="${c++.roce.src}/NetMerger"/>
+  <property name="c++.rdma.src" value="${basedir}/../src"/>
+  <property name="c++.rdma.src.MOFSupplier" value="${c++.rdma.src}/MOFSupplier"/>
+  <property name="c++.rdma.src.NetMerger" value="${c++.rdma.src}/NetMerger"/>
   <property name="c++.examples.pipes.src" value="${examples.dir}/pipes"/>
   <property name="c++.libhdfs.src" value="${c++.src}/libhdfs"/>
   <property name="librecordio.src" value="${c++.src}/librecordio"/>
@@ -88,7 +88,7 @@
   <property name="build.c++.utils" value="${build.c++}/utils"/>
   <property name="build.c++.pipes" value="${build.c++}/pipes"/>
   <property name="build.c++.libhdfs" value="${build.c++}/libhdfs"/>
-  <property name="build.c++.roce" value="${build.c++}/roce"/>
+  <property name="build.c++.rdma" value="${build.c++}/rdma"/>
   <property name="build.c++.examples.pipes" 
             value="${build.c++}/examples/pipes"/>
   <property name="build.docs" value="${build.dir}/docs"/>
@@ -1378,9 +1378,9 @@
   <!-- ================================================================== -->
   <!--                                                                    -->
   <!-- ================================================================== -->
-  <target name="package" depends="compile, jar, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio, jsvc, roce-compile"
+  <target name="package" depends="compile, jar, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio, jsvc, rdma-compile"
 	  description="Build distribution">
-   <!-- target name="package" depends="compile, jar, javadoc, docs, cn-docs, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio, jsvc, roce-compile, examples"
+   <!-- target name="package" depends="compile, jar, javadoc, docs, cn-docs, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio, jsvc, rdma-compile, examples"
 	  description="Build distribution" -->
     <mkdir dir="${dist.dir}"/>
     <mkdir dir="${dist.dir}/lib"/>
@@ -1448,7 +1448,7 @@
     </copy>
 
     <copy todir="${dist.dir}/src" includeEmptyDirs="true">
-		<fileset dir="src" excludes="**/*.template **/docs/build/**/* **/c++/roce/**"/>
+		<fileset dir="src" excludes="**/*.template **/docs/build/**/* **/c++/rdma/**"/>
     </copy>
   	
     <!--copy todir="${dist.dir}/c++" includeEmptyDirs="false">
@@ -1727,7 +1727,7 @@
    </exec>
 
 
-    <exec executable="autoconf" dir="${c++.roce.src}" searchpath="yes" 
+    <exec executable="autoconf" dir="${c++.rdma.src}" searchpath="yes" 
 		failonerror="yes">
 	  <arg value="-if"/>
 	</exec>
@@ -1749,8 +1749,8 @@
        <not> <available file="${build.c++.pipes}/Makefile"/> </not>
    </condition>
 
-  <condition property="need.c++.roce.makefile">
-	<not> <available file="${build.c++.roce}/Makefile"/> </not>
+  <condition property="need.c++.rdma.makefile">
+	<not> <available file="${build.c++.rdma}/Makefile"/> </not>
  </condition>
 
     <condition property="need.c++.examples.pipes.makefile">
@@ -1813,11 +1813,11 @@
     </exec>
   </target>
 
-  <target name="create-c++-roce-makefile" depends="check-c++-makefiles" 
-	                                        if="need.c++.roce.makefile">
-	<mkdir dir="${build.c++.roce}"/>
-	<chmod file="${c++.roce.src}/configure" perm="ugo+x"/>
-	<exec executable="${c++.roce.src}/configure" dir="${build.c++.roce}"
+  <target name="create-c++-rdma-makefile" depends="check-c++-makefiles" 
+	                                        if="need.c++.rdma.makefile">
+	<mkdir dir="${build.c++.rdma}"/>
+	<chmod file="${c++.rdma.src}/configure" perm="ugo+x"/>
+	<exec executable="${c++.rdma.src}/configure" dir="${build.c++.rdma}"
 		failonerror="yes">
 	<arg value="--build=x86_64"/>
 	<arg value="--prefix=${install.c++}"/>
@@ -1833,14 +1833,14 @@
     </exec>
   </target>
 
- <target name="compile-c++-roce"  depends="create-c++-roce-makefile" if="compile.c++">
-	<exec executable="${make.cmd}" dir="${build.c++.roce}" searchpath="yes" failonerror="yes">
+ <target name="compile-c++-rdma"  depends="create-c++-rdma-makefile" if="compile.c++">
+	<exec executable="${make.cmd}" dir="${build.c++.rdma}" searchpath="yes" failonerror="yes">
 	<arg value="install"/>
 	</exec>
   </target>
 
   <target name="compile-c++" 
-          depends="compile-c++-pipes,compile-c++-roce"/>
+          depends="compile-c++-pipes,compile-c++-rdma"/>
 
   <target name="create-c++-examples-pipes-makefile" 
           depends="check-c++-makefiles" 
@@ -1877,25 +1877,25 @@
     </exec>
   </target>
 
-  <target name="roce-compile">
-	<exec executable="bash" dir="${c++.roce.src}" searchpath="yes"	
+  <target name="rdma-compile">
+	<exec executable="bash" dir="${c++.rdma.src}" searchpath="yes"	
 			  		failonerror="yes">
 	<arg value="autogen.sh"/>
 	<arg value="${basedir}/"/>
 	</exec>
-	<exec executable="./configure" dir="${c++.roce.src}" searchpath="yes"	
+	<exec executable="./configure" dir="${c++.rdma.src}" searchpath="yes"	
 					failonerror="yes">
 	<arg value="--build=x86_64"/>
 	</exec>
-	<exec executable="make" dir="${c++.roce.src}" searchpath="yes"	
+	<exec executable="make" dir="${c++.rdma.src}" searchpath="yes"	
 					failonerror="yes">
 	<arg value="clean"/>
 	</exec>
-	<exec executable="make" dir="${c++.roce.src}" searchpath="yes"	
+	<exec executable="make" dir="${c++.rdma.src}" searchpath="yes"	
 					failonerror="yes">
 	</exec>
-	<copy file="${c++.roce.src.MOFSupplier}" todir="bin/" overwrite="true"/>
-	<copy file="${c++.roce.src.NetMerger}"   todir="bin/" overwrite="true"/>
+	<copy file="${c++.rdma.src.MOFSupplier}" todir="bin/" overwrite="true"/>
+	<copy file="${c++.rdma.src.NetMerger}"   todir="bin/" overwrite="true"/>
   </target>
 
   <target name="compile-ant-tasks" depends="compile-core">

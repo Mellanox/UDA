@@ -48,7 +48,7 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
-/* below are added for roce project */
+/* below are added for rdma project */
 import java.net.Socket;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
@@ -62,7 +62,7 @@ import java.io.BufferedInputStream;
 import java.util.Vector;
 import java.util.StringTokenizer;
 import org.apache.hadoop.io.Text;
-/* above are added for roce project */
+/* above are added for rdma project */
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -358,7 +358,7 @@ class ReduceTask extends Task {
   public void run(JobConf job, final TaskUmbilicalProtocol umbilical)
     throws IOException, InterruptedException, ClassNotFoundException {
  
-    /* for roce measurement */
+    /* for rdma measurement */
     long reduce_task_start = System.currentTimeMillis();
 
     this.umbilical = umbilical;
@@ -392,7 +392,7 @@ class ReduceTask extends Task {
     // Initialize the codec
     codec = initCodec();
 
-    /* for roce measurement */
+    /* for rdma measurement */
     long shuffle_merge_start = System.currentTimeMillis();
 
     boolean isLocal = "local".equals(job.get("mapred.job.tracker", "local"));
@@ -410,7 +410,7 @@ class ReduceTask extends Task {
     setPhase(TaskStatus.Phase.SORT);
     statusUpdate(umbilical);
 
-    /* for roce measurement */
+    /* for rdma measurement */
     long final_merge_start = System.currentTimeMillis();
 
     final FileSystem rfs = FileSystem.getLocal(job).getRaw();
@@ -427,7 +427,7 @@ class ReduceTask extends Task {
  
     sortPhase.complete();                         // sort is complete
   
-    /* for roce measurement  */
+    /* for rdma measurement  */
     long final_merge_end = System.currentTimeMillis();
     long shuffle_merge_end = System.currentTimeMillis();
     long reduce_func_start = System.currentTimeMillis();
@@ -450,7 +450,7 @@ class ReduceTask extends Task {
     
     reduceCopier.close();
 
-    /* for roce measurement */
+    /* for rdma measurement */
     long reduce_func_end = System.currentTimeMillis();
     long reduce_task_end = System.currentTimeMillis();
     long final_merge_time = final_merge_end - final_merge_start;
@@ -459,16 +459,16 @@ class ReduceTask extends Task {
     long shuffle_merge_time = shuffle_merge_end - shuffle_merge_start;
     double shuffle_merge_prec = ((double)shuffle_merge_time/(double)reduce_task_time);
     double reduce_func_prec   = ((double)reduce_func_time  /(double)reduce_task_time);
-    LOG.info("ROCE-MEASUREMENT: Reduce Task Start Time   [ " + reduce_task_start   + " ]"); 
-    LOG.info("ROCE-MEASUREMENT: Reduce Task End Time     [ " + reduce_task_end     + " ]"); 
-    LOG.info("ROCE-MEASUREMENT: Reduce Task Time         [ " + reduce_task_time    + " ]");
-    LOG.info("ROCE-MEASUREMENT: Shuffle Merge Start Time [ " + shuffle_merge_start + " ]"); 
-    LOG.info("ROCE-MEASUREMENT: Shuffle Merge End Time   [ " + shuffle_merge_end   + " ]"); 
-    LOG.info("ROCE-MEASUREMENT: Shuffle Merge Time       [ " + shuffle_merge_time  + " ]"); 
-    LOG.info("ROCE-MEASUREMENT: Reudce Func Start Time   [ " + reduce_func_start   + " ]"); 
-    LOG.info("ROCE-MEASUREMENT: Reduce Func End Time     [ " + reduce_func_end     + " ]"); 
-    LOG.info("ROCE-MEASUREMENT: Reduce Func Time         [ " + reduce_func_time    + " ]"); 
-    LOG.info("ROCE-MEASUREMENT: Final Merge Time         [ " + final_merge_time    + " ]"); 
+    LOG.info("RDMA-MEASUREMENT: Reduce Task Start Time   [ " + reduce_task_start   + " ]"); 
+    LOG.info("RDMA-MEASUREMENT: Reduce Task End Time     [ " + reduce_task_end     + " ]"); 
+    LOG.info("RDMA-MEASUREMENT: Reduce Task Time         [ " + reduce_task_time    + " ]");
+    LOG.info("RDMA-MEASUREMENT: Shuffle Merge Start Time [ " + shuffle_merge_start + " ]"); 
+    LOG.info("RDMA-MEASUREMENT: Shuffle Merge End Time   [ " + shuffle_merge_end   + " ]"); 
+    LOG.info("RDMA-MEASUREMENT: Shuffle Merge Time       [ " + shuffle_merge_time  + " ]"); 
+    LOG.info("RDMA-MEASUREMENT: Reudce Func Start Time   [ " + reduce_func_start   + " ]"); 
+    LOG.info("RDMA-MEASUREMENT: Reduce Func End Time     [ " + reduce_func_end     + " ]"); 
+    LOG.info("RDMA-MEASUREMENT: Reduce Func Time         [ " + reduce_func_time    + " ]"); 
+    LOG.info("RDMA-MEASUREMENT: Final Merge Time         [ " + final_merge_time    + " ]"); 
   }
 
   @SuppressWarnings("unchecked")
@@ -847,20 +847,20 @@ class ReduceTask extends Task {
       new ConcurrentHashMap<String, List<MapOutputLocation>>();
     
     /**
-     * This is the channel used to transfer the data between ROCE C++
+     * This is the channel used to transfer the data between RDMA C++
      * and Hadoop ReduceTask
      */
-    private DataSocket roceChannel;
+    private DataSocket rdmaChannel;
 
     /**
-     * mapred.roce.setting represents how users uses roce
-     * 0: disable roce (everything keep original status)
-     * 1: use roce with roce-merger (only at the final stage, 
+     * mapred.rdma.setting represents how users uses rdma
+     * 0: disable rdma (everything keep original status)
+     * 1: use rdma with rdma-merger (only at the final stage, 
      *    return the merged segment back to hadoop)
-     * 2: use roce with hadoop-merger (whenever one map is fetched
-          by roce, return it back).
+     * 2: use rdma with hadoop-merger (whenever one map is fetched
+          by rdma, return it back).
      */
-    private int roceSetting;
+    private int rdmaSetting;
 
     /**
      * This class contains the methods that should be used for metrics-reporting
@@ -1860,10 +1860,10 @@ class ReduceTask extends Task {
       this.random = new Random(randomSeed);
       this.maxMapRuntime = 0;
 
-      //The followings are for roce project
-      this.roceSetting = conf.getInt("mapred.roce.setting", 0);
-      if (this.roceSetting > 0) {
-          this.roceChannel = new DataSocket(conf,reporter, numMaps);
+      //The followings are for rdma project
+      this.rdmaSetting = conf.getInt("mapred.rdma.setting", 0);
+      if (this.rdmaSetting > 0) {
+          this.rdmaChannel = new DataSocket(conf,reporter, numMaps);
       }
     }
     
@@ -1872,13 +1872,13 @@ class ReduceTask extends Task {
     }
   
     /* intercept original hadoop */ 
-    private boolean roceFetch() {
-      if (this.roceSetting == 1) {
+    private boolean rdmaFetch() {
+      if (this.rdmaSetting == 1) {
         GetMapEventsThread getMapEventsThread = null;
         // start the map events thread
         getMapEventsThread = new GetMapEventsThread();
         getMapEventsThread.start();         
-        this.roceChannel.start();
+        this.rdmaChannel.start();
         
         LOG.info("ReduceCopier: Wait for fetching");
         synchronized(ReduceCopier.this) {
@@ -1896,7 +1896,7 @@ class ReduceTask extends Task {
           getMapEventsThread.join();
           LOG.info("getMapsEventsThread joined.");
         } catch (InterruptedException ie) {
-          LOG.info("getMapsEventsThread/roceChannelThread threw an exception: " +
+          LOG.info("getMapsEventsThread/rdmaChannelThread threw an exception: " +
                    StringUtils.stringifyException(ie));
         }
         return true;
@@ -1905,7 +1905,7 @@ class ReduceTask extends Task {
     }   
  
     public boolean fetchOutputs() throws IOException {
-      if (roceFetch()) { return true; }
+      if (rdmaFetch()) { return true; }
       
       int totalFailures = 0;
       int            numInFlight = 0, numCopied = 0;
@@ -2311,16 +2311,16 @@ class ReduceTask extends Task {
     }
     
     /**
-     * For roce setting
+     * For rdma setting
      */
      @SuppressWarnings("unchecked")
     private RawKeyValueIterator createKVIterator(
         JobConf job, FileSystem fs, Reporter reporter) throws IOException {
       
-      //using roce merger
-      if (this.roceSetting == 1) {
+      //using rdma merger
+      if (this.rdmaSetting == 1) {
         RawKeyValueIterator rIter = 
-          this.roceChannel.createKVIterator_roce(job,fs,reporter);
+          this.rdmaChannel.createKVIterator_rdma(job,fs,reporter);
         return rIter;
       } 
       else {
@@ -2329,8 +2329,8 @@ class ReduceTask extends Task {
     }
    
     private void close() throws IOException{
-      if (this.roceSetting == 1) {
-        this.roceChannel.close();
+      if (this.rdmaSetting == 1) {
+        this.rdmaChannel.close();
       }
     }
     /**
@@ -2826,8 +2826,8 @@ class ReduceTask extends Task {
               }
               MapOutputLocation mapOutput = 
                 new MapOutputLocation(taskId, host, mapOutputLocation);
-              if (roceSetting == 1) {
-                roceChannel.sendFetchReq(mapOutput);
+              if (rdmaSetting == 1) {
+                rdmaChannel.sendFetchReq(mapOutput);
               } else {
                 loc.add(mapOutput);
               }
@@ -2912,7 +2912,7 @@ class ReduceTask extends Task {
  
         /* make sure netlev reduce task is completely launched*/
         int launch_ret = WritableUtils.readVInt(this.mFromMerger);
-        if (launch_ret == RoceCmd.NETLEV_REDUCE_LAUNCHED) {
+        if (launch_ret == RDMACmd.NETLEV_REDUCE_LAUNCHED) {
           /* just simply block for now */
         }
 
@@ -2922,7 +2922,7 @@ class ReduceTask extends Task {
         mParams.add(Integer.toString(numMaps));
         mParams.add(reduceId.getJobID().toString());
         mParams.add(reduceId.toString());
-        String msg = RoceCmd.formCmd(RoceCmd.INIT_COMMAND, mParams);
+        String msg = RDMACmd.formCmd(RDMACmd.INIT_COMMAND, mParams);
         Text.writeString(mToMerger, msg);
         mToMerger.flush(); 
         this.mProgress = new Progress(); 
@@ -2939,15 +2939,15 @@ class ReduceTask extends Task {
         mParams.add(loc.getTaskAttemptId().getJobID().toString());
         mParams.add(loc.getTaskAttemptId().toString());
         mParams.add(Integer.toString(getPartition()));
-        String msg = RoceCmd.formCmd(RoceCmd.FETCH_COMMAND, mParams); 
+        String msg = RDMACmd.formCmd(RDMACmd.FETCH_COMMAND, mParams); 
         Text.writeString(mToMerger, msg);
         mToMerger.flush();
-        /* LOG.info("Send down to roce " + (++mReqNums)); */
+        /* LOG.info("Send down to rdma " + (++mReqNums)); */
       }
 
       public void close() throws IOException {
         mParams.clear();
-        String msg = RoceCmd.formCmd(RoceCmd.EXIT_COMMAND, mParams);
+        String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
         Text.writeString(mToMerger, msg);
         mToMerger.flush();
         this.j2c_queue.close();
@@ -2957,7 +2957,7 @@ class ReduceTask extends Task {
       }
 
       public <K extends Object, V extends Object>
-      RawKeyValueIterator createKVIterator_roce(
+      RawKeyValueIterator createKVIterator_rdma(
           JobConf job, FileSystem fs, Reporter reporter) 
           throws IOException {
         this.j2c_queue.initialize();
@@ -2974,7 +2974,7 @@ class ReduceTask extends Task {
           while (true) {
             try {
               int ret = WritableUtils.readVInt(mFromMerger);
-              if (ret == RoceCmd.FETCH_OVER_COMMAND) {
+              if (ret == RDMACmd.FETCH_OVER_COMMAND) {
                 count += mReportCount;
                 mTaskReporter.progress();
                 if (count >= this.mMapsNeed) {
@@ -3041,7 +3041,7 @@ class ReduceTask extends Task {
 	  }
         }
  
-	public long readVLong_roce(DataInput stream) throws IOException {
+	public long readVLong_rdma(DataInput stream) throws IOException {
           byte[] ary = new byte[1];
           read_from_stream(ary, 1);
 	  byte firstByte = ary[0];
@@ -3061,7 +3061,7 @@ class ReduceTask extends Task {
         
         private boolean read_data(KVBuf buf) throws IOException {
           /* get merged size */ 
-          int len = (int) readVLong_roce(mFromMerger);
+          int len = (int) readVLong_rdma(mFromMerger);
           if (len < 0 || len > kv_buf_size) {
             return false;
           }

@@ -25,11 +25,11 @@
 #* 
 
 AC_PREREQ(2.59)
-AC_INIT([rocemove], [0.1], wkyu@auburn.edu)
+AC_INIT([rdmamove], [0.1], wkyu@auburn.edu)
 AC_PREFIX_DEFAULT([`pwd`/bin])
 
 USE_HADOOP_UTILS
-#HADOOP_ROCE_SETUP
+#HADOOP_RDMA_SETUP
 CHECK_INSTALL_CFLAG
 
 # Generates Makefile from Makefile.am. Modify when new subdirs are added.
@@ -43,13 +43,13 @@ AC_CONFIG_MACRO_DIR([../utils/m4])
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 
-#AC_ARG_WITH([roce-path], 
-#	[AS_HELP_STRING([--with-roce], 
-#	    [location of a RoCE installation, defaults to /usr/include/])],
-#       	[ROCE_INCPATH="-I$withval"],
-#       	[ROCE_INCPATH='-I/usr/include']
+#AC_ARG_WITH([rdma-path], 
+#	[AS_HELP_STRING([--with-rdma], 
+#	    [location of a RDMA installation, defaults to /usr/include/])],
+#       	[RDMA_INCPATH="-I$withval"],
+#       	[RDMA_INCPATH='-I/usr/include']
 #	)
-#AC_SUBST([ROCE_INCPATH])
+#AC_SUBST([RDMA_INCPATH])
 #
 #AC_CHECK_HEADERS([infiniband/verbs.h])
 #AC_CHECK_HEADERS([rdma/rdma_cma.h])

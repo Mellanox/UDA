@@ -29,7 +29,7 @@
 #include "IOUtility.h"
 
 extern const char *default_log;
-extern char *rocelog_dir;
+extern char *rdmalog_dir;
 extern bool record;
 
 static void usage(const char *cmd)
@@ -107,8 +107,8 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
             }
             break;
         case 'g':
-            rocelog_dir=strdup(optarg);
-            if (strcmp(rocelog_dir,
+            rdmalog_dir=strdup(optarg);
+            if (strcmp(rdmalog_dir,
                        default_log) == 0) {
                 record = false;
             }

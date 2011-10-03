@@ -27,10 +27,10 @@
            <value>false</value>
       </property>
       <property>
-           <!-- mapred.roce.setting represents how users uses roce
-           0: disable roce.
-           1: use roce with roce-merger. -->
-           <name>mapred.roce.setting</name>
+           <!-- mapred.rdma.setting represents how users uses rdma
+           0: disable rdma.
+           1: use rdma with rdma-merger. -->
+           <name>mapred.rdma.setting</name>
            <value>0</value>
       </property>
       <property>
@@ -43,37 +43,37 @@
            <value>1</value>
       </property>
       <property>
-           <!-- mapred.roce.mofsupplier defines the location of C++ driver
-           for launching the roce map task side program -->
-           <name>mapred.roce.mofsupplier</name>
+           <!-- mapred.rdma.mofsupplier defines the location of C++ driver
+           for launching the rdma map task side program -->
+           <name>mapred.rdma.mofsupplier</name>
 	   <value>bin/MOFSupplier</value>
       </property>
       <property>
            <!-- the port number used by task tracker to launch netmerger and mofsupplier
            C++ cmd line tag: -j
            -->
-           <name>mapred.taskTracker.roce.server.port</name>
+           <name>mapred.taskTracker.rdma.server.port</name>
            <value>9010</value>
       </property>
       <property>
-           <!-- mapred.roce.netmerger defines the location of C++ driver
-           for launching the roce reduce task side program -->
-           <name>mapred.roce.netmerger</name>
+           <!-- mapred.rdma.netmerger defines the location of C++ driver
+           for launching the rdma reduce task side program -->
+           <name>mapred.rdma.netmerger</name>
            <value>bin/NetMerger</value>
       </property>
       <property>
             <!-- defines the port number used to do the rdma connection 
             C++ cmd line tag: -r
             -->            
-            <name>mapred.roce.cma.port</name>
+            <name>mapred.rdma.cma.port</name>
             <value>9011</value>
       </property>
       <property>
             <!-- 
-             the log directory for roce
+             the log directory for rdma
              C++ cmd line tag: -g
              -->
-            <name>mapred.roce.log.dir</name>
+            <name>mapred.rdma.log.dir</name>
             <value>logs</value>
       </property>
 
