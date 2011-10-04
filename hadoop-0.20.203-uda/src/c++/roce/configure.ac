@@ -25,7 +25,7 @@
 #* 
 
 AC_PREREQ(2.59)
-AC_INIT([rocemove], [0.1], wkyu@auburn.edu)
+AC_INIT([rocemove], [0.1], support@mellanox.com)
 AC_PREFIX_DEFAULT([`pwd`/bin])
 
 USE_HADOOP_UTILS
