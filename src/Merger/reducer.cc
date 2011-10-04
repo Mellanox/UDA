@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <ctime>
+#include <assert.h>
 
 #include "reducer.h"
 #include "InputClient.h"
@@ -57,12 +58,28 @@ static void reduce_downcall_handler(progress_event_t *pevent, void *ctx)
     string msg = nexus->recv_string();
     parse_hadoop_cmd(msg, *hadoop_cmd);
     
-    output_stdout("%s: ===>>> GOT COMMAND FROM JAVA SIDE: hadoop_cmd->header=%d", __func__, (int)hadoop_cmd->header);
+    output_stdout("%s: ===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", __func__, hadoop_cmd->count, (int)hadoop_cmd->header);
 
     if ( hadoop_cmd->header == INIT_MSG ) {
+        assert (hadoop_cmd->count > 2); // sanity under debug
         task->num_maps = atoi(hadoop_cmd->params[0]); 
         task->job_id = strdup(hadoop_cmd->params[1]);
         task->reduce_task_id = strdup(hadoop_cmd->params[2]);
+
+        const int DIRS_START = 3;
+        if (hadoop_cmd->count > DIRS_START) {
+        	int num_dirs = atoi(hadoop_cmd->params[DIRS_START]);
+        	output_stdout("%s: ===>>> num_dirs=%d" , __func__, num_dirs);
+
+        	assert (hadoop_cmd->count >= 0); // sanity under debug
+        	if (num_dirs > 0 && DIRS_START + 1 + num_dirs  <= hadoop_cmd->count) {
+        		task->local_dirs.resize(num_dirs);
+        		for (int i = 0; i < num_dirs; ++i) {
+					task->local_dirs[i].assign(hadoop_cmd->params[DIRS_START + 1 + i]);
+					output_stdout("%s: -> dir[%d]=%s" , __func__, i, task->local_dirs[i].c_str());
+        		}
+        	}
+        }
         init_reduce_task(task);
         free_hadoop_cmd(*hadoop_cmd);
         free(hadoop_cmd);

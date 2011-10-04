@@ -18,6 +18,8 @@
 #include <string>
 #include <map>
 #include <set>
+#include <vector>
+#include <string>
 #include <pthread.h>
 
 #include "LinkList.h"
@@ -100,6 +102,7 @@ typedef struct reduce_task {
     int           total_java_reqs;
     int           total_first_fetch;
     int           total_first_return;
+    std::vector<std::string>   local_dirs; // local dirs will serve for lpq temp files
 } reduce_task_t;
 
 reduce_task_t *spawn_reduce_task(int mode, reduce_socket_t *sock);
