@@ -2922,6 +2922,15 @@ class ReduceTask extends Task {
         mParams.add(Integer.toString(numMaps));
         mParams.add(reduceId.getJobID().toString());
         mParams.add(reduceId.toString());
+        
+        String [] dirs = this.mJobConf.getStrings("mapreduce.cluster.local.dir");
+        int numDirs = dirs.length;
+        //sending directories listed in mapreduce.cluster.local.dir
+        mParams.add(Integer.toString(numDirs));
+        for (int i=0; i<numDirs; i++ ){
+        	mParams.add(dirs[i].trim());
+        }
+        
         String msg = RDMACmd.formCmd(RDMACmd.INIT_COMMAND, mParams);
         Text.writeString(mToMerger, msg);
         mToMerger.flush(); 
