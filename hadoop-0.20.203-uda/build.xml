@@ -26,20 +26,20 @@
   <property file="${user.home}/build.properties" />
   <property file="${basedir}/build.properties" />
  
-  <property name="name" value="UDA"/>
   <property name="Name" value="UDA"/>
-  <property name="version" value="2.0.1"/>
+  <property name="name" value="UDA"/>
+  <property name="version" value="2.0.0"/>
   <property name="vanilla.base.version" value="0.20.203"/>
   <property name="final.name" value="${name}-${version}-HADOOP-${vanilla.base.version}"/>
   <property name="test.final.name" value="${name}-test-${version}"/>
   <property name="year" value="2011"/>
   
-  <property name="core.final.name" value="${name}-core-${version}"/>
-  <property name="test.final.name" value="${name}-test-${version}"/>
-  <property name="examples.final.name" value="${name}-examples-${version}"/>
-  <property name="tools.final.name" value="${name}-tools-${version}"/>
-  <property name="ant.final.name" value="${name}-ant-${version}"/>
-  <property name="streaming.final.name" value="${name}-streaming-${version}"/>
+  <property name="core.final.name" value="hadoop-core-${name}-${version}"/>
+  <!--property name="test.final.name" value="hadoop-test-${version}"/-->
+  <property name="examples.final.name" value="hadoop-examples-${name}-${version}"/>
+  <property name="tools.final.name" value="hadoop-tools-${name}-${version}"/>
+  <property name="ant.final.name" value="hadoop-ant-${name}-${version}"/>
+  <property name="streaming.final.name" value="hadoop-streaming-${name}-${version}"/>
 
   <property name="src.dir" value="${basedir}/src"/>  	
   <property name="core.src.dir" value="${src.dir}/core"/>
@@ -1420,7 +1420,7 @@
     </copy>
 
     <copy todir="${dist.dir}"> 
-      <fileset file="${build.dir}/${name}-*-${version}.jar"/>
+      <fileset file="${build.dir}/hadoop-*-${version}.jar"/>
     </copy>
     
     <copy todir="${dist.dir}/bin">
