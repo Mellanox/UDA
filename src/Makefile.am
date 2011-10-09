@@ -41,6 +41,7 @@ librdmamove_a_SOURCES = \
 						include/LinkList.h       \
 						include/MemCache.h       \
 						include/NetlevComm.h     \
+						include/AIOHandler.h     \
 						MOFServer/IndexInfo.h    \
 					   	MOFServer/MOFServlet.h \
 					   	MOFServer/IndexInfo.cc  \
@@ -58,6 +59,7 @@ librdmamove_a_SOURCES = \
                         CommUtils/IOUtility.cc \
                         CommUtils/atomic.cc \
                         CommUtils/C2JNexus.cc \
+						CommUtils/AIOHandler.cc    \
 					    Merger/MergeManager.h \
 					    Merger/MergeManager.cc \
 						Merger/StreamRW.h \
@@ -71,7 +73,7 @@ librdmamove_a_SOURCES = \
 # These programs will borrow all functions from the library
 bin_PROGRAMS = MOFSupplier NetMerger
 
-LDADD = librdmamove.a -lpthread -L/usr/ofed-1.5.2/lib64 -libverbs -lrdmacm
+LDADD = librdmamove.a -lpthread -libverbs -lrdmacm -laio
 MOFSupplier_SOURCES = MOFSupplier.cc
 NetMerger_SOURCES = NetMerger.cc
 # vim: sw=4: ts=4: noet

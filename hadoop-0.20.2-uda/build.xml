@@ -26,9 +26,9 @@
   <property file="${basedir}/build.properties" />
  
   <property name="name" value="UDA"/>
-  <property name="version" value="2.0.0"/>
+  <property name="version" value="2.0.1"/>
   <property name="vanilla.base.version" value="0.20.2"/>
-  <property name="final.name" value="${name}-${version}-BASEDON-${vanilla.base.version}"/>
+  <property name="final.name" value="${name}-${version}-HADOOP-${vanilla.base.version}"/>
   <property name="year" value="2011"/>
 
   <property name="src.dir" value="${basedir}/src"/>  	

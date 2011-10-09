@@ -38,16 +38,9 @@ server_comp_ibv_send(netlev_wqe_t *wqe)
     netlev_dev *dev = conn->dev;
   
     if (h->type == MSG_RTS) { 
-        if (wqe->context) {
-            partition_data_t *chunk = (partition_data_t*) wqe->context;
-            state_mac.data_mac->unlock_chunk(chunk);
-        } 
-
         if (wqe->shreq) {
-            if (wqe->shreq->prefetch) {
                 state_mac.mover->insert_incoming_req(wqe->shreq);
                 wqe->shreq = NULL;
-            }
         }
     }
     
@@ -178,7 +171,7 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
                     goto error_event;
                 }
             } else {
-                wqe = (netlev_wqe_t *) (long2ptr(desc.wr_id));
+            	wqe = (netlev_wqe_t *) (long2ptr(desc.wr_id));
 
                 switch (desc.opcode) {
 
@@ -191,9 +184,12 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
                         break;
 
                     case IBV_WC_RDMA_WRITE:
+                        state_mac.data_mac->release_chunk((chunk_t*)wqe->context);
+
                         pthread_mutex_lock(&dev->lock);
                         release_netlev_wqe(wqe, &dev->wqe_list);
                         pthread_mutex_unlock(&dev->lock);
+
                         break;
 
                     case IBV_WC_RDMA_READ:
@@ -343,8 +339,8 @@ RdmaServer::RdmaServer(int port, void *state)
     this->data_mac = smac->data_mac;
     
     int rdma_align = getpagesize();
-    this->rdma_total_len = NETLEV_MAX_MOFS_INCACHE * NETLEV_RDMA_MEM_CHUNK_SIZE;
-    this->rdma_chunk_len = NETLEV_RDMA_MEM_CHUNK_SIZE;
+    this->rdma_total_len = NETLEV_RDMA_MEM_CHUNKS_NUM * (NETLEV_RDMA_MEM_CHUNK_SIZE + 2*AIO_ALIGNMENT);
+    this->rdma_chunk_len = NETLEV_RDMA_MEM_CHUNK_SIZE + 2*AIO_ALIGNMENT;
     this->rdma_mem = (void *) memalign(rdma_align, this->rdma_total_len);
     if (!this->rdma_mem) {
         output_stderr("[%s,%d] alloc rdma buf failed",
@@ -537,7 +533,7 @@ int
 RdmaServer::rdma_write_mof(netlev_conn_t *conn, 
                            uintptr_t laddr,
                            uint64_t req_size, 
-                           uint64_t remote_addr)
+                           uint64_t remote_addr, void* chunk)
 {
     netlev_dev_t         *dev;
     netlev_wqe_t         *wqe;
@@ -566,7 +562,9 @@ RdmaServer::rdma_write_mof(netlev_conn_t *conn,
                    (void *)laddr, 
                    lkey, 
                    (void *)remote_addr,
-                   (uint32_t)conn->peerinfo.rdma_mem_rkey); 
+                   (uint32_t)conn->peerinfo.rdma_mem_rkey);
+
+    wqe->context=chunk;
 
     if (ibv_post_send(conn->qp_hndl, &(wqe->desc.sr), &bad_sr)) {
         output_stderr("ServerConn: RDMA Post Failed, %s", strerror(errno));

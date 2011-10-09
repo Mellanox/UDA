@@ -60,8 +60,7 @@ public:
      * 5. Complete the outgoing request
      */
     void insert_incoming_req(shuffle_req_t *req);
-    void start_outgoing_req(shuffle_req_t *req, partition_record_t *record);
-    void comp_outgoing_req(shuffle_req_t *req);
+    void start_outgoing_req(shuffle_req_t *req, index_record_t* record,  chunk_t* chunk, uint64_t length, int offsetAligment);
 
     /* port for data movement between client and server.  */
     int               data_port;

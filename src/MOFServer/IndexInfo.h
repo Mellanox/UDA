@@ -14,21 +14,26 @@
 #ifndef INDEX_RECORD_H
 #define INDEX_RECORD_H 1
 
-#include <string>
-#include <map>
-#include <vector>
-#include "LinkList.h"
-
-using namespace std;
-extern "C" {
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-}; /* extern "C" */
 
-#define MAX_RECORDS_PER_MOF     (256)
-#define MAX_OPEN_DAT_FILES      (512)
+using namespace std;
+
+#include <string>
+#include <map>
+#include <vector>
+#include "LinkList.h"
+#include "AIOHandler.h"
+
+
+#define MAX_RECORDS_PER_MOF     	(256)
+#define MAX_OPEN_DAT_FILES      	(512)
+#define AIOHANDLER_MIN_NR			(1)
+#define AIOHANDLER_NR				(50)
+#define AIOHANDLER_TIMEOUT_IN_NSEC	(300000000)
+#define AIOHANDLER_CTX_MAXEVENTS	NETLEV_RDMA_MEM_CHUNKS_NUM
 
 class OutputServer;
 class ShuffleReq;
@@ -69,13 +74,6 @@ typedef struct supplier_state {
 
 struct partition_record;
 
-typedef struct partition_data {
-    struct list_head         list;
-    volatile int8_t          status;/* status of this chunk */
-    uint64_t                 map_offset;/* offset for this partition */
-    struct partition_record  *rec;
-    char                     *buff;/*this buf is never released*/
-} partition_data_t;
 
 /**
  * partition_record is a 4-tuple <offset, rawLen, partLen, addr> struct
@@ -88,16 +86,6 @@ typedef struct index_record
     uint64_t   partLength; /* compressed size of MOF partition */
 } index_record_t;
 
-typedef struct partition_record
-{
-    index_record_t    rec;
-    partition_data_t *data;       /* a pointer to the data */
-} partition_record_t;
-
-/* path_info struct holds data that together with
- *  * array mof_path form the beginning of path to
- *   * index file and out file
- *    */
 typedef struct path_info
 {
     int16_t out_pos;
@@ -118,17 +106,83 @@ typedef struct partition_table
     int32_t  num_entries;  /* number of actual records */
     int32_t  used_times;   /* counts how many time this been used*/ 
     /* XXX: this only favors neighboring reducers to shuffle data */
-    partition_record_t records[MAX_RECORDS_PER_MOF]; 
+    index_record_t records[MAX_RECORDS_PER_MOF];
 } partition_table_t;
+
+typedef struct chunk {
+    struct list_head 	list;
+    char*				buff;
+} chunk_t;
+
+typedef struct shuffle_request_callback_arg {
+	chunk_t*			chunk;
+	uint64_t			readLength;
+	shuffle_req_t*		shreq;
+	OutputServer*		mover;
+	index_record_t*		record;
+	int					offsetAligment;
+} req_callback_arg;
+
+
+int aio_completion_handler(void* data);
 
 
 class DataEngine
 {
+private:
+	AIOHandler* 		_aioHandler;
+    struct list_head    _free_chunks_list;
+    chunk_t*			_chunks;
+    pthread_cond_t      _chunk_cond;
+    pthread_mutex_t		_chunk_mutex;
+
+
+
 public:
     DataEngine(void *mem, size_t total_size,
                size_t chunk_size, supplier_state_t *state,
                const char *path, int mode);
     ~DataEngine();
+
+
+    /**
+     * 1) retrieve_path
+     * 2) getIFile
+     * 3) if necessary then aioHandler->submit() to release chunks
+     * 4) occupy_chunk()
+     * 5) aio_read_chunk_data
+     * return 0 on SUCCESS
+     */
+    int process_shuffle_request(shuffle_req_t* req);
+
+    /**
+     * 1) get fd from fs_map or open new fd with O_DIRECT flag
+     * 2) prepare suitable callback argument for aio
+     * 3) calculate buffer, offset and size alignment to SECTOR_SIZE (currently is a constant, probably is 512)
+     * TODO: setting SECTOR_SIZE dynamically using system and hd querying
+     * 4) _aioHandler->prepare_read
+     * 5) handle exceeding number of FDs (currently just exit+error log)
+     */
+    int aio_read_chunk_data(shuffle_req_t* req , index_record_t *record, chunk_t* chunk,  const string &out_path, uint64_t map_offset);
+
+    // consumes chunk buffer from pool
+    // WAIT on condition if no chunks available
+    chunk_t* occupy_chunk();
+
+    // produce chunk buffer to pool
+    // send condition signal if pool was empty
+    void release_chunk(chunk_t* chunk);
+
+
+
+	/* return the matching iFile for the specific key(jobid+mapid) from ifiles map
+     * If no matching ifile then pull empty ifile from pool
+     * if no available ifile on pool then remove oldest from ifiles map , free  current data chunks of pulled ifile and clean it's index records.
+     * return NULL if error
+     * @param string key a key for a specific ifile is concatanation of jobid + mapid
+     * @param bool* is_new if oldest ifile was removed from ifiles map then set is_new as true otherwise set to false
+     */
+    partition_table_t* getIFile(string key, bool* is_new);
 
     /* XXX:Start the data engine thread for new requests and MOFs */
     void start();
@@ -137,20 +191,9 @@ public:
     void prepare_tables(void *mem, size_t total_size, size_t chunk_size);
 
     void cleanup_tables();
-    void unlock_chunk(partition_data_t*);
-    void lock_chunk(partition_data_t*);
 
-    /* Prefetch a MOF index file and its MOF data into cache 
-     * @param string idx_path the URL of file.out.index.
-     * @param string out_path the URL of file.out.
-     * @param string key the combination of jobid + mapid.
-     */
-    partition_table_t *prefetch_mof(const string &idx_path,
-                                    const string &out_path, 
-                                    const string &key,
-                                    int index,
-                                    uint64_t map_offset,
-                                    bool prefetch_all);
+    // read MOF's full index information into the memory
+    int read_mof_index_records(const string &jobid, const string &mapid);
 
     /* read index information into the memory
      * @param partition_table_t ifile memory presentation for the index file.
@@ -158,33 +201,9 @@ public:
      * @param int start_index read maximum MAX_RECORDS_PER_MOF 
      *        since this index.
      */
-    int read_records(partition_table_t *ifile, 
-                     const string &idx_path,
-                     int start_index);
+    int read_records(partition_table_t *ifile, const string &idx_path, int start_index);
 
-    /* Extract a partition record for a MOF */
-    partition_record_t *get_record_by_path(const string &jobid, 
-                                           const string &mapid, 
-                                           int index, 
-                                           uint64_t map_offset);
 
-    partition_data_t *get_new_chunk();
-
-    /* Read in concrete <k,v> data from file.out into the mem chunk 
-     * @param partition_table_t ifile memory index infor
-     * @param const string the parent path to the file.out file
-     * @param int record_index specify for which reducer.
-     * @param uint64_t map_offset start position for reading data chunk.
-     * @param uint32_t length ideal maximum length to read into memory
-     */
-    void read_chunk_data(partition_table_t *ifile,
-                         const string &out_path, 
-                         int record_index, 
-                         uint64_t map_offset, 
-                         uint32_t length);
-
-    /* push data for a shuffle request */
-    int push_shuffle_req(shuffle_req_t *sreq);
 
     /**
      * when a new intermediate map output is 
@@ -223,11 +242,9 @@ public:
     pthread_mutex_t      index_lock;
     pthread_mutex_t      data_lock;
     
-    partition_table_t    *ifiles;
-    partition_data_t     *chunks;
+    partition_table_t   *ifiles;
     
     struct list_head     free_ifiles;
-    struct list_head     free_chunks;
     struct list_head     comp_mof_list;
 
     pthread_cond_t       data_cond;

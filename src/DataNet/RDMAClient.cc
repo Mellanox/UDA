@@ -133,15 +133,15 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
 static void 
 client_cq_handler(progress_event_t *pevent, void *data)
 {
-    int ne = 0;
+    int rc=0;
+	int ne = 0;
     struct ibv_wc desc;
     void *ctx;
     netlev_wqe_t *wqe = NULL;
     netlev_dev_t *dev = (netlev_dev_t *) pevent->data;
 
-    if (ibv_get_cq_event(dev->cq_channel, &dev->cq, &ctx) != 0) {
-        output_stderr("[%s,%d] notification, but no CQ event\n",
-                      __FILE__,__LINE__);
+    if ((rc = ibv_get_cq_event(dev->cq_channel, &dev->cq, &ctx)) != 0) {
+        output_stderr("[%s,%d] notification, but no CQ event or bad rc=%d \n", __FILE__,__LINE__, rc);
         goto error_event;
     }
 
@@ -214,6 +214,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
     struct sockaddr_in     sin;
     struct rdma_conn_param conn_param;
     struct connreq_data    xdata;
+    int rc=0;
 
     sin.sin_addr.s_addr = ipaddr;
     sin.sin_family = AF_INET;
@@ -232,8 +233,11 @@ netlev_get_conn(unsigned long ipaddr, int port,
     }
 
     if (rdma_get_cm_event(ctx->cm_channel, &event)) {
+        output_stderr("[%s,%d] rdma_get_cm_event failed",
+                      __FILE__,__LINE__);
         return NULL;
     }
+
 
     if (event->event != RDMA_CM_EVENT_ADDR_RESOLVED) {
         rdma_ack_cm_event(event);
@@ -249,8 +253,11 @@ netlev_get_conn(unsigned long ipaddr, int port,
         return NULL;
     }
 
-    if (rdma_get_cm_event(ctx->cm_channel, &event)) 
+    if (rdma_get_cm_event(ctx->cm_channel, &event)) {
+        output_stderr("[%s,%d] rdma_get_cm_event failed",
+                      __FILE__,__LINE__);
         return NULL;
+	}
 
     if (event->event != RDMA_CM_EVENT_ROUTE_RESOLVED) {
         rdma_ack_cm_event(event);
@@ -264,7 +271,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
     if (!dev) {
         dev = (netlev_dev_t*) malloc(sizeof(netlev_dev_t));
         if (dev == NULL) {
-            output_stderr("unable to allocate dev");
+            output_stderr("[%s,%d] failed to allocate memory for netlev_dev", __FILE__,__LINE__);
             return NULL;
         }
         dev->ibv_ctx = cm_id->verbs; 
@@ -275,8 +282,13 @@ netlev_get_conn(unsigned long ipaddr, int port,
      
         struct memory_pool *mem_pool = NULL;
         list_for_each_entry(mem_pool, registered_mem, register_mem_list) {
-            netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
+            rc = netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
+            if (rc) {
+                output_stderr("[%s,%d] FATAL ERROR: failed on netlev_init_rdma_mem , rc=%d ==> exit process", __FILE__,__LINE__, rc);
+                exit(rc);
+            }
         }
+
                  
         netlev_event_add(ctx->epoll_fd, dev->cq_channel->fd, 
                          EPOLLIN, client_cq_handler, 
@@ -455,6 +467,9 @@ RdmaClient::connect(const char *host, int port)
         pthread_mutex_unlock(&this->ctx.lock);
         return conn;
     }
+
+    output_stdout("RDMA Client: connecting to %s:%d" , host, port);
+
     conn = netlev_get_conn(ipaddr, port, &this->ctx, &this->register_mems_head);
 
     if (!conn) {

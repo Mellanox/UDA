@@ -85,5 +85,9 @@
             <name>mapred.netmerger.listener.port</name>
             <value>9012</value>
       </property>
+      <property>
+             <name>mapreduce.cluster.local.dir</name>
+             <value>/hadoop/dfs/tmp</value>
+      </property>
 
 </configuration>

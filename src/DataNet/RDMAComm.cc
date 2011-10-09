@@ -300,7 +300,7 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     }
 
     if (rdma_create_qp(conn->cm_id, dev->pd, &qp_init_attr) != 0) {
-        output_stderr("[%s,%d] Create qp failed",
+        output_stderr("[%s,%d] Create qp failed - %m",
                      __FILE__,__LINE__);
         free(conn->sg_array);
         free(conn);

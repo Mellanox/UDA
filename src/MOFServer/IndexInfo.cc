@@ -75,8 +75,7 @@ int DataEngine::read_records(partition_table_t *ifile,
     bytes = read(fp, rec, to_read);
     close(fp);
     if (bytes < 0) {
-        output_stderr("[%s,%d] read idx file failed",
-                      __FILE__,__LINE__);
+        output_stderr("[%s,%d] read idx file failed",__FILE__,__LINE__);
         return -1;
     }
 
@@ -87,21 +86,20 @@ int DataEngine::read_records(partition_table_t *ifile,
         uint8_t *cp;
 
         cp = (uint8_t*)(rec + i * sizeof(index_record_t));
-        ifile->records[i].rec.offset =
+        ifile->records[i].offset =
             OCTET_TO_LONG(cp[0], cp[1], cp[2], cp[3], 
                           cp[4], cp[5], cp[6], cp[7]);
 
         cp = cp + sizeof(uint64_t);
-        ifile->records[i].rec.rawLength =
+        ifile->records[i].rawLength =
             OCTET_TO_LONG(cp[0], cp[1], cp[2], cp[3], 
                           cp[4], cp[5], cp[6], cp[7]);
 
         cp = cp + sizeof(uint64_t);
-        ifile->records[i].rec.partLength =
+        ifile->records[i].partLength =
             OCTET_TO_LONG(cp[0], cp[1], cp[2], cp[3], 
                           cp[4], cp[5], cp[6], cp[7]);
 
-        ifile->records[i].data = NULL;
     }
     free(rec);
     return 0;
@@ -121,14 +119,18 @@ DataEngine::DataEngine(void *mem, size_t total_size,
     prepare_tables(mem, total_size, chunk_size);
 
     INIT_LIST_HEAD(&this->comp_mof_list);
+
     /* fast mapping from path to partition_table_t */
     this->state_mac = state;
     this->stop = false;
    
-    /* for testing 
-    if (mode == STANDALONE){
-        this->base_path = strdup(path);
-    } */
+
+    timespec timeout;
+    timeout.tv_nsec=AIOHANDLER_TIMEOUT_IN_NSEC;
+    timeout.tv_sec=0;
+	output_stdout("AIO: creating new AIOHandler with maxevents=%d , min_nr=%d, nr=%d timeout=%ds %lus",AIOHANDLER_CTX_MAXEVENTS, AIOHANDLER_MIN_NR, AIOHANDLER_NR , timeout.tv_sec, timeout.tv_nsec );
+	_aioHandler = new AIOHandler(aio_completion_handler, AIOHANDLER_CTX_MAXEVENTS, AIOHANDLER_MIN_NR , AIOHANDLER_NR, &timeout );
+
 
 }
 
@@ -139,21 +141,6 @@ void DataEngine::clean_job()
     idx_map_iter iter = ifile_map.begin();
     while (iter != ifile_map.end()) {
        partition_table_t *ifile = (*iter).second;
-       for (int rc = 0; rc < MAX_RECORDS_PER_MOF; ++rc) {
-          partition_record_t *record = &ifile->records[rc]; 
-          if (record) {
-              partition_data_t *chunk = record->data;
-              if (chunk) {
-                  chunk->status = FREE;
-                  chunk->rec = NULL;
-                  chunk->map_offset = -1;
-                  memset(chunk->buff, 0, chunk_size);
-                  list_add_tail(&chunk->list, &free_chunks); 
-              }
-              record->data = NULL;
-          }
-       }
-       /* clean up ifiles */
        memset(ifile, 0, sizeof(partition_table_t));
        list_add_tail(&ifile->list, &free_ifiles);   
        iter++;
@@ -189,9 +176,6 @@ void DataEngine::clean_job()
 void 
 DataEngine::cleanup_tables()
 {
-    pthread_mutex_lock(&this->data_lock);
-    free(this->chunks);
-    pthread_mutex_unlock(&this->data_lock);
 
     pthread_mutex_lock(&this->index_lock);
     free(this->ifiles);
@@ -200,6 +184,8 @@ DataEngine::cleanup_tables()
     pthread_mutex_destroy(&this->data_lock);
     pthread_mutex_destroy(&this->index_lock);
     pthread_cond_destroy(&this->data_cond);
+    pthread_mutex_destroy(&this->_chunk_mutex);
+    pthread_cond_destroy(&this->_chunk_cond);
 }
 
 void 
@@ -207,13 +193,16 @@ DataEngine::prepare_tables(void *mem,
                            size_t total_size, 
                            size_t chunk_size) 
 {
-    char *data;
+    char *data=(char*)mem;
 
     pthread_mutex_init(&this->index_lock, NULL);
     pthread_mutex_init(&this->data_lock, NULL);
     pthread_cond_init(&this->data_cond, NULL);
-    INIT_LIST_HEAD(&this->free_chunks);
     INIT_LIST_HEAD(&this->free_ifiles);
+
+    pthread_mutex_init(&this->_chunk_mutex, NULL);
+    pthread_cond_init(&this->_chunk_cond, NULL);
+    INIT_LIST_HEAD(&this->_free_chunks_list);
 
     pthread_mutex_lock(&this->index_lock);
     this->ifiles = (partition_table_t*)
@@ -227,23 +216,18 @@ DataEngine::prepare_tables(void *mem,
     }
     pthread_mutex_unlock(&this->index_lock);
 
-    /* Get a table of data chunks for partitions */
-    pthread_mutex_lock(&this->data_lock);
-    this->num_chunks = total_size / chunk_size;
-    this->chunk_size = chunk_size;
-    this->chunks = (partition_data_t*)
-        malloc(num_chunks * sizeof (partition_data_t));
+    pthread_mutex_lock(&this->_chunk_mutex);
+    this->_chunks = (chunk_t*)malloc(NETLEV_RDMA_MEM_CHUNKS_NUM * sizeof(chunk_t));
+    memset(this->_chunks , 0, NETLEV_RDMA_MEM_CHUNKS_NUM * sizeof(chunk_t));
 
-    data = (char *)mem;
-    for (int i = 0; i < num_chunks; i++) {
-        partition_data_t *tmp = this->chunks + i;
-        tmp->status = FREE;
-        tmp->map_offset = -1; 
-        tmp->rec = NULL;
-        tmp->buff = data + chunk_size * i;
-        list_add_tail(&tmp->list, &free_chunks);
+    for (int i = 0; i < NETLEV_RDMA_MEM_CHUNKS_NUM; ++i) {
+        chunk_t *ptr = this->_chunks + i;
+        ptr->buff = data + i*(NETLEV_RDMA_MEM_CHUNK_SIZE + 2*AIO_ALIGNMENT );
+        list_add_tail(&ptr->list, &this->_free_chunks_list);
     }
-    pthread_mutex_unlock(&this->data_lock);
+    pthread_mutex_unlock(&this->_chunk_mutex);
+
+
 }
 
 
@@ -266,20 +250,22 @@ DataEngine::~DataEngine()
 void 
 DataEngine::start()
 {
+	_aioHandler->start();
+
     /* Wait on the arrival of new MOF files or shuffle requests */
     while (!this->stop) {
         comp_mof_info_t *comp = NULL;
         shuffle_req_t *req  = NULL;
+        int rc=0;
 
         /* 
          * 1.0 Process new shuffle requests 
          * FIXME 1.5 Start new threads if the queue is long
          */
-        do {
+        while (!list_empty(&state_mac->mover->incoming_req_list)) {
             if (!list_empty(&state_mac->mover->incoming_req_list)) {
                 pthread_mutex_lock(&state_mac->mover->in_lock);
-                req = list_entry(state_mac->mover->incoming_req_list.next, 
-                        typeof(*req), list);
+                req = list_entry(state_mac->mover->incoming_req_list.next, typeof(*req), list);
                 list_del(&req->list);
                 pthread_mutex_unlock(&this->state_mac->mover->in_lock);
             } else {
@@ -287,9 +273,12 @@ DataEngine::start()
             }
 
             if(req) {
-                push_shuffle_req(req);
+            	output_stdout("DataEngine: received shuffle request");
+            	process_shuffle_request(req);
             }
-        } while (!list_empty(&state_mac->mover->incoming_req_list));
+        }
+
+        _aioHandler->submit();
 
                 
         /* 2.0 Process new MOF files */
@@ -306,21 +295,14 @@ DataEngine::start()
             }
 
             if (comp) {
-                /*XXX: we need to use char* here to 
-                  avoid multiple string addition */
                 string idx_path, out_path;
                 string jobid(comp->jobid);
                 string mapid(comp->mapid);
-                if (retrieve_path(jobid, mapid, idx_path, out_path)) {
-
-                    string key = jobid + mapid;
-                    /* prefetch the MOF index records and data chunks */
-                    this->prefetch_mof(idx_path, out_path,      
-                                       key, 0, 0, true);
-                } else {
-                    output_stderr("retrieve path failed for prefetch");
-                }
                 
+                rc = read_mof_index_records(jobid, mapid);
+                if (rc)
+                	output_stderr("[%s,%d] failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s",__FILE__,__LINE__, jobid, mapid);
+
                 free (comp->jobid);
                 free (comp->mapid);
                 free (comp);
@@ -338,222 +320,48 @@ DataEngine::start()
                           &state_mac->mover->in_lock);
         pthread_mutex_unlock(&state_mac->mover->in_lock);        
     } 
+
+    output_stdout("DataEngine stopped");
 }
 
-int 
-DataEngine::push_shuffle_req(shuffle_req_t *sreq)
-{
-    partition_record_t *record = NULL;
-    if (!sreq->prefetch) {
-        record = get_record_by_path(sreq->m_jobid,
-                                    sreq->m_map, 
-                                    sreq->reduceID,
-                                    sreq->map_offset);
-        if (record) {
-            lock_chunk(record->data);
-            this->state_mac->mover->start_outgoing_req(sreq, record);
-            delete sreq;
-        }
-    } else {
-        /* suppose need prefetch */
-        /* record = get_record_by_path(sreq->m_jobid,
-                                    sreq->m_map, 
-                                    sreq->reduceID,
-                                    sreq->map_offset + prefetch_chunk_size);
-        delete sreq; */
-    }
-    return 0;
-}
 
-partition_table_t*
-DataEngine::prefetch_mof(const string &idx_path, 
-                         const string &out_path,
-                         const string &key, int index,
-                         uint64_t map_offset,
-                         bool prefetch_all)
+
+int DataEngine::read_mof_index_records(const string &jobid, const string &mapid)
 {
     partition_table_t *ifile = NULL;
     bool is_new = false;
+    string idx_path, out_path;
+    string key = jobid + mapid;
+    int rc=0;
 
-    pthread_mutex_lock(&index_lock);
+    if (!retrieve_path(jobid, mapid, idx_path, out_path)) {
+    	output_stderr("[%s,%d] failed to retrieve path",__FILE__,__LINE__);
+        return -1; // TODO:  error code
+    }
 
-    idx_map_iter iter = ifile_map.find(key);
-    if (iter != ifile_map.end()) {
-        ifile = iter->second; 
-    } else {
-        if (!list_empty(&free_ifiles)) {
-            ifile = list_entry(free_ifiles.next,typeof(*ifile), list);
-            list_del(&ifile->list);
-            ifile_map[key] = ifile;
-            
-            /* init index table */
-            ifile->total_size = 0;
-            ifile->first_record = 0;
-            ifile->num_entries = 0;
-            is_new = false;
-        }
+    ifile = getIFile(key, &is_new);
+
+    if (ifile == NULL){
+    	output_stderr("[%s,%d] Failed to get iFile (key=%s)",__FILE__,__LINE__, key.c_str());
+        return -1; // TODO:  error code
     }
     
-    pthread_mutex_unlock(&index_lock);
-
-    if (!ifile) {
-        output_stderr("[%s,%d] no more ifiles",
-                      __FILE__,__LINE__);
-        ifile = remove_oldest(); 
-
-        /* XXX: free all the data chunks */
-        pthread_mutex_lock(&this->data_lock);
-        for (int i = 0; i < ifile->num_entries; i++) {
-            partition_data_t *chunk = ifile->records[i].data;
-            if (chunk) {
-                /* return data chunk */
-                chunk->status = FREE;
-                chunk->map_offset = -1; 
-                chunk->rec = NULL;
-                list_add_tail(&chunk->list, &free_chunks);
-            }
-        } 
-        pthread_mutex_unlock(&this->data_lock);
-           
-        /* re-init index table */ 
-        ifile->total_size = 0;
-        ifile->first_record = 0;
-        ifile->num_entries = 0;
-        is_new = true;
+    if (!is_new) {
+    	output_stderr("[%s,%d] read_mof_index_records: index records for MOF already loaded. idx_path=%s",__FILE__,__LINE__, idx_path.c_str());
+        //rc = -1;
+    }
+    else {
+    	rc = read_records(ifile, idx_path, 0);
+    	if (rc)
+    		output_stderr("[%s,%d] failed to read_records idx_path=%s  ",__FILE__,__LINE__,idx_path.c_str() );
     }
 
-    int l = ifile->first_record;
-    int h = l + ifile->num_entries;
-    if (is_new || (!is_new && (index < l || index >= h))) {
-        if (read_records(ifile, idx_path, index)) {
-            return NULL;
-        }
-    }
-    
-    if (prefetch_all) {
-       /* prefetch data chunks for a file
-        * NETLEV_RDMA_MEM_CHUNK_SIZE per record */
-        int num = ifile->num_entries;
-        for (int i = 0; i < num; ++i) { 
-            read_chunk_data(ifile, out_path, i, map_offset, 
-                            prefetch_chunk_size);
-        }
-    } else {
-        int target = index - ifile->first_record;
-        read_chunk_data(ifile, out_path, target, map_offset, 
-                        prefetch_chunk_size);
-    }
-    return ifile;
-}
-
-/*unlock this chunk when RDMA Write is done*/
-void DataEngine::unlock_chunk(partition_data_t *chunk)
-{
-    chunk->status = OCCUPIED;
-}
-
-/*lock this chunk when we are doing RDMA Write operation*/
-void 
-DataEngine::lock_chunk(partition_data_t *chunk)
-{
-    chunk->status = INUSE;
-
+    return rc;
 }
 
 
-partition_data_t *DataEngine::get_new_chunk()
-{
-    partition_data_t *chunk = NULL;
 
-    if (list_empty(&this->free_chunks)) {
-        output_stderr("[%s,%d] no more data chunks",
-                      __FILE__,__LINE__);
-        /**
-         * FIXME: (urgent) how to find the available data chunk
-         */
-    } else {
-        chunk = list_entry(free_chunks.next, typeof(*chunk), list);
-        list_del(&chunk->list);
-    }
-    return chunk;
-}
 
-void 
-DataEngine::read_chunk_data(partition_table_t *ifile,
-                            const string &out_path,
-                            int record_index, 
-                            uint64_t map_offset,
-                            uint32_t length)
-{
-    /* XXX: assume index record is in the table */
-    partition_record_t *rec;
-    partition_data_t   *chunk;
-
-    int64_t offset;
-    uint64_t read_length;
-    int fd;
-
-    rec = &ifile->records[record_index];
-    offset = rec->rec.offset + map_offset;
-    length = (length > prefetch_chunk_size ? prefetch_chunk_size : length);
-    read_length = rec->rec.partLength - map_offset;
-    if(read_length < length)
-        length = read_length;
-   
-    chunk = rec->data;
-
-    if (!chunk) {
-        chunk = get_new_chunk();
-        chunk->status = OCCUPIED;
-        chunk->map_offset = -1; /* Force it to read data */
-        rec->data = chunk; 
-    } else {
-        /* already fetched in previous pre-fetch */
-        if (chunk->map_offset == map_offset) {
-            return;
-        }
-    }
-
-    // fall through to read data from file.out
-    string dat_fname = out_path + mop_suffix; 
-
-    // avoid frequently re-open file
-    fd_map_iter iter = fd_map.find(dat_fname);
-    if (iter != fd_map.end()) {
-        fd = iter->second;
-    } else {
-        fd = open(dat_fname.c_str(), O_RDONLY);
-        if (fd < 0) {
-            output_stderr("[%s,%d] open mof %s failed",
-                          __FILE__,__LINE__,
-                          dat_fname.c_str());
-            return;
-        }        
-        fd_map[dat_fname] = fd;
-    }
-
-    if (map_offset > rec->rec.partLength) {
-        output_stderr("[%s,%d] bad shuffle request",
-                      __FILE__,__LINE__);
-        return;
-    }
-
-    // jump to the correct start position from begining
-    lseek(fd, offset, SEEK_SET);
-    read(fd, chunk->buff, length);
-    chunk->map_offset = map_offset; 
-
-    // exceed maximum number of open fd,
-    // then close all previous opened fd 
-    if (fd_map.size() > MAX_OPEN_DAT_FILES) {
-        fd_map_iter iter = fd_map.begin();
-        while (iter != fd_map.end()) {
-            close(iter->second);
-            iter++;
-        }
-        fd_map.erase(fd_map.begin(),fd_map.end());
-    }
-}
 
 bool DataEngine::retrieve_path(const string &jobid,
                                const string &mapid,
@@ -641,36 +449,6 @@ void DataEngine::add_new_mof(const char *jobid,
     pthread_mutex_unlock(&data_lock);
 }
 
-
-/* fill in the cache if it is available */
-partition_record_t*
-DataEngine::get_record_by_path(const string &jobid, 
-                               const string &mapid, 
-                               int reduceid, 
-                               uint64_t map_offset)
-{
-    partition_table_t  *ifile;
-    
-    string idx_path; 
-    string out_path;
-
-    if (!retrieve_path(jobid, mapid, 
-                       idx_path,
-                       out_path)) {
-        output_stderr("retrieve path failed for fetch request");
-        return NULL;
-    }
-    
-    string key = jobid + mapid;
-    ifile = prefetch_mof(idx_path,
-                         out_path,  
-                         key, reduceid, 
-                         map_offset, false);
-    ifile->used_times++;
-
-    return &ifile->records[reduceid-ifile->first_record];
-}
-
 partition_table_t*
 DataEngine::remove_oldest()
 {
@@ -690,6 +468,191 @@ DataEngine::remove_oldest()
     partition_table_t *ifile = minIter->second;
     ifile_map.erase(minIter);
     return ifile;
+}
+
+partition_table_t* DataEngine::getIFile(string key, bool* is_new) {
+    partition_table_t *ifile=NULL;
+    *is_new = false;
+
+
+    pthread_mutex_lock(&index_lock);
+
+    idx_map_iter iter = ifile_map.find(key);
+    if (iter != ifile_map.end()) {
+        ifile = iter->second;
+    } else {
+        if (!list_empty(&free_ifiles)) {
+            ifile = list_entry(free_ifiles.next,typeof(*ifile), list);
+            list_del(&ifile->list);
+            ifile_map[key] = ifile;
+
+            /* init index table */
+            ifile->total_size = 0;
+            ifile->first_record = 0;
+            ifile->num_entries = 0;
+            *is_new = true;
+        }
+    }
+
+    pthread_mutex_unlock(&index_lock);
+
+    if (!ifile) {
+        output_stderr("[%s,%d] no more ifiles", __FILE__,__LINE__);
+        ifile = remove_oldest();
+
+
+        /* re-init index table */
+        ifile->total_size = 0;
+        ifile->first_record = 0;
+        ifile->num_entries = 0;
+        *is_new = true;
+    }
+
+    return ifile;
+
+
+}
+
+int
+DataEngine::process_shuffle_request(shuffle_req_t* req) {
+    bool is_new = false;
+    string idx_path;
+    string out_path;
+    string key = req->m_jobid + req->m_map;
+    chunk_t* chunk;
+    partition_table_t* ifile;
+    int rc=0;
+
+    if (!retrieve_path(req->m_jobid, req->m_map, idx_path, out_path)) {
+        output_stderr("[%s,%d] retrieve path failed for fetch reques", __FILE__,__LINE__);
+        return -1;
+    }
+
+    ifile=getIFile(key, &is_new);
+
+    if (ifile==NULL){
+        output_stderr("[%s,%d] failed to get ifile", __FILE__,__LINE__);
+        return -2;
+    }
+
+    if (is_new) {
+    	rc=read_records(ifile, idx_path, 0);
+    	if (rc) {
+            output_stderr("[%s,%d] failed to read ifile records. rc=%d", __FILE__,__LINE__, rc);
+            return -3;
+    	}
+    }
+
+    if (list_empty(&this->_free_chunks_list))
+    	_aioHandler->submit(); // submit current prepared ios before occupy_chunk going to WAIT for chunks
+
+    chunk = occupy_chunk();
+
+    if (chunk == NULL) {
+        output_stderr("[%s,%d] failed to occupy chunk (No free chunks)", __FILE__,__LINE__);
+        return -4;
+    }
+
+    aio_read_chunk_data(req, &ifile->records[req->reduceID], chunk,  out_path, req->map_offset );
+
+    return 0;
+}
+
+chunk_t*
+DataEngine::occupy_chunk() {
+    chunk_t* retval=NULL;
+
+    pthread_mutex_lock(&this->_chunk_mutex);
+
+	if (list_empty(&this->_free_chunks_list)) {
+		pthread_cond_wait(&this->_chunk_cond, &this->_chunk_mutex);
+	}
+
+	retval= list_entry(this->_free_chunks_list.next, typeof(*retval), list);
+	list_del(&retval->list);
+
+	pthread_mutex_unlock(&this->_chunk_mutex);
+
+	return retval;
+}
+
+void
+DataEngine::release_chunk(chunk_t* chunk) {
+    pthread_mutex_lock(&this->_chunk_mutex);
+    list_add_tail(&chunk->list, &this->_free_chunks_list);
+    pthread_cond_signal(&this->_chunk_cond);
+    pthread_mutex_unlock(&this->_chunk_mutex);
+
+}
+
+
+
+int DataEngine::aio_read_chunk_data(shuffle_req_t* req , index_record_t *record, chunk_t* chunk,  const string &out_path, uint64_t map_offset)
+{
+    int rc=0;
+    int fd;
+
+    int64_t offset = record->offset + map_offset;
+    size_t read_length = record->partLength - map_offset;
+    read_length = (read_length < prefetch_chunk_size) ? read_length : prefetch_chunk_size ;
+
+    // fall through to read data from file.out
+    string dat_fname = out_path + mop_suffix;
+
+    // avoid frequently re-open file
+    fd_map_iter iter = fd_map.find(dat_fname);
+    if (iter != fd_map.end()) {
+    	fd = iter->second;
+    } else {
+    	fd = open(dat_fname.c_str(), O_RDONLY | O_DIRECT);
+    	if (fd < 0) {
+    		output_stderr("[%s,%d] open mof %s failed", __FILE__,__LINE__, dat_fname.c_str());
+    		return -1; // TODO: return appropriate rc
+    	}
+    	fd_map[dat_fname] = fd;
+    }
+
+
+    req_callback_arg *cb_arg = new req_callback_arg(); // AIOHandler event processor will delete the allocated cb_arg
+    cb_arg->chunk=chunk;
+    cb_arg->shreq=req;
+    cb_arg->mover=this->state_mac->mover;
+    cb_arg->readLength=read_length;
+    cb_arg->record=record;
+    cb_arg->offsetAligment= (offset & _aioHandler->ALIGMENT_MASK);
+    size_t length_for_aio = read_length + 2*AIO_ALIGNMENT - (read_length & _aioHandler->ALIGMENT_MASK);
+
+    long new_offset=offset - cb_arg->offsetAligment;
+    rc = _aioHandler->prepare_read(fd, new_offset  ,length_for_aio   , chunk->buff, cb_arg);
+
+    // exceed maximum number of open fd,
+    // then close all previous opened fd
+    // TODO: need to provide scalable solution
+    if (fd_map.size() > MAX_OPEN_DAT_FILES) {
+    	fd_map_iter iter = fd_map.begin();
+    	while (iter != fd_map.end()) {
+    		close(iter->second);
+    		iter++;
+    	}
+    	fd_map.erase(fd_map.begin(),fd_map.end());
+    	output_stderr("[%s,%d] FATAL ERROR: maximum number of open file descriptors exceeded. max=%d",__FILE__,__LINE__, MAX_OPEN_DAT_FILES);
+    	exit(1);
+    }
+
+    return rc;
+
+}
+
+
+int aio_completion_handler(void* data) {
+	req_callback_arg *req_cb_arg = (req_callback_arg*)data;
+
+	req_cb_arg->mover->start_outgoing_req(req_cb_arg->shreq, req_cb_arg->record, req_cb_arg->chunk, req_cb_arg->readLength, req_cb_arg->offsetAligment);
+
+	delete req_cb_arg->shreq;
+    delete req_cb_arg;
+
+    return 0;
 }
 
 /*

@@ -29,7 +29,8 @@
 
 #define NETLEV_MAX_MOFS_INCACHE     (8192)
 #define NETLEV_RDMA_MEM_CHUNK_EXPO  (17)
-#define NETLEV_RDMA_MEM_CHUNK_SIZE  (1<<NETLEV_RDMA_MEM_CHUNK_EXPO) /* 128K for each rdma */
+#define NETLEV_RDMA_MEM_CHUNK_SIZE  (1<<NETLEV_RDMA_MEM_CHUNK_EXPO)
+#define NETLEV_RDMA_MEM_CHUNKS_NUM	(1000)
 
 #define ARRAY_SIZE(array) (sizeof array / sizeof array[0])
 #define RDMA_TIMEOUT 2
