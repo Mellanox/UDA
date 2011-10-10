@@ -93,10 +93,12 @@ import org.apache.hadoop.mapred.SortedRanges.SkipRangeIterator;
 import org.apache.hadoop.mapred.TaskTracker.TaskInProgress;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.metrics2.MetricsBuilder;
+import org.apache.hadoop.util.DiskChecker;
 import org.apache.hadoop.util.Progress;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.StringUtils;
+import org.apache.hadoop.util.DiskChecker.DiskErrorException;
 
 import org.apache.hadoop.mapred.FileOutputFormat;
 import org.apache.hadoop.mapreduce.security.SecureShuffleUtils;
@@ -3127,19 +3129,28 @@ class ReduceTask extends Task {
           /* just simply block for now */
         }
 
-        /* send init messege */
+        /* send init message */
         TaskAttemptID reduceId = reduceTask.getTaskID();
         mParams.clear();
         mParams.add(Integer.toString(numMaps));
         mParams.add(reduceId.getJobID().toString());
         mParams.add(reduceId.toString());
 		
-		String [] dirs = this.mJobConf.getStrings("mapreduce.cluster.local.dir");
-        //sending directories listed in mapreduce.cluster.local.dir
-        int numDirs = dirs.length;
+        String [] dirs = this.mJobConf.getLocalDirs();
+        ArrayList<String> dirsCanBeCreated = new ArrayList<String>();
+        //checking if the directories can be created
+        for (int i=0; i<dirs.length; i++ ){
+        try {
+            DiskChecker.checkDir(new File(dirs[i].trim()));
+            //saving only the directories that can be created
+            dirsCanBeCreated.add(dirs[i].trim());
+          } catch(DiskErrorException e) {  }
+        }
+        //sending the directories
+        int numDirs = dirsCanBeCreated.size();
         mParams.add(Integer.toString(numDirs));
         for (int i=0; i<numDirs; i++ ){
-            mParams.add(dirs[i].trim());
+        	mParams.add(dirsCanBeCreated.get(i));
         }
 		
         String msg = RDMACmd.formCmd(RDMACmd.INIT_COMMAND, mParams);
