@@ -15,13 +15,15 @@
 #	4. Start MR
 #	5. Check for live TTs
 
+#Modified by IdanWe on 10-10-2011
+# - make teragen only if '-teragen' passed and not in any case of restart
 
 NUMBER_OF_ATTEMPTS_LIVE_NODES=30
 export HADOOP_SLAVE_SLEEP=0.5
 
 if [ -z "$HADOOP_HOME" ]
 then
-        echo "$(basedir $0): please export HADOOP_HOME"
+        echo "$(basename $0): please export HADOOP_HOME"
         exit 1
 fi
 
@@ -41,12 +43,12 @@ then
 else
 	echo "Usage: $(basename $0) <number of retries> -restart -teragen -save_logs"
 	echo "	-restart 	: force stop-all and reformat dfs"
-	echo "	-teragen 	: make teragen in case of DFS reformat"
+	echo "	-teragen 	: force restart and make teragen after all nodes are alive *** mkteragen.sh is going to be exec, please make sure that all relevant enviroment paramters are configured properly."
 	echo "	-save_logs 	: do not delete logs files"
 	exit 1;
 fi
 
-if [[ $@ = *-restart* ]]
+if [[ $@ = *-restart* ]] || [[ $@ = *-teragen* ]]
 then
 	restart=1
 	echo "$(basename $0): FORCED RESTART - reformat DFS"
@@ -190,7 +192,7 @@ done
 if [ $hadoop_is_up=true ]
 then
 	echo "$(basename $0): all $expected_number_nodes nodes are alive"
-	if [[  $@ = *-teragen* ]] || (( $curr_try > 1 )) || (( $restart )) 
+	if [[  $@ = *-teragen* ]] 
 	then
 		$SCRIPTS_DIR/mkteragen.sh
 	fi

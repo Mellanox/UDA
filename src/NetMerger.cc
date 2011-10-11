@@ -112,10 +112,12 @@ int main(int argc, char* argv[])
     
     /* init map output memory pool */
     memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
-    create_mem_pool(NETLEV_RDMA_MEM_CHUNK_EXPO, 
+    if (create_mem_pool(NETLEV_RDMA_MEM_CHUNK_EXPO,
                     NETLEV_MAX_MOFS_INCACHE, 
-                    &merging_sm.mop_pool);
-
+                    &merging_sm.mop_pool)) {
+    	output_stderr("[%s,%d] failed to create Map Output memory pool ",__FILE__,__LINE__);
+    	exit(-1);
+    }
     pthread_mutex_init(&merging_sm.lock, NULL);
     pthread_cond_init(&merging_sm.cond, NULL);
 

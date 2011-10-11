@@ -171,6 +171,7 @@ int  create_mem_pool(int logsize, int num, memory_pool_t *pool)
 {
     int pagesize = getpagesize();
     int32_t buf_len;
+    int rc;
 
     pthread_mutex_init(&pool->lock, NULL);
     INIT_LIST_HEAD(&pool->free_descs);
@@ -180,12 +181,12 @@ int  create_mem_pool(int logsize, int num, memory_pool_t *pool)
     pool->num = num;
     pool->total_size = buf_len * num;
     
-    pool->mem= (char *) memalign(pagesize, pool->total_size);
-    memset(pool->mem, 0, pool->total_size);
-    if (NULL == pool->mem) { 
-        output_stderr("unable to create pool");
+    rc = posix_memalign((void**)&pool->mem,  pagesize, pool->total_size);
+    if (rc) {
+    	output_stderr("unable to create pool. posix_memalign failed: alignment=%d , total_size=%u --> rc=%d", pagesize, pool->total_size, rc );
         return -1;
     }
+    memset(pool->mem, 0, pool->total_size);
 
     for (int i = 0; i < num; ++i) {
         mem_desc_t *desc = (mem_desc_t *) malloc(sizeof(mem_desc_t));
@@ -289,7 +290,12 @@ reduce_task_t *spawn_reduce_task(int mode, reduce_socket_t *sock)
 
     /* init large memory pool for merged kv buffer */ 
     memset(&task->kv_pool, 0, sizeof(memory_pool_t));
-    create_mem_pool(NETLEV_KV_POOL_EXPO, num_stage_mem, &task->kv_pool);
+
+    if (create_mem_pool(NETLEV_KV_POOL_EXPO, num_stage_mem, &task->kv_pool)) {
+    	output_stderr("[%s,%d] failed to create memory pool for reduce task for merged kv buffer",__FILE__,__LINE__);
+    	exit(-1);
+    }
+
   
     /* report success spawn to java */ 
     task->nexus->send_int((int)RT_LAUNCHED);

@@ -324,17 +324,22 @@ MapOutput::MapOutput(struct reduce_task *task)
     pthread_mutex_unlock(&task->lock);
 
     mem_pool = &(merging_sm.mop_pool);
-    if(list_empty(&mem_pool->free_descs)) {
-        write_log(task->reduce_log, 1, 
-                  "no more available mof");
-        return;
-    }
 
     pthread_mutex_lock(&mem_pool->lock);
+    if (list_empty(&mem_pool->free_descs)) {
+    	output_stderr("[%s,%d] FATAL ERROR: no free buffers in mem_pool",__FILE__,__LINE__);
+    	exit(-1);
+    }
+
     mop_bufs[0] = list_entry(mem_pool->free_descs.next,
                              typeof(*mop_bufs[0]), list); 
     mop_bufs[0]->status = FETCH_READY;
     list_del(&mop_bufs[0]->list);
+
+    if (list_empty(&mem_pool->free_descs)) {
+    	output_stderr("[%s,%d] FATAL ERROR: no free buffers in mem_pool",__FILE__,__LINE__);
+    	exit(-1);
+    }
 
     mop_bufs[1] = list_entry(mem_pool->free_descs.next,
                              typeof(*mop_bufs[1]), list); 

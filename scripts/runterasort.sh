@@ -7,6 +7,7 @@
 # MODIFIED: 2011-07-20 by idan (added #nodes scale & retry mechanism)
 
 
+
 export HADOOP_SLAVE_SLEEP=1
 SCRIPTS_LOCAL_TMP_DIR=/tmp/hadoop/scripts
 MAX_ATTEMPTS=5
@@ -89,15 +90,18 @@ echo "$(basename $0): RES_LOGDIR=$RES_LOGDIR (the local path on '$RES_SERVER' th
 echo " "
 echo "$(basename $0): Static Parameters: (that calculated by script and cannot be exported by user)"
 echo "$(basename $0): ------------------------------------------"
-echo "$(basename $0): SCRIPTS_DIR=$SCRIPTS_DIR"
+echo "$(basename $0): SCRIPTS_DIR=$SCRIPTS_DIR (scripts will be copied to this local path on each node - unless -skip_nfs arg added)"
 echo "$(basename $0): rdma.setting=$rdma"
 echo "$(basename $0): hadoop version=$hadoop_version"
 
 
-if [ "$1" == "-show" ]
+if [[ $@ = *-show* ]]
 then
 	exit 0;
 fi
+
+echo "press any to start..."
+read -n1 kbd
 
 
 if [[  $@ != *-skip_nfs* ]] 
