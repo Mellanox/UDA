@@ -107,7 +107,8 @@ public:
     MergeManager(int threads, 
                  list_head_t *dir_list, 
                  int online, 
-                 struct reduce_task *task);
+                 struct reduce_task *task,
+                 int _num_lpqs);
 
     ~MergeManager();
   
@@ -130,6 +131,8 @@ public:
 
     int total_count;
 	int progress_count;
+public:
+    const int            num_lpqs;
 };
 
 #endif

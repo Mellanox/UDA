@@ -26,6 +26,7 @@
 #include <malloc.h>
 #include <ctime>
 #include <assert.h>
+#include <math.h> //for sqrt
 
 #include "reducer.h"
 #include "InputClient.h"
@@ -58,26 +59,29 @@ static void reduce_downcall_handler(progress_event_t *pevent, void *ctx)
     string msg = nexus->recv_string();
     parse_hadoop_cmd(msg, *hadoop_cmd);
     
-    output_stdout("%s: ===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", __func__, hadoop_cmd->count, (int)hadoop_cmd->header);
+    output_stdout("%s: ===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", __func__, hadoop_cmd->count - 1, (int)hadoop_cmd->header);
 
     if ( hadoop_cmd->header == INIT_MSG ) {
-        assert (hadoop_cmd->count > 2); // sanity under debug
+        assert (hadoop_cmd->count -1 > 2); // sanity under debug
         task->num_maps = atoi(hadoop_cmd->params[0]); 
         task->job_id = strdup(hadoop_cmd->params[1]);
         task->reduce_task_id = strdup(hadoop_cmd->params[2]);
 
         const int DIRS_START = 3;
-        if (hadoop_cmd->count > DIRS_START) {
-        	int num_dirs = atoi(hadoop_cmd->params[DIRS_START]);
-        	output_stdout("%s: ===>>> num_dirs=%d" , __func__, num_dirs);
+        if (hadoop_cmd->count -1  > DIRS_START) {
+        	assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
+        	if (hadoop_cmd->params[DIRS_START] != NULL) {
+			int num_dirs = atoi(hadoop_cmd->params[DIRS_START]);
+			output_stdout("%s: ===>>> num_dirs=%d" , __func__, num_dirs);
 
-        	assert (hadoop_cmd->count >= 0); // sanity under debug
-        	if (num_dirs > 0 && DIRS_START + 1 + num_dirs  <= hadoop_cmd->count) {
-        		task->local_dirs.resize(num_dirs);
-        		for (int i = 0; i < num_dirs; ++i) {
+			assert (num_dirs >= 0); // sanity under debug
+			if (num_dirs > 0 && DIRS_START + 1 + num_dirs  <= hadoop_cmd->count - 1) {
+				task->local_dirs.resize(num_dirs);
+				for (int i = 0; i < num_dirs; ++i) {
 					task->local_dirs[i].assign(hadoop_cmd->params[DIRS_START + 1 + i]);
 					output_stdout("%s: -> dir[%d]=%s" , __func__, i, task->local_dirs[i].c_str());
-        		}
+				}
+			}
         	}
         }
         init_reduce_task(task);
@@ -216,10 +220,12 @@ static void init_reduce_task(struct reduce_task *task)
              "Total Map is %d", 
              task->num_maps);     
     
+    int num_lpqs = (int) sqrt(task->num_maps);
     /* Initialize a merge manager thread */
     task->merge_man = new MergeManager(1, &merging_sm.dir_list,
                                        merging_sm.online, 
-                                       task);
+                                       task,
+                                       num_lpqs);
 
     memset(&task->merge_thread, 0, sizeof(netlev_thread_t));
     task->merge_thread.stop = 0;

@@ -32,8 +32,6 @@ extern merging_state_t merging_sm;
         
 int num_stage_mem = 2;
 
-#define NUM_LPQS 20 // AVNER: of course - this is very temp
-
 void *upload_online(reduce_task_t *task)
 {
     MergeManager *merger = task->merge_man;
@@ -207,19 +205,13 @@ void *merge_online (reduce_task_t *task)
 
 void *merge_hybrid (reduce_task_t *task)
 {
-	if (task->num_maps < NUM_LPQS) return merge_online(task);
+	if (task->num_maps < task->merge_man->num_lpqs) return merge_online(task);
 
 	bool b = true;
 	int32_t total_write;
 
-/*
-	//1st fetch is smaller than subsequent fetches - TODO: make the last one the smallest...
-	const int max_maps_in_lpq = (task->num_maps + NUM_LPQS - 1) / NUM_LPQS;
-	int num_to_fetch = task->num_maps % max_maps_in_lpq;
-	const int subsequent_fetch = max_maps_in_lpq;
-	if (!num_to_fetch) num_to_fetch = max_maps_in_lpq;
-//*/
-	const int regular_lpqs = NUM_LPQS - 1; // all lpqs but the 1st will have same number of segments
+
+	const int regular_lpqs = task->merge_man->num_lpqs - 1; // all lpqs but the 1st will have same number of segments
 	int num_to_fetch = 0;
 	int subsequent_fetch = 0;
 	if (task->num_maps % regular_lpqs) {
@@ -227,24 +219,28 @@ void *merge_hybrid (reduce_task_t *task)
 		subsequent_fetch = task->num_maps / regular_lpqs;
 	}
 	else {
-		subsequent_fetch = task->num_maps / NUM_LPQS; // can't use previous attitude
-		num_to_fetch = subsequent_fetch + task->num_maps % NUM_LPQS; // put the extra segments in 1st lpq
+		subsequent_fetch = task->num_maps / task->merge_man->num_lpqs; // can't use previous attitude
+		num_to_fetch = subsequent_fetch + task->num_maps % task->merge_man->num_lpqs; // put the extra segments in 1st lpq
 	}
 
-	MergeQueue<Segment*>* merge_lpq[NUM_LPQS];// = new MergeQueue<Segment*>(subsequent_fetch);
+
+	MergeQueue<Segment*>* merge_lpq[task->merge_man->num_lpqs];
 	char temp_file[PATH_MAX];
+	static int lpq_shared_counter = -1; // shared between all reducers of all threads
 	for (int i = 0; task->merge_man->total_count < task->num_maps; ++i)
 	{
 		output_stdout("%s: ====== [%d] Creating LPQ for %d segments (already fetched=%d; num_maps=%d)", __func__ , i, num_to_fetch, task->merge_man->total_count, task->num_maps);
-		merge_lpq[i] = new MergeQueue<Segment*>(num_to_fetch);;
+
+
+		int local_counter = ++lpq_shared_counter; // not critical to sync between threads here
+		local_counter %= task->local_dirs.size();
+		const string & dir = task->local_dirs[local_counter]; //just ref - no copy
+		sprintf(temp_file, "%s/NetMerger.%s.lpq-%d", dir.c_str(), task->reduce_task_id, i);
+		merge_lpq[i] = new MergeQueue<Segment*>(num_to_fetch, temp_file);
 		merge_do_fetching_phase(task, merge_lpq[i], num_to_fetch);
 
-		// the right location for this block is in the fetching loop
-		// however, it seems to cause problems; hence, it is temporarily
-		// moved the building RPQ loop
-		sprintf(temp_file, "/data1/NetMerger.%s.lpq-%d", task->reduce_task_id, i);
-		output_stdout("%s: [%d] === Enter merging LPQ using file: %s", __func__ ,i, temp_file);
-		b = write_kv_to_file(merge_lpq[i], temp_file, total_write);
+		output_stdout("%s: [%d] === Enter merging LPQ using file: %s", __func__ ,i, merge_lpq[i]->filename.c_str());
+		b = write_kv_to_file(merge_lpq[i], merge_lpq[i]->filename.c_str(), total_write);
 		output_stdout("%s: ===after merge of LPQ b=%d, total_write=%d", __func__ , (int)b, total_write);
 		// end of block from previous loop
 
@@ -252,11 +248,10 @@ void *merge_hybrid (reduce_task_t *task)
 	}
 
 	output_stdout("%s: === ALL LPQs completed  building RPQ...", __func__ );
-	for (int i = 0; i < NUM_LPQS ; ++i)
+	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
 	{
-		sprintf(temp_file, "/data1/NetMerger.%s.lpq-%d", task->reduce_task_id, i);
-		output_stdout("%s [%d] === inserting LPQ using file: %s", __func__ , i, temp_file);
-		task->merge_man->merge_queue->insert(new SuperSegment(task, temp_file));
+		output_stdout("%s [%d] === inserting LPQ using file: %s", __func__ , i, merge_lpq[i]->filename.c_str());
+		task->merge_man->merge_queue->insert(new SuperSegment(task, merge_lpq[i]->filename.c_str()));
 		output_stdout("%s [%d] === after insert LPQ into RPQ", __func__ , i);
 		num_to_fetch = subsequent_fetch;
 	}
@@ -266,7 +261,7 @@ void *merge_hybrid (reduce_task_t *task)
 	// TODO: AVNER: delete merge_lpq:
 	// - something like: merge_queue->core_queue.clear(); delete merge_queue;
 	//
-	for (int i = 0; i < NUM_LPQS ; ++i)
+	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
 	{
 		merge_lpq[i]->core_queue.clear();
 		delete merge_lpq[i];
@@ -370,7 +365,7 @@ MapOutput::~MapOutput()
 
 /* The following is for MergeManager */
 MergeManager::MergeManager(int threads, list_head_t *list,
-                           int online, struct reduce_task *task)
+                           int online, struct reduce_task *task, int _num_lpqs) : num_lpqs(_num_lpqs)
 {
     this->task = task;
     this->dir_list = list;
@@ -385,10 +380,13 @@ MergeManager::MergeManager(int threads, list_head_t *list,
     
     if (online) {    
 
-    	if (online == 1)
+    	if (online == 1) {
     		merge_queue = new MergeQueue<Segment*>(task->num_maps);
-    	else //online == 2
-    		merge_queue = new MergeQueue<Segment*>(NUM_LPQS);
+    	}
+    	else { //online == 2
+    		output_stdout("hybrid merge will use %d lpqs", num_lpqs);
+    		merge_queue = new MergeQueue<Segment*>(num_lpqs);
+    	}
 
         /* get staging mem from memory_pool*/
         pthread_mutex_lock(&task->kv_pool.lock);

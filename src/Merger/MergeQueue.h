@@ -204,6 +204,8 @@ private:
     T min_segment;
     DataStream *key;
     DataStream *val;
+public:
+    const std::string filename;
 
 public: 
 
@@ -266,7 +268,7 @@ public:
     int32_t get_key_bytes(){return this->min_segment->kbytes;}
     int32_t get_val_bytes() {return this->min_segment->vbytes;}
 
-    MergeQueue(int numMaps){
+      MergeQueue(int numMaps, const char*fname = "") : filename(fname){
         this->mSegments = NULL;
         this->min_segment = NULL;
         this->key = NULL;
