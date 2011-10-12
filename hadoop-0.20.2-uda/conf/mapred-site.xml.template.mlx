@@ -4,7 +4,7 @@
 <!-- Put site-specific property overrides in this file. -->
 
 <configuration>
-      <property>
+        <property>
            <name>mapred.job.tracker</name>
            <value>eagle1-ib:9001</value>
       </property>
@@ -88,12 +88,13 @@
 
        <property>
             <name>mapred.local.dir</name>
-            <value>/hadoop1/dfs/tmp,/hadoop2/dfs/tmp</value>
+            <value>/hadoop1/mapred/tmp,/hadoop2/mapred/tmp</value>
 			<description>The local directory where MapReduce stores intermediate
 			data files.  May be a comma-separated list of
 			directories on different devices in order to spread disk i/o.
 			Directories that do not exist are ignored.
   </description>
+  </property>
   <property>
 	  <name>mapred.tasktracker.dns.interface</name>
 	  <value>ib0</value>
