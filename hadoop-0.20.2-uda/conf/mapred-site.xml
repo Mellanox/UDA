@@ -37,10 +37,11 @@
            <!-- merging approach
            0: on-disk merge
            1: online merge
+           2: hybrid merge using multiple spindles
            C++ cmd line tag: -a
            -->
            <name>mapred.netmerger.merge.approach</name>
-           <value>1</value>
+           <value>2</value>
       </property>
       <property>
            <!-- mapred.rdma.mofsupplier defines the location of C++ driver
