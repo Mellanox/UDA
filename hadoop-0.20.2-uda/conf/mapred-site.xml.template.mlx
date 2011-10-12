@@ -74,7 +74,7 @@
              C++ cmd line tag: -g
              -->
             <name>mapred.rdma.log.dir</name>
-            <value>/hadoop/logs</value>
+            <value>logs/</value>
       </property>
 
       <property>
@@ -85,9 +85,22 @@
             <name>mapred.netmerger.listener.port</name>
             <value>9012</value>
       </property>
-      <property>
-             <name>mapreduce.cluster.local.dir</name>
-             <value>/hadoop/dfs/tmp</value>
-      </property>
+
+       <property>
+            <name>mapred.local.dir</name>
+            <value>/hadoop1/dfs/tmp,/hadoop2/dfs/tmp</value>
+			<description>The local directory where MapReduce stores intermediate
+			data files.  May be a comma-separated list of
+			directories on different devices in order to spread disk i/o.
+			Directories that do not exist are ignored.
+  </description>
+  <property>
+	  <name>mapred.tasktracker.dns.interface</name>
+	  <value>ib0</value>
+	  <description>The name of the Network Interface from which a data node should 
+	  report its IP address.
+	  </description>
+ </property>
+
 
 </configuration>

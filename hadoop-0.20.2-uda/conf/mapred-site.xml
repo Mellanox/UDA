@@ -37,11 +37,10 @@
            <!-- merging approach
            0: on-disk merge
            1: online merge
-           2: hybrid merge using multiple spindles
            C++ cmd line tag: -a
            -->
            <name>mapred.netmerger.merge.approach</name>
-           <value>2</value>
+           <value>1</value>
       </property>
       <property>
            <!-- mapred.rdma.mofsupplier defines the location of C++ driver
@@ -75,7 +74,7 @@
              C++ cmd line tag: -g
              -->
             <name>mapred.rdma.log.dir</name>
-            <value>logs</value>
+            <value>logs/</value>
       </property>
 
       <property>
@@ -88,9 +87,20 @@
       </property>
 
        <property>
-            <name>mapreduce.cluster.local.dir</name>
-            <value>/hadoop/dfs/tmp</value>
-      </property>
+            <name>mapred.local.dir</name>
+            <value>/hadoop1/dfs/tmp,/hadoop2/dfs/tmp</value>
+			<description>The local directory where MapReduce stores intermediate
+			data files.  May be a comma-separated list of
+			directories on different devices in order to spread disk i/o.
+			Directories that do not exist are ignored.
+  </description>
+  <property>
+	  <name>mapred.tasktracker.dns.interface</name>
+	  <value>ib0</value>
+	  <description>The name of the Network Interface from which a data node should 
+	  report its IP address.
+	  </description>
+ </property>
 
 
 </configuration>
