@@ -538,7 +538,7 @@
     <tar compression="gzip" destfile="${build.classes}/bin.tgz">
       <tarfileset dir="bin" mode="755"/>
     </tar>
-    <jar jarfile="${build.dir}/hadoop-${final.name}-core.jar"
+    <jar jarfile="${build.dir}/hadoop-${vanilla.base.version}-core.jar"
          basedir="${build.classes}">
       <manifest>
         <section name="org/apache/hadoop">
@@ -560,7 +560,7 @@
   <!--                                                                    -->
   <!-- ================================================================== -->
   <target name="examples" depends="jar, compile-examples" description="Make the Hadoop examples jar.">
-    <jar jarfile="${build.dir}/hadoop-${final.name}-examples.jar"
+    <jar jarfile="${build.dir}/hadoop-${vanilla.base.version}-examples.jar"
          basedir="${build.examples}">
       <manifest>
         <attribute name="Main-Class" 
@@ -571,7 +571,7 @@
 
   <target name="tools-jar" depends="jar, compile-tools" 
           description="Make the Hadoop tools jar.">
-    <jar jarfile="${build.dir}/hadoop-${final.name}-tools.jar"
+    <jar jarfile="${build.dir}/hadoop-${vanilla.base.version}-tools.jar"
          basedir="${build.tools}">
       <manifest>
         <attribute name="Main-Class" 
@@ -691,7 +691,7 @@
   <!--                                                                    -->
   <!-- ================================================================== -->
   <target name="jar-test" depends="compile-core-test" description="Make hadoop-test.jar">
-    <jar jarfile="${build.dir}/hadoop-${final.name}-test.jar"
+    <jar jarfile="${build.dir}/hadoop-${vanilla.base.version}-test.jar"
          basedir="${test.build.classes}">
          <manifest>
            <attribute name="Main-Class"
@@ -847,10 +847,10 @@
       <sourcePath path="${examples.dir}" />
       <sourcePath path="${tools.src}" />
       <sourcePath path="${basedir}/src/contrib/streaming/src/java" />
-      <class location="${basedir}/build/hadoop-${final.name}-core.jar" />
-      <class location="${basedir}/build/hadoop-${final.name}-examples.jar" />
-      <class location="${basedir}/build/hadoop-${final.name}-tools.jar" />
-      <class location="${basedir}/build/contrib/streaming/hadoop-${final.name}-streaming.jar" />
+      <class location="${basedir}/build/hadoop-${vanilla.base.version}-core.jar" />
+      <class location="${basedir}/build/hadoop-${vanilla.base.version}-examples.jar" />
+      <class location="${basedir}/build/hadoop-${vanilla.base.version}-tools.jar" />
+      <class location="${basedir}/build/contrib/streaming/hadoop-${vanilla.base.version}-streaming.jar" />
     </findbugs>
 
         <xslt style="${findbugs.home}/src/xsl/default.xsl"
@@ -1102,7 +1102,7 @@
     </copy>
 
     <copy todir="${dist.dir}"> 
-      <fileset file="${build.dir}/hadoop-${final.name}-*.jar"/>
+      <fileset file="${build.dir}/hadoop-${vanilla.base.version}-*.jar"/>
     </copy>
     
     <copy todir="${dist.dir}/bin">
@@ -1208,7 +1208,7 @@
     </copy>
 
     <copy todir="${dist.dir}"> 
-      <fileset file="${build.dir}/hadoop-${final.name}-*.jar"/>
+      <fileset file="${build.dir}/hadoop-${vanilla.base.version}-*.jar"/>
     </copy>
     
     <copy todir="${dist.dir}/bin">

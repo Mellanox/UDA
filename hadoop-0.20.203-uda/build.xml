@@ -31,15 +31,14 @@
   <property name="version" value="2.0.2"/>
   <property name="vanilla.base.version" value="0.20.203"/>
   <property name="final.name" value="${name}-${version}-HADOOP-${vanilla.base.version}"/>
-  <property name="test.final.name" value="${name}-test-${version}"/>
+  <property name="test.final.name" value="${hadoop}-test-${vanilla.base.version}"/>
   <property name="year" value="2011"/>
   
-  <property name="core.final.name" value="hadoop-core-${name}-${version}"/>
-  <!--property name="test.final.name" value="hadoop-test-${version}"/-->
-  <property name="examples.final.name" value="hadoop-examples-${name}-${version}"/>
-  <property name="tools.final.name" value="hadoop-tools-${name}-${version}"/>
-  <property name="ant.final.name" value="hadoop-ant-${name}-${version}"/>
-  <property name="streaming.final.name" value="hadoop-streaming-${name}-${version}"/>
+  <property name="core.final.name" value="hadoop-core-${vanilla.base.version}"/>
+  <property name="examples.final.name" value="hadoop-examples-${vanilla.base.version}"/>
+  <property name="tools.final.name" value="hadoop-tools-${vanilla.base.version}"/>
+  <property name="ant.final.name" value="hadoop-ant-${vanilla.base.version}"/>
+  <property name="streaming.final.name" value="hadoop-streaming-${vanilla.base.version}"/>
 
   <property name="src.dir" value="${basedir}/src"/>  	
   <property name="core.src.dir" value="${src.dir}/core"/>
