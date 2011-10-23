@@ -309,8 +309,9 @@ server_cm_handler(progress_event_t *pevent, void *data)
             output_stderr("Server got unknown event %d, bailing out", 
                     cm_event->event);
             if (cm_event->id) {
-                if (rdma_destroy_id(cm_event->id))
+                if (rdma_destroy_id(cm_event->id)){
                     output_stderr("rdma_destroy_id failed");
+                }
             }
             /* XXX: Trigger the exit of all threads */
             exit (1);

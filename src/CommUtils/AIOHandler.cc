@@ -112,11 +112,13 @@ int AIOHandler::submit() {
 	if (_cbRowIndex != 0) {
 		pthread_mutex_lock(&_cbRowLock);
 		if (_cbRowIndex != 0) {
-			if ((rc = io_submit(_context, _cbRowIndex, _cbRow)) <= 0)
+			if ((rc = io_submit(_context, _cbRowIndex, _cbRow)) <= 0) {
 				output_stderr("[%s,%d] io_submit (read) failure: rc=%d",__FILE__,__LINE__, rc);
+			}
 
-			if (rc != _cbRowIndex)
+			if (rc != _cbRowIndex) {
 				output_stderr("[%s,%d] io_submit unexpectedly returned only %d submitted operations , instead of %d",__FILE__,__LINE__, rc, _cbRowIndex);
+			}
 
 			_cbRowIndex=0;
 		}

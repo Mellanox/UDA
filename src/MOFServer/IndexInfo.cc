@@ -300,9 +300,9 @@ DataEngine::start()
                 string mapid(comp->mapid);
                 
                 rc = read_mof_index_records(jobid, mapid);
-                if (rc)
+                if (rc) {
                 	output_stderr("[%s,%d] failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s",__FILE__,__LINE__, jobid, mapid);
-
+                }
                 free (comp->jobid);
                 free (comp->mapid);
                 free (comp);
@@ -352,8 +352,9 @@ int DataEngine::read_mof_index_records(const string &jobid, const string &mapid)
     }
     else {
     	rc = read_records(ifile, idx_path, 0);
-    	if (rc)
+    	if (rc) {
     		output_stderr("[%s,%d] failed to read_records idx_path=%s  ",__FILE__,__LINE__,idx_path.c_str() );
+    	}
     }
 
     return rc;

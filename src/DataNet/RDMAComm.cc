@@ -524,9 +524,10 @@ netlev_init_conn(struct rdma_cm_event *event,
 err_rdma_conn:
     netlev_conn_free(conn);
 err_alloc_dev:
-    if (rdma_reject(event->id, NULL, 0) != 0) 
+    if (rdma_reject(event->id, NULL, 0) != 0) {
         output_stderr("[%s,%d] rdma_reject failed",
                       __FILE__,__LINE__);
+    }
     return NULL;
 }
 
