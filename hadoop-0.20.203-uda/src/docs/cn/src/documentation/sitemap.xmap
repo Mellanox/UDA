@@ -21,7 +21,7 @@
       <map:serializer name="fo2pdf"
                 src="org.apache.cocoon.serialization.FOPSerializer"
                 mime-type="application/pdf">
-        <user-config src="/home/oom/work/eclipse/branch-0.20-security-203/src/docs/cn/uming.conf"/>
+        <user-config src="/.autodirect/mswg/projects/hadoop/idanwe/workspace/trunk/hadoop-0.20.203-uda/src/docs/cn/uming.conf"/>
         </map:serializer>
     </map:serializers>
   </map:components>
