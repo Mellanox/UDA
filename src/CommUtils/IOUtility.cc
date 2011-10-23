@@ -24,6 +24,57 @@
 
 using namespace std;
 
+
+log_severity_t g_log_threshold = DEFAULT_LOG_THRESHOLD;
+void log_set_threshold(log_severity_t _threshold)
+{
+	g_log_threshold = (lsNONE <= _threshold && _threshold <= lsALL) ? _threshold : DEFAULT_LOG_THRESHOLD;
+}
+
+void log_func(const char * func, const char * file, int line, log_severity_t severity, const char *fmt, ...)
+{
+	if (severity <= lsNONE) return; //sanity (no need to check upper bound since we already checked threshold )
+
+	// all log goes to stderr!
+    static FILE *stream = stderr; // will be evaluated at first call to the function
+
+    static const char *severity_string[] = {
+		"NONE",
+		"FATAL",
+		"ERROR",
+		"WARN",
+		"INFO",
+		"DEBUG",
+		"TRACE"
+		"ALL"
+    };
+
+    time_t _time = time(0);
+    struct tm _tm;
+    localtime_r(&_time, &_tm);
+
+    const int SIZE = 1024;
+    char s1[SIZE];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(s1, SIZE, fmt, ap);
+    va_end(ap);
+    s1[SIZE-1] = '\0';
+
+  fprintf(stream, "%02d:%02d:%02d %-5s [thr=%d %s() %s:%d] %s\n",
+		  _tm.tm_hour,
+		  _tm.tm_min,
+		  _tm.tm_sec,
+
+		  severity_string[severity],
+
+		  (int)pthread_self(), func, file, line,
+
+		  s1);
+    fflush(stream);
+}
+
+
 /* FileStream class */
 NetStream::NetStream(int socket)
 {
@@ -499,6 +550,7 @@ void write_log(FILE *log, int dbg, const char *fmt, ...)
     }
 }
 
+#if 0
 void output_stderr(const char *fmt, ...)
 {
     static FILE *stream = stderr; // will be evaluated at first call to the function
@@ -563,7 +615,7 @@ void output_stdout(const char *fmt, ...)
     }
     fflush(stream);
 }
-
+#endif
 
 FILE* create_log(const char *log_name)
 {

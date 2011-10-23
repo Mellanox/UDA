@@ -48,6 +48,8 @@ static void usage(const char *cmd)
                    "   Stand alone mode or integrated mode\n");
     printf("  -g | --log               "
                    "   Log directory for NetMerger and MOFSupplier\n");
+    printf("  -t | --trace-level       "
+                   "   threshold for log level for NetMerger and MOFSupplier\n");
     printf("  -h | --help              "
                    "    Display this help and exit\n\n");
    
@@ -64,11 +66,12 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         {"merge",         1, NULL, 'a'},
         {"mode",          1, NULL, 'm'},
         {"log",           1, NULL, 'g'},
+        {"trace-level",   1, NULL, 't'},
         {"help",          0, NULL, 'h'},
         {NULL,            0, NULL,  0 }
     };
 
-    while ((choice = getopt_long(argc, argv, "c:r:l:a:m:g:h", 
+    while ((choice = getopt_long(argc, argv, "c:r:l:a:m:g:t:h",
                             longopts, NULL)) != -1) {
         switch (choice) {
         case 'c':
@@ -112,6 +115,16 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
                        default_log) == 0) {
                 record = false;
             }
+            break;
+
+        case 't':
+			{
+				log_severity_t  _treshold = (log_severity_t)strtol(optarg, NULL, 10);
+				if (errno) {
+					goto err_options;
+				}
+				log_set_threshold(_treshold);
+			}
             break;
         case 'h':
             usage(argv[0]);

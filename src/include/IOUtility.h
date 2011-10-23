@@ -187,10 +187,35 @@ FILE* create_log(const char *log_name);
 void close_log(FILE *log);
 void redirect_stderr(const char *);
 void redirect_stdout(const char *);
-void output_stderr(const char *fmt, ...);
-void output_stdout(const char *fmt, ...);
+#define output_stderr(...) log(lsERROR, __VA_ARGS__) // support for deprecated code
+#define output_stdout(...) log(lsINFO,  __VA_ARGS__) // support for deprecated code
+
+
 
 void print_backtrace(void);
+
+// -- Avner: Here we start a fully fledged log facility --
+
+enum log_severity_t {
+	// NOTE: changes here MUST be reflected in severity_string array in *.cc file
+	lsNONE,
+	lsFATAL,
+	lsERROR,
+	lsWARN,
+	lsINFO,
+	lsDEBUG,
+	lsTRACE,
+	lsALL,
+};
+
+const log_severity_t DEFAULT_LOG_THRESHOLD = lsWARN;
+extern log_severity_t g_log_threshold;
+void log_set_threshold(log_severity_t _threshold);
+void log_func(const char * func, const char * file, int line, log_severity_t severity, const char *fmt, ...); // should not be called directly
+
+// THE log macro that should be used everywhere...
+#define log(severity, ...) if (severity <= g_log_threshold) log_func(__func__, __FILE__, __LINE__, severity, __VA_ARGS__); else
+
 
 #endif
 
