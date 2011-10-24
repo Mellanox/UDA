@@ -208,7 +208,7 @@ enum log_severity_t {
 	lsALL,
 };
 
-const log_severity_t DEFAULT_LOG_THRESHOLD = lsWARN;
+const log_severity_t DEFAULT_LOG_THRESHOLD = lsINFO; // temporary backward compatibility for other developers...
 extern log_severity_t g_log_threshold;
 void log_set_threshold(log_severity_t _threshold);
 void log_func(const char * func, const char * file, int line, log_severity_t severity, const char *fmt, ...); // should not be called directly
