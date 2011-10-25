@@ -53,17 +53,17 @@ fi
 
 if [ -z "$DATA_SET" ]
 then
-	DATA_SET="1 5 10 20 40 80"
+	DATA_SET="16"
 fi
 
 if [ -z "$NR" ]
 then
-	NR="1 2 4 8"
+	NR="4"
 fi
 
 if [ -z "$NM" ]
 then
-	NM="4 8"
+	NM="8"
 fi
 
 if [ -z "$NSAMPLES" ]
@@ -72,7 +72,21 @@ then
 fi
 
 rdma="UNKNOWN"
+merge_approach="UNKNOWN"
+interface="UNKNOWN"
 rdma=`grep -A 1 "rdma.setting" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>1</value>"`
+merge_approach=`grep -A 1 "merge.approach" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>1</value>"`
+
+if (( $merge_approach==0 ))
+    then
+	merge_approach=2
+fi
+interface=`grep -A 1 "mapred.tasktracker.dns.interface" $HADOOP_CONF_DIR/mapred-site.xml`
+
+disks=$(cat $HADOOP_HOME/conf/mapred-site.xml | grep -A 1 ">mapred.tasktracker.dns.interface<")
+aa=`echo $disks | awk 'BEGIN { FS = "name> <value>"} ; { print $2}'`
+bb=`echo $aa | awk 'BEGIN { FS = "<"} ; { print $1}'`
+
 hadoop_version=`echo $(basename $HADOOP_HOME) | sed s/[.]/_/g`
 
 echo "$(basename $0): Dynamic Parameters: (that can be exported by user)"
@@ -92,8 +106,9 @@ echo "$(basename $0): Static Parameters: (that calculated by script and cannot b
 echo "$(basename $0): ------------------------------------------"
 echo "$(basename $0): SCRIPTS_DIR=$SCRIPTS_DIR (scripts will be copied to this local path on each node - unless -skip_nfs arg added)"
 echo "$(basename $0): rdma.setting=$rdma"
+echo "$(basename $0): merge_approach=$merge_approach"
 echo "$(basename $0): hadoop version=$hadoop_version"
-
+echo "$(basename $0): interface=$bb"
 
 if [[ $@ = *-show* ]]
 then
@@ -155,7 +170,7 @@ fi
 for node_scale in ${CLUSTER_NODES} ; do
 
 	disks=$((`cat $HADOOP_CONF_DIR/hdfs-site.xml | grep -A 1 ">dfs.data.dir<" | grep -o "," | wc -l | sed s/\ //g` + 1))
-	log_prefix=${hadoop_version}.${host_tail}.rdma${rdma}.${node_scale}n.${disks}d.$$
+	log_prefix=${hadoop_version}.${host_tail}.rdma${rdma}.merge_approach${merge_approach}.${node_scale}n.${disks}d.$$
 	
 	echo "$(basename $0): Modify slaves conf file to enable $nodes_scale hostnames"
 	$SCRIPTS_DIR/mark_slaves.sh $node_scale
@@ -234,7 +249,8 @@ for node_scale in ${CLUSTER_NODES} ; do
 								if ((attempt>1))
 								then
 									echo "$(basename $0): first attempt failed - restart hadoop without forcing DFS format"
-								        ${SCRIPTS_DIR}/start_hadoop.sh 4 -terasort #4 retries
+
+								        ${SCRIPTS_DIR}/start_hadoop.sh 4 -teragen #4 retries
 								        code=$?
 								        if ((code!=0))
 								        then
@@ -243,7 +259,7 @@ for node_scale in ${CLUSTER_NODES} ; do
 									fi
 								else
 									echo "$(basename $0): more then one attempt failed - restart hadoop AND FORCING DFS format"
-								        ${SCRIPTS_DIR}/start_hadoop.sh 4 -restart -terasort #4 retries
+								        ${SCRIPTS_DIR}/start_hadoop.sh 4 -restart -teragen #4 retries
 									code=$?
 								        if ((code!=0))
 								        then

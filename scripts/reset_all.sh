@@ -27,7 +27,7 @@ sudo bin/slaves.sh pkill "'(java|python|NetMerger|MOFSupplier)'"
 sleep 2
 
 # check for processes that did not respond to termination signals
-live_processes=$(( `bin/slaves.sh ps -e | grep -Ec '(MOFSupplier|NetMerger|java)'` + `ps -e | grep -Ec '(MOFSupplier|NetMerger|java)'`  ))  
+live_processes=$(( `bin/slaves.sh ps -e | grep -c '(MOFSupplier|NetMerger|java)'` + `ps -e | grep -c '(MOFSupplier|NetMerger|java)'`  )) # -1 for counted grep process 
 
 if [ $live_processes != 0 ]
 then
@@ -38,7 +38,7 @@ fi
 
 sleep 2
 # check if after kill -9 there are live processes
-live_processes=$(( `bin/slaves.sh ps -e | grep -Ec '(MOFSupplier|NetMerger|java)'` + `ps -e | grep -Ec '(MOFSupplier|NetMerger|java)'`  )) 
+live_processes=$(( `bin/slaves.sh ps -e | grep -c '(MOFSupplier|NetMerger|java)'` + `ps -e | grep -c '(MOFSupplier|NetMerger|java)'`  ))  # -1 for counted grep process
 
 if [ $live_processes != 0 ]
 then
@@ -59,23 +59,24 @@ fi
 if [[  $@ = *-format* ]]
 then
 
-	echo "$(basename $0): removing /data2 - /data5 files"
-	sudo rm -rf /data2/* /data3/* /data4/* /data5/*
-	sudo bin/slaves.sh rm -rf /data2/* /data3/* /data4/* /data5/*
+	#echo "$(basename $0): removing /data2 - /data5 files"
+	#sudo rm -rf /data2/* /data3/* /data4/* /data5/*
+	#sudo bin/slaves.sh rm -rf /data2/* /data3/* /data4/* /data5/*
 
 	echo "$(basename $0) formating namenode"
-	format_output=`bin/hadoop namenode -format 2>&1`
-	echo $format_output
+	echo "going to fm_part"
+	$(dirname $0)/fm_part.sh 
+	#format_output=`bin/hadoop namenode -format 2>&1`
+	#echo $format_output
 
-	if [[ $format_output != *successfully* ]]
-	then
-		echo "$(basename $0): ERROR - failed to format DFS"
-		exit 1;
-	fi
+	#if [[ $format_output != *successfully* ]]
+	#then
+	#	echo "$(basename $0): ERROR - failed to format DFS"
+	#	exit 1;
+	#fi
 	sleep 6
 
 fi
-
 
 
 exit 0;
