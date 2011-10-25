@@ -43,6 +43,7 @@
 		<!-- merging approach
 			0: on-disk merge
 			1: online merge
+			2: hybrid merge
 			C++ cmd line tag: -a
 		 -->
 		<name>mapred.netmerger.merge.approach</name>
