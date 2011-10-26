@@ -1419,7 +1419,7 @@
     </copy>
 
     <copy todir="${dist.dir}"> 
-      <fileset file="${build.dir}/hadoop-*-${version}.jar"/>
+      <fileset file="${build.dir}/hadoop-*-${vanilla.base.version}.jar"/>
     </copy>
     
     <copy todir="${dist.dir}/bin">
