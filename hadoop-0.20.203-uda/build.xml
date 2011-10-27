@@ -28,7 +28,7 @@
  
   <property name="Name" value="UDA"/>
   <property name="name" value="UDA"/>
-  <property name="version" value="2.0.4"/>
+  <property name="version" value="2.0.5"/>
   <property name="vanilla.base.version" value="0.20.203"/>
   <property name="final.name" value="${name}-${version}-HADOOP-${vanilla.base.version}"/>
   <property name="test.final.name" value="hadoop-test-${vanilla.base.version}"/>
