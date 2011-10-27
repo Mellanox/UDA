@@ -227,7 +227,6 @@ void *merge_hybrid (reduce_task_t *task)
 	MergeQueue<Segment*>* merge_lpq[task->merge_man->num_lpqs];
 	char temp_file[PATH_MAX];
 	static int lpq_shared_counter = -1; // shared between all reducers of all threads
-	vector<string> lpq_file(task->merge_man->num_lpqs);
 	for (int i = 0; task->merge_man->total_count < task->num_maps; ++i)
 	{
 		output_stdout("%s: ====== [%d] Creating LPQ for %d segments (already fetched=%d; num_maps=%d)", __func__ , i, num_to_fetch, task->merge_man->total_count, task->num_maps);
@@ -243,11 +242,7 @@ void *merge_hybrid (reduce_task_t *task)
 		output_stdout("%s: [%d] === Enter merging LPQ using file: %s", __func__ ,i, merge_lpq[i]->filename.c_str());
 		b = write_kv_to_file(merge_lpq[i], merge_lpq[i]->filename.c_str(), total_write);
 		output_stdout("%s: ===after merge of LPQ b=%d, total_write=%d", __func__ , (int)b, total_write);
-
-		// TEMP CODE - release lpq resources after keeping filename
-		lpq_file[i] = merge_lpq[i]->filename;
-		merge_lpq[i]->core_queue.clear();
-		delete merge_lpq[i];
+		// end of block from previous loop
 
 		num_to_fetch = subsequent_fetch;
 	}
@@ -255,10 +250,21 @@ void *merge_hybrid (reduce_task_t *task)
 	output_stdout("%s: === ALL LPQs completed  building RPQ...", __func__ );
 	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
 	{
-		output_stdout("%s [%d] === inserting LPQ using file: %s", __func__ , i, lpq_file[i].c_str());
-		task->merge_man->merge_queue->insert(new SuperSegment(task, lpq_file[i].c_str()));
+		output_stdout("%s [%d] === inserting LPQ using file: %s", __func__ , i, merge_lpq[i]->filename.c_str());
+		task->merge_man->merge_queue->insert(new SuperSegment(task, merge_lpq[i]->filename.c_str()));
 		output_stdout("%s [%d] === after insert LPQ into RPQ", __func__ , i);
 		num_to_fetch = subsequent_fetch;
+	}
+
+
+	//
+	// TODO: AVNER: delete merge_lpq:
+	// - something like: merge_queue->core_queue.clear(); delete merge_queue;
+	//
+	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
+	{
+		merge_lpq[i]->core_queue.clear();
+		delete merge_lpq[i];
 	}
 
 	output_stdout("%s: RPQ phase: going to merge all LPQs...", __func__ );
