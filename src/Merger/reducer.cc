@@ -310,7 +310,9 @@ reduce_task_t *spawn_reduce_task(int mode, reduce_socket_t *sock)
 
 void finalize_reduce_task(reduce_task_t *task) 
 {
-   /* for measurement please enable the codes and set up your directory */ 
+   /* for measurement please enable the codes and set up your directory */
+	log(lsTRACE, "function started");
+
     write_log(task->reduce_log, DBG_CLIENT, 
               "Total merge time: %d",  
               task->total_merge_time);
@@ -390,6 +392,7 @@ void finalize_reduce_task(reduce_task_t *task)
     free(task->reduce_task_id);
     free(task->job_id);
     free(task);
+	log(lsTRACE, "function ended");
 }
 
 /*
