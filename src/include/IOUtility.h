@@ -195,7 +195,7 @@ void redirect_stdout(const char *);
 
 
 
-void print_backtrace(void);
+void print_backtrace(const char *label = NULL);
 
 // -- Avner: Here we start a fully fledged log facility --
 

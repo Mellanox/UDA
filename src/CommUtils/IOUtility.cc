@@ -45,7 +45,7 @@ void log_func(const char * func, const char * file, int line, log_severity_t sev
 		"WARN",
 		"INFO",
 		"DEBUG",
-		"TRACE"
+		"TRACE",
 		"ALL"
     };
 
@@ -674,15 +674,18 @@ void redirect_stdout(const char *proc)
 
 
 //------------------------------------------------------------------------------
-void print_backtrace(void)
+void print_backtrace(const char *label)
 {
 	char **strings;
 	void* _backtrace[25];
 	int backtrace_size = backtrace(_backtrace, 25);
-	output_stdout("=== printing _backtrace backtrace_size=%d", backtrace_size);
 	strings = backtrace_symbols(_backtrace, backtrace_size);
+//	log(lsTRACE, "=== backtrace label=%s: size=%d caller=%s ", label, backtrace_size, strings[1]); // will catch even caller of inline functions too
+//*
+	log(lsTRACE, "=== label=%s: printing backtrace with size=%d", label, backtrace_size);
 	for (int i = 0; i < backtrace_size; i++)
-		output_stdout("=== [%i] %p: %s", i, _backtrace[i], strings[i]);
+		log(lsTRACE, "=== label=%s: [%i] %s", label, i, strings[i]);
+//*/
 	free(strings);
 }
 
