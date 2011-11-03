@@ -27,6 +27,7 @@
 AUTOMAKE_OPTIONS = subdir-objects
 
 ACLOCAL_AMFLAGS = -I m4
+AM_LDFLAGS = -rdynamic
 AM_CPPFLAGS = -I$(top_srcdir) -I. -I$(top_srcdir)/include \
 			  -I/usr/ofed-1.5.2/include \
 			  -Wall -g -D_GNU_SOURCE -O2 $(INCLUDE_DIR)
