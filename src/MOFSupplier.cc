@@ -13,7 +13,7 @@
 #include "MOFServer/MOFServlet.h"
 #include "MOFServer/IndexInfo.h"
 #include "include/IOUtility.h"
-        
+
 using namespace std;
 
 int netlev_dbg_flag = 0;
@@ -121,7 +121,10 @@ int main(int argc, char *argv[])
     
     redirect_stderr("MOFSupplier");
     redirect_stdout("MOFSupplier");
-    
+  
+    log (lsINFO, "The version is %s",STR(VERSION_UDA));
+    log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
+
     memset(&state_mac, 0, sizeof(supplier_state_t));
     pthread_mutex_init(&state_mac.sm_lock, NULL);
     pthread_cond_init(&state_mac.cond, NULL);

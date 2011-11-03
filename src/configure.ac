@@ -32,6 +32,15 @@ USE_HADOOP_UTILS
 #HADOOP_RDMA_SETUP
 CHECK_INSTALL_CFLAG
 
+define(ver_svn, esyscmd(svnversion -n .. ))
+define(vers, esyscmd(cat ../release | tr -d '\n'))
+syscmd(echo "version:"ver  > ../ver.txt)
+syscmd(echo "revison:"ver_svn >> ../ver.txt)
+syscmd(echo "c code complied on the:"`date` >> ../ver.txt)
+syscmd(echo "compiled on:"`hostname` >> ../ver.txt)
+VERSION=vers.ver_svn
+CXXFLAGS="-DVERSION_UDA=$VERSION"
+
 # Generates Makefile from Makefile.am. Modify when new subdirs are added.
 # Change Makefile.am also to add subdirectly.
 AM_INIT_AUTOMAKE(foreign no-dist)

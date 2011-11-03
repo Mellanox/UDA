@@ -1454,7 +1454,9 @@
       <fileset dir="${build.dir}/c++"/>
     </copy-->
 
-    <copy todir="${dist.dir}/" file="build.xml"/>
+	<copy todir="${dist.dir}/" file="build.xml"/>
+
+	<copy todir="${dist.dir}/" file="${basedir}/../ver.txt"/>
 
     <chmod perm="ugo+x" type="file" parallel="false">
         <fileset dir="${dist.dir}/bin"/>

@@ -104,6 +104,9 @@ int main(int argc, char* argv[])
 
     redirect_stderr("NetMerger");
     redirect_stdout("NetMerger");
+
+    log (lsINFO, "The version is %s",STR(VERSION_UDA));
+    log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
 	
     /* initalize merging_sm */
     memset(&merging_sm, 0, sizeof(merging_state_t));

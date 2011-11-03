@@ -39,6 +39,9 @@ extern "C" {
 #define NETLEV_MIN(a, b) ((a) > (b)?(b):(a))
 #define NETLEV_MAX(a, b) ((a) > (b)?(a):(b))
 
+#define QUOTE(name) #name
+#define STR(macro) QUOTE(macro)
+
 /*****************************************
  * An interface for an input stream.
  *****************************************/

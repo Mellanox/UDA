@@ -50,6 +50,8 @@ static void usage(const char *cmd)
                    "   Log directory for NetMerger and MOFSupplier\n");
     printf("  -t | --trace-level       "
                    "   threshold for log level for NetMerger and MOFSupplier\n");
+    printf("  -v | --version           "
+                       "    Display the version of the file and exit\n");
     printf("  -h | --help              "
                    "    Display this help and exit\n\n");
    
@@ -67,11 +69,12 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         {"mode",          1, NULL, 'm'},
         {"log",           1, NULL, 'g'},
         {"trace-level",   1, NULL, 't'},
+        {"version",       0, NULL, 'v'},
         {"help",          0, NULL, 'h'},
         {NULL,            0, NULL,  0 }
     };
 
-    while ((choice = getopt_long(argc, argv, "c:r:l:a:m:g:t:h",
+    while ((choice = getopt_long(argc, argv, "c:r:l:a:m:g:t:v:h",
                             longopts, NULL)) != -1) {
         switch (choice) {
         case 'c':
@@ -126,6 +129,10 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
 				log_set_threshold(_treshold);
 			}
             break;
+        case 'v':
+        	printf("Version is %s\n",STR(VERSION_UDA));
+        	printf("Compiled on %s, %s\n", __DATE__, __TIME__);
+        	exit (1);
         case 'h':
             usage(argv[0]);
         default: 
