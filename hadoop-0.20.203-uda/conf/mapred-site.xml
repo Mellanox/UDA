@@ -95,7 +95,33 @@
             <name>mapred.netmerger.listener.port</name>
             <value>9012</value>
       </property>
+      <property>
+            <name>mapred.netmerger.rdma.num.buffers</name>
+            <value>16383</value>
+      </property>
 
+      <property>
+            <name>mapred.rdma.buf.size</name>
+			<!-- used also by the aio operations-->
+            <!-- the value entered should be alligned to 4 -->
+			<!-- the value entered is multiplied by K -->
+            <value>128</value>
+      </property>
+
+	<property>
+            <name>mapred.uda.log.tracelevel</name>
+            <description>level of debug prints in uda logs:
+            	NONE -> 0,
+				FATAL -> 1,
+				ERROR -> 2,
+				WARN -> 3,
+				INFO -> 4,
+				DEBUG -> 5,
+				TRACE -> 6,
+				ALL -> 7,         
+            </description>
+            <value>4</value>
+      </property>
        <property>
             <name>mapred.local.dir</name>
             <value>/hadoop1/mapred/tmp,/hadoop2/mapred/tmp</value>

@@ -83,6 +83,8 @@ typedef struct netlev_option {
     int svc_port;    /* port to listen to new reduce task */
     int mode;        /* standalone or integrated*/
     int online;      /* if we are using online merge*/
+    int buffers;     /* total number of rdma buffers for NetMerger*/
+    int buf_size;    /* size of rdma buffer*/
     //char *base_path; /* file path contains the intermediate mop*/
 } netlev_option_t;
 

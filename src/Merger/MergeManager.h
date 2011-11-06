@@ -36,7 +36,7 @@ typedef struct memory_pool {
     pthread_mutex_t      lock;
     struct list_head     free_descs;
     char                *mem;        
-    int32_t              logsize;
+    int32_t              size; //size of a single rdma buffer
     int32_t              num;
     int64_t              total_size;
     struct list_head     register_mem_list;

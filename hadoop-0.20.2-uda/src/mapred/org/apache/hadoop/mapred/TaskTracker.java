@@ -3328,6 +3328,13 @@ public class TaskTracker
       cmd.add("1");
       cmd.add("-g");
       cmd.add(fConf.get("mapred.rdma.log.dir","default"));
+      cmd.add("-b");
+      cmd.add(fConf.get("mapred.netmerger.rdma.num.buffers"));
+      cmd.add("-s");
+      cmd.add(fConf.get("mapred.rdma.buf.size"));
+      cmd.add("-t");
+      cmd.add(fConf.get("mapred.uda.log.tracelevel"));
+
       
       ProcessBuilder pd = new ProcessBuilder(cmd);
       this.mRDMAProcess[proc_idx] = pd.start();

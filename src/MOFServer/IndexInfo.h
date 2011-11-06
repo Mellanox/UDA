@@ -28,7 +28,7 @@ using namespace std;
 #include "AIOHandler.h"
 
 
-#define MAX_RECORDS_PER_MOF     	(256)
+#define MAX_RECORDS_PER_MOF     	(2048)
 #define MAX_OPEN_DAT_FILES      	(512)
 #define AIOHANDLER_MIN_NR			(1)
 #define AIOHANDLER_NR				(50)
@@ -141,7 +141,7 @@ private:
 public:
     DataEngine(void *mem, size_t total_size,
                size_t chunk_size, supplier_state_t *state,
-               const char *path, int mode);
+               const char *path, int mode, int rdma_buf_size);
     ~DataEngine();
 
 
@@ -249,6 +249,7 @@ public:
 
     pthread_cond_t       data_cond;
     int                  num_chunks;
+    int                  rdma_buf_size; //size of a single rdma buffer
     size_t               chunk_size;
     //char                 *base_path; 
     bool                 stop;

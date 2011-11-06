@@ -171,7 +171,7 @@ static void reduce_downcall_handler(progress_event_t *pevent, void *ctx)
 }
 
 
-int  create_mem_pool(int logsize, int num, memory_pool_t *pool)
+int  create_mem_pool(int size, int num, memory_pool_t *pool)
 {
     int pagesize = getpagesize();
     int32_t buf_len;
@@ -180,8 +180,8 @@ int  create_mem_pool(int logsize, int num, memory_pool_t *pool)
     pthread_mutex_init(&pool->lock, NULL);
     INIT_LIST_HEAD(&pool->free_descs);
 
-    buf_len = (1 << logsize);
-    pool->logsize = logsize;
+    buf_len = size;
+    pool->size = size;
     pool->num = num;
     pool->total_size = buf_len * num;
     
