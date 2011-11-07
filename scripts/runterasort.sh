@@ -43,32 +43,32 @@ fi
 
 if [ -z "$CLUSTER_NODES" ]
 then
-	CLUSTER_NODES="8 10 12"
+	export CLUSTER_NODES="8 10 12"
 fi 
 
 if [ -z "$DATA_SET_TYPE" ]
 then
-	DATA_SET_TYPE=node
+	export DATA_SET_TYPE=node
 fi
 
 if [ -z "$DATA_SET" ]
 then
-	DATA_SET="16"
+	export DATA_SET="16"
 fi
 
 if [ -z "$NR" ]
 then
-	NR="4"
+	export NR="4"
 fi
 
 if [ -z "$NM" ]
 then
-	NM="8"
+	export NM="8"
 fi
 
 if [ -z "$NSAMPLES" ]
 then
-	NSAMPLES=3
+	export NSAMPLES=3
 fi
 
 rdma="UNKNOWN"

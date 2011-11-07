@@ -23,22 +23,22 @@ sleep 2
 
 echo "$(basename $0): kill java/python/c++ process"
 sudo pkill '(java|python|NetMerger|MOFSupplier)'
-sudo bin/slaves.sh pkill "'(java|python|NetMerger|MOFSupplier)'"
+sudo bin/slaves.sh pkill \'\(java\|python\|NetMerger\|MOFSupplier\)\'
 sleep 2
 
 # check for processes that did not respond to termination signals
-live_processes=$(( `bin/slaves.sh ps -e | grep -c '(MOFSupplier|NetMerger|java)'` + `ps -e | grep -c '(MOFSupplier|NetMerger|java)'`  )) # -1 for counted grep process 
+live_processes=$(( `bin/slaves.sh ps -e | egrep -c '(MOFSupplier|NetMerger|java)'` + `ps -e | egrep -c '(MOFSupplier|NetMerger|java)'`  )) 
 
 if [ $live_processes != 0 ]
 then
 	echo "$(basename $0): process are still alive after kill --> using kill -9"
 	sudo pkill -9 '(java|python|NetMerger|MOFSupplier)'
-	sudo bin/slaves.sh pkill -9 "'(java|python|NetMerger|MOFSupplier)'"
+	sudo bin/slaves.sh pkill -9 \'\(java\|python\|NetMerger\|MOFSupplier\)\'
 fi
 
 sleep 2
 # check if after kill -9 there are live processes
-live_processes=$(( `bin/slaves.sh ps -e | grep -c '(MOFSupplier|NetMerger|java)'` + `ps -e | grep -c '(MOFSupplier|NetMerger|java)'`  ))  # -1 for counted grep process
+live_processes=$(( `bin/slaves.sh ps -e | egrep -c '(MOFSupplier|NetMerger|java)'` + `ps -e | egrep -c '(MOFSupplier|NetMerger|java)'`  ))  
 
 if [ $live_processes != 0 ]
 then
