@@ -40,7 +40,7 @@ public:
 
     int                data_port;	
     void              *rdma_mem;
-    unsigned long      rdma_total_len;
+    uint64_t           rdma_total_len;
     uint32_t           rdma_chunk_len;
     netlev_thread_t    helper;
     netlev_ctx_t       ctx;
