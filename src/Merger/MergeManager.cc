@@ -211,7 +211,7 @@ void *merge_hybrid (reduce_task_t *task)
 	int32_t total_write;
 
 
-	const int regular_lpqs = task->merge_man->num_lpqs - 1; // all lpqs but the 1st will have same number of segments
+	const int regular_lpqs = task->merge_man->num_lpqs > 1 ?  task->merge_man->num_lpqs - 1 : 1; // all lpqs but the 1st will have same number of segments
 	int num_to_fetch = 0;
 	int subsequent_fetch = 0;
 	if (task->num_maps % regular_lpqs) {
