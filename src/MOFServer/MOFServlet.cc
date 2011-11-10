@@ -50,11 +50,10 @@ shuffle_req_t* get_shuffle_req(const string &param)
 }
 
 
-OutputServer::OutputServer(int data_port, int mode, int rdma_buf_size,
+OutputServer::OutputServer(int data_port, int mode, 
                            supplier_state_t *state)
 {
     this->data_port = data_port;
-    this->rdma_buf_size = rdma_buf_size;
     this->rdma = NULL; 
     this->tcp  = NULL;
     this->state = state;
@@ -79,7 +78,7 @@ OutputServer::~OutputServer()
 
 void OutputServer::start_server()
 {
-    this->rdma = new RdmaServer(this->data_port, this->rdma_buf_size, this->state);
+    this->rdma = new RdmaServer(this->data_port, this->state);
     this->rdma->start_server();
 }
 

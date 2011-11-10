@@ -34,7 +34,7 @@ CHECK_INSTALL_CFLAG
 
 define(ver_svn, esyscmd(svnversion -n .. ))
 define(vers, esyscmd(cat ../release | tr -d '\n'))
-syscmd(echo "version:"vers  > ../ver.txt)
+syscmd(echo "version:"ver  > ../ver.txt)
 syscmd(echo "revison:"ver_svn >> ../ver.txt)
 syscmd(echo "c code complied on the:"`date` >> ../ver.txt)
 syscmd(echo "compiled on:"`hostname` >> ../ver.txt)

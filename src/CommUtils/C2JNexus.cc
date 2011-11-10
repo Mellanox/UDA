@@ -27,8 +27,6 @@
 #include "NetlevComm.h"
 #include "C2JNexus.h"
 #include "IOUtility.h"
-#include "AIOHandler.h"
-
 
 extern const char *default_log;
 extern char *rdmalog_dir;
@@ -71,15 +69,12 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         {"mode",          1, NULL, 'm'},
         {"log",           1, NULL, 'g'},
         {"trace-level",   1, NULL, 't'},
-        {"rdmabuffers",   1, NULL, 'b'},
-        {"rdmabufsize",   1, NULL, 's'},
         {"version",       0, NULL, 'v'},
         {"help",          0, NULL, 'h'},
         {NULL,            0, NULL,  0 }
     };
-    int buf_size;
 
-    while ((choice = getopt_long(argc, argv, "c:r:l:a:m:g:t:b:s:v:h",
+    while ((choice = getopt_long(argc, argv, "c:r:l:a:m:g:t:v:h",
                             longopts, NULL)) != -1) {
         switch (choice) {
         case 'c':
@@ -132,22 +127,6 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
 					goto err_options;
 				}
 				log_set_threshold(_treshold);
-			}
-            break;
-        case 'b':
-			op->buffers = strtol(optarg, NULL, 10);
-			if (errno) {
-				goto err_options;
-			}
-			break;
-        case 's':
-        	buf_size = strtol(optarg, NULL, 10);
-        	buf_size = buf_size *1024;
-        	//Aligning the number by AIO_ALIGNMENT
-        	buf_size = (buf_size>>AIO_ALIGNMENT_EXPO)<<AIO_ALIGNMENT_EXPO;
-			op->buf_size = buf_size;
-			if (errno) {
-				goto err_options;
 			}
             break;
         case 'v':

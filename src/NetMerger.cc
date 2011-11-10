@@ -24,9 +24,6 @@
 
 using namespace std;
 
-#define INT32_MAX 2147483647
-
-
 int netlev_dbg_flag = 0;
 
 /* accept new hadoop reduce task */
@@ -118,12 +115,8 @@ int main(int argc, char* argv[])
     
     /* init map output memory pool */
     memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
-    if (op.buf_size * op.buffers >= INT32_MAX){
-    	output_stderr("[%s,%d] total rdma memory > 2G ",__FILE__,__LINE__);
-    	exit(-1);
-    }
-    if (create_mem_pool(op.buf_size,
-    				op.buffers,
+    if (create_mem_pool(NETLEV_RDMA_MEM_CHUNK_EXPO,
+                    NETLEV_MAX_MOFS_INCACHE, 
                     &merging_sm.mop_pool)) {
     	output_stderr("[%s,%d] failed to create Map Output memory pool ",__FILE__,__LINE__);
     	exit(-1);

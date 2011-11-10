@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
      * -- create connections with clients
      * -- receive and insert new fetch requests to Data Engine
      */
-    state_mac.mover = new OutputServer(op.data_port, op.mode, op.buf_size,
+    state_mac.mover = new OutputServer(op.data_port, op.mode, 
                                        /* op.base_path,*/ &state_mac);
     state_mac.mover->start_server();
 
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
     state_mac.data_mac = new DataEngine(state_mac.mover->rdma->rdma_mem,
                                         state_mac.mover->rdma->rdma_total_len,
                                         state_mac.mover->rdma->rdma_chunk_len,
-                                        &state_mac, /* op.base_path */ NULL, op.mode, op.buf_size);
+                                        &state_mac, /* op.base_path */ NULL, op.mode);
     state_mac.data_mac->start();
 
     delete state_mac.mover;

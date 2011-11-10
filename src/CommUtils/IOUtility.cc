@@ -242,9 +242,6 @@ size_t DataStream::read(void *des, size_t len)
         return -1;
     }
     if ((this->pos + len) > this->count) {
-    	log (lsDEBUG, "[%s,%d] in DataStream::read this->pos is %d\n",__FILE__,__LINE__, this->pos);
-    	log (lsDEBUG, "[%s,%d] DataStream::read len is %d\n",__FILE__,__LINE__, len);
-    	log (lsDEBUG, "[%s,%d] DataStream::read this->count is %d\n",__FILE__,__LINE__, this->count);
         output_stderr("DataStream: read out of bound");
         return -1;
     }

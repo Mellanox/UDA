@@ -23,7 +23,7 @@ using namespace std;
 
 #define idx_suffix "/file.out.index"
 #define mop_suffix "/file.out"
-
+#define prefetch_chunk_size  NETLEV_RDMA_MEM_CHUNK_SIZE  
 
 /* Convert an Octet into an 64-bit integer */
 #define OCTET_TO_LONG(b0, b1, b2, b3, b4, b5, b6, b7) \
@@ -109,12 +109,12 @@ int DataEngine::read_records(partition_table_t *ifile,
 DataEngine::DataEngine(void *mem, size_t total_size,
                        size_t chunk_size, 
                        supplier_state_t *state,
-                       const char *path, int mode, int rdma_buf_size)
+                       const char *path, int mode)
 {
     /* XXX:
      * Data Engine should hold the following tables
      * MAX_MOFS_INCACHE index files (currently 1024)
-     * MAX_RECORDS_PER_MOF (currently 2K)
+     * MAX_RECORDS_PER_MOF (currently 128) 
      */
     prepare_tables(mem, total_size, chunk_size);
 
@@ -123,7 +123,6 @@ DataEngine::DataEngine(void *mem, size_t total_size,
     /* fast mapping from path to partition_table_t */
     this->state_mac = state;
     this->stop = false;
-    this->rdma_buf_size = rdma_buf_size;
    
 
     timespec timeout;
@@ -223,7 +222,7 @@ DataEngine::prepare_tables(void *mem,
 
     for (int i = 0; i < NETLEV_RDMA_MEM_CHUNKS_NUM; ++i) {
         chunk_t *ptr = this->_chunks + i;
-        ptr->buff = data + i*(this->rdma_buf_size + 2*AIO_ALIGNMENT );
+        ptr->buff = data + i*(NETLEV_RDMA_MEM_CHUNK_SIZE + 2*AIO_ALIGNMENT );
         list_add_tail(&ptr->list, &this->_free_chunks_list);
     }
     pthread_mutex_unlock(&this->_chunk_mutex);
@@ -596,7 +595,7 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , index_record_t *record,
 
     int64_t offset = record->offset + map_offset;
     size_t read_length = record->partLength - map_offset;
-    read_length = (read_length < this->rdma_buf_size ) ? read_length : this->rdma_buf_size ;
+    read_length = (read_length < prefetch_chunk_size) ? read_length : prefetch_chunk_size ;
 
     // fall through to read data from file.out
     string dat_fname = out_path + mop_suffix;

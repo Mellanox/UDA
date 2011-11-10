@@ -24,7 +24,7 @@ struct shuffle_req;
 class RdmaServer 
 {
 public:
-    RdmaServer(int port, int rdma_buf_size, void *state);
+    RdmaServer(int port, void *state); 
     ~RdmaServer();
 
     void start_server();
@@ -40,7 +40,7 @@ public:
 
     int                data_port;	
     void              *rdma_mem;
-    uint64_t           rdma_total_len;
+    unsigned long      rdma_total_len;
     uint32_t           rdma_chunk_len;
     netlev_thread_t    helper;
     netlev_ctx_t       ctx;
