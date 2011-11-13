@@ -24,6 +24,7 @@
 
 using namespace std;
 
+
 int netlev_dbg_flag = 0;
 
 /* accept new hadoop reduce task */
@@ -108,6 +109,8 @@ int main(int argc, char* argv[])
     log (lsINFO, "The version is %s",STR(VERSION_UDA));
     log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
 	
+    log (lsDEBUG, "number of rdma buffers as passed from java is %d\n", op.buffers);
+    log (lsDEBUG, "size of rdma buffer as passed from java is %d\n", op.buf_size);
     /* initalize merging_sm */
     memset(&merging_sm, 0, sizeof(merging_state_t));
     merging_sm.stop = 0;
@@ -115,8 +118,8 @@ int main(int argc, char* argv[])
     
     /* init map output memory pool */
     memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
-    if (create_mem_pool(NETLEV_RDMA_MEM_CHUNK_EXPO,
-                    NETLEV_MAX_MOFS_INCACHE, 
+    if (create_mem_pool(op.buf_size,
+    				op.buffers,
                     &merging_sm.mop_pool)) {
     	output_stderr("[%s,%d] failed to create Map Output memory pool ",__FILE__,__LINE__);
     	exit(-1);

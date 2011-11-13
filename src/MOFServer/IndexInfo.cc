@@ -23,7 +23,7 @@ using namespace std;
 
 #define idx_suffix "/file.out.index"
 #define mop_suffix "/file.out"
-#define prefetch_chunk_size  NETLEV_RDMA_MEM_CHUNK_SIZE  
+
 
 /* Convert an Octet into an 64-bit integer */
 #define OCTET_TO_LONG(b0, b1, b2, b3, b4, b5, b6, b7) \
@@ -109,20 +109,22 @@ int DataEngine::read_records(partition_table_t *ifile,
 DataEngine::DataEngine(void *mem, size_t total_size,
                        size_t chunk_size, 
                        supplier_state_t *state,
-                       const char *path, int mode)
+                       const char *path, int mode, int rdma_buf_size)
 {
     /* XXX:
      * Data Engine should hold the following tables
      * MAX_MOFS_INCACHE index files (currently 1024)
-     * MAX_RECORDS_PER_MOF (currently 128) 
+     * MAX_RECORDS_PER_MOF (currently 2K)
+
      */
-    prepare_tables(mem, total_size, chunk_size);
+    prepare_tables(mem, total_size, chunk_size, rdma_buf_size);
 
     INIT_LIST_HEAD(&this->comp_mof_list);
 
     /* fast mapping from path to partition_table_t */
     this->state_mac = state;
     this->stop = false;
+    this->rdma_buf_size = rdma_buf_size;
    
 
     timespec timeout;
@@ -191,7 +193,8 @@ DataEngine::cleanup_tables()
 void 
 DataEngine::prepare_tables(void *mem, 
                            size_t total_size, 
-                           size_t chunk_size) 
+                           size_t chunk_size, 
+                           int rdma_buf_size)
 {
     char *data=(char*)mem;
 
@@ -220,13 +223,13 @@ DataEngine::prepare_tables(void *mem,
     this->_chunks = (chunk_t*)malloc(NETLEV_RDMA_MEM_CHUNKS_NUM * sizeof(chunk_t));
     memset(this->_chunks , 0, NETLEV_RDMA_MEM_CHUNKS_NUM * sizeof(chunk_t));
 
+    log (lsDEBUG, "rdma_buf_size is %d\n", rdma_buf_size);
     for (int i = 0; i < NETLEV_RDMA_MEM_CHUNKS_NUM; ++i) {
         chunk_t *ptr = this->_chunks + i;
-        ptr->buff = data + i*(NETLEV_RDMA_MEM_CHUNK_SIZE + 2*AIO_ALIGNMENT );
+        ptr->buff = data + i*(rdma_buf_size + 2*AIO_ALIGNMENT );
         list_add_tail(&ptr->list, &this->_free_chunks_list);
     }
     pthread_mutex_unlock(&this->_chunk_mutex);
-
 
 }
 
@@ -595,7 +598,8 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , index_record_t *record,
 
     int64_t offset = record->offset + map_offset;
     size_t read_length = record->partLength - map_offset;
-    read_length = (read_length < prefetch_chunk_size) ? read_length : prefetch_chunk_size ;
+    read_length = (read_length < this->rdma_buf_size ) ? read_length : this->rdma_buf_size ;
+    log (lsDEBUG, "this->rdma_buf_size inside aio_read_chunk_data is %d\n", this->rdma_buf_size);
 
     // fall through to read data from file.out
     string dat_fname = out_path + mop_suffix;

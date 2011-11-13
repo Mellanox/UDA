@@ -171,7 +171,7 @@ static void reduce_downcall_handler(progress_event_t *pevent, void *ctx)
 }
 
 
-int  create_mem_pool(int logsize, int num, memory_pool_t *pool)
+int  create_mem_pool(int size, int num, memory_pool_t *pool)
 {
     int pagesize = getpagesize();
     int32_t buf_len;
@@ -180,10 +180,17 @@ int  create_mem_pool(int logsize, int num, memory_pool_t *pool)
     pthread_mutex_init(&pool->lock, NULL);
     INIT_LIST_HEAD(&pool->free_descs);
 
-    buf_len = (1 << logsize);
-    pool->logsize = logsize;
+    int64_t num_64bytes;
+    num_64bytes = num;
+
+    buf_len = size;
+    pool->size = size;
     pool->num = num;
-    pool->total_size = buf_len * num;
+    pool->total_size = buf_len * num_64bytes;
+
+    log (lsDEBUG, "logsize is %d\n", size);
+    log (lsDEBUG, "buf_len is %d\n", buf_len);
+    log (lsDEBUG, "pool->total_size is %d\n", pool->total_size);
     
     rc = posix_memalign((void**)&pool->mem,  pagesize, pool->total_size);
     if (rc) {
@@ -266,6 +273,7 @@ reduce_task_t *spawn_reduce_task(int mode, reduce_socket_t *sock)
 {
     reduce_task_t     *task;
     //int               ret;
+    int netlev_kv_pool_size;
 
     task = (reduce_task_t *) malloc(sizeof(reduce_task_t));
     memset(task, 0, sizeof(*task));
@@ -296,8 +304,8 @@ reduce_task_t *spawn_reduce_task(int mode, reduce_socket_t *sock)
 
     /* init large memory pool for merged kv buffer */ 
     memset(&task->kv_pool, 0, sizeof(memory_pool_t));
-
-    if (create_mem_pool(NETLEV_KV_POOL_EXPO, num_stage_mem, &task->kv_pool)) {
+    netlev_kv_pool_size  = 1 << NETLEV_KV_POOL_EXPO;
+    if (create_mem_pool(netlev_kv_pool_size, num_stage_mem, &task->kv_pool)) {
     	output_stderr("[%s,%d] failed to create memory pool for reduce task for merged kv buffer",__FILE__,__LINE__);
     	exit(-1);
     }

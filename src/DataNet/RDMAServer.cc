@@ -325,7 +325,8 @@ server_cm_handler(progress_event_t *pevent, void *data)
 }
 
 
-RdmaServer::RdmaServer(int port, void *state)
+RdmaServer::RdmaServer(int port, int rdma_buf_size, void *state)
+
 {
     supplier_state_t *smac = (supplier_state_t *)state;
     
@@ -340,8 +341,10 @@ RdmaServer::RdmaServer(int port, void *state)
     this->data_mac = smac->data_mac;
     
     int rdma_align = getpagesize();
-    this->rdma_total_len = NETLEV_RDMA_MEM_CHUNKS_NUM * (NETLEV_RDMA_MEM_CHUNK_SIZE + 2*AIO_ALIGNMENT);
-    this->rdma_chunk_len = NETLEV_RDMA_MEM_CHUNK_SIZE + 2*AIO_ALIGNMENT;
+    this->rdma_total_len = NETLEV_RDMA_MEM_CHUNKS_NUM * (rdma_buf_size + 2*AIO_ALIGNMENT);
+    this->rdma_chunk_len = rdma_buf_size + 2*AIO_ALIGNMENT;
+    log (lsDEBUG, "rdma_buf_size inside RdmaServer is %d\n", rdma_buf_size);
+
     this->rdma_mem = (void *) memalign(rdma_align, this->rdma_total_len);
     if (!this->rdma_mem) {
         output_stderr("[%s,%d] alloc rdma buf failed",

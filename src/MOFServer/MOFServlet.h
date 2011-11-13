@@ -44,7 +44,7 @@ class OutputServer
 {
 public:
     OutputServer() {};
-    OutputServer(int data_port, int mode, 
+    OutputServer(int data_port, int mode, int rdma_buf_size,
                  supplier_state_t *state);
 
     ~OutputServer();
@@ -64,6 +64,7 @@ public:
 
     /* port for data movement between client and server.  */
     int               data_port;
+    int               rdma_buf_size; //size of a single rdma buffer.
     RdmaServer       *rdma;
     TcpServer        *tcp;
     supplier_state_t *state; /* data engine */

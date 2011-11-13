@@ -28,7 +28,7 @@ using namespace std;
 #include "AIOHandler.h"
 
 
-#define MAX_RECORDS_PER_MOF     	(256)
+#define MAX_RECORDS_PER_MOF     	(2048)
 #define MAX_OPEN_DAT_FILES      	(512)
 #define AIOHANDLER_MIN_NR			(1)
 #define AIOHANDLER_NR				(50)
@@ -141,7 +141,7 @@ private:
 public:
     DataEngine(void *mem, size_t total_size,
                size_t chunk_size, supplier_state_t *state,
-               const char *path, int mode);
+               const char *path, int mode, int rdma_buf_size);
     ~DataEngine();
 
 
@@ -188,7 +188,7 @@ public:
     void start();
 
     /* Initialize the cache tables with provided memory */
-    void prepare_tables(void *mem, size_t total_size, size_t chunk_size);
+    void prepare_tables(void *mem, size_t total_size, size_t chunk_size, int rdma_buf_size);
 
     void cleanup_tables();
 
@@ -252,6 +252,7 @@ public:
     size_t               chunk_size;
     //char                 *base_path; 
     bool                 stop;
+    int                  rdma_buf_size;
 
     /* Map of path to the partition table */
     map<string, partition_table_t*> ifile_map;
