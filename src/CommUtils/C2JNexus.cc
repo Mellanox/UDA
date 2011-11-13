@@ -77,7 +77,6 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         {NULL,            0, NULL,  0 }
     };
     int buf_size;
-
     while ((choice = getopt_long(argc, argv, "c:r:l:a:m:g:t:b:s:v:h",
 
                             longopts, NULL)) != -1) {
@@ -144,7 +143,12 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         	buf_size = strtol(optarg, NULL, 10);
         	buf_size = buf_size *1024;
         	//Aligning the number by AIO_ALIGNMENT
-        	buf_size = (buf_size>>AIO_ALIGNMENT_EXPO)<<AIO_ALIGNMENT_EXPO;
+        	if (buf_size > AIO_ALIGNMENT){
+        		buf_size = (buf_size>>AIO_ALIGNMENT_EXPO)<<AIO_ALIGNMENT_EXPO;
+        	}
+        	else{
+        		buf_size = AIO_ALIGNMENT;
+        	}
 			op->buf_size = buf_size;
 			if (errno) {
 				goto err_options;
@@ -167,6 +171,7 @@ err_options:
     usage(argv[0]);
     return 1;
 }
+
 
 
 void free_hadoop_cmd(hadoop_cmd_t &cmd_struct)
