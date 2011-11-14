@@ -174,19 +174,16 @@ static void reduce_downcall_handler(progress_event_t *pevent, void *ctx)
 int  create_mem_pool(int size, int num, memory_pool_t *pool)
 {
     int pagesize = getpagesize();
-    int32_t buf_len;
+    uint64_t buf_len;
     int rc;
 
     pthread_mutex_init(&pool->lock, NULL);
     INIT_LIST_HEAD(&pool->free_descs);
 
-    int64_t num_64bytes;
-    num_64bytes = num;
-
     buf_len = size;
     pool->size = size;
     pool->num = num;
-    pool->total_size = buf_len * num_64bytes;
+    pool->total_size = buf_len * num;
 
     log (lsDEBUG, "logsize is %d\n", size);
     log (lsDEBUG, "buf_len is %d\n", buf_len);
@@ -194,9 +191,11 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool)
     
     rc = posix_memalign((void**)&pool->mem,  pagesize, pool->total_size);
     if (rc) {
-    	output_stderr("unable to create pool. posix_memalign failed: alignment=%d , total_size=%u --> rc=%d", pagesize, pool->total_size, rc );
+    	output_stderr("unable to create pool. posix_memalign failed: alignment=%d , total_size=%ll --> rc=%d", pagesize, pool->total_size, rc );
         return -1;
     }
+
+    log(lsDEBUG,"memalign successed - %lld bytes", pool->total_size);
     memset(pool->mem, 0, pool->total_size);
 
     for (int i = 0; i < num; ++i) {

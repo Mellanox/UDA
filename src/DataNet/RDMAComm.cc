@@ -53,7 +53,7 @@ netlev_dealloc_rdma_mem(struct netlev_dev *dev)
 }
 
 int
-netlev_init_rdma_mem(void *mem, unsigned long total_size,
+netlev_init_rdma_mem(void *mem, uint64_t total_size,
                      netlev_dev_t *dev)
 {
     netlev_rdma_mem_t *rdma_mem;
@@ -69,8 +69,7 @@ netlev_init_rdma_mem(void *mem, unsigned long total_size,
     rdma_mem->total_size = total_size;
     rdma_mem->mr = ibv_reg_mr(dev->pd, mem, total_size, NETLEV_MEM_ACCESS_PERMISSION);
     if (!rdma_mem->mr) {
-        output_stderr("[%s %d] Register rdma memory region",
-                      __FILE__, __LINE__);
+        log(lsERROR,"register rdma memory region. total_size=%llu  , MSG=%m", total_size);
         free(rdma_mem);
         return -1;
     }

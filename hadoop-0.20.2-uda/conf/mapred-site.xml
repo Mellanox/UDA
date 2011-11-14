@@ -4,7 +4,7 @@
 <!-- Put site-specific property overrides in this file. -->
 
 <configuration>
-      <property>
+        <property>
            <name>mapred.job.tracker</name>
            <value>eagle1-ib:9001</value>
       </property>
@@ -86,15 +86,14 @@
             <name>mapred.netmerger.listener.port</name>
             <value>9012</value>
       </property>
-
-       <property>
+	<property>
             <name>mapred.netmerger.rdma.num.buffers</name>
             <value>16383</value>
       </property>
-      
+
       <property>
             <name>mapred.rdma.buf.size</name>
-			<!-- used also by the aio operations-->
+            <!-- used also by the aio operations-->
             <!-- the value entered should be alligned to 4 -->
 			<!-- the value entered is multiplied by K -->
             <value>128</value>
@@ -114,7 +113,6 @@
             </description>
             <value>4</value>
       </property>
-      
        <property>
             <name>mapred.local.dir</name>
             <value>/hadoop1/mapred/tmp,/hadoop2/mapred/tmp</value>

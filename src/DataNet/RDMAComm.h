@@ -15,6 +15,7 @@
 #define  RDMA_COMMON_HEADER 1
 
 #include <rdma/rdma_cma.h>
+#include <stdint.h>
 
 #include "NetlevComm.h"
 
@@ -95,7 +96,7 @@ typedef struct netlev_mem {
 /* memory for rdma operation */
 typedef struct netlev_rdma_mem {
     struct ibv_mr       *mr;   
-    unsigned long       total_size;
+    uint64_t       total_size;
     void                *buf_start;
 } netlev_rdma_mem_t;
 

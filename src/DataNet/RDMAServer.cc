@@ -18,6 +18,7 @@
 #include <malloc.h>
 #include <errno.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
@@ -343,13 +344,15 @@ RdmaServer::RdmaServer(int port, int rdma_buf_size, void *state)
     int rdma_align = getpagesize();
     this->rdma_total_len = NETLEV_RDMA_MEM_CHUNKS_NUM * (rdma_buf_size + 2*AIO_ALIGNMENT);
     this->rdma_chunk_len = rdma_buf_size + 2*AIO_ALIGNMENT;
-    log (lsDEBUG, "rdma_buf_size inside RdmaServer is %d\n", rdma_buf_size);
+    log(lsDEBUG, "rdma_buf_size inside RdmaServer is %d\n", rdma_buf_size);
 
     this->rdma_mem = (void *) memalign(rdma_align, this->rdma_total_len);
     if (!this->rdma_mem) {
         output_stderr("[%s,%d] alloc rdma buf failed",
                       __FILE__,__LINE__);
     }
+    log(lsDEBUG, "memalign successed - %llu bytes", this->rdma_total_len);
+
 }
 
 void 
