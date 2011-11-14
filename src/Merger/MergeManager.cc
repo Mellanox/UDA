@@ -48,13 +48,13 @@ void *upload_online(reduce_task_t *task)
 			pthread_cond_wait(&desc->cond, &desc->lock);
 
 			if (task->upload_thread.stop) {
-				output_stdout(" << %s: BREAKING because of task->upload_thread.stop=%d", __func__, task->upload_thread.stop);
+				log(lsDEBUG, " << BREAKING because of task->upload_thread.stop=%d", task->upload_thread.stop);
 				pthread_mutex_unlock(&desc->lock);
 				break;
 			}
 		}
 
-		output_stdout("%s: writing to nexus desc->act_len=%d", __func__, desc->act_len);
+		log(lsDEBUG, "writing to nexus desc->act_len=%d", desc->act_len);
 
 		/* upload */
 		task->nexus->send_int((int) desc->act_len);
@@ -80,7 +80,7 @@ void *upload_thread_main(void *context)
     MergeManager *merger = task->merge_man;
 
     int online = merger->online;
-    output_stdout("%s: online=%d; task->num_maps=%d", __func__ , online, task->num_maps);
+    log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
 
 	switch (online) {
 	case 0:
@@ -105,7 +105,7 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_
 {
     MergeManager *manager = task->merge_man;
     int target_maps_count = manager->total_count + num_maps;
-	output_stdout("%s: DEBUG: task->num_maps=%d target_maps_count=%d", __func__, task->num_maps, target_maps_count);
+    log(lsDEBUG, "task->num_maps=%d target_maps_count=%d", task->num_maps, target_maps_count);
 	do {
 		while (manager->fetched_mops.size() > 0 ) {
 			MapOutput *mop = NULL;
@@ -126,11 +126,11 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_
 				/* report */
 				manager->total_count++;
 				manager->progress_count++;
-				output_stdout("%s: segment was inserted: manager->total_count=%d, task->num_maps=%d", __func__, manager->total_count, task->num_maps);
+				log(lsDEBUG, "segment was inserted: manager->total_count=%d, task->num_maps=%d", manager->total_count, task->num_maps);
 
 				if (manager->progress_count == PROGRESS_REPORT_LIMIT
 				 || manager->total_count == task->num_maps) {
-					output_stdout("%s: nexus sending FETCH_OVER_MSG...", __func__ );
+					log(lsDEBUG, "nexus sending FETCH_OVER_MSG...");
 					task->nexus->send_int((int)FETCH_OVER_MSG);
 					manager->progress_count = 0;
 				}
@@ -173,7 +173,7 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_q
 		   pthread_cond_wait(&desc->cond, &desc->lock);
 		}
 
-		output_stdout("calling write_kv_to_mem desc->buf_len=%d", desc->buf_len);
+		log(lsDEBUG, "calling write_kv_to_mem desc->buf_len=%d", desc->buf_len);
 		b = write_kv_to_mem(merge_queue,
 							desc->buff,
 							desc->buf_len,
@@ -229,7 +229,7 @@ void *merge_hybrid (reduce_task_t *task)
 	static int lpq_shared_counter = -1; // shared between all reducers of all threads
 	for (int i = 0; task->merge_man->total_count < task->num_maps; ++i)
 	{
-		output_stdout("%s: ====== [%d] Creating LPQ for %d segments (already fetched=%d; num_maps=%d)", __func__ , i, num_to_fetch, task->merge_man->total_count, task->num_maps);
+		log(lsDEBUG, "====== [%d] Creating LPQ for %d segments (already fetched=%d; num_maps=%d)", i, num_to_fetch, task->merge_man->total_count, task->num_maps);
 
 
 		int local_counter = ++lpq_shared_counter; // not critical to sync between threads here
@@ -239,37 +239,33 @@ void *merge_hybrid (reduce_task_t *task)
 		merge_lpq[i] = new MergeQueue<Segment*>(num_to_fetch, temp_file);
 		merge_do_fetching_phase(task, merge_lpq[i], num_to_fetch);
 
-		output_stdout("%s: [%d] === Enter merging LPQ using file: %s", __func__ ,i, merge_lpq[i]->filename.c_str());
+		log(lsDEBUG, "[%d] === Enter merging LPQ using file: %s", i, merge_lpq[i]->filename.c_str());
 		b = write_kv_to_file(merge_lpq[i], merge_lpq[i]->filename.c_str(), total_write);
-		output_stdout("%s: ===after merge of LPQ b=%d, total_write=%d", __func__ , (int)b, total_write);
+		log(lsDEBUG, "===after merge of LPQ b=%d, total_write=%d", (int)b, total_write);
 		// end of block from previous loop
 
 		num_to_fetch = subsequent_fetch;
 	}
 
-	output_stdout("%s: === ALL LPQs completed  building RPQ...", __func__ );
+	log(lsDEBUG, "=== ALL LPQs completed  building RPQ...");
 	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
 	{
-		output_stdout("%s [%d] === inserting LPQ using file: %s", __func__ , i, merge_lpq[i]->filename.c_str());
+		log(lsDEBUG, "[%d] === inserting LPQ using file: %s", i, merge_lpq[i]->filename.c_str());
 		task->merge_man->merge_queue->insert(new SuperSegment(task, merge_lpq[i]->filename.c_str()));
-		output_stdout("%s [%d] === after insert LPQ into RPQ", __func__ , i);
+		log(lsDEBUG, "[%d] === after insert LPQ into RPQ", i);
 		num_to_fetch = subsequent_fetch;
 	}
 
 
-	//
-	// TODO: AVNER: delete merge_lpq:
-	// - something like: merge_queue->core_queue.clear(); delete merge_queue;
-	//
 	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
 	{
 		merge_lpq[i]->core_queue.clear();
 		delete merge_lpq[i];
 	}
 
-	output_stdout("%s: RPQ phase: going to merge all LPQs...", __func__ );
+	log(lsDEBUG, "RPQ phase: going to merge all LPQs...");
 	merge_do_merging_phase(task, task->merge_man->merge_queue);
-	output_stdout("%s: after ALL merge", __func__ );
+	log(lsDEBUG, "after ALL merge");
 
 	write_log(task->reduce_log, DBG_CLIENT, "merge thread exit");
     return NULL;
@@ -282,7 +278,7 @@ void *merge_thread_main (void *context)
     MergeManager *manager = task->merge_man;
 
     int online = manager->online;
-    output_stdout("%s: online=%d; task->num_maps=%d", __func__ , online, task->num_maps);
+    log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
 
 	switch (online) {
 	case 0:
@@ -296,7 +292,7 @@ void *merge_thread_main (void *context)
 		break;
 	}
 
-	output_stdout("%s: finished !!!", __func__);
+	log(lsDEBUG, "finished !!!");
     return NULL;
 }
 
@@ -322,7 +318,7 @@ MapOutput::MapOutput(struct reduce_task *task)
 
     pthread_mutex_lock(&mem_pool->lock);
     if (list_empty(&mem_pool->free_descs)) {
-    	output_stderr("[%s,%d] FATAL ERROR: no free buffers in mem_pool",__FILE__,__LINE__);
+    	log(lsFATAL, "no free buffers in mem_pool");
     	exit(-1);
     }
 
@@ -332,7 +328,7 @@ MapOutput::MapOutput(struct reduce_task *task)
     list_del(&mop_bufs[0]->list);
 
     if (list_empty(&mem_pool->free_descs)) {
-    	output_stderr("[%s,%d] FATAL ERROR: no free buffers in mem_pool",__FILE__,__LINE__);
+    	log(lsFATAL, "no free buffers in mem_pool");
     	exit(-1);
     }
 
@@ -384,7 +380,7 @@ MergeManager::MergeManager(int threads, list_head_t *list,
     		merge_queue = new MergeQueue<Segment*>(task->num_maps);
     	}
     	else { //online == 2
-    		output_stdout("hybrid merge will use %d lpqs", num_lpqs);
+    		log(lsDEBUG, "hybrid merge will use %d lpqs", num_lpqs);
     		merge_queue = new MergeQueue<Segment*>(num_lpqs);
     	}
 
