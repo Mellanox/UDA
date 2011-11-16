@@ -9,9 +9,6 @@
 #include "AIOHandler.h"
 #include <pthread.h>
 
-#define aio_stderr(str, str_args...)	output_stderr("[%s,%d] " str, __FILE__,__LINE__, ##str_args);
-#define aio_stdout(str, str_args...)	output_stdout("[%s,%d] " str, __FILE__,__LINE__, ##str_args);
-
 AIOHandler::AIOHandler(AioCallback callback, int ctx_maxevents, long min_nr, long nr, const timespec* timeout) : MAX_EVENTS(ctx_maxevents), MIN_NR(min_nr), NR(nr), GETEVENTS_TIMEOUT(*timeout)
 {
 	_context=0;
@@ -31,14 +28,14 @@ int AIOHandler::start() {
 	{
 
 		if ((rc=io_setup(MAX_EVENTS, &_context))) {
-			aio_stderr("io_setup failure: rc=%d (errno=%m)", rc);
+			log(lsFATAL, "io_setup failure: rc=%d (errno=%m)", rc);
 			return rc;
 		}
 
-		output_stdout("AIO: context was successfully setup");
+		log(lsINFO,"AIO: context was successfully setup");
 
 
-		output_stdout("AIO: Starting AIO events processor");
+		log(lsINFO, "AIO: Starting AIO events processor");
 
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
@@ -86,19 +83,19 @@ bool AIOHandler::validateAligment(long fileOffset, size_t size, char* buff) {
 	int mod;
 	mod = fileOffset&ALIGMENT_MASK;
 	if (mod) {
-		output_stderr("[%s,%d] AIO parameter is not aligned to %d : filesOffset=%ld",__FILE__,__LINE__, AIO_ALIGNMENT, fileOffset);
+		log(lsERROR,"AIO parameter is not aligned to %d : filesOffset=%ld",AIO_ALIGNMENT, fileOffset);
 		return false;
 	}
 
 	mod = size&ALIGMENT_MASK;
 	if (mod) {
-		output_stderr("[%s,%d] AIO parameter is not aligned to %d : size=%d",__FILE__,__LINE__,AIO_ALIGNMENT, (int)size);
+		log(lsERROR, "AIO parameter is not aligned to %d : size=%d",AIO_ALIGNMENT, (int)size);
 		return false;
 	}
 
 	mod = ((long)buff)&ALIGMENT_MASK;
 	if (mod) {
-		output_stderr("[%s,%d] AIO parameter is not aligned to %d : buff=%ld",__FILE__,__LINE__, AIO_ALIGNMENT, buff);
+		log(lsERROR, "AIO parameter is not aligned to %d : buff=%ld", AIO_ALIGNMENT, buff);
 		return false;
 	}
 
@@ -113,11 +110,11 @@ int AIOHandler::submit() {
 		pthread_mutex_lock(&_cbRowLock);
 		if (_cbRowIndex != 0) {
 			if ((rc = io_submit(_context, _cbRowIndex, _cbRow)) <= 0) {
-				output_stderr("[%s,%d] io_submit (read) failure: rc=%d",__FILE__,__LINE__, rc);
+				log(lsERROR,"io_submit (read) failure: rc=%d", rc);
 			}
 
 			if (rc != _cbRowIndex) {
-				output_stderr("[%s,%d] io_submit unexpectedly returned only %d submitted operations , instead of %d",__FILE__,__LINE__, rc, _cbRowIndex);
+				log(lsERROR,"io_submit unexpectedly returned only %d submitted operations , instead of %d",rc, _cbRowIndex);
 			}
 
 			_cbRowIndex=0;
@@ -125,7 +122,7 @@ int AIOHandler::submit() {
 
 		if (rc>0) {
 			_onAirCounter+=rc;
-			output_stdout("AIO: %d operations submitted. current ONAIR=%d", rc, _onAirCounter);
+			log(lsTRACE,"AIO: %d operations submitted. current ONAIR=%d", rc, _onAirCounter);
 		}
 		pthread_mutex_unlock(&_cbRowLock);
 
@@ -152,33 +149,33 @@ void AIOHandler::processEventsCallbacks() {
 		rc = io_getevents(_context, MIN_NR, NR, eventArr, &timeout );
 
 		if (rc < 0) {
-			output_stderr("[%s,%d] calling io_getevents failure: rc=%d",__FILE__,__LINE__, rc);
+			log(lsERROR,"calling io_getevents failure: rc=%d",rc);
 
 		}
 		else if (rc > 0) {
 
 
 			_onAirCounter-=rc;
-			output_stdout("AIO: %d events notified. current ONAIR=%d", rc, _onAirCounter);
+			log(lsTRACE, "AIO: %d events notified. current ONAIR=%d", rc, _onAirCounter);
 
 			for (int i=0; i < rc ; i++ ) {
 				cb = (iocb*)eventArr[i].obj;
 				res=(long long)eventArr[i].res;
 				if (res < 0) {
-					output_stderr("[%s,%d] aio event: completion with error, errno=%lld %m",__FILE__,__LINE__, res);
+					log(lsFATAL,"aio event: completion with error, errno=%lld %m",res);
 					exit(-1); // ToDo: Must replace with callback to applciation!!
 				}
-				else if (res != cb->u.c.nbytes ) { // res is the actual read/writen bytes  , u.c.nbytes is the requested bytes to read/write
+				else if ((uint64_t)res != cb->u.c.nbytes ) { // res is the actual read/writen bytes  , u.c.nbytes is the requested bytes to read/write
 					if ((cb->u.c.nbytes - eventArr[i].res) > 2*AIO_ALIGNMENT) {
 						// if sub is less then 2*AIO_ALIGNMENT then it is probably as a reasult of alignment and EOF
 						// else , it is unexpected.
-						output_stderr("[%s,%d] aio event: unexpected number of bytes was read/written. requested=%lld actaul=%lld",__FILE__,__LINE__, cb->u.c.nbytes, res);
+						log(lsFATAL, "aio event: unexpected number of bytes was read/written. requested=%lld actaul=%lld",cb->u.c.nbytes, res);
 						exit(-1); // ToDo: Must replace with callback to applciation!!
 					}
 				}
 
 				if ((callback_rc = _callback(eventArr[i].data)) != 0 ){
-					output_stderr("[%s,%d] aio event: callback returned with rc=%d",__FILE__,__LINE__, callback_rc);
+					log(lsERROR,"aio event: callback returned with rc=%d", callback_rc);
 				}
 
 				delete cb; // delete the submitted iocb
@@ -194,7 +191,7 @@ void AIOHandler::processEventsCallbacks() {
 
 	}
 
-	output_stdout("AIO: Events processor stopped");
+	log(lsINFO, "AIO: Events processor stopped");
 }
 
 

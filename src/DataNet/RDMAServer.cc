@@ -47,12 +47,13 @@ server_comp_ibv_send(netlev_wqe_t *wqe)
     
     pthread_mutex_lock(&dev->lock);
     release_netlev_wqe(wqe, &dev->wqe_list);
-    pthread_mutex_unlock(&dev->lock);
     
     /* Send a no_op for credit flow */
     if (conn->returning >= (conn->peerinfo.credits >> 1)) {
         netlev_send_noop(conn);
     }
+    pthread_mutex_unlock(&dev->lock);
+
 }
 
 static void 
@@ -126,10 +127,12 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
     conn->returning ++;
     pthread_mutex_unlock(&conn->lock);
 
+    pthread_mutex_lock(&dev->lock);
     /* Send a no_op for credit flow */
     if (conn->returning >= (conn->peerinfo.credits >> 1)) {
         netlev_send_noop(conn);
     }
+    pthread_mutex_unlock(&dev->lock);
 }
 
 static void server_cq_handler(progress_event_t *pevent, void *data)

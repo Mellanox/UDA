@@ -289,8 +289,7 @@ DataEngine::start()
             if (!list_empty(&this->comp_mof_list)) {
                 pthread_mutex_lock(&this->index_lock);
                 /* Get the first MOF entry */
-                comp = list_entry(this->comp_mof_list.next, 
-                                  typeof(*comp), list);
+                comp = list_entry(this->comp_mof_list.next, typeof(*comp), list);
                 list_del(&comp->list);
                 pthread_mutex_unlock(&this->index_lock);
             } else {
@@ -304,7 +303,7 @@ DataEngine::start()
                 
                 rc = read_mof_index_records(jobid, mapid);
                 if (rc) {
-                	output_stderr("[%s,%d] failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s",__FILE__,__LINE__, jobid, mapid);
+                	log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid, mapid);
                 }
                 free (comp->jobid);
                 free (comp->mapid);
@@ -598,7 +597,7 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , index_record_t *record,
 
     int64_t offset = record->offset + map_offset;
     size_t read_length = record->partLength - map_offset;
-    read_length = (read_length < this->rdma_buf_size ) ? read_length : this->rdma_buf_size ;
+    read_length = (read_length < (size_t)this->rdma_buf_size ) ? read_length : this->rdma_buf_size ;
     log (lsDEBUG, "this->rdma_buf_size inside aio_read_chunk_data is %d\n", this->rdma_buf_size);
 
     // fall through to read data from file.out
