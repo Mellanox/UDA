@@ -205,41 +205,41 @@ for node_scale in ${CLUSTER_NODES} ; do
 				for ds in ${DATA_SET}; do
 					if (( ${nmaps} >= ${nreds})); then 
 						
-						echo $(basename $0): "Cleaning /terasort/output HDFS library"
-						echo $(basename $0): bin/hadoop fs -rmr /terasort/output
-						bin/hadoop fs -rmr /terasort/output
-						sleep 10
-						
-						totalReducers=$(($node_scale * $nreds))
-						if [ "$DATA_SET_TYPE" = "node" ]
-						then
-							totalDataSet=$(($ds * $node_scale))
-						else
-							totalDataSet=$ds
-						fi
-						
-						echo "$(basename $0): Running test on cluster of $node_scale slaves with $nmaps mapers, $nreds reducers per TT and total of $totalReducers reducers"
-						echo "$(basename $0): Cleaning buffer caches" 
-						sudo bin/slaves.sh ${SCRIPTS_DIR}/cache_flush.sh
-						#TODO: above will only flash OS cache; still need to flash disk cache
-						sleep 3
-	
-						echo "$(basename $0): Cleaning logs directories (history&userlogs)"
-						rm -rf $HADOOP_HOME/logs/userlogs/*
-						rm -rf $HADOOP_HOME/logs/history/*
-						bin/slaves.sh rm -rf $HADOOP_HOME/logs/userlogs/*
-						bin/slaves.sh rm -rf $HADOOP_HOME/logs/history/*
-		
-						#this is the command to run
-						export USER_CMD="bin/hadoop jar hadoop*examples*.jar terasort  -Dmapred.reduce.tasks=${totalReducers} /terasort/input/${totalDataSet}G /terasort/output"
-						JOB=${log_prefix}.N${ds}G.N${nmaps}m.N${nreds}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}
-						
 						attempt=0
 						code=0
 						attempt_code=1
 						while ((attempt_code!=0)) && ((attempt<MAX_ATTEMPTS))
 						do
 
+							echo $(basename $0): "Cleaning /terasort/output HDFS library"
+	                                                echo $(basename $0): bin/hadoop fs -rmr /terasort/output
+	                                                bin/hadoop fs -rmr /terasort/output
+	                                                sleep 10
+	
+	                                                totalReducers=$(($node_scale * $nreds))
+	                                                if [ "$DATA_SET_TYPE" = "node" ]
+	                                                then
+	                                                        totalDataSet=$(($ds * $node_scale))
+	                                                else
+	                                                        totalDataSet=$ds
+	                                                fi
+	
+	                                                echo "$(basename $0): Running test on cluster of $node_scale slaves with $nmaps mapers, $nreds reducers per TT and total of $totalReducers reducers"
+	                                                echo "$(basename $0): Cleaning buffer caches" 
+	                                                sudo bin/slaves.sh ${SCRIPTS_DIR}/cache_flush.sh
+	                                                #TODO: above will only flash OS cache; still need to flash disk cache
+	                                                sleep 3
+	
+	                                                echo "$(basename $0): Cleaning logs directories (history&userlogs)"
+	                                                rm -rf $HADOOP_HOME/logs/userlogs/*
+	                                                rm -rf $HADOOP_HOME/logs/history/*
+	                                                bin/slaves.sh rm -rf $HADOOP_HOME/logs/userlogs/*
+	                                                bin/slaves.sh rm -rf $HADOOP_HOME/logs/history/*
+	
+	                                                #this is the command to run
+	                                                export USER_CMD="bin/hadoop jar hadoop*examples*.jar terasort  -Dmapred.reduce.tasks=${totalReducers} /terasort/input/${totalDataSet}G /terasort/output"
+	                                                JOB=${log_prefix}.N${ds}G.N${nmaps}m.N${nreds}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}
+	
 							echo "$(basename $0): calling mr-dstat for $USER_CMD attempt $attempt"
 							${SCRIPTS_DIR}/mr-dstat.sh "${JOB}_attempt${attempt}"
 							attempt_code=$?

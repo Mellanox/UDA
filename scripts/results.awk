@@ -6,8 +6,8 @@ function getDateValue (d){
 }
 
 function getDate(){
-        split($0, a, "at:");
-        return a[2]
+        split($0, a, " ");
+        return a[1]
 }
 
 function getFilenameFormat(fn){
@@ -18,13 +18,26 @@ function getFilenameFormat(fn){
 }
 
 BEGIN { 
+	FS=" "
 	OFS=",";
 }
 
-/started/{d1 = getDateValue(getDate())}
 
-/ended/  {
-	print getFilenameFormat(FILENAME), getDateValue(getDate()) - d1 ;
+/Running job:/{ 
+	jobstart_ts= getDateValue($2)
+	start_time_str=$1","$2
+}
+
+/map 100% reduce 0%/ { 
+	mapend_ts=getDateValue($2);
+	mapTime=mapend_ts-jobstart_ts
+ }
+
+/Job complete:/ {
+	jobend_ts=getDateValue($2)
+	reduceTime=jobend_ts-mapend_ts
+	totalTime=jobend_ts-jobstart_ts
+	print start_time_str","getFilenameFormat(FILENAME),"Mapers:"mapTime",Redcuers:"reduceTime",Total:"totalTime
 #	system("sudo grep -ir -E \"error|fail|exception\" $(dirname "FILENAME") | wc -l"); 
 }
 

@@ -18,7 +18,7 @@
 #Modified by IdanWe on 10-10-2011
 # - make teragen only if '-teragen' passed and not in any case of restart
 
-NUMBER_OF_ATTEMPTS_LIVE_NODES=30
+NUMBER_OF_ATTEMPTS_LIVE_NODES=15
 export HADOOP_SLAVE_SLEEP=0.5
 
 if [ -z "$HADOOP_HOME" ]
