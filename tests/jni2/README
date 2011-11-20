@@ -1,0 +1,18 @@
+Purpose:
+	JNI Test: Java -> calls C++ -> that invoke a java callback
+	This time the C++ access and manipulate JAVA bytes arrays
+	
+Details:
+	The C++ native access 3 JAVA bytes arrays.
+	it performs bitwise OR for the 1st 2 arrays and store the result in the 3rd array.
+	then, JAVA check the result *in two places*.
+	The 1st JAVA check may print ERROR in case JVM duplicated the memory (OK - otherwise)
+	The 2nd JAVA check "must" print OK, because it will be safe even in case the memory is duplicated
+
+for building it, type:
+	make
+	OR, make clean all
+	
+	
+for running it, type:
+	make test
