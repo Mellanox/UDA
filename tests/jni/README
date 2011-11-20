@@ -1,0 +1,19 @@
+Purpose:
+	JNI Test: Java -> calls C++ -> that invoke a java callback
+	
+Details:
+	Java class that - upon load - calls native C++ library for registering a java function as callback
+	As a result, The C++ calculate once the ID of the JAVA callback and keep it for future use
+	Later, the "JAVA Main" invokes C++ native function that calls the registered java callback
+	NOTE: no args are passing at this phase (except for 'this' object from the java calling class)
+	
+
+for building it, type:
+	make
+	OR, make clean all
+	
+	
+for running it, type:
+	JDK=/usr/lib/jvm/java-1.6.0-openjdk-1.6.0.0.x86_64/ # NOTE: this should match appropriate variable in Makefile
+	export LD_LIBRARY_PATH=. 
+	$(JDK)/bin/java JniTest
