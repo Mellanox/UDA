@@ -14,6 +14,8 @@ for building it, type:
 	
 	
 for running it, type:
+	make test
+OR:
 	JDK=/usr/lib/jvm/java-1.6.0-openjdk-1.6.0.0.x86_64/ # NOTE: this should match appropriate variable in Makefile
 	export LD_LIBRARY_PATH=. 
-	$(JDK)/bin/java JniTest
+	$JDK/bin/java JniTest
