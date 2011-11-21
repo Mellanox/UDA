@@ -38,8 +38,8 @@ Java_JniTest_nativeMethod(JNIEnv *env, jobject obj, jbyteArray arr1, jbyteArray 
         return; // exception occurred 
 	}
 
-	
-	for (int i = 0; i < 10; ++i) {
+	jsize len = env->GetArrayLength(arr3);
+	for (int i = 0; i < len; ++i) {
 		carr3[i] = carr1[i] | carr2[i];
 	}
 

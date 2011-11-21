@@ -1,5 +1,5 @@
 class JniTest {
-	private static int SIZE = 10;
+	private static int SIZE = 1024*1024;
 
     private static byte[] arr1, arr2, arr3;
     private static native void initIDs();
