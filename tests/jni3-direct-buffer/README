@@ -1,0 +1,26 @@
+Purpose:
+	JNI Test: Java -> calls C++ -> that invoke a java callback
+	C++ access and manipulate JAVA bytes arrays
+	This time the java create ByteBuffer and allocate direct memory (outside the JVM)
+	This memory doesn't disturb the java GC and is easily accessibly directly by the C++
+
+Details:
+	The C++ native access 3 JAVA direct bytes arrays.
+	it performs bitwise OR for the 1st 2 arrays and store the result in the 3rd array.
+	then, JAVA check the result *in two places*.
+	Unlike jini2, here both JAVA checks should print OK
+
+NOTE:
+	At this phase - using our JVM - the java itself can't access the direct memory it allocated
+	As a result JAVA needs to copy from this buffer
+	(still java allowed to pass this ByteBuffer as is to network/file operations that can benefit it)
+	TODO: consider using MappedByteBuffer over file in ramfs/tmpfs
+	- this will give us direct buffer that might be accesible both by Java too
+	
+for building it, type:
+	make
+	OR, make clean all
+	
+	
+for running it, type:
+	make test
