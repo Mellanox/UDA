@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <stdio.h>
 #include "JniTest.h"  
+#include <unistd.h> // temp for sleep
 
 
 jmethodID MID_JniTest_callback;
@@ -51,7 +52,7 @@ Java_JniTest_nativeMethod(JNIEnv *env, jobject obj, jbyteArray arr1, jbyteArray 
 	env->ReleaseByteArrayElements(arr2, carr2, 0);
 	env->ReleaseByteArrayElements(arr3, carr3, 0);
 		
-    printf("<<< Exiting C++\n");
+	printf("<<< Exiting C++\n");
 }
 
 
