@@ -26,16 +26,17 @@
 
 AUTOMAKE_OPTIONS = subdir-objects
 
-ACLOCAL_AMFLAGS = -I m4
 AM_LDFLAGS = -rdynamic
-AM_CPPFLAGS = -I$(top_srcdir) -I. -I$(top_srcdir)/include \
-			  -I/usr/ofed-1.5.2/include \
-			  -Wall -g -D_GNU_SOURCE -O2 $(INCLUDE_DIR)
+JDK = /usr/lib/jvm/java-1.6.0-openjdk-1.6.0.0.x86_64/
+AM_CPPFLAGS = $(INCLUDE_DIR) -I$(top_srcdir) -I. -I$(top_srcdir)/include \
+			  -I$(JDK)/include -I$(JDK)/include/linux
+			  -Wall -g -D_GNU_SOURCE -O3 -fPIC
 
 # Specify the source files for a library
 # Append additional directory to the end of this list
-lib_LIBRARIES = librdmamove.a
-librdmamove_a_SOURCES = \
+
+lib_LTLIBRARIES = librdmamove.la
+librdmamove_la_SOURCES = \
 						include/atomic.h         \
 						include/C2JNexus.h       \
 						include/IOUtility.h      \
@@ -74,7 +75,7 @@ librdmamove_a_SOURCES = \
 # These programs will borrow all functions from the library
 bin_PROGRAMS = MOFSupplier NetMerger
 
-LDADD = librdmamove.a -lpthread -libverbs -lrdmacm -laio
+LDADD = -lrdmamove -lpthread -libverbs -lrdmacm -laio
 MOFSupplier_SOURCES = MOFSupplier.cc
 NetMerger_SOURCES = NetMerger.cc
 # vim: sw=4: ts=4: noet
