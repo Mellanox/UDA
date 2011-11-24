@@ -29,7 +29,6 @@ using namespace std;
 
 
 #define MAX_RECORDS_PER_MOF     	(2048)
-#define MAX_OPEN_DAT_FILES      	(512)
 #define AIOHANDLER_MIN_NR			(1)
 #define AIOHANDLER_NR				(50)
 #define AIOHANDLER_TIMEOUT_IN_NSEC	(300000000)
@@ -136,12 +135,13 @@ private:
     pthread_cond_t      _chunk_cond;
     pthread_mutex_t		_chunk_mutex;
 
+    const uint64_t		MAX_OPEN_DAT_FILES;
 
 
 public:
     DataEngine(void *mem, size_t total_size,
                size_t chunk_size, supplier_state_t *state,
-               const char *path, int mode, int rdma_buf_size);
+               const char *path, int mode, int rdma_buf_size, uint64_t max_open_files);
     ~DataEngine();
 
 

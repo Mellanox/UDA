@@ -109,15 +109,10 @@ int DataEngine::read_records(partition_table_t *ifile,
 DataEngine::DataEngine(void *mem, size_t total_size,
                        size_t chunk_size, 
                        supplier_state_t *state,
-                       const char *path, int mode, int rdma_buf_size)
+                       const char *path, int mode, int rdma_buf_size, uint64_t max_open_files) : MAX_OPEN_DAT_FILES(max_open_files)
 {
-    /* XXX:
-     * Data Engine should hold the following tables
-     * MAX_MOFS_INCACHE index files (currently 1024)
-     * MAX_RECORDS_PER_MOF (currently 2K)
 
-     */
-    prepare_tables(mem, total_size, chunk_size, rdma_buf_size);
+	prepare_tables(mem, total_size, chunk_size, rdma_buf_size);
 
     INIT_LIST_HEAD(&this->comp_mof_list);
 

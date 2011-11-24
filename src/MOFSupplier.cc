@@ -10,9 +10,17 @@
 ** provided with the software product.
 **
 */
+
+#include <sys/resource.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+
 #include "MOFServer/MOFServlet.h"
 #include "MOFServer/IndexInfo.h"
 #include "include/IOUtility.h"
+
+
 
 using namespace std;
 
@@ -115,6 +123,7 @@ void mof_downcall_handler(progress_event_t *pevent, void *ctx)
 int main(int argc, char *argv[])
 {
     int ret;
+    struct rlimit open_files_limit;
     struct netlev_option op;
     memset(&op, 0, sizeof(netlev_option_t));
     ret = parse_options(argc, argv, &op);
@@ -124,6 +133,20 @@ int main(int argc, char *argv[])
   
     log (lsINFO, "The version is %s",STR(VERSION_UDA));
     log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
+
+    if (getrlimit(RLIMIT_NOFILE, &open_files_limit)) {
+    	log(lsFATAL, "failed to get max number of open files. errno=%d %m", errno);
+    	exit(-1);
+    }
+
+    /*
+     * The soft limit is the value that the kernel enforces for the corresponding resource.
+     * The hard limit acts as a ceiling for the soft limit
+     */
+    log(lsINFO, "Hard limit for open files is %d", open_files_limit.rlim_max);
+    log(lsINFO, "Soft limit for open files is %d", open_files_limit.rlim_cur);
+    log(lsINFO, "Limits MOFSupplier for %d open MOFs", open_files_limit.rlim_cur);
+
 
     memset(&state_mac, 0, sizeof(supplier_state_t));
     pthread_mutex_init(&state_mac.sm_lock, NULL);
@@ -164,7 +187,7 @@ int main(int argc, char *argv[])
     state_mac.data_mac = new DataEngine(state_mac.mover->rdma->rdma_mem,
                                         state_mac.mover->rdma->rdma_total_len,
                                         state_mac.mover->rdma->rdma_chunk_len,
-                                        &state_mac, /* op.base_path */ NULL, op.mode, op.buf_size);
+                                        &state_mac, /* op.base_path */ NULL, op.mode, op.buf_size, open_files_limit.rlim_cur);
 
     log (lsDEBUG, "state_mac.data_mac->rdma_buf_size is %d", state_mac.data_mac->rdma_buf_size);
     state_mac.data_mac->start();
