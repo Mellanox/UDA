@@ -26,6 +26,7 @@
 
 AUTOMAKE_OPTIONS = subdir-objects
 
+ACLOCAL_AMFLAGS = -I ../utils/m4
 AM_LDFLAGS = -rdynamic
 JDK = /usr/lib/jvm/java-1.6.0-openjdk-1.6.0.0.x86_64/
 AM_CPPFLAGS = $(INCLUDE_DIR) -I$(top_srcdir) -I. -I$(top_srcdir)/include \
@@ -48,6 +49,7 @@ librdmamove_la_SOURCES = \
 					   	MOFServer/MOFServlet.h \
 					   	MOFServer/IndexInfo.cc  \
 						MOFServer/MOFServlet.cc \
+						MOFServer/MOFSupplierMain.cc \
 					   	DataNet/RDMAClient.h \
 					   	DataNet/RDMAComm.h \
 					   	DataNet/RDMAServer.h \
@@ -69,7 +71,8 @@ librdmamove_la_SOURCES = \
 						Merger/reducer.h \
 						Merger/reducer.cc \
                         Merger/MergeQueue.h \
-                        Merger/MergeQueue.cc 
+                        Merger/MergeQueue.cc \
+                        Merger/NetMergerMain.cc 
 
 # Two main binary programs will be created
 # These programs will borrow all functions from the library
