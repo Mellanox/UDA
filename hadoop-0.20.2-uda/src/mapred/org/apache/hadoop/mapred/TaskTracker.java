@@ -3249,8 +3249,9 @@ public class TaskTracker
       this.buildConn(MOF);
 
       // launch NetMerger
-      this.launchCppSide(NET);
+   	  this.launchCppSide(NET);
       this.buildConn(NET);
+
 
       //this.mInit = false;
     }
@@ -3306,6 +3307,9 @@ public class TaskTracker
       }
     }
   
+    
+    
+    
     private void launchCppSide(int proc_idx) throws IOException {
 
       String driver = this.mDrivers[proc_idx];
@@ -3335,9 +3339,37 @@ public class TaskTracker
       cmd.add("-t");
       cmd.add(fConf.get("mapred.uda.log.tracelevel"));
 
-      
-      ProcessBuilder pd = new ProcessBuilder(cmd);
-      this.mRDMAProcess[proc_idx] = pd.start();
+      if (proc_idx == NET) {
+    	  String[] stringarray = null;
+    	  int rc = 0;
+	      try {
+	    	  stringarray = cmd.toArray(new String[0]);
+	      } catch (Throwable e) {
+	          LOG.warn("J2CNexus:Exception when converting list to array");    	  
+	          LOG.warn(StringUtils.stringifyException(e));
+	          LOG.warn(e.getMessage());
+	          //throw (except);
+	      }
+	      try {
+//	    	  int x = UdaLoader.check(5);
+//	          LOG.info("no Exception in call to UdaLoader.check: x=" + x);
+	          
+	    	  rc = UdaLoader.start(stringarray);
+	      
+	      } catch (Throwable e) {
+	          LOG.warn("J2CNexus:Exception when launching child");    	  
+	          LOG.warn(StringUtils.stringifyException(e));
+	          LOG.warn(e.getMessage());
+	          //throw (except);
+	      }
+  
+      }
+      else {
+//*      
+	      ProcessBuilder pd = new ProcessBuilder(cmd);
+	      this.mRDMAProcess[proc_idx] = pd.start();
+//*/
+      }
     }
 
     private void buildConn(int proc_idx) throws IOException {

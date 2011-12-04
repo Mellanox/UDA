@@ -50,6 +50,7 @@
   <property name="c++.rdma.src" value="${basedir}/../src"/>
   <property name="c++.rdma.src.MOFSupplier" value="${c++.rdma.src}/MOFSupplier"/>
   <property name="c++.rdma.src.NetMerger" value="${c++.rdma.src}/NetMerger"/>
+  <property name="c++.rdma.src.libudaso" value="${c++.rdma.src}/.libs/libuda.so"/>
   <property name="c++.examples.pipes.src" value="${examples.dir}/pipes"/>
   <property name="c++.libhdfs.src" value="${c++.src}/libhdfs"/>
   <property name="librecordio.src" value="${c++.src}/librecordio"/>
@@ -1516,7 +1517,7 @@
     </exec>
     <exec executable="./configure" dir="${c++.rdma.src}" searchpath="yes"	
 		failonerror="yes">
-		<arg value="--build=x86_64"/>
+		<!---   Avner: this doesn't create *.so file for some reason <arg value="- -build=x86_64"/> -->
     </exec>
     <exec executable="make" dir="${c++.rdma.src}" searchpath="yes"	
 		failonerror="yes">
@@ -1527,6 +1528,7 @@
     </exec>
     <copy file="${c++.rdma.src.MOFSupplier}" todir="bin/" overwrite="true"/>
     <copy file="${c++.rdma.src.NetMerger}"   todir="bin/" overwrite="true"/>
+    <copy file="${c++.rdma.src.libudaso}"    todir="bin/" overwrite="true"/>
   </target>
 
   <target name="compile-ant-tasks" depends="compile-core">

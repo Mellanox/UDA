@@ -36,8 +36,8 @@ AM_CPPFLAGS = $(INCLUDE_DIR) -I$(top_srcdir) -I. -I$(top_srcdir)/include \
 # Specify the source files for a library
 # Append additional directory to the end of this list
 
-lib_LTLIBRARIES = librdmamove.la
-librdmamove_la_SOURCES = \
+lib_LTLIBRARIES = libuda.la
+libuda_la_SOURCES = \
 						include/atomic.h         \
 						include/C2JNexus.h       \
 						include/IOUtility.h      \
@@ -74,11 +74,16 @@ librdmamove_la_SOURCES = \
                         Merger/MergeQueue.cc \
                         Merger/NetMergerMain.cc 
 
+						
+libuda_la_LDFLAGS = -module
+
+libuda_la_LIBADD =  -lpthread -libverbs -lrdmacm -laio
+
 # Two main binary programs will be created
 # These programs will borrow all functions from the library
 bin_PROGRAMS = MOFSupplier NetMerger
 
-LDADD = -lrdmamove -lpthread -libverbs -lrdmacm -laio
+LDADD = -luda -lpthread -libverbs -lrdmacm -laio
 MOFSupplier_SOURCES = MOFSupplier.cc
 NetMerger_SOURCES = NetMerger.cc
 # vim: sw=4: ts=4: noet
