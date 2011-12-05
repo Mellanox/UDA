@@ -1,4 +1,5 @@
 MAIN_FILE=JniTest
+#JDK = /usr/lib64/java/jdk1.6.0_25/ - This Should be used
 JDK = /usr/lib/jvm/java-1.6.0-openjdk-1.6.0.0.x86_64/
 CFLAGS += -g -fPIC -I$(JDK)/include -I$(JDK)/include/linux
 CXXFLAGS += $(CFLAGS)
