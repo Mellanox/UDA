@@ -15,15 +15,14 @@ jbyte *carr3 = NULL;
 
 jint SIZE = 0;
 
-jint JNI_OnLoad(JavaVM *vm, void *reserved)
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
 {
 	printf("-->> C++ Loaded\n");
 	return JNI_VERSION_1_4;  //direct buffer requires java 1.4
 }
 
 
-JNIEXPORT void JNICALL
-JNI_OnUnload(JavaVM *jvm, void *reserved)
+extern "C" JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
 {
 	// NOTE: We never reached this place
 	printf("<<-- C++ UnLoaded\n");
@@ -69,7 +68,7 @@ Java_JniTest_initIDs(JNIEnv *env, jclass cls)
     SIZE = env->GetStaticIntField(cls, fid);	
 }
 
-JNIEXPORT void JNICALL 
+extern "C" JNIEXPORT void JNICALL 
 Java_JniTest_nativeMethod(JNIEnv *env, jobject obj)
 {
     printf(">>> In C++\n");
