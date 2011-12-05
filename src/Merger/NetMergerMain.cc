@@ -328,6 +328,24 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaLoader_start 
     return 0;
 }
 
+
+//direct buffer requires java 1.4
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
+{
+	printf("-->> C++ Loaded\n");
+	return JNI_VERSION_1_4;
+}
+
+
+extern "C" JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
+{
+	// NOTE: we need to check if We reached this place
+	printf("<<-- C++ UnLoaded\n");
+	return;
+}
+
+
+
 /*
  * Local variables:
  *  c-indent-level: 4
