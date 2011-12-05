@@ -3342,27 +3342,16 @@ public class TaskTracker
       if (proc_idx == NET) {
     	  String[] stringarray = null;
     	  int rc = 0;
+    	  stringarray = cmd.toArray(new String[0]);
 	      try {
-	    	  stringarray = cmd.toArray(new String[0]);
-	      } catch (Throwable e) {
-	          LOG.warn("J2CNexus:Exception when converting list to array");    	  
-	          LOG.warn(StringUtils.stringifyException(e));
-	          LOG.warn(e.getMessage());
-	          //throw (except);
-	      }
-	      try {
-//	    	  int x = UdaLoader.check(5);
-//	          LOG.info("no Exception in call to UdaLoader.check: x=" + x);
-	          
 	    	  rc = UdaLoader.start(stringarray);
 	      
-	      } catch (Throwable e) {
+	      } catch (UnsatisfiedLinkError e) {
 	          LOG.warn("J2CNexus:Exception when launching child");    	  
 	          LOG.warn(StringUtils.stringifyException(e));
-	          LOG.warn(e.getMessage());
-	          //throw (except);
+	          throw (e);
 	      }
-  
+
       }
       else {
 //*      

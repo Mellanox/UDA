@@ -13,12 +13,5 @@ public class UdaLoader {
     }
     static {
         System.loadLibrary("uda");
-/*        
-        System.loadLibrary("rdmacm");
-        System.loadLibrary("ibverbs");
-        
-        System.loadLibrary("pthread");
-        System.loadLibrary("aio");
-//*/        
     }
 }
