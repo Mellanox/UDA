@@ -72,7 +72,8 @@ libuda_la_SOURCES = \
 						Merger/reducer.cc \
                         Merger/MergeQueue.h \
                         Merger/MergeQueue.cc \
-                        Merger/NetMergerMain.cc 
+                        Merger/NetMergerMain.cc \
+                        UdaLoader.cc 
 
 						
 libuda_la_LDFLAGS = -module
