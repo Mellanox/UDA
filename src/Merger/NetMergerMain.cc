@@ -11,26 +11,6 @@
 **
 */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <limits.h>
-#include "MergeQueue.h"
-#include "MergeManager.h"
-#include "StreamRW.h"
-#include "reducer.h"
-#include "IOUtility.h"
-#include "C2JNexus.h"
-
-#ifndef PATH_MAX  // normally defined in limits.h
-#define PATH_MAX 4096
-#endif
-
-using namespace std;
-
-
-/// -------  CODE COPIED FROM NetManager.cc ------------
-
 #include <errno.h>
 #include <stdlib.h>
 #include <set>
@@ -43,9 +23,6 @@ using namespace std;
 #include "include/IOUtility.h"
 
 using namespace std;
-
-
-
 
 
 int netlev_dbg_flag = 0;
