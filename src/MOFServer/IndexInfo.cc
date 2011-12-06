@@ -634,7 +634,7 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , index_record_t *record,
     		iter++;
     	}
     	fd_map.erase(fd_map.begin(),fd_map.end());
-    	output_stderr("[%s,%d] FATAL ERROR: maximum number of open file descriptors exceeded. max=%d",__FILE__,__LINE__, MAX_OPEN_DAT_FILES);
+    	log(lsFATAL,"maximum number of %llu file descriptors exceeded.", MAX_OPEN_DAT_FILES);
     	exit(1);
     }
 
