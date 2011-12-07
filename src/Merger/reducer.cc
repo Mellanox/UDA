@@ -320,6 +320,8 @@ void finalize_reduce_task(reduce_task_t *task)
    /* for measurement please enable the codes and set up your directory */
 	log(lsTRACE, "function started");
 
+	int i = 0;
+
     write_log(task->reduce_log, DBG_CLIENT, 
               "Total merge time: %d",  
               task->total_merge_time);
@@ -341,21 +343,27 @@ void finalize_reduce_task(reduce_task_t *task)
 
     /* stop fetch thread */ 
     task->fetch_thread.stop = 1;
+    pthread_cond_broadcast(&task->fetch_man->send_cond); // awake fetch thread for enabling him check fetch_thread.stop
+
     pthread_mutex_lock(&task->lock);
     pthread_cond_broadcast(&task->cond);
     pthread_mutex_unlock(&task->lock);
+	log(lsDEBUG, "before joining task->fetch_thread.thread i=%d", i++);
     pthread_join(task->fetch_thread.thread, NULL);
+	log(lsDEBUG, "after joining task->fetch_thread.thread i=%d", i++);
     delete task->fetch_man;
     write_log(task->reduce_log, DBG_CLIENT, 
               "fetch thread joined");
     
-    /* stop merge thread and upload thread */
+    /* stop merge thread and upload thread - This will only happen after joining fetch_thread*/
     task->upload_thread.stop = 1;
     task->merge_thread.stop = 1;
     pthread_mutex_lock(&task->merge_man->lock);
     pthread_cond_broadcast(&task->merge_man->cond);
     pthread_mutex_unlock(&task->merge_man->lock);
+	log(lsDEBUG, "before joining task->merge_thread.thread i=%d", i++);
     pthread_join(task->merge_thread.thread, NULL);  
+	log(lsDEBUG, "after joining task->merge_thread.thread i=%d", i++);
     delete task->merge_man;
     write_log(task->reduce_log, DBG_CLIENT, 
               "merge thread joined");
@@ -372,6 +380,7 @@ void finalize_reduce_task(reduce_task_t *task)
     DBGPRINT(DBG_CLIENT, "host lists and map are freed\n"); */
 
     /* free large pool */
+	log(lsTRACE, "before loop i=%d", i++);
     while (!list_empty(&task->kv_pool.free_descs)) {
         mem_desc_t *desc = 
             list_entry(task->kv_pool.free_descs.next, 
@@ -379,6 +388,7 @@ void finalize_reduce_task(reduce_task_t *task)
         list_del(&desc->list);
         free(desc);
     }
+	log(lsTRACE, "after loop i=%d", i++);
     pthread_mutex_destroy(&task->kv_pool.lock);
     free(task->kv_pool.mem);
     write_log(task->reduce_log, DBG_CLIENT, 
@@ -399,6 +409,7 @@ void finalize_reduce_task(reduce_task_t *task)
     free(task->reduce_task_id);
     free(task->job_id);
     free(task);
+
 	log(lsTRACE, "function ended");
 }
 
