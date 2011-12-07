@@ -650,9 +650,16 @@ void redirect_stderr(const char *proc)
     int rc = gethostname(host, 99);
     if (rc) fprintf(stderr, "gethostname failed: %m(%d)", errno);
 
-//    sprintf(full_path, "%s%s.stderr", rdmalog_dir, proc);
-    sprintf(full_path, "%s/hadoop-%s-%s-%s.stderr", rdmalog_dir, getlogin(), proc, host);
-    freopen (full_path,"w",stderr);
+    const char * const hadoop_home = getenv("HADOOP_HOME");
+    if (hadoop_home) {
+    	sprintf(full_path, "%s/%s/hadoop-%s-%s-%s.stderr", hadoop_home, rdmalog_dir, getlogin(), proc, host);
+    	freopen (full_path,"w",stderr);
+        printf("log will go to: %s\n", full_path);
+    }
+    else {
+        printf("log will go to stderr\n");
+        fprintf(stderr, "log will go to stderr\n");
+    }
 }
 
 void redirect_stdout(const char *proc)
@@ -667,7 +674,6 @@ void redirect_stdout(const char *proc)
     if (rc) fprintf(stderr, "gethostname failed: %m(%d)", errno);
 
 
-//    sprintf(full_path, "%s%s.stdout", rdmalog_dir, proc);
     sprintf(full_path, "%s/hadoop-%s-%s-%s.stdout", rdmalog_dir, getlogin(), proc, host);
     freopen (full_path,"w",stdout);
 }
