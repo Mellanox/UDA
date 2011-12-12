@@ -61,7 +61,7 @@ void log_func(const char * func, const char * file, int line, log_severity_t sev
     va_end(ap);
     s1[SIZE-1] = '\0';
 
-  fprintf(stream, "%02d:%02d:%02d %-5s [thr=%d %s() %s:%d] %s\n",
+  fprintf(stream, "%02d:%02d:%02d %-5s [thr=%x %s() %s:%d] %s\n",
 		  _tm.tm_hour,
 		  _tm.tm_min,
 		  _tm.tm_sec,
