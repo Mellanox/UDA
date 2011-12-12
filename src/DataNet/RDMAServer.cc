@@ -311,13 +311,18 @@ server_cm_handler(progress_event_t *pevent, void *data)
         case RDMA_CM_EVENT_DISCONNECTED:
             log(lsDEBUG, "got RDMA_CM_EVENT_DISCONNECTED");
 
-/*
- 	 AVNER:
- 	 	 	 temp - put orig cleanup code because it makes the RDMA server unusable
- 	 	 	 see also: http://redmine.lab.mtl.com/redmine/issues/4533
- 	 	 	 TODO: currently there is resource leak
 
-            conn = netlev_disconnect(cm_event, &ctx->hdr_conn_list);
+            conn = netlev_conn_find(cm_event, &ctx->hdr_conn_list);
+            log(lsTRACE, "calling rdma_ack_cm_event for event=%d", cm_event->event);
+            ret = rdma_ack_cm_event(cm_event);
+            if (ret) { log(lsWARN, "ack cm event failed"); }
+
+            netlev_disconnect(conn);
+/*
+            // Avner: TODO
+            // it is true that list_del is wrong (after conn was freed) and it is
+            // redundant (since it was already performed inside netlev_disconnect()->netlev_conn_free())
+            // However, here there is a lock around list_del; while netlev_conn_free() use no lock
 
             if (conn) {
                 pthread_mutex_lock(&ctx->lock);
@@ -325,9 +330,7 @@ server_cm_handler(progress_event_t *pevent, void *data)
                 pthread_mutex_unlock(&ctx->lock);
             }
 //*/
-
-            log(lsWARN, "only destroying qp.  No real cleanup.  This is resource leak!");
-            rdma_destroy_qp(cm_event->id);
+            return;
 
             break;
         case RDMA_CM_EVENT_TIMEWAIT_EXIT:  // avner: don't bail out
@@ -349,9 +352,7 @@ server_cm_handler(progress_event_t *pevent, void *data)
 
     log(lsTRACE, "calling rdma_ack_cm_event for event=%d", cm_event->event);
     ret = rdma_ack_cm_event(cm_event);
-    if (ret) {
-        output_stderr("ack cm event failed");
-    }
+    if (ret) { log(lsWARN, "ack cm event failed"); }
 }
 
 

@@ -553,23 +553,28 @@ netlev_conn_established(struct rdma_cm_event *event,
     }
 }
 
+
 struct netlev_conn*
-netlev_disconnect(struct rdma_cm_event *ev, 
-                  struct list_head *head)
+netlev_conn_find(struct rdma_cm_event *ev, struct list_head *head)
 {
     struct netlev_conn *conn;
 
     list_for_each_entry(conn, head, list) {
         if (conn->qp_hndl->qp_num == ev->id->qp->qp_num) {
-        	log(lsDEBUG, "calling rdma_disconnect based on ev->id->qp->qp_num=%x; ev->id->channel->fd=%d", (int)conn->qp_hndl->qp_num, ev->id->channel->fd);
-
-            rdma_disconnect(ev->id);
-            netlev_conn_free(conn);
-
+        	log(lsDEBUG, "conn was found based on ev->id->qp->qp_num=%x; ev->id->channel->fd=%d", (int)conn->qp_hndl->qp_num, ev->id->channel ? ev->id->channel->fd : 0);
             return conn;
         }
     }
+	log(lsDEBUG, "conn was not found");
     return NULL;
+}
+
+void netlev_disconnect(struct netlev_conn *conn)
+{
+    if (conn) {
+        rdma_disconnect(conn->cm_id);
+        netlev_conn_free(conn);
+    }
 }
 
 int
