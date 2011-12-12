@@ -102,7 +102,7 @@ client_downcall_handler(progress_event_t *pevent, void *ctx)
 
 int MergeManager_main(int argc, char* argv[])
 {
-    int  ret;
+	int  ret;
     struct netlev_option op;
     ret = parse_options(argc, argv, &op);
 
@@ -148,6 +148,7 @@ int MergeManager_main(int argc, char* argv[])
      */
     merging_sm.nexus = new C2JNexus(op.mode, op.cmd_port,
                                     client_downcall_handler,
+// 	                               0, NULL, NULL);
                                     op.svc_port,
                                     reduce_connection_handler,
                                     &merging_sm);
