@@ -2891,9 +2891,57 @@ class ReduceTask extends Task {
         } 
       }
 
+      // avner
+      private void launchCppSide(JobConf fConf) throws IOException {
+
+          String driver = fConf.get("mapred.rdma.netmerger");
+          LOG.info("J2CNexus: Launching " + driver + " Process");
+          List<String> cmd = new ArrayList<String>();
+         
+          /* cmd */
+          cmd.add(driver);
+          
+          /* arguments */
+          cmd.add("-c");
+          cmd.add(fConf.get("mapred.taskTracker.rdma.server.port"));
+          cmd.add("-r");
+          cmd.add(fConf.get("mapred.rdma.cma.port"));      
+          cmd.add("-l");     
+          cmd.add(fConf.get("mapred.netmerger.listener.port"));
+          cmd.add("-a");
+          cmd.add(fConf.get("mapred.netmerger.merge.approach"));
+          cmd.add("-m");
+          cmd.add("1");
+          cmd.add("-g");
+          cmd.add(fConf.get("mapred.rdma.log.dir","default"));
+          cmd.add("-b");
+          cmd.add(fConf.get("mapred.netmerger.rdma.num.buffers"));
+          cmd.add("-s");
+          cmd.add(fConf.get("mapred.rdma.buf.size"));
+          cmd.add("-t");
+          cmd.add(fConf.get("mapred.uda.log.tracelevel"));
+
+    	  String[] stringarray = null;
+    	  int rc = 0;
+          LOG.info("J2CNexus:going to execute child: " + cmd);    	  
+    	  stringarray = cmd.toArray(new String[0]);
+	      try {
+	    	  rc = UdaLoader.start(stringarray);
+	      
+	      } catch (UnsatisfiedLinkError e) {
+	          LOG.warn("J2CNexus:Exception when launching child");    	  
+	          LOG.warn(StringUtils.stringifyException(e));
+	          throw (e);
+	      }
+
+
+        }
+
+      
       public DataSocket(JobConf jobConf, TaskReporter reporter,
                         int numMaps) throws IOException {
         
+    	launchCppSide(jobConf);
         /* init variables */
         init_kv_bufs(); 
         this.kv_buf_receiver = new KVBufReceiver();

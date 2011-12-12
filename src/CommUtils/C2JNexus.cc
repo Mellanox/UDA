@@ -261,6 +261,7 @@ void *event_processor(void *context)
             for (i = 0; i < nevents; i++) {
                 progress_event_t *pevent;
                 pevent = (progress_event_t *)events[i].data.ptr;
+                log(lsTRACE, "EVENT calling handler=0x%x with data=0x%x; result of: th->pollfd=%d; nevents=%d", pevent->handler, pevent->data, th->pollfd, nevents);
                 pevent->handler(pevent, pevent->data);
             }
         } 
@@ -283,45 +284,53 @@ C2JNexus::C2JNexus(int mode,
     this->mode = mode;
     if (this->mode == STANDALONE) return;
 
-    /* 1.a: Connect back to the TaskTracker */
-    this->client_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (this->client_fd < 0) {
-        output_stderr("C2JNexus: Cannot create client socket fd");
-        goto err_create_client_fd;
-    }  
+	this->epoll_fd = epoll_create(100);
+	if (this->epoll_fd < 0) {
+		log(lsERROR, "C2JNexus: Cannot create epoll fd");
+		//goto err_epoll_create;
+		return;
+	}
 
-    struct hostent *server;
-    server = gethostbyname("localhost");
-    sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = ((struct in_addr*)(server->h_addr))->s_addr;
-    addr.sin_port   = htons(client_port);
-    
-    if (connect(this->client_fd, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
-        output_stderr("C2JNexus: Can't connect to the server");
-        goto err_client_conn;
+	this->client_fd = 0;
+
+	//*avner - temp: do it only for MOFSupplier
+	if (! svc_port) {
+
+		/* 1.a: Connect back to the TaskTracker */
+		this->client_fd = socket(AF_INET, SOCK_STREAM, 0);
+		if (this->client_fd < 0) {
+			log(lsERROR, "C2JNexus: Cannot create client socket fd");
+			goto err_create_client_fd;
+		}
+
+		struct hostent *server;
+		server = gethostbyname("localhost");
+		sockaddr_in addr;
+		memset(&addr, 0, sizeof(addr));
+		addr.sin_family = AF_INET;
+		addr.sin_addr.s_addr = ((struct in_addr*)(server->h_addr))->s_addr;
+		addr.sin_port   = htons(client_port);
+
+		if (connect(this->client_fd, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
+			output_stderr("C2JNexus: Can't connect to the server");
+			goto err_client_conn;
+		}
+		output_stdout("C2JNexus: Conn with TaskTracker is up");
+
+		// 1.b: create stream for communication
+		this->stream = new NetStream(this->client_fd);
+
+		// 2. Add an event for down calls
+
+		// XXX: Passing this C2JNexus for the down call
+		if (netlev_event_add(this->epoll_fd,
+							 this->client_fd,
+							 EPOLLIN, downcall, this,
+							 &this->nx_event_list) != 0) {
+			goto err_add_client;
+		}
     }
-    output_stdout("C2JNexus: Conn with TaskTracker is up");
-
-    /* 1.b: create stream for communication */
-    this->stream = new NetStream(this->client_fd);
-
-    /* 2. Add an event for down calls*/
-    this->epoll_fd = epoll_create(100);  
-    if (this->epoll_fd < 0) {
-        output_stderr("C2JNexus: Cannot create epoll fd");
-        goto err_epoll_create;
-    }
-
-    /* XXX: Passing this C2JNexus for the down call */
-    if (netlev_event_add(this->epoll_fd,  
-                         this->client_fd, 
-                         EPOLLIN, downcall, this, 
-                         &this->nx_event_list) != 0) {
-        goto err_add_client;   
-    }
-
+//*/
     /* 3: create listener to listen to new reduce tasks */
     if (svc_port > 0 && service) {
         this->svc_fd = socket(AF_INET, SOCK_STREAM, 0);     

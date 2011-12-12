@@ -410,7 +410,16 @@ void finalize_reduce_task(reduce_task_t *task)
     free(task->job_id);
     free(task);
 
-	log(lsTRACE, "function ended");
+
+	log(lsINFO, "-------------- STOPING PROCESS ---------");
+
+	merging_sm.nexus->engine.stop = 1;
+    merging_sm.stop    = 1;
+    pthread_mutex_lock(&merging_sm.lock);
+    pthread_cond_broadcast(&merging_sm.cond);
+    pthread_mutex_unlock(&merging_sm.lock);
+
+    log(lsTRACE, "*********  ALL C++ threads finished  ************");
 }
 
 /*

@@ -3229,10 +3229,10 @@ public class TaskTracker
     
     private ServerSocket       mServerSocket;
     private String[]           mDrivers      = new String[2];
-    private Socket[]           mClientSocket = new Socket[2];
-    private DataOutputStream[] mStreamToCpp  = new DataOutputStream[2];
-    private DataInputStream[]  mStreamFromCpp= new DataInputStream[2];
-    private Process[]          mRDMAProcess  = new Process[2];
+    private Socket[]           mClientSocket = new Socket[1];
+    private DataOutputStream[] mStreamToCpp  = new DataOutputStream[1];
+    private DataInputStream[]  mStreamFromCpp= new DataInputStream[1];
+    private Process[]          mRDMAProcess  = new Process[1];
     private Vector<String>     mParams       = new Vector<String>();
     private int                mPort;
     private boolean            mInit;
@@ -3249,8 +3249,8 @@ public class TaskTracker
       this.buildConn(MOF);
 
       // launch NetMerger
-   	  this.launchCppSide(NET);
-      this.buildConn(NET);
+//   	  this.launchCppSide(NET);
+//avner      this.buildConn(NET);
 
 
       //this.mInit = false;
@@ -3263,7 +3263,8 @@ public class TaskTracker
         mParams.add(jobId);
         String msg = RDMACmd.formCmd(RDMACmd.JOB_OVER_COMMAND, mParams);
         LOG.info("J2CNexus: JOBOVER:(" + msg + ")");
-        while (num < 2) {
+        while (num < 1) {
+//avner        while (num < 2) {
           Text.writeString(mStreamToCpp[num],msg);
           num++;
         }
@@ -3380,7 +3381,8 @@ public class TaskTracker
         int num = 0;
         mParams.clear();
         String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
-        while (num < 2) {
+        while (num < 1) {
+//avner        while (num < 2) {
           Text.writeString(mStreamToCpp[num], msg);
           mStreamToCpp[num].flush();
           mStreamFromCpp[num].close();

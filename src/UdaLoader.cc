@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h> //temp for sleep
 
 int MergeManager_main(int argc, char* argv[]);
 
@@ -12,7 +13,7 @@ struct Args{
 	Args(int _argc, char** _argv) : argc(_argc), argv(_argv){}
 };
 
-void* mainWrapper(void* data)
+void* mainThread(void* data)
 {
 	Args* pArgs = (Args*) data;
     printf("In C++ main thread: calling: MergeManager_main\n");
@@ -51,7 +52,8 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaLoader_start 
     Args *pArgs = new Args(argc, argv);
 
     pthread_t thr;
-    pthread_create(&thr, NULL, mainWrapper, pArgs);
+    pthread_create(&thr, NULL, mainThread, pArgs);
+    sleep(10);//temp
     printf("exiting 'C++ from Java Thread'\n");
     return 0;
 }
