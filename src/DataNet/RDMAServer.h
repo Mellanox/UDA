@@ -24,7 +24,7 @@ struct shuffle_req;
 class RdmaServer 
 {
 public:
-    RdmaServer(int port, int rdma_buf_size, void *state); 
+    RdmaServer(int port, int rdma_buf_size, void *state);
     ~RdmaServer();
 
     void start_server();

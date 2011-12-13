@@ -30,6 +30,7 @@
 using namespace std;
 
 extern supplier_state_t state_mac;
+extern int wqes_perconn;
 
 static void 
 server_comp_ibv_send(netlev_wqe_t *wqe)
@@ -71,10 +72,10 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
     conn->credits += h->credits; /* Credits from peer */
 
     /* sanity check */
-    if (conn->credits > NETLEV_WQES_RECV_PERCONN - 1) {
+    if (conn->credits > wqes_perconn - 1) {
         /* output_stderr("[%s,%d] credit overflow", 
                       __FILE__,__LINE__); */
-        conn->credits = NETLEV_WQES_RECV_PERCONN - 1;
+        conn->credits = wqes_perconn - 1;
     }
     
     h->credits = 0;

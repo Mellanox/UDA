@@ -86,10 +86,11 @@ netlev_init_dev_mem(struct netlev_dev *dev)
     void         *dma_mem;
 
     int wqe_align = 64;
-    int max_conns = NETLEV_MAX_HOSTS;
-    int num_wqes  = NETLEV_WQES_PERCONN  * max_conns; 
+    int num_wqes  = wqes_perconn  * max_hosts;
     int data_size = NETLEV_FETCH_REQSIZE * num_wqes;
     int dma_align = getpagesize();
+
+    log(lsDEBUG, "IDAN - wqes_perconn=%d max_hosts=%d", wqes_perconn  , max_hosts);
 
     /* alloc dev_mem struct */
     dev_mem = (netlev_mem_t *) malloc(sizeof(netlev_mem_t));
@@ -309,7 +310,7 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     memset(&conn->peerinfo, 0, sizeof(connreq_data_t));
 
     /* post as many recv wqes as possible, up to NETLEV_WQES_RECV_PERCONN */
-    for (int i = 0; i < NETLEV_WQES_RECV_PERCONN; ++i) {
+    for (int i = 0; i < wqes_perconn; ++i) {
         netlev_wqe_t *wqe = get_netlev_wqe(&dev->wqe_list);
         if (!wqe) {
            output_stderr("[%s,%d] no more wqe for receiving",
@@ -500,7 +501,7 @@ netlev_init_conn(struct rdma_cm_event *event,
     /* Save an extra one for credit flow */
     memset(&xdata, 0, sizeof(xdata));
     xdata.qp = event->id->qp->qp_num;
-    xdata.credits = NETLEV_WQES_RECV_PERCONN - 1;
+    xdata.credits = wqes_perconn - 1;
     xdata.mem_rkey = dev->mem->mr->rkey;
     xdata.rdma_mem_rkey = dev->rdma_mem->mr->rkey;
 

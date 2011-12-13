@@ -32,6 +32,8 @@
 extern const char *default_log;
 extern char *rdmalog_dir;
 extern bool record;
+extern int max_hosts;
+extern int wqes_perconn;
 
 static void usage(const char *cmd)
 {
@@ -63,6 +65,8 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
 {
     char choice;
     struct option longopts[] = {
+        {"maxhosts",	  1, NULL, 'o'},
+        {"wqesperconn",   1, NULL, 'w'},
         {"commandport",   1, NULL, 'c'},
         {"dataport",      1, NULL, 'r'},
         {"service",       1, NULL, 'l'},
@@ -77,10 +81,22 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         {NULL,            0, NULL,  0 }
     };
     int buf_size;
-    while ((choice = getopt_long(argc, argv, "c:r:l:a:m:g:t:b:s:v:h",
+    while ((choice = getopt_long(argc, argv, "o:w:c:r:l:a:m:g:t:b:s:v:h",
 
                             longopts, NULL)) != -1) {
         switch (choice) {
+        case 'o':
+            max_hosts = strtol(optarg, NULL, 10);
+            if (errno) {
+                goto err_options;
+            }
+            break;
+        case 'w':
+            wqes_perconn = strtol(optarg, NULL, 10);
+            if (errno) {
+                goto err_options;
+            }
+            break;
         case 'c':
             op->cmd_port = strtol(optarg, NULL, 10);
             if (errno) {

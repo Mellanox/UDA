@@ -19,9 +19,7 @@
 #define NETLEV 1
 
 #define NETLEV_TIMEOUT_MS        (5000)
-#define NETLEV_MAX_HOSTS         (64)
 #define NETLEV_FETCH_REQSIZE     (128)
-#define NETLEV_WQES_PERCONN      (1024)
 #define NETLEV_WQES_SEND_PERCONN (NETLEV_WQES_PERCONN/2)
 #define NETLEV_WQES_RECV_PERCONN (NETLEV_WQES_PERCONN/2)
 
@@ -43,6 +41,9 @@ enum {
 };
 
 extern int netlev_dbg_flag;
+extern int max_hosts;
+extern int wqes_perconn;
+
 
 struct progress_event;
 typedef void (*event_handler_t) (struct progress_event *pevent, void *ctx);

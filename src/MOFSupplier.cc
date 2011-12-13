@@ -25,6 +25,8 @@
 using namespace std;
 
 int netlev_dbg_flag = 0;
+int max_hosts = 64;
+int wqes_perconn = 256;
 
 supplier_state_t state_mac;
 

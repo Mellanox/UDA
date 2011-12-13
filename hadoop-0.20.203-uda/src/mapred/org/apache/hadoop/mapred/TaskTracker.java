@@ -4184,6 +4184,10 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       cmd.add(driver);
       
       /* arguments */
+      cmd.add("-o");
+      cmd.add(fConf.get("mapred.rdma.max.hosts"));
+      cmd.add("-w");
+      cmd.add(fConf.get("mapred.rdma.wqe.per.conn"));
       cmd.add("-c");
       cmd.add(fConf.get("mapred.taskTracker.rdma.server.port"));
       cmd.add("-r");

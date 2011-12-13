@@ -12,7 +12,7 @@
     <property>
 			<name>mapred.tasktracker.dns.interface</name>
 			<value>ib0</value>
-	</property>
+      </property>
      <property>
            <!-- Maximum current mappers running on each datanode -->
            <name>mapred.tasktracker.map.tasks.maximum</name>
@@ -95,14 +95,30 @@
             <name>mapred.netmerger.listener.port</name>
             <value>9012</value>
       </property>
+
+      <property>
+            <name>mapred.rdma.max.hosts</name>
+            <description>maximum RMDA connections per host.
+            		 Must satisfy all connection from the MOFSuplier to all NetMergers
+            </description>
+            <value>100</value>
+      </property>
+
+      <property>
+            <name>mapred.rdma.wqe.per.conn</name>
+            <description>The number of allocated WQEs (work queue element) per connection</description>
+            <value>256</value>
+      </property>
+
+
       <property>
             <name>mapred.netmerger.rdma.num.buffers</name>
             <value>16383</value>
       </property>
-
+      
       <property>
             <name>mapred.rdma.buf.size</name>
-			<!-- used also by the aio operations-->
+            <!-- used also by the aio operations-->
             <!-- the value entered should be alligned to 4 -->
 			<!-- the value entered is multiplied by K -->
             <value>128</value>
@@ -130,6 +146,31 @@
 			directories on different devices in order to spread disk i/o.
 			Directories that do not exist are ignored.
   			</description>
-  		</property>
+      </property>
+
+
+	<property>
+	     <name>io.sort.mb</name>
+	     <value>400</value>
+	     <description>The total amount of buffer memory to use while sorting
+	        	  files, in megabytes.  By default, gives each merge stream 1MB, which
+	          	  should minimize seeks.
+	     </description>
+	</property>
+	
+	<property>
+	     <name>mapred.child.java.opts</name>
+	     <value>-Xmx1000m</value>
+	     <description>Java opts for the task tracker child processes.
+	        	  The following symbol, if present, will be interpolated: @taskid@ is replaced
+	          	  by current TaskID. Any other occurrences of '@' will go unchanged.
+		          For example, to enable verbose gc logging to a file named for the taskid in
+	        	  /tmp and to set the heap maximum to be a gigabyte, pass a 'value' of:
+	                  -Xmx1024m -verbose:gc -Xloggc:/tmp/@taskid@.gc
+	 		  The configuration variable mapred.child.ulimit can be used to control the
+			  maximum virtual memory of the child processes.
+	      </description>
+	</property>
+
 
 </configuration>
