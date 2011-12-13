@@ -5,19 +5,9 @@
 # Modified by IdanWe on 2011-06-07
 #	- collect the results by using scp and not by using NFS mounts
 
-
-export HADOOP_SLAVE_SLEEP=0.1
-
 if [ -z "$HADOOP_HOME" ]
 then
 	echo "please export HADOOP_HOME"
-	exit 1
-fi
-
-
-if [ -z "$SCRIPTS_DIR" ]
-then
-	echo "please export SCRIPTS_DIR (must be path on NFS)"
 	exit 1
 fi
 
@@ -33,8 +23,8 @@ JOB=$1
 
 if [ -z "USER_CMD" ]
 then
-	USER_CMD="sleep 3"
-	echo WARN: running in test mode: command is: $USER_CMD
+	echo "please export USER_CMD"
+	exit 1
 fi
 
 if [ -z "$RES_LOGDIR" ]
@@ -45,6 +35,12 @@ fi
 if [ -z "$RES_SERVER" ]
 then
 	echo "$0: please export RES_SERVER (the server to collect the results to)"
+	exit 1
+fi
+
+if [ -z "$SCRIPTS_DIR" ]
+then
+	echo "please export SCRIPTS_DIR (the location of our scripts on $RES_SERVER)"
 	exit 1
 fi
 
