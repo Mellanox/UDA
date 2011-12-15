@@ -102,6 +102,8 @@ client_downcall_handler(progress_event_t *pevent, void *ctx)
 
 int MergeManager_main(int argc, char* argv[])
 {
+    log (lsDEBUG, "TEST early print should go to 'real' stderr\n");
+
 	int  ret;
     struct netlev_option op;
     ret = parse_options(argc, argv, &op);
@@ -132,7 +134,6 @@ int MergeManager_main(int argc, char* argv[])
 
     INIT_LIST_HEAD(&merging_sm.dir_list);
     INIT_LIST_HEAD(&merging_sm.socket_list);
-    INIT_LIST_HEAD(&merging_sm.task_list);
 
     /* Create a nexus talking back to the TaskTracker,
      * -- An event-driven thread responsible for
@@ -183,9 +184,6 @@ int MergeManager_main(int argc, char* argv[])
                 struct reduce_task *task = NULL;
                 task = spawn_reduce_task(op.mode, sock);
 
-                pthread_mutex_lock(&merging_sm.lock);
-                list_add_tail(&task->list, &merging_sm.task_list);
-                pthread_mutex_unlock(&merging_sm.lock);
                 free(sock);
             }
 
@@ -203,7 +201,6 @@ int MergeManager_main(int argc, char* argv[])
             /* for stand alone mode test */
             reduce_task_t *task = NULL;
             task = spawn_reduce_task(op.mode, NULL);
-            list_add_tail(&task->list, &merging_sm.task_list);
             while (!merging_sm.stop) {
                 pthread_mutex_lock(&merging_sm.lock);
                 pthread_cond_wait(&merging_sm.cond, &merging_sm.lock);
@@ -212,19 +209,6 @@ int MergeManager_main(int argc, char* argv[])
         }
     }
     output_stdout("main thread exit");
-
-    /* release all working netlev reduce tasks,
-       under normal situation, this list at this
-       point shall be empty */
-    /*FIXME: list_del(task) in reducer.cc cause
-             segment fault.
-    while (!list_empty(&merging_sm.task_list)) {
-        reduce_task_t *task = NULL;
-        task = list_entry(merging_sm.task_list.next, typeof(*task), list);
-        finalize_reduce_task(task);
-    }
-    DBGPRINT(DBG_CLIENT, "all reduce tasks are cleaned\n");
-    */
 
 
     /* free map output pool */

@@ -4,6 +4,9 @@ package org.apache.hadoop.mapred;
 public class UdaLoader {
 
     public static native int start(String args[]);
+    
+    public static native void doCommand(String s);
+
 	/**
 	 * @param args
 	 */

@@ -43,6 +43,132 @@ extern void *upload_thread_main(void *context);
 
 static void init_reduce_task(struct reduce_task *task);
 
+reduce_task_t * g_task;
+
+
+void downcall_handler(const string & msg)
+{
+    client_part_req_t   *req;
+    hadoop_cmd_t        *hadoop_cmd;
+
+    hadoop_cmd = (hadoop_cmd_t*) malloc(sizeof(hadoop_cmd_t));
+    memset(hadoop_cmd, 0, sizeof(hadoop_cmd_t));
+
+    parse_hadoop_cmd(msg, *hadoop_cmd);
+
+    log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd->count - 1, (int)hadoop_cmd->header);
+
+    static const int DIRS_START = 3;
+    switch (hadoop_cmd->header) {
+    	case INIT_MSG:
+            assert (hadoop_cmd->count -1 > 2); // sanity under debug
+            g_task->num_maps = atoi(hadoop_cmd->params[0]);
+            g_task->job_id = strdup(hadoop_cmd->params[1]);
+            g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
+
+            if (hadoop_cmd->count -1  > DIRS_START) {
+            	assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
+            	if (hadoop_cmd->params[DIRS_START] != NULL) {
+    				int num_dirs = atoi(hadoop_cmd->params[DIRS_START]);
+    				log(lsDEBUG, " ===>>> num_dirs=%d" , num_dirs);
+
+    				assert (num_dirs >= 0); // sanity under debug
+    				if (num_dirs > 0 && DIRS_START + 1 + num_dirs  <= hadoop_cmd->count - 1) {
+    					g_task->local_dirs.resize(num_dirs);
+    					for (int i = 0; i < num_dirs; ++i) {
+    						g_task->local_dirs[i].assign(hadoop_cmd->params[DIRS_START + 1 + i]);
+    						log(lsINFO, " -> dir[%d]=%s", i, g_task->local_dirs[i].c_str());
+    					}
+    				}
+            	}
+            }
+            init_reduce_task(g_task);
+            free_hadoop_cmd(*hadoop_cmd);
+            free(hadoop_cmd);
+            break;
+
+    	case FETCH_MSG:
+            /*
+            * 1. find the hostid
+            * 2. map from the hostid to its request list
+            * 3. lock the list and insert the new request
+            */
+            //string hostid = hadoop_cmd->params[0];
+
+            /* map<string, host_list_t *>::iterator iter;
+            host = NULL;
+            bool is_new = false;
+
+            pthread_mutex_lock(&g_task->lock);
+            iter = g_task->hostmap->find(hostid);
+            if (iter == g_task->hostmap->end()) {
+                host = (host_list_t *) malloc(sizeof(host_list_t));
+                pthread_mutex_init(&host->lock, NULL);
+                INIT_LIST_HEAD(&host->todo_fetch_list);
+                host->hostid = strdup(hostid.c_str());
+                (*(g_task->hostmap))[hostid] = host;
+                is_new = true;
+            } else {
+                host = iter->second;
+            }
+            pthread_mutex_unlock(&g_task->lock); */
+
+            /* Insert a segment request into the list */
+            req = (client_part_req_t *) malloc(sizeof(client_part_req_t));
+            memset(req, 0, sizeof(client_part_req_t));
+            req->info = hadoop_cmd;
+            /* req->host = host; */
+            req->total_len = 0;
+            req->last_fetched = 0;
+            req->mop = NULL;
+
+
+            pthread_mutex_lock(&g_task->fetch_man->send_lock);
+            g_task->fetch_man->fetch_list.push_back(req);
+            pthread_cond_broadcast(&g_task->fetch_man->send_cond);
+            pthread_mutex_unlock(&g_task->fetch_man->send_lock);
+
+            /* pthread_mutex_lock(&host->lock);
+            list_add_tail(&req->list, &host->todo_fetch_list);
+            pthread_mutex_unlock(&host->lock);
+
+            pthread_mutex_lock(&g_task->fetch_man->send_req_lock);
+            if (is_new) {
+                list_add_tail(&host->list, &g_task->fetch_man->send_req_list);
+            }
+            g_task->fetch_man->send_req_count++;
+            pthread_mutex_unlock(&g_task->fetch_man->send_req_lock);*/
+
+            /* wake up fetch thread */
+            //pthread_cond_broadcast(&g_task->cond);
+
+            write_log(g_task->reduce_log, DBG_CLIENT,
+                      "Got 1 more fetch request, total is %d",
+                      ++g_task->total_java_reqs);
+            break;
+
+    	case FINAL_MSG:
+            /* do the final merge */
+            pthread_mutex_lock(&g_task->merge_man->lock);
+            g_task->merge_man->flag = FINAL_MERGE;
+            pthread_cond_broadcast(&g_task->merge_man->cond);
+            pthread_mutex_unlock(&g_task->merge_man->lock);
+            free_hadoop_cmd(*hadoop_cmd);
+            free(hadoop_cmd);
+            break;
+
+    	case EXIT_MSG:
+            finalize_reduce_task(g_task);
+            free_hadoop_cmd(*hadoop_cmd);
+            free(hadoop_cmd);
+            break;
+    }
+
+    log(lsDEBUG, "<<<=== HANDLED COMMAND FROM JAVA SIDE");
+}
+
+
+
 static void reduce_downcall_handler(progress_event_t *pevent, void *ctx)
 {
     reduce_task_t       *task;
@@ -268,6 +394,34 @@ static void init_reduce_task(struct reduce_task *task)
                    upload_thread_main, task);
 }
 
+void spawn_reduce_task()
+{
+    int netlev_kv_pool_size;
+
+    g_task = (reduce_task_t *) malloc(sizeof(reduce_task_t));
+    memset(g_task, 0, sizeof(*g_task));
+    pthread_cond_init(&g_task->cond, NULL);
+    pthread_mutex_init(&g_task->lock, NULL);
+
+//    task->sock_fd = sock->sock_fd;
+//    task->reduce_id = sock->reduce_id;
+//    task->nexus =
+
+    g_task->mop_index = 0;
+    g_task->hostmap = new std::map <string, host_list_t *>();
+
+    /* init large memory pool for merged kv buffer */
+    memset(&g_task->kv_pool, 0, sizeof(memory_pool_t));
+    netlev_kv_pool_size  = 1 << NETLEV_KV_POOL_EXPO;
+    if (create_mem_pool(netlev_kv_pool_size, num_stage_mem, &g_task->kv_pool)) {
+    	log(lsFATAL, "failed to create memory pool for reduce g_task for merged kv buffer");
+    	exit(-1);
+    }
+
+    /* report success spawn to java */
+//    g_task->nexus->send_int((int)RT_LAUNCHED);
+}
+
 reduce_task_t *spawn_reduce_task(int mode, reduce_socket_t *sock) 
 {
     reduce_task_t     *task;
@@ -305,13 +459,14 @@ reduce_task_t *spawn_reduce_task(int mode, reduce_socket_t *sock)
     memset(&task->kv_pool, 0, sizeof(memory_pool_t));
     netlev_kv_pool_size  = 1 << NETLEV_KV_POOL_EXPO;
     if (create_mem_pool(netlev_kv_pool_size, num_stage_mem, &task->kv_pool)) {
-    	output_stderr("[%s,%d] failed to create memory pool for reduce task for merged kv buffer",__FILE__,__LINE__);
+    	log(lsFATAL, "failed to create memory pool for reduce task for merged kv buffer");
     	exit(-1);
     }
 
   
     /* report success spawn to java */ 
     task->nexus->send_int((int)RT_LAUNCHED);
+    if (!g_task) g_task = task; // TODO: temp
     return task;
 }
 

@@ -51,7 +51,6 @@ typedef struct merging_state {
 
     struct list_head   socket_list;
     struct list_head   dir_list;
-    struct list_head   task_list;
     
     memory_pool_t      mop_pool; 
 
@@ -105,6 +104,9 @@ typedef struct reduce_task {
     std::vector<std::string>   local_dirs; // local dirs will serve for lpq temp files
 } reduce_task_t;
 
+void downcall_handler(const std::string & msg);
+extern reduce_task_t * g_task; // we only support 1 reducer per process
+void spawn_reduce_task();
 reduce_task_t *spawn_reduce_task(int mode, reduce_socket_t *sock);
 void finalize_reduce_task(reduce_task_t *task);
 int  create_mem_pool(int logsize, int num, memory_pool_t *pool);

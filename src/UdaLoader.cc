@@ -5,6 +5,9 @@
 #include <pthread.h>
 #include <unistd.h> //temp for sleep
 
+#include "IOUtility.h"
+void downcall_handler(const std::string & msg); // #include "reducer.h"
+
 int MergeManager_main(int argc, char* argv[]);
 
 struct Args{
@@ -32,6 +35,21 @@ void* mainThread(void* data)
     }
     delete[] pArgs->argv;
     delete pArgs;
+}
+
+
+// This is the implementation of the native method
+extern "C" JNIEXPORT void JNICALL Java_org_apache_hadoop_mapred_UdaLoader_doCommand  (JNIEnv *env, jclass cls, jstring s) {
+
+	const char *str = env->GetStringUTFChars(s, NULL);
+	if (str == NULL) {
+		log(lsFATAL, "out of memory in JNI call to GetStringUTFChars");
+		throw "Out of Memory";
+	}
+	std::string msg(str);
+	env->ReleaseStringUTFChars(s, str);
+
+	downcall_handler(msg);
 }
 
 // This is the implementation of the native method
