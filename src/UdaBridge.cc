@@ -6,9 +6,26 @@
 #include <unistd.h> //temp for sleep
 
 #include "IOUtility.h"
-void downcall_handler(const std::string & msg); // #include "reducer.h"
 
+//forward declarion until in H file...
+void downcall_handler(const std::string & msg); // #include "reducer.h"
 int MergeManager_main(int argc, char* argv[]);
+
+
+//direct buffer requires java 1.4
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
+{
+	printf("-->> C++ Loaded\n");
+	return JNI_VERSION_1_4;
+}
+
+extern "C" JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
+{
+	// NOTE: we need to check if We reached this place
+	printf("<<-- C++ UnLoaded\n");
+	return;
+}
+
 
 struct Args{
 	int    argc;
@@ -76,19 +93,4 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_start 
     return 0;
 }
 
-
-//direct buffer requires java 1.4
-extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
-{
-	printf("-->> C++ Loaded\n");
-	return JNI_VERSION_1_4;
-}
-
-
-extern "C" JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
-{
-	// NOTE: we need to check if We reached this place
-	printf("<<-- C++ UnLoaded\n");
-	return;
-}
 
