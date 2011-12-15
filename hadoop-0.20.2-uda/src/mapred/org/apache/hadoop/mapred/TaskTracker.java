@@ -3345,7 +3345,7 @@ public class TaskTracker
     	  int rc = 0;
     	  stringarray = cmd.toArray(new String[0]);
 	      try {
-	    	  rc = UdaLoader.start(stringarray);
+	    	  rc = UdaBridge.start(stringarray);
 	      
 	      } catch (UnsatisfiedLinkError e) {
 	          LOG.warn("J2CNexus:Exception when launching child");    	  

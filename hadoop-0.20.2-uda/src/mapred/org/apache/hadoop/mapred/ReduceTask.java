@@ -2926,7 +2926,7 @@ class ReduceTask extends Task {
           LOG.info("J2CNexus:going to execute child: " + cmd);    	  
     	  stringarray = cmd.toArray(new String[0]);
 	      try {
-	    	  rc = UdaLoader.start(stringarray);
+	    	  rc = UdaBridge.start(stringarray);
 	      
 	      } catch (UnsatisfiedLinkError e) {
 	          LOG.warn("J2CNexus:Exception when launching child");    	  
@@ -2993,7 +2993,7 @@ class ReduceTask extends Task {
         String msg = RDMACmd.formCmd(RDMACmd.INIT_COMMAND, mParams);
 //        Text.writeString(mToMerger, msg);
 //        mToMerger.flush(); 
-        UdaLoader.doCommand(msg);
+        UdaBridge.doCommand(msg);
         this.mProgress = new Progress(); 
         this.mProgress.set((float)(1/2));
 
@@ -3011,7 +3011,7 @@ class ReduceTask extends Task {
         String msg = RDMACmd.formCmd(RDMACmd.FETCH_COMMAND, mParams); 
 //        Text.writeString(mToMerger, msg);
 //        mToMerger.flush();
-        UdaLoader.doCommand(msg);
+        UdaBridge.doCommand(msg);
         /* LOG.info("Send down to rdma " + (++mReqNums)); */
       }
 
@@ -3020,7 +3020,7 @@ class ReduceTask extends Task {
         String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
 //        Text.writeString(mToMerger, msg);
 //        mToMerger.flush();
-        UdaLoader.doCommand(msg);
+        UdaBridge.doCommand(msg);
         this.j2c_queue.close();
         this.mFromMerger.close();
         this.mToMerger.close();
