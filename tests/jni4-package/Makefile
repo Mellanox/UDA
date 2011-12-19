@@ -9,14 +9,14 @@ HFILE = org_apache_hadoop_mapred_$(MAIN_FILE).h
 FQCN = org.apache.hadoop.mapred.$(MAIN_FILE)
 MAIN_PATH = org/apache/hadoop/mapred/$(MAIN_FILE)
 
-all: $(MAIN_PATH).class $(NATIVE_LIB) 
+all: $(NATIVE_LIB) 
 
 .SUFFIXES: .java .class .cpp .o .h .so
 
 $(MAIN_PATH).class:
 	$(JDK)/bin/javac $(MAIN_PATH).java
 
-$(HFILE):
+$(HFILE): $(MAIN_PATH).class
 	$(JDK)/bin/javah -jni $(FQCN)
 
 $(MAIN_FILE).o : $(HFILE)
