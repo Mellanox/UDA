@@ -35,6 +35,10 @@ Java_org_apache_hadoop_mapred_JniTest_initIDs(JNIEnv *env, jclass cls)
 
     printf("In C++: calling Java static callback method, using Jni's GentEnv \n");
     getJniEnv()->CallStaticVoidMethod(cls, MID_JniTest_staticCallback);
+	
+//    getJniEnv()->CallStaticVoidMethod(javaClass, MID_JniTest_staticCallback);
+	
+	
     printf("In C++: after calling Java static callback method \n");
 }
 
@@ -52,7 +56,7 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
 	jclass cls;
 	cached_jvm = vm;
 
-    if ( vm->GetEnv((void **)&env, JNI_VERSION_1_4)) {
+    if ( vm->GetEnv((void **)&env, JNI_VERSION_1_4)) { //direct buffer requires java 1.4
         return JNI_ERR; /* JNI version not supported */
     }
 	
