@@ -27,19 +27,11 @@ JNIEnv *getJniEnv()
     return env;
 }
 
+
 JNIEXPORT void JNICALL 
 Java_org_apache_hadoop_mapred_JniTest_initIDs(JNIEnv *env, jclass cls) 
-{
-    MID_JniTest_callback = env->GetMethodID(cls, "callback", "()V");
-    printf("In C++: Java callback method was found\n");
-
-    printf("In C++: calling Java static callback method, using Jni's GentEnv \n");
-    getJniEnv()->CallStaticVoidMethod(cls, MID_JniTest_staticCallback);
-	
-//    getJniEnv()->CallStaticVoidMethod(javaClass, MID_JniTest_staticCallback);
-	
-	
-    printf("In C++: after calling Java static callback method \n");
+{	
+    printf("In C++: initIDs\n");
 }
 
 JNIEXPORT void JNICALL 
@@ -47,6 +39,9 @@ Java_org_apache_hadoop_mapred_JniTest_nativeMethod(JNIEnv *env, jobject obj)
 {
     printf("In C++ native method\n");
     env->CallVoidMethod(obj, MID_JniTest_callback);
+	
+    printf("++++>>>>> In C++: calling Java static callback method, using Jni's GentEnv and cached class/method\n");
+    getJniEnv()->CallStaticVoidMethod((jclass)javaClass, MID_JniTest_staticCallback);	
 }
 
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
@@ -74,14 +69,16 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
         return JNI_ERR;
     }
   	
+	// This handle remains valid until the java class is Unloaded
+    MID_JniTest_callback = env->GetMethodID(cls, "callback", "()V");
     MID_JniTest_staticCallback = env->GetStaticMethodID(cls, "staticCallback", "()V");
 
-	if (MID_JniTest_staticCallback == NULL) {
-		printf("-->> In C++ java static method was NOT found\n");
+	if (MID_JniTest_callback == NULL || MID_JniTest_staticCallback == NULL) {
+		printf("-->> In C++ java callback method was NOT found\n");
         return JNI_ERR;
     }
 
-	printf("-->> In C++ java method was found and cached\n");
+	printf("-->> In C++ java callback methodw were found and cached\n");
 	return JNI_VERSION_1_4;  //direct buffer requires java 1.4
 }
 
