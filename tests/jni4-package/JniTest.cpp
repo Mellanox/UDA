@@ -94,7 +94,5 @@ extern "C" JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
     }
     env->DeleteWeakGlobalRef(javaClass);
     return;	
-	
-	return;
 }
 
