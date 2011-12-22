@@ -32,8 +32,8 @@
 extern const char *default_log;
 extern char *rdmalog_dir;
 extern bool record;
-extern int max_hosts;
-extern int wqes_perconn;
+extern uint32_t max_hosts;
+extern uint32_t wqes_perconn;
 
 static void usage(const char *cmd)
 {

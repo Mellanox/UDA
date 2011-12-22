@@ -615,6 +615,7 @@ netlev_post_send(void *buff, int bytes,
                  netlev_wqe_t *wqe, 
                  netlev_conn_t *conn)
 {
+	int rc;
     int len;
     struct ibv_send_wr *bad_wr;
     uint32_t lkey = conn->dev->mem->mr->lkey;
@@ -648,14 +649,15 @@ netlev_post_send(void *buff, int bytes,
             conn->returning = 0;
         } 
         
-        if (ibv_post_send(conn->qp_hndl, &(wqe->desc.sr), &bad_wr) != 0) {
-            output_stderr("[%s,%d] Error posting send",
-                          __FILE__,__LINE__);
+        log(lsTRACE, "ibv_post_send: %s", (char*)buff);
+        if ((rc = ibv_post_send(conn->qp_hndl, &(wqe->desc.sr), &bad_wr)) != 0) {
+            log(lsERROR, "ibv_post_send error: errno=%d %m", rc, (char*)buff);
             pthread_mutex_unlock(&conn->lock);
             return -1;
         }
         wqe->state = SEND_WQE_POST;
     } else {
+    	log(lsDEBUG, "no credit to post send. add to backlog: %s", (char*)buff);
         list_add_tail(&wqe->list, &conn->backlog);
         pthread_mutex_unlock(&conn->lock);
         return -2;

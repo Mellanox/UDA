@@ -9,12 +9,12 @@
            <value>eagle1-ib:9001</value>
       </property>
       <property>
-           <!-- Maximum current mappers running on each datanode -->
+           <!-- Maximum current mappers running on each TT -->
            <name>mapred.tasktracker.map.tasks.maximum</name>
            <value>4</value>
       </property>
       <property>
-           <!-- Maximum current reducers running on each datanode -->
+           <!-- Maximum current reducers running on each TT -->
            <name>mapred.tasktracker.reduce.tasks.maximum</name>
            <value>1</value>
       </property>
@@ -98,10 +98,11 @@
 			<!-- the value entered is multiplied by K -->
             <value>128</value>
       </property>
+
       <property>
             <name>mapred.rdma.max.hosts</name>
             <description>maximum RMDA connections per host.
-                         Must satisfy all connection from the MOFSuplier to all NetMergers
+            		 Must satisfy all connection from the MOFSuplier to all NetMergers
             </description>
             <value>100</value>
       </property>
@@ -110,8 +111,7 @@
             <name>mapred.rdma.wqe.per.conn</name>
             <description>The number of allocated WQEs (work queue element) per connection</description>
             <value>256</value>
-     </property>
-
+      </property>
 
 	<property>
             <name>mapred.uda.log.tracelevel</name>
@@ -134,16 +134,15 @@
 			data files.  May be a comma-separated list of
 			directories on different devices in order to spread disk i/o.
 			Directories that do not exist are ignored.
-      </description>
-      </property>
-      <property>
-   	  <name>mapred.tasktracker.dns.interface</name>
+       </description>
+       </property>
+       <property>
+	  <name>mapred.tasktracker.dns.interface</name>
 	  <value>ib0</value>
 	  <description>The name of the Network Interface from which a data node should 
 	  report its IP address.
 	  </description>
        </property>
-
 
 	<property>
 	     <name>io.sort.mb</name>

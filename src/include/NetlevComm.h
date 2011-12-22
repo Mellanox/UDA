@@ -41,8 +41,8 @@ enum {
 };
 
 extern int netlev_dbg_flag;
-extern int max_hosts;
-extern int wqes_perconn;
+extern unsigned int max_hosts;
+extern unsigned int wqes_perconn;
 
 
 struct progress_event;

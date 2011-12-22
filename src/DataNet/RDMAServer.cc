@@ -30,7 +30,7 @@
 using namespace std;
 
 extern supplier_state_t state_mac;
-extern int wqes_perconn;
+extern uint32_t wqes_perconn;
 
 static void 
 server_comp_ibv_send(netlev_wqe_t *wqe)
@@ -62,6 +62,7 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
 {
     struct ibv_send_wr *bad_sr;
     struct ibv_recv_wr *bad_rr;
+    int rc;
 
     hdr_header_t  *h = (hdr_header_t*)wqe->data;
     netlev_conn_t *conn = wqe->conn;
@@ -111,17 +112,21 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
         data_req->peer_wqe = (void *)h->src_wqe;
 
         /* pass to parent and wake up other threads for processing */
+        log(lsTRACE, "server received RDMA fetch request: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset);
         state_mac.mover->insert_incoming_req(data_req);
     
     } 
+    else {
+    	log(lsDEBUG, "ERROR: message is not of type MSG_RTS" );
+    }
 
     /* re-post wqe */
     wqe->state = RECV_WQE_COMP; 
     /* Return the wqe of a noop message, recv */
     init_wqe_recv(wqe, NETLEV_FETCH_REQSIZE, dev->mem->mr->lkey, conn);
-    if (ibv_post_recv(conn->qp_hndl, &wqe->desc.rr, &bad_rr)) {
-        output_stderr("[%s,%d] ibv_post_recv failed",
-                      __FILE__,__LINE__);
+    log(lsTRACE, "calling ibv_post_recv");
+    if (rc = ibv_post_recv(conn->qp_hndl, &wqe->desc.rr, &bad_rr)) {
+        log(lsERROR, "ibv_post_recv failed: rc=%d ernno=%m", rc);
     }
 
     pthread_mutex_lock(&conn->lock);
@@ -181,14 +186,17 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
                 switch (desc.opcode) {
 
                     case IBV_WC_SEND:
+                    	log(lsTRACE, "calling to server_comp_ibv_send: %s", wqe->data);
                         server_comp_ibv_send(wqe);
                         break;
 
                     case IBV_WC_RECV:
+                    	log(lsTRACE, "calling to server_comp_ibv_recv: %s", wqe->data);
                         server_comp_ibv_recv(wqe);
                         break;
 
                     case IBV_WC_RDMA_WRITE:
+                    	log(lsTRACE, "Server RDMA_WRITE completion: %s", wqe->data);
                         state_mac.data_mac->release_chunk((chunk_t*)wqe->context);
 
                         pthread_mutex_lock(&dev->lock);

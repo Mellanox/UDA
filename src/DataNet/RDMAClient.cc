@@ -28,7 +28,7 @@ using namespace std;
 
 extern int netlev_dbg_flag;
 extern merging_state_t merging_sm; 
-extern int wqes_perconn;
+extern uint32_t wqes_perconn;
 
 static void 
 client_comp_ibv_send(netlev_wqe_t *wqe)
@@ -102,18 +102,22 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
         client_part_req_t *req = (client_part_req_t*) org_wqe->context;
         char *tmp = (char *)(h + 1);
         memcpy(req->recvd_msg, tmp, h->tot_len);
-        
         pthread_mutex_lock(&dev->lock);
         release_netlev_wqe(org_wqe, &dev->wqe_list);
         pthread_mutex_unlock(&dev->lock);
-        
+        log(lsTRACE, "Client received RDMA completion for fetch request: jobid=%s, mapid=%s, reducer_id=%s, total_fetched=%lld (not updated for this comp)", req->info->params[1], req->info->params[2], req->info->params[3], req->mop->total_fetched);
         merging_sm.client->rdma->fetch_over(req); 
     } 
+    else {
+    	log(lsDEBUG, "ERROR: received message without MSG_RTS header");
+    }
+
 
     wqe->state = RECV_WQE_COMP; 
     
     /* put the receive wqe back */
     init_wqe_recv(wqe, NETLEV_FETCH_REQSIZE, dev->mem->mr->lkey, conn);
+    log(lsTRACE, "ibv_post_recv");
     if (ibv_post_recv(conn->qp_hndl, &wqe->desc.rr, &bad_rr)) {
         output_stderr("[%s,%d] ibv_post_recv failed\n",
                       __FILE__,__LINE__);
@@ -178,10 +182,12 @@ client_cq_handler(progress_event_t *pevent, void *data)
                 switch (desc.opcode) {
 
                     case IBV_WC_SEND:
+                    	log(lsTRACE, "calling to client_comp_ibv_send: %s", wqe->data);
                         client_comp_ibv_send(wqe);
                         break;
 
                     case IBV_WC_RECV:
+                    	log(lsTRACE, "calling to client_comp_ibv_recv: %s", wqe->data);
                         client_comp_ibv_recv(wqe);
                         break;
 
@@ -524,14 +530,14 @@ RdmaClient::fetch(client_part_req_t *freq)
     pthread_mutex_unlock(&conn->dev->lock); 
     
     if (!wqe) {
-        output_stderr("[%s,%d] run out of wqe\n",
-                      __FILE__,__LINE__);
+        log(lsERROR, "run out of wqe");
         list_add_tail(&freq->list, &this->wait_reqs);
         return 0;
     }
     
     /* keep information about who send request */
     wqe->context = freq;
+    log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%ld", freq->info->params[2], freq->info->params[3], freq->mop->total_fetched);
     return netlev_post_send(msg, msg_len, ptr2long(wqe), wqe, conn);
 }
 
