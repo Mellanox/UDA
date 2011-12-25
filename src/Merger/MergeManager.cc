@@ -32,6 +32,9 @@ extern merging_state_t merging_sm;
         
 int num_stage_mem = 2;
 
+//forward declaration
+void UdaBridge_invoke_fetchOverMessage_callback();
+
 void *upload_online(reduce_task_t *task)
 {
     MergeManager *merger = task->merge_man;
@@ -130,8 +133,9 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_
 
 				if (manager->progress_count == PROGRESS_REPORT_LIMIT
 				 || manager->total_count == task->num_maps) {
-					log(lsDEBUG, "nexus sending FETCH_OVER_MSG...");
-					task->nexus->send_int((int)FETCH_OVER_MSG);
+					log(lsDEBUG, "JNI sending fetchOverMessage...");
+					UdaBridge_invoke_fetchOverMessage_callback();
+
 					manager->progress_count = 0;
 				}
 

@@ -1880,7 +1880,7 @@ class ReduceTask extends Task {
         // start the map events thread
         getMapEventsThread = new GetMapEventsThread();
         getMapEventsThread.start();         
-        this.rdmaChannel.start();
+//avner        this.rdmaChannel.start();
         
         LOG.info("ReduceCopier: Wait for fetching");
         synchronized(ReduceCopier.this) {
@@ -2859,7 +2859,7 @@ class ReduceTask extends Task {
     }
 
     /* Communicating with netlev reduce task */ 
-    private class DataSocket<K,V> extends Thread {
+    private class DataSocket<K,V> extends Thread implements UdaCallable {
       private Socket            mSocket       = null;
       private DataOutputStream  mToMerger     = null;
       private DataInputStream   mFromMerger   = null;
@@ -2867,7 +2867,8 @@ class ReduceTask extends Task {
       private TaskReporter      mTaskReporter = null;    
       private Progress          mProgress     = null;
       private Vector<String>    mParams       = new Vector<String>();
-      private int               mMapsNeed     = 0;      
+      private int               mMapsNeed     = 0;
+      private int               mMapsCount    = 0; // we probably can remove this var
       private int               mReqNums      = 0;
       private final int         socket_timeout= 360 * 1000; /* 6 minutes */
       private final int         mReportCount  = 20;
@@ -2926,6 +2927,7 @@ class ReduceTask extends Task {
           LOG.info("J2CNexus:going to execute child: " + cmd);    	  
     	  stringarray = cmd.toArray(new String[0]);
 	      try {
+	    	  UdaBridge.init(this, LOG);
 	    	  rc = UdaBridge.start(stringarray);
 	      
 	      } catch (UnsatisfiedLinkError e) {
@@ -3036,6 +3038,18 @@ class ReduceTask extends Task {
         return this.j2c_queue; 
       }
       
+  	public void fetchOverMessage() {
+        LOG.info("in fetchOverMessage"); 
+  		mMapsCount += mReportCount;
+        mTaskReporter.progress();
+        if (mMapsCount >= this.mMapsNeed) {
+            /* wake up ReduceCopier */
+            synchronized(ReduceCopier.this) {
+              ReduceCopier.this.notify();
+            }
+        }  		
+  	}
+
       public void run() {
         try {
           LOG.info("DataSocket: start running, numMaps = " 

@@ -1,8 +1,26 @@
 package org.apache.hadoop.mapred;
 
+import org.apache.commons.logging.Log;
+
+interface UdaCallable {
+	public void fetchOverMessage();
+}
 
 public class UdaBridge {
 
+	static private UdaCallable callable;
+	static private Log LOG;
+
+	static public void fetchOverMessage() {
+		LOG.info("in UdaBridge.fetchOverMessage"); 
+		callable.fetchOverMessage();
+	}	
+	
+	public static void init(UdaCallable _callable, Log _LOG) {
+		callable = _callable;
+		LOG = _LOG;
+	}
+	
     public static native int start(String args[]);
     
     public static native void doCommand(String s);
