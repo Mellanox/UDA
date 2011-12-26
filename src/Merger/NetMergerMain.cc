@@ -126,11 +126,21 @@ int MergeManager_main(int argc, char* argv[])
     if (create_mem_pool(op.buf_size,
     				op.buffers,
                     &merging_sm.mop_pool)) {
-    	output_stderr("[%s,%d] failed to create Map Output memory pool ",__FILE__,__LINE__);
+    	log(lsFATAL, "failed to create Map Output memory pool");
     	exit(-1);
     }
     pthread_mutex_init(&merging_sm.lock, NULL);
     pthread_cond_init(&merging_sm.cond, NULL);
+
+    /* Create a Fetcher
+     * -- an event-driven thread responsible for
+     * -- create a network connections with the server
+     * -- round-robin to process segment requests from all reducers
+     */
+    merging_sm.client = new InputClient(op.data_port, op.mode, &merging_sm);
+    merging_sm.client->start_client();
+    merging_sm.client->rdma->register_mem(&merging_sm.mop_pool);
+	log(lsINFO, " AFTER RDMA CLIENT CREATION");
 
     INIT_LIST_HEAD(&merging_sm.dir_list);
     INIT_LIST_HEAD(&merging_sm.socket_list);
@@ -153,15 +163,6 @@ int MergeManager_main(int argc, char* argv[])
                                     op.svc_port,
                                     reduce_connection_handler,
                                     &merging_sm);
-
-    /* Create a Fetcher
-     * -- an event-driven thread responsible for
-     * -- create a network connections with the server
-     * -- round-robin to process segment requests from all reducers
-     */
-    merging_sm.client = new InputClient(op.data_port, op.mode, &merging_sm);
-    merging_sm.client->start_client();
-    merging_sm.client->rdma->register_mem(&merging_sm.mop_pool);
 
     /* XXX:
      * -- main thread listens for newly established sockets
