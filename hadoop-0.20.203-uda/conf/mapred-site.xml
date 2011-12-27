@@ -95,6 +95,11 @@
             <name>mapred.netmerger.listener.port</name>
             <value>9012</value>
       </property>
+      <property>
+            <name>mapred.netmerger.rdma.num.buffers</name>
+            <value>16383</value>
+      </property>
+     
 
       <property>
             <name>mapred.rdma.max.hosts</name>
@@ -110,18 +115,19 @@
             <value>256</value>
       </property>
 
-
-      <property>
-            <name>mapred.netmerger.rdma.num.buffers</name>
-            <value>16383</value>
-      </property>
-      
+ 
       <property>
             <name>mapred.rdma.buf.size</name>
             <!-- used also by the aio operations-->
             <!-- the value entered should be alligned to 4 -->
 			<!-- the value entered is multiplied by K -->
             <value>128</value>
+      </property>
+
+      <property>
+            <name>mapred.netmerger.hybrid.lpq.size</name>
+            <description>Hybrid merge LPQs size. set 0 for SQRT(number of MOFs)</description>
+            <value>0</value>
       </property>
 
 	<property>
@@ -148,7 +154,6 @@
   			</description>
       </property>
 
-
 	<property>
 	     <name>io.sort.mb</name>
 	     <value>400</value>
@@ -171,6 +176,7 @@
 			  maximum virtual memory of the child processes.
 	      </description>
 	</property>
+
 
 
 </configuration>

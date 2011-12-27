@@ -2920,11 +2920,13 @@ class ReduceTask extends Task {
 
         /* send init message */
         TaskAttemptID reduceId = reduceTask.getTaskID();
+        
         mParams.clear();
         mParams.add(Integer.toString(numMaps));
         mParams.add(reduceId.getJobID().toString());
         mParams.add(reduceId.toString());
-        
+        mParams.add(jobConf.get("mapred.netmerger.hybrid.lpq.size", "0"));
+        		
         String [] dirs = this.mJobConf.getLocalDirs();
         ArrayList<String> dirsCanBeCreated = new ArrayList<String>();
         //checking if the directories can be created

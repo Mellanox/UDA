@@ -242,7 +242,8 @@ size_t DataStream::read(void *des, size_t len)
         return -1;
     }
     if ((this->pos + len) > this->count) {
-        output_stderr("DataStream: read out of bound");
+        log(lsERROR,"DataStream: read out of bound");
+        print_backtrace("IDAN_StreamOutOfBound");
         return -1;
     }
     if (len == 0) return 0;

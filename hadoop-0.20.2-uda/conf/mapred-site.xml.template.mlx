@@ -113,6 +113,12 @@
             <value>256</value>
       </property>
 
+      <property>
+            <name>mapred.netmerger.hybrid.lpq.size</name>
+            <description>Hybrid merge LPQs size. set 0 for SQRT(number of MOFs)</description>
+            <value>0</value>
+      </property>
+
 	<property>
             <name>mapred.uda.log.tracelevel</name>
             <description>level of debug prints in uda logs:

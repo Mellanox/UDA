@@ -66,8 +66,9 @@ static void reduce_downcall_handler(progress_event_t *pevent, void *ctx)
         task->num_maps = atoi(hadoop_cmd->params[0]); 
         task->job_id = strdup(hadoop_cmd->params[1]);
         task->reduce_task_id = strdup(hadoop_cmd->params[2]);
+        task->lpq_size = atoi(hadoop_cmd->params[3]);
 
-        const int DIRS_START = 3;
+        const int DIRS_START = 4;
         if (hadoop_cmd->count -1  > DIRS_START) {
         	assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
         	if (hadoop_cmd->params[DIRS_START] != NULL) {
@@ -226,7 +227,17 @@ static void init_reduce_task(struct reduce_task *task)
              "Total Map is %d", 
              task->num_maps);     
     
-    int num_lpqs = (int) sqrt(task->num_maps);
+    int num_lpqs;
+    if (task->lpq_size > 0) {
+    	num_lpqs = (task->num_maps / task->lpq_size);
+    	// if more than one segment left then additional lpq added
+    	// if only one segment left then the first will be larger
+    	if ((task->num_maps % task->lpq_size) > 1) 
+    		num_lpqs++;
+    } else {
+        num_lpqs = (int) sqrt(task->num_maps);
+    }
+
     /* Initialize a merge manager thread */
     task->merge_man = new MergeManager(1, &merging_sm.dir_list,
                                        merging_sm.online, 

@@ -195,6 +195,7 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_q
 
 void *merge_online (reduce_task_t *task)
 {
+	log(lsINFO, "Merge online"); 
 	merge_do_fetching_phase(task, task->merge_man->merge_queue, task->num_maps);
 
 	write_log(task->reduce_log, DBG_CLIENT, "Enter into merging phase");
@@ -205,8 +206,10 @@ void *merge_online (reduce_task_t *task)
 
 void *merge_hybrid (reduce_task_t *task)
 {
-	if (task->num_maps < task->merge_man->num_lpqs) return merge_online(task);
-
+	// in case we have K segments and lpq_size=K+1 then we will do online merge insterad of  hybtid with 2 lpqs: one with K segments and second with 1 segment only.
+	if ((task->num_maps < task->merge_man->num_lpqs) || (task->num_maps <= task->lpq_size + 1)) 
+		return merge_online(task); 
+		
 	bool b = true;
 	int32_t total_write;
 
@@ -214,7 +217,13 @@ void *merge_hybrid (reduce_task_t *task)
 	const int regular_lpqs = task->merge_man->num_lpqs > 1 ?  task->merge_man->num_lpqs - 1 : 1; // all lpqs but the 1st will have same number of segments
 	int num_to_fetch = 0;
 	int subsequent_fetch = 0;
-	if (task->num_maps % regular_lpqs) {
+	if (task->lpq_size > 0) {
+		subsequent_fetch = task->lpq_size;
+		num_to_fetch = task->num_maps % task->lpq_size;
+		if (num_to_fetch <= 1) // in case of 1 segment left, 1st lpq will merge it
+			num_to_fetch += subsequent_fetch;		
+	}
+	else if (task->num_maps % regular_lpqs) {
 		num_to_fetch = task->num_maps % regular_lpqs; //1st lpq will be smaller than all others
 		subsequent_fetch = task->num_maps / regular_lpqs;
 	}

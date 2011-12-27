@@ -282,6 +282,10 @@ int Segment::nextKVInternal(InStream *stream)
 	//TODO: this can only work with ((DataStream*)stream)
 
     if (!stream) return 0;
+    
+    /* no enough for key + val */
+    if (!stream->hasMore(cur_key_len + cur_val_len)) 
+        return -1;   
 
     /* key length */
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);

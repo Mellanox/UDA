@@ -8,6 +8,7 @@
 #include "IOUtility.h"
 #include "AIOHandler.h"
 #include <pthread.h>
+#include <errno.h>
 
 AIOHandler::AIOHandler(AioCallback callback, int ctx_maxevents, long min_nr, long nr, const timespec* timeout) : MAX_EVENTS(ctx_maxevents), MIN_NR(min_nr), NR(nr), GETEVENTS_TIMEOUT(*timeout)
 {
@@ -149,8 +150,26 @@ void AIOHandler::processEventsCallbacks() {
 		rc = io_getevents(_context, MIN_NR, NR, eventArr, &timeout );
 
 		if (rc < 0) {
-			log(lsERROR,"calling io_getevents failure: rc=%d",rc);
-
+			rc *= -1;
+			
+			switch (rc) {
+				case EFAULT:
+					log(lsFATAL, "io_getevents error: EFAULT Either events or timeout is an invalid pointer");
+					break;
+				case EINVAL:
+					log(lsFATAL, "io_getevents error: EINVAL ctx_id is invalid.  min_nr is out of range or nr is out of range");
+					break;
+				case EINTR:
+					log(lsFATAL, "io_getevents error: EINTR  Interrupted by a signal handler; see signal(7)");
+					break;
+				case ENOSYS:
+					log(lsFATAL, "io_getevents error: EENOSYS io_getevents() is not implemented on this architecture");
+					break;
+				default:
+					log(lsERROR,"io_getevents error: unexpected return code -%d %m",rc);		
+			}
+			
+			exit(-1); // TODO
 		}
 		else if (rc > 0) {
 
