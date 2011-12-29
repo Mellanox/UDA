@@ -1,9 +1,11 @@
 package org.apache.hadoop.mapred;
 
 import org.apache.commons.logging.Log;
+import org.apache.hadoop.util.StringUtils;
 
 interface UdaCallable {
 	public void fetchOverMessage();
+	public void dataFromUda(Object directBufAsObj, int len);
 }
 
 public class UdaBridge {
@@ -11,11 +13,35 @@ public class UdaBridge {
 	static private UdaCallable callable;
 	static private Log LOG;
 
-	static public void fetchOverMessage() {
-		LOG.info("in UdaBridge.fetchOverMessage"); 
-		callable.fetchOverMessage();
+	static public void fetchOverMessage() throws Throwable {
+		LOG.info("<<<+++ started  UdaBridge.fetchOverMessage");
+		try{
+			callable.fetchOverMessage();
+		} 
+		catch (Throwable t) {
+			LOG.info("!!!+++ failed  UdaBridge.fetchOverMessage: " + t);
+			LOG.fatal("!!!+++ failed  UdaBridge.fetchOverMessage: " + t);
+            LOG.fatal(StringUtils.stringifyException(t));
+
+			throw (t);  // TODO: consider returning error code to C++
+		}
+		LOG.info("<<<+++ finished UdaBridge.fetchOverMessage"); 
 	}	
 	
+	static public void dataFromUda(Object directBufAsObj, int len)  throws Throwable {
+		LOG.info("+++>>> started  UdaBridge.dataFromUda");
+		try{
+			callable.dataFromUda(directBufAsObj, len);
+		} 
+		catch (Throwable t) {
+			LOG.info("!!!+++ failed  UdaBridge.dataFromUda: " + t);
+			LOG.fatal("!!!+++ failed  UdaBridge.dataFromUda: " + t);
+            LOG.fatal(StringUtils.stringifyException(t));
+			throw (t);  // TODO: consider returning error code to C++
+		}
+		LOG.info("<<<+++ finished UdaBridge.dataFromUda"); 
+	}	
+
 	public static void init(UdaCallable _callable, Log _LOG) {
 		callable = _callable;
 		LOG = _LOG;

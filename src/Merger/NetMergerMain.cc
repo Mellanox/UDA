@@ -145,71 +145,15 @@ int MergeManager_main(int argc, char* argv[])
     INIT_LIST_HEAD(&merging_sm.dir_list);
     INIT_LIST_HEAD(&merging_sm.socket_list);
 
-    /* Create a nexus talking back to the TaskTracker,
-     * -- An event-driven thread responsible for
-     * -- connect back to the TaskTracker
-     * -- receiving reducer connection requests
-     *    o insert a request for new reduceTask to state-machine
-     *    o generate a new epoll set for the reduceTask
-     *    o create a socket to receive fetch requests from the reducer
-     *    o use the socket to report progress for the reducer
-     *    o insert the new socket to the same epoll event set
-     *    o create a reducer for merging the segments for the reducer
-     * -- inserting new segment requests to different reducer
-     */
-    merging_sm.nexus = new C2JNexus(op.mode, op.cmd_port,
-                                    client_downcall_handler,
-// 	                               0, NULL, NULL);
-                                    op.svc_port,
-                                    reduce_connection_handler,
-                                    &merging_sm);
 
-    /* XXX:
-     * -- main thread listens for newly established sockets
-     * -- check if Nexus has requested to exit
-     */
+    spawn_reduce_task();
+
     while (!merging_sm.stop) {
-        reduce_socket_t *sock = NULL;
-
-        if (INTEGRATED == op.mode) {
-
-            if (!list_empty(&merging_sm.socket_list)) {
-                pthread_mutex_lock(&merging_sm.lock);
-                sock = list_entry(merging_sm.socket_list.next,
-                                  typeof(*sock), list);
-                list_del(&sock->list);
-                pthread_mutex_unlock(&merging_sm.lock);
-            }
-
-            if (sock) {
-                struct reduce_task *task = NULL;
-                task = spawn_reduce_task(op.mode, sock);
-
-                free(sock);
-            }
-
-
-            pthread_mutex_lock(&merging_sm.lock);
-            if (!list_empty(&merging_sm.socket_list)) {
-                pthread_mutex_unlock(&merging_sm.lock);
-                continue;
-            }
-            pthread_cond_wait(&merging_sm.cond, &merging_sm.lock);
-            pthread_mutex_unlock(&merging_sm.lock);
-
-        } else {
-
-            /* for stand alone mode test */
-            reduce_task_t *task = NULL;
-            task = spawn_reduce_task(op.mode, NULL);
-            while (!merging_sm.stop) {
-                pthread_mutex_lock(&merging_sm.lock);
-                pthread_cond_wait(&merging_sm.cond, &merging_sm.lock);
-                pthread_mutex_unlock(&merging_sm.lock);
-            }
-        }
+        pthread_mutex_lock(&merging_sm.lock);
+        pthread_cond_wait(&merging_sm.cond, &merging_sm.lock);
+        pthread_mutex_unlock(&merging_sm.lock);
     }
-    output_stdout("main thread exit");
+    output_stdout("MAIN THREAD EXIT #2");
 
 
     /* free map output pool */
@@ -230,7 +174,8 @@ int MergeManager_main(int argc, char* argv[])
     delete merging_sm.client;
     output_stdout("client is deleted");
 
-    delete merging_sm.nexus;
+    //TODO: verify that this is safe, since Java also exits...
+    delete merging_sm.nexus;  // safe for NULL ptr
     output_stdout("nexus is deleted");
 
     pthread_mutex_destroy(&merging_sm.lock);

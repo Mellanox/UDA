@@ -21,6 +21,7 @@
 #include "reducer.h"
 #include "IOUtility.h"
 #include "C2JNexus.h"
+#include "UdaBridge.h"
 
 #ifndef PATH_MAX  // normally defined in limits.h
 #define PATH_MAX 4096
@@ -32,47 +33,10 @@ extern merging_state_t merging_sm;
         
 int num_stage_mem = 2;
 
-//forward declaration
-void UdaBridge_invoke_fetchOverMessage_callback();
 
 void *upload_online(reduce_task_t *task)
 {
-    MergeManager *merger = task->merge_man;
-
-	/* now we have only two buffer for staging */
-	int cur_idx = 0;
-
-	while (!task->upload_thread.stop) {
-		mem_desc_t *desc = merger->merge_queue->staging_bufs[cur_idx];
-
-		pthread_mutex_lock(&desc->lock);
-
-		if ( desc->status != MERGE_READY ) {
-			pthread_cond_wait(&desc->cond, &desc->lock);
-
-			if (task->upload_thread.stop) {
-				log(lsDEBUG, " << BREAKING because of task->upload_thread.stop=%d", task->upload_thread.stop);
-				pthread_mutex_unlock(&desc->lock);
-				break;
-			}
-		}
-
-		log(lsDEBUG, "writing to nexus desc->act_len=%d", desc->act_len);
-
-		/* upload */
-		task->nexus->send_int((int) desc->act_len);
-		task->nexus->stream->write( desc->buff, desc->act_len);
-
-		/* change status */
-		desc->status = FETCH_READY;
-		++cur_idx;
-		if (cur_idx >= num_stage_mem) {
-			cur_idx = 0;
-		}
-		pthread_cond_broadcast(&desc->cond);
-		pthread_mutex_unlock(&desc->lock);
-	}
-
+// TODO: don't create the thread in the 1st place
     return NULL;
 }
 
@@ -134,7 +98,7 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_
 				if (manager->progress_count == PROGRESS_REPORT_LIMIT
 				 || manager->total_count == task->num_maps) {
 					log(lsDEBUG, "JNI sending fetchOverMessage...");
-					UdaBridge_invoke_fetchOverMessage_callback();
+					UdaBridge_invoke_fetchOverMessage_callback(task->merge_thread.jniEnv);
 
 					manager->progress_count = 0;
 				}
@@ -168,6 +132,19 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_q
 	int idx = 0;
 	bool b = false;
 
+// TODO: 
+// NetMerger can use just we can use just 1 staging_buf
+// - no need for staging_bufs array and loop on it
+
+	JNIEnv *jniEnv = task->merge_thread.jniEnv;
+    for (int i = 0; i < num_stage_mem; ++i) {
+    	mem_desc_t  *desc = merge_queue->staging_bufs[i];
+    	desc->jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
+    	log(lsINFO, "GOT: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
+
+    }
+
+
 	while (!task->merge_thread.stop && !b) {
 		mem_desc_t *desc = merge_queue->staging_bufs[idx];
 
@@ -184,6 +161,10 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_q
 							desc->act_len);
 
 		desc->status = MERGE_READY;
+    	log(lsDEBUG, "MERGER: invoking java callback: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
+		UdaBridge_invoke_dataFromUda_callback(task->merge_thread.jniEnv, desc->jbuf, desc->act_len);
+		desc->status = FETCH_READY;
+
 		if (!b) {
 			++idx;
 			if (idx >= num_stage_mem) {
@@ -193,6 +174,16 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_q
 		pthread_cond_broadcast(&desc->cond);
 		pthread_mutex_unlock(&desc->lock);
 	}
+
+//* TODO: move to UdaBridge
+    for (int i = 0; i < num_stage_mem; ++i) {
+    	mem_desc_t  *desc = merge_queue->staging_bufs[i];
+    	log(lsDEBUG, "invoking DeleteWeakGlobalRef: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
+    	jniEnv->DeleteWeakGlobalRef(desc->jbuf);
+    	desc->jbuf = NULL;
+    	log(lsDEBUG, "After DeleteWeakGlobalRef");
+    }
+//*/
 
     return NULL;
 }
@@ -283,6 +274,9 @@ void *merge_thread_main (void *context)
 
     int online = manager->online;
     log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
+
+    task->merge_thread.jniEnv = attachNativeThread();
+
 
 	switch (online) {
 	case 0:
@@ -397,6 +391,15 @@ MergeManager::MergeManager(int threads, list_head_t *list,
             list_del(&merge_queue->staging_bufs[i]->list);
         }
         pthread_mutex_unlock(&task->kv_pool.lock);
+/*
+    	JNIEnv *jniEnv = attachNativeThread();
+        for (int i = 0; i < num_stage_mem; ++i) {
+        	mem_desc_t  *desc = merge_queue->staging_bufs[i];
+        	desc->jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
+        	log(lsINFO, "GOT: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
+
+        }
+//*/
     }
 }
 

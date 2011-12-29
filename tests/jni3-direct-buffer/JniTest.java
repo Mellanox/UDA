@@ -10,6 +10,16 @@ class JniTest {
     private static native void initIDs();
     private native void nativeMethod();
 
+	static public void dataFromUda(Object directBufAsObj, int len) {
+		System.out.println("-->> started  UdaBridge.dataFromUda len=" + len);
+		ByteBuffer directBuf = (ByteBuffer) directBufAsObj;
+		System.out.println("callable.dataFromUda before rewind()");
+		directBuf.rewind();
+		System.out.println("<<-- finished UdaBridge.dataFromUda"); 
+	}	
+	
+	
+	
 	private static void check() {
 		barr3.rewind();
 		barr3.get(arr3);

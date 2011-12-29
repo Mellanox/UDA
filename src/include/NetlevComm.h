@@ -15,6 +15,7 @@
 #define NETLEV_COMM_H
 
 #include "LinkList.h"
+#include "UdaBridge.h"  //avnerb - TEMP - will be removed
 
 #define NETLEV 1
 
@@ -54,13 +55,16 @@ typedef struct progress_event {
     void               *data;
 } progress_event_t;
 
-
-typedef struct {
+typedef struct netlev_thread {
     pthread_t        thread;
     pthread_attr_t   attr;
     volatile int     stop;
     int	             pollfd;
     void            *context;
+    JNIEnv          *jniEnv;
+
+    netlev_thread() : jniEnv(NULL) {}
+
 } netlev_thread_t;
 
 void dprint(char *s, char *fmt, ...);

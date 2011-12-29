@@ -261,7 +261,7 @@ void *event_processor(void *context)
             for (i = 0; i < nevents; i++) {
                 progress_event_t *pevent;
                 pevent = (progress_event_t *)events[i].data.ptr;
-                log(lsTRACE, "EVENT calling handler=0x%x with data=0x%x; result of: th->pollfd=%d; nevents=%d", pevent->handler, pevent->data, th->pollfd, nevents);
+//                log(lsTRACE, "EVENT calling handler=0x%x with data=0x%x; result of: th->pollfd=%d; nevents=%d", pevent->handler, pevent->data, th->pollfd, nevents);
                 pevent->handler(pevent, pevent->data);
             }
         } 

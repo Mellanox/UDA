@@ -1,11 +1,12 @@
 
-#include <jni.h>
+#include "UdaBridge.h"
+#include "IOUtility.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h> //temp for sleep
 
-#include "IOUtility.h"
 
 //
 // We cache all needed Java handles, for best performance of C++ -> Java calls.
@@ -18,11 +19,12 @@ static JavaVM *cached_jvm;
 static jweak  jweakUdaBridge; // use weak global ref for allowing GC to unload & re-load the class and handles
 static jclass jclassUdaBridge; // just casted ref to above jweakUdaBridge. Hence, has same life time
 static jmethodID jmethodID_fetchOverMessage; // handle to java cb method
+static jmethodID jmethodID_dataFromUda; // handle to java cb method
+
 
 //forward declarion until in H file...
 void downcall_handler(const std::string & msg); // #include "reducer.h"
 int MergeManager_main(int argc, char* argv[]);
-
 
 //direct buffer requires java 1.4
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
@@ -51,14 +53,21 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
     jclassUdaBridge = (jclass) jweakUdaBridge;
 
 	// This handle remains valid until the java class is Unloaded
+	//fetchOverMessage callback
     jmethodID_fetchOverMessage = env->GetStaticMethodID(jclassUdaBridge, "fetchOverMessage", "()V");
-
 	if (jmethodID_fetchOverMessage == NULL) {
 		printf("-->> In C++ java UdaBridge.fetchOverMessage() callback method was NOT found\n");
         return JNI_ERR;
     }
 
-	printf("-->> In C++ java callback method were found and cached\n");
+	//dataFromUda callback
+	jmethodID_dataFromUda = env->GetStaticMethodID(cls, "dataFromUda", "(Ljava/lang/Object;I)V");
+	if (jmethodID_dataFromUda == NULL) {
+		printf("-->> In C++ java UdaBridge.jmethodID_dataFromUda() callback method was NOT found\n");
+        return JNI_ERR;
+    }
+
+	printf("-->> In C++ java callback methods were found and cached\n");
 	return JNI_VERSION_1_4;  //direct buffer requires java 1.4
 }
 
@@ -118,18 +127,17 @@ extern "C" JNIEXPORT void JNICALL Java_org_apache_hadoop_mapred_UdaBridge_doComm
 	downcall_handler(msg);
 }
 
-// a utility function that attach the **current native thread** to the JVM and
+// a utility function that attaches the **current native thread** to the JVM and
 // return the JNIEnv interface pointer for this thread
 // BE CAREFUL:
-// - DON'T call this function more than once for a thread!!
+// - DON'T call this function more than once for the same thread!!
 // - DON'T use the handle from one thread in context of another threads!
-JNIEnv *attachNativeThread()
+extern "C" JNIEnv *attachNativeThread()
 {
 	log(lsTRACE, "attachNativeThread started");
     JNIEnv *env;
 	if (! cached_jvm) {
 		log(lsFATAL, "cached_jvm is NULL");
-		printf("-->> In C++ attachNativeThread: ERROR: cached_jvm is NULL\n");
 		exit (1);
 	}
 	log(lsDEBUG, "attachNativeThread before AttachCurrentThread(..)");
@@ -137,20 +145,76 @@ JNIEnv *attachNativeThread()
 
 	if (ret < 0) {
 		log(lsFATAL, "cached_jvm->AttachCurrentThread failed ret=%d", ret);
-		printf("-->> In C++ attachNativeThread: ERROR: cached_jvm->AttachCurrentThread failed ret=%d\n", ret);
 		exit (1);
 	}
-	log(lsTRACE, "attachNativeThread completed successfully env=%p", env);
+	log(lsINFO, "attachNativeThread completed successfully env=%p", env);
     return env; // note: this handler is valid for all functions in this tread
 }
 
-// must be called from same thread at all times - otherwise TOO BAD unexpected results are expected!
-void UdaBridge_invoke_fetchOverMessage_callback() {
-	static JNIEnv * jniEnv = attachNativeThread();
 
+// must be called with JNIEnv that matched the caller's thread - see attachNativeThread() above
+// - otherwise TOO BAD unexpected results are expected!
+extern "C" void UdaBridge_invoke_fetchOverMessage_callback(JNIEnv * jniEnv) {
 	log(lsTRACE, "before jniEnv->CallStaticVoidMethod...");
 	jniEnv->CallStaticVoidMethod(jclassUdaBridge, jmethodID_fetchOverMessage);
 	log(lsTRACE, "after  jniEnv->CallStaticVoidMethod...");
+}
+
+// must be called with JNIEnv that matched the caller's thread - see attachNativeThread() above
+// - otherwise TOO BAD unexpected results are expected!
+extern "C" void UdaBridge_invoke_dataFromUda_callback(JNIEnv * jniEnv, jobject jbuf, int len) {
+	log(lsTRACE, "before jniEnv->CallStaticVoidMethod jniEnv=%p, jbuf=%p, len=%d", jniEnv, jbuf, len);
+	jniEnv->CallStaticVoidMethod(jclassUdaBridge, jmethodID_dataFromUda, jbuf, len);
+	log(lsTRACE, "after  jniEnv->CallStaticVoidMethod...");
+}
+
+// must be called with JNIEnv that matched the caller thread - see attachNativeThread() above
+// - otherwise TOO BAD unexpected results are expected!
+extern "C" jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long capacity) {
+
+	log(lsINFO, "registering native buffer for JAVA usage (address=%p, capacity=%ld) ...", address, capacity);
+	jobject jbuf = jniEnv->NewDirectByteBuffer(address, capacity);
+
+	void* _address = jniEnv->GetDirectBufferAddress(jbuf);
+	jlong _capacity = jniEnv->GetDirectBufferCapacity(jbuf);
+	if (jbuf) {
+		if (_address != address)
+		{
+			log(lsFATAL, "invalid buffer address: expected %p but was %p", address, _address);
+			jbuf = NULL;
+		}
+		if (_capacity != capacity)
+		{
+			log(lsFATAL, "invalid buffer capacity: expected %d but was %d", capacity, _capacity);
+			jbuf = NULL;
+		}
+	}
+	else
+	{
+		// access to direct buffers not supported
+		if (_address != NULL | _capacity != -1)
+		{
+			log(lsFATAL, "inconsistent NIO support: "
+					"NewDirectByteBuffer() returned NULL; "
+					"GetDirectBufferAddress() returned %p; "
+					"GetDirectBufferCapacity() returned %d", _address, _capacity);
+		}
+		else
+		{
+			log(lsFATAL, "no NIO support");
+		}
+	}
+
+	if (jbuf) {
+		// Don't let GC to reclaim it while we need it
+	    jweak weakBuf = jniEnv->NewWeakGlobalRef(jbuf);
+	    if (weakBuf == NULL) {
+			log(lsFATAL, "failed NewWeakGlobalRef");
+	    }
+	    jbuf = (jobject)weakBuf;
+
+	}
+	return jbuf;
 }
 
 // This is the implementation of the native method

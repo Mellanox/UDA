@@ -62,9 +62,9 @@ void *fetch_thread_main(void *context)
             pthread_mutex_unlock(&fetch_man->send_lock);
             continue;
         }
-        log(lsTRACE, "before fetch thread waiting on send_cond");
+//        log(lsTRACE, "before fetch thread waiting on send_cond");
         pthread_cond_wait(&fetch_man->send_cond, &fetch_man->send_lock);
-        log(lsTRACE, "after fetch thread waiting on send_cond");
+//        log(lsTRACE, "after fetch thread waiting on send_cond");
         pthread_mutex_unlock(&fetch_man->send_lock);
 
     }

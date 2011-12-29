@@ -7,13 +7,15 @@
 //
 
 jmethodID MID_JniTest_callback;
+jmethodID MID_JniTest_dataFromUda_callback;
+
 //jarray carr = NULL;
 //void*  carr = NULL;
 jbyte *carr1 = NULL;
 jbyte *carr2 = NULL;
 jbyte *carr3 = NULL;
 
-jint SIZE = 0;
+jint fieldSIZE = 0;
 
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
 {
@@ -47,6 +49,15 @@ Java_JniTest_initIDs(JNIEnv *env, jclass cls)
 {
     MID_JniTest_callback =
         env->GetMethodID(cls, "callback", "()V");
+		
+    MID_JniTest_dataFromUda_callback = env->GetStaticMethodID(cls, "dataFromUda", "(Ljava/lang/Object;I)V");
+
+	const int SIZE = 1024 * 1024;
+//	char buf[SIZE];
+	char *buf = new char[SIZE];
+	jobject jbuf = env->NewDirectByteBuffer(buf, SIZE);
+    env->CallStaticVoidMethod(cls, MID_JniTest_dataFromUda_callback, jbuf, SIZE);
+	delete[] buf;
 
 	carr1 = getStaticDirectBuffer(env, cls, "barr1");
 	carr2 = getStaticDirectBuffer(env, cls, "barr2");
@@ -65,7 +76,7 @@ Java_JniTest_initIDs(JNIEnv *env, jclass cls)
     }
 	
     /* Access the static field */
-    SIZE = env->GetStaticIntField(cls, fid);	
+    fieldSIZE = env->GetStaticIntField(cls, fid);	
 }
 
 extern "C" JNIEXPORT void JNICALL 
@@ -73,7 +84,7 @@ Java_JniTest_nativeMethod(JNIEnv *env, jobject obj)
 {
     printf(">>> In C++\n");
 	
-	for (int i = 0; i < SIZE; ++i) {
+	for (int i = 0; i < fieldSIZE; ++i) {
 		carr3[i] = carr1[i] | carr2[i];
 	}
     env->CallVoidMethod(obj, MID_JniTest_callback);
