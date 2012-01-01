@@ -3230,7 +3230,7 @@ public class TaskTracker
     private ServerSocket       mServerSocket;
     private String[]           mDrivers      = new String[2];
     private Socket[]           mClientSocket = new Socket[1];
-    private DataOutputStream[] mStreamToCpp  = new DataOutputStream[1];
+    private DataOutputStream[] mStreamToCpp  = new DataOutputStream[1];//avner
     private DataInputStream[]  mStreamFromCpp= new DataInputStream[1];
     private Process[]          mRDMAProcess  = new Process[1];
     private Vector<String>     mParams       = new Vector<String>();
@@ -3248,11 +3248,6 @@ public class TaskTracker
       this.launchCppSide(MOF);
       this.buildConn(MOF);
 
-      // launch NetMerger
-//   	  this.launchCppSide(NET);
-//avner      this.buildConn(NET);
-
-
       //this.mInit = false;
     }
 
@@ -3264,7 +3259,6 @@ public class TaskTracker
         String msg = RDMACmd.formCmd(RDMACmd.JOB_OVER_COMMAND, mParams);
         LOG.info("J2CNexus: JOBOVER:(" + msg + ")");
         while (num < 1) {
-//avner        while (num < 2) {
           Text.writeString(mStreamToCpp[num],msg);
           num++;
         }
@@ -3340,26 +3334,8 @@ public class TaskTracker
       cmd.add("-t");
       cmd.add(fConf.get("mapred.uda.log.tracelevel"));
 
-      if (proc_idx == NET) {
-    	  String[] stringarray = null;
-    	  int rc = 0;
-    	  stringarray = cmd.toArray(new String[0]);
-	      try {
-	    	  rc = UdaBridge.start(stringarray);
-	      
-	      } catch (UnsatisfiedLinkError e) {
-	          LOG.warn("J2CNexus:Exception when launching child");    	  
-	          LOG.warn(StringUtils.stringifyException(e));
-	          throw (e);
-	      }
-
-      }
-      else {
-//*      
-	      ProcessBuilder pd = new ProcessBuilder(cmd);
-	      this.mRDMAProcess[proc_idx] = pd.start();
-//*/
-      }
+      ProcessBuilder pd = new ProcessBuilder(cmd);
+      this.mRDMAProcess[proc_idx] = pd.start();
     }
 
     private void buildConn(int proc_idx) throws IOException {
@@ -3382,7 +3358,6 @@ public class TaskTracker
         mParams.clear();
         String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
         while (num < 1) {
-//avner        while (num < 2) {
           Text.writeString(mStreamToCpp[num], msg);
           mStreamToCpp[num].flush();
           mStreamFromCpp[num].close();
@@ -3396,7 +3371,7 @@ public class TaskTracker
         LOG.info("J2CNexus:ERROR when close conns");
       }
     }
-  }
+}
   /*  The above is for MOFSupplier java side. */
 
 }
