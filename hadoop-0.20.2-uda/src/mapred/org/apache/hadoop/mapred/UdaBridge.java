@@ -13,6 +13,38 @@ public class UdaBridge {
 	static private UdaCallable callable;
 	static private Log LOG;
 
+	public static void init(UdaCallable _callable, Log _LOG) {
+		callable = _callable;
+		LOG = _LOG;
+	}
+	
+    private static native int startNative(String args[]);
+    public static int start(String args[]) {
+		LOG.info(" <<<+++ invoking UdaBridge.startNative");
+		int ret = startNative(args);
+		LOG.info(" +++>>> after UdaBridge.startNative ret=" + ret);
+		return ret;
+    }
+    
+    private static native void doCommandNative(String s);
+    public static void doCommand(String s) {
+		LOG.info(" <<<+++ invoking UdaBridge.doCommandNative");
+    	doCommandNative(s);
+		LOG.info(" +++>>> after UdaBridge.doCommandNative");
+    }
+
+	/**
+	 * @param args
+	 */
+    public static void main(String args[]) {
+    	String[] s  = {"bin/NetMerger", "-c", "9010", "-r", "9011", "-l", "9012", "-a", "2", "-m", "1", "-g", "logs/", "-b", "16383", "-s", "128", "-t", "7"};
+        UdaBridge.start(s);
+    }
+    static {
+        System.loadLibrary("uda");
+    }
+	
+//callbacks from C++ start here	
 	static public void fetchOverMessage() throws Throwable {
 		LOG.info("<<<+++ started  UdaBridge.fetchOverMessage");
 		try{
@@ -41,24 +73,4 @@ public class UdaBridge {
 		}
 		LOG.info("<<<+++ finished UdaBridge.dataFromUda"); 
 	}	
-
-	public static void init(UdaCallable _callable, Log _LOG) {
-		callable = _callable;
-		LOG = _LOG;
-	}
-	
-    public static native int start(String args[]);
-    
-    public static native void doCommand(String s);
-
-	/**
-	 * @param args
-	 */
-    public static void main(String args[]) {
-    	String[] s  = {"bin/NetMerger", "-c", "9010", "-r", "9011", "-l", "9012", "-a", "2", "-m", "1", "-g", "logs/", "-b", "16383", "-s", "128", "-t", "7"};
-        UdaBridge.start(s);
-    }
-    static {
-        System.loadLibrary("uda");
-    }
 }

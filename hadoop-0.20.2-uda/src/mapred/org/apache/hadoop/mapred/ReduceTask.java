@@ -2953,10 +2953,10 @@ class ReduceTask extends Task {
     	  this.mJobConf = jobConf;
     	  this.mTaskReporter = reporter;
     	  this.mMapsNeed = numMaps;
+/*    	      	  
     	  int listener = jobConf.getInt("mapred.netmerger.listener.port", 9012);
     	  InetAddress addr = InetAddress.getByName("localhost");
 
-    	  /*    	      	  
     	  // make sure netlev reduce task is completely launched
     	  int launch_ret = WritableUtils.readVInt(this.mFromMerger);
     	  if (launch_ret == RDMACmd.NETLEV_REDUCE_LAUNCHED) {//avner1

@@ -3298,7 +3298,7 @@ public class TaskTracker
 
         LOG.info("J2CNexus: Finshed Map:(" + msg + ")");
       } catch (IOException ioe) {
-        LOG.info("J2CNexus Error: Error when notify map done");
+        LOG.info("J2CNexus Error: Error when notify map done\n" + StringUtils.stringifyException(ioe));
       }
     }
   
