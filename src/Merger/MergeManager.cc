@@ -33,38 +33,6 @@ extern merging_state_t merging_sm;
         
 int num_stage_mem = 2;
 
-
-void *upload_online(reduce_task_t *task)
-{
-// TODO: don't create the thread in the 1st place
-    return NULL;
-}
-
-
-void *upload_thread_main(void *context) 
-{
-    reduce_task_t *task = (reduce_task_t *) context;
-    MergeManager *merger = task->merge_man;
-
-    int online = merger->online;
-    log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
-
-	switch (online) {
-	case 0:
-		/* FIXME: on-disk merge*/
-		break;
-	case 1:
-		upload_online (task);
-		break;
-	case 2: default:
-		//upload_hybrid (task);
-		upload_online (task);
-		break;
-	}
-
-    return NULL;
-}
-
 /* report progress every 256 map outputs*/
 #define PROGRESS_REPORT_LIMIT 20
 
@@ -358,11 +326,9 @@ MapOutput::~MapOutput()
 }
 
 /* The following is for MergeManager */
-MergeManager::MergeManager(int threads, list_head_t *list,
-                           int online, struct reduce_task *task, int _num_lpqs) : num_lpqs(_num_lpqs)
+MergeManager::MergeManager(int threads, int online, struct reduce_task *task, int _num_lpqs) : num_lpqs(_num_lpqs)
 {
     this->task = task;
-    this->dir_list = list;
     this->online = online;
     this->flag = INIT_FLAG;
 

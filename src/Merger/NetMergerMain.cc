@@ -27,78 +27,9 @@ using namespace std;
 
 int netlev_dbg_flag = 0;
 
-/* accept new hadoop reduce task */
-static void
-reduce_connection_handler(progress_event_t *pevent, void *ctx)
-{
-    int nred;
-    socklen_t addrlen;
-    struct sockaddr_in pin;
-    merging_state_t *state = (merging_state_t *)ctx;
-
-    pthread_mutex_lock(&state->lock);
-
-    do {
-        addrlen = sizeof(pin);
-        nred = accept(pevent->fd, (struct sockaddr *)&pin, &addrlen);
-    } while (nred < 0 && errno == EINTR);
-
-    if (nred < 0) {
-        if (errno != ECONNABORTED &&
-            errno != EAGAIN && errno != EWOULDBLOCK) {
-            output_stderr("Error accepting new connection");
-        }
-    }
-
-    reduce_socket_t *sock =
-        (reduce_socket_t *) malloc(sizeof(reduce_socket_t));
-    sock->sock_fd = nred;
-    INIT_LIST_HEAD(&sock->list);
-    list_add_tail(&sock->list, &state->socket_list);
-    pthread_cond_broadcast(&state->cond);
-    pthread_mutex_unlock(&state->lock);
-}
 
 /* merger state machine */
 merging_state_t merging_sm;
-
-/* client handler for commands from tasktracker */
-static void
-client_downcall_handler(progress_event_t *pevent, void *ctx)
-{
-    C2JNexus *nexus = (C2JNexus *)ctx;
-    hadoop_cmd_t hadoop_cmd;
-
-    int32_t num_dirs = 0;
-    string msg = nexus->recv_string();
-    parse_hadoop_cmd(msg, hadoop_cmd);
-
-    if (hadoop_cmd.header == INIT_MSG) { // This command is not arrived at the moment
-        /* at this point, netlev reduce task does not
-         receive this message */
-        num_dirs = hadoop_cmd.count;
-        for (int i = 0; i < num_dirs; ++i) {
-            reduce_directory_t *dir;
-            dir = (reduce_directory_t *)
-                malloc(sizeof(reduce_directory_t));
-            dir->path = strdup(hadoop_cmd.params[i]); // AVNER: i replaced [0] -> [i]
-            output_stdout(" NetMerger got directory: %s", hadoop_cmd.params[i]);
-            list_add_tail(&dir->list, &merging_sm.dir_list);
-        }
-
-    } else if (hadoop_cmd.header == EXIT_MSG) {
-        nexus->engine.stop = 1;
-        merging_sm.stop    = 1;
-        pthread_mutex_lock(&merging_sm.lock);
-        pthread_cond_broadcast(&merging_sm.cond);
-        pthread_mutex_unlock(&merging_sm.lock);
-    }
-
-    free_hadoop_cmd(hadoop_cmd);
-}
-
-
-
 
 int MergeManager_main(int argc, char* argv[])
 {
@@ -142,10 +73,6 @@ int MergeManager_main(int argc, char* argv[])
     merging_sm.client->rdma->register_mem(&merging_sm.mop_pool);
 	log(lsINFO, " AFTER RDMA CLIENT CREATION");
 
-    INIT_LIST_HEAD(&merging_sm.dir_list);
-    INIT_LIST_HEAD(&merging_sm.socket_list);
-
-
     spawn_reduce_task();
 
     while (!merging_sm.stop) {
@@ -173,10 +100,6 @@ int MergeManager_main(int argc, char* argv[])
 
     delete merging_sm.client;
     output_stdout("client is deleted");
-
-    //TODO: verify that this is safe, since Java also exits...
-    delete merging_sm.nexus;  // safe for NULL ptr
-    output_stdout("nexus is deleted");
 
     pthread_mutex_destroy(&merging_sm.lock);
     pthread_cond_destroy(&merging_sm.cond);
