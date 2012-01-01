@@ -40,16 +40,18 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_
 {
     MergeManager *manager = task->merge_man;
     int target_maps_count = manager->total_count + num_maps;
-    log(lsDEBUG, "task->num_maps=%d target_maps_count=%d", task->num_maps, target_maps_count);
+    log(lsDEBUG, ">> function started task->num_maps=%d target_maps_count=%d", task->num_maps, target_maps_count);
 	do {
-		while (manager->fetched_mops.size() > 0 ) {
+		while (! manager->fetched_mops.empty() ) {
 			MapOutput *mop = NULL;
 
 			pthread_mutex_lock(&manager->lock);
+		    log(lsTRACE, "after pthread_mutex_lock");
 			mop = manager->fetched_mops.front();
 			manager->fetched_mops.pop_front();
 			pthread_mutex_unlock(&manager->lock);
 
+			log(lsTRACE, "found new segment in list");
 			/* not in queue yet */
 			if (manager->mops_in_queue.find(mop->mop_id)
 				== manager->mops_in_queue.end()) {
@@ -80,15 +82,17 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_
 		if (manager->total_count == target_maps_count) break;
 
 		pthread_mutex_lock(&manager->lock);
-		if (manager->fetched_mops.size() > 0) {
+		if (! manager->fetched_mops.empty()) {
 			pthread_mutex_unlock(&manager->lock);
 			continue;
 		}
+	    log(lsTRACE, "before pthread_cond_wait");
 		pthread_cond_wait(&manager->cond, &manager->lock);
 		pthread_mutex_unlock(&manager->lock);
 
 	} while (true);
 
+    log(lsDEBUG, "<< function finished");
     return NULL;
 }
 

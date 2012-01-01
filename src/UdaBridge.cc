@@ -117,8 +117,9 @@ void* mainThread(void* data)
 
 
 // This is the implementation of the native method
-extern "C" JNIEXPORT void JNICALL Java_org_apache_hadoop_mapred_UdaBridge_doCommand  (JNIEnv *env, jclass cls, jstring s) {
+extern "C" JNIEXPORT void JNICALL Java_org_apache_hadoop_mapred_UdaBridge_doCommandNative  (JNIEnv *env, jclass cls, jstring s) {
 	errno = 0; // we don't want the value from JVM
+	log(lsTRACE, ">>> started");
 
 	const char *str = env->GetStringUTFChars(s, NULL);
 	if (str == NULL) {
@@ -129,6 +130,7 @@ extern "C" JNIEXPORT void JNICALL Java_org_apache_hadoop_mapred_UdaBridge_doComm
 	env->ReleaseStringUTFChars(s, str);
 
 	downcall_handler(msg);
+	log(lsTRACE, "<<< finished");
 }
 
 // a utility function that attaches the **current native thread** to the JVM and
@@ -222,9 +224,10 @@ extern "C" jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* ad
 }
 
 // This is the implementation of the native method
-extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_start  (JNIEnv *env, jclass cls, jobjectArray stringArray) {
+extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jobjectArray stringArray) {
 
 	errno = 0; // we don't want the value from JVM
+	log(lsTRACE, ">>> started");
 
 	int argc = env->GetArrayLength(stringArray);
     char **argv = new char*[argc];
@@ -239,12 +242,13 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_start 
     printf("In 'C++ main from Java Thread'\n");
 
     int ret = MergeManager_main(argc, argv);
+	log(lsINFO, "MergeManager_main finished ret=%d", ret);
 	for (int i=0; i < argc; i++) {
         free (argv[i]);
     }
 	delete [] argv;
 
-	log(lsINFO, "MergeManager_main finished ret=%d", ret);
+	log(lsTRACE, "<<< finished");
     return ret;
 }
 
