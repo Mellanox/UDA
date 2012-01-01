@@ -20,17 +20,17 @@ public class UdaBridge {
 	
     private static native int startNative(String args[]);
     public static int start(String args[]) {
-		LOG.info(" <<<+++ invoking UdaBridge.startNative");
+		LOG.info(" +++>>> invoking UdaBridge.startNative");
 		int ret = startNative(args);
-		LOG.info(" +++>>> after UdaBridge.startNative ret=" + ret);
+		LOG.info(" <<<+++ after UdaBridge.startNative ret=" + ret);
 		return ret;
     }
     
     private static native void doCommandNative(String s);
     public static void doCommand(String s) {
-		LOG.info(" <<<+++ invoking UdaBridge.doCommandNative");
+		LOG.info(" +++>>> invoking UdaBridge.doCommandNative");
     	doCommandNative(s);
-		LOG.info(" +++>>> after UdaBridge.doCommandNative");
+		LOG.info(" <<<+++ after UdaBridge.doCommandNative");
     }
 
 	/**
@@ -46,7 +46,7 @@ public class UdaBridge {
 	
 //callbacks from C++ start here	
 	static public void fetchOverMessage() throws Throwable {
-		LOG.info("<<<+++ started  UdaBridge.fetchOverMessage");
+		LOG.info("+++>>> started  UdaBridge.fetchOverMessage");
 		try{
 			callable.fetchOverMessage();
 		} 
