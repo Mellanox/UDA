@@ -40,12 +40,8 @@ typedef struct reduce_directory {
 
 typedef struct merging_state {
 
-    pthread_mutex_t    lock;  /* lock for the global state machine */
-    pthread_cond_t     cond;  /* conditional signal for thread activation */
-
     InputClient       *client;   /* Transport */
 
-    volatile int       stop;
     int                online;
 
     memory_pool_t      mop_pool; 

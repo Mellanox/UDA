@@ -31,55 +31,9 @@ int netlev_dbg_flag = 0;
 /* merger state machine */
 merging_state_t merging_sm;
 
-int MergeManager_main(int argc, char* argv[])
-{
-    log (lsDEBUG, "TEST early print should go to 'real' stderr\n");
 
-	int  ret;
-    struct netlev_option op;
-    ret = parse_options(argc, argv, &op);
 
-    redirect_stderr("NetMerger");
-    redirect_stdout("NetMerger");
-
-    log (lsINFO, "The version is %s",STR(VERSION_UDA));
-    log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
-
-    log (lsDEBUG, "number of rdma buffers as passed from java is %d\n", op.buffers);
-    log (lsDEBUG, "size of rdma buffer as passed from java is %d\n", op.buf_size);
-    /* initalize merging_sm */
-    memset(&merging_sm, 0, sizeof(merging_state_t));
-    merging_sm.stop = 0;
-    merging_sm.online = op.online;
-
-    /* init map output memory pool */
-    memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
-    if (create_mem_pool(op.buf_size,
-    				op.buffers,
-                    &merging_sm.mop_pool)) {
-    	log(lsFATAL, "failed to create Map Output memory pool");
-    	exit(-1);
-    }
-    pthread_mutex_init(&merging_sm.lock, NULL);
-    pthread_cond_init(&merging_sm.cond, NULL);
-
-    /* Create a Fetcher
-     * -- an event-driven thread responsible for
-     * -- create a network connections with the server
-     * -- round-robin to process segment requests from all reducers
-     */
-    merging_sm.client = new InputClient(op.data_port, op.mode, &merging_sm);
-    merging_sm.client->start_client();
-    merging_sm.client->rdma->register_mem(&merging_sm.mop_pool);
-	log(lsINFO, " AFTER RDMA CLIENT CREATION");
-
-    spawn_reduce_task();
-
-    while (!merging_sm.stop) {
-        pthread_mutex_lock(&merging_sm.lock);
-        pthread_cond_wait(&merging_sm.cond, &merging_sm.lock);
-        pthread_mutex_unlock(&merging_sm.lock);
-    }
+void final_cleanup(){
     output_stdout("MAIN THREAD EXIT #2");
 
 
@@ -101,10 +55,57 @@ int MergeManager_main(int argc, char* argv[])
     delete merging_sm.client;
     output_stdout("client is deleted");
 
-    pthread_mutex_destroy(&merging_sm.lock);
-    pthread_cond_destroy(&merging_sm.cond);
+    log (lsDEBUG, "finished all C++ threads");
+
     fclose(stdout);
     fclose(stderr);
+}
+
+
+int MergeManager_main(int argc, char* argv[])
+{
+    log (lsDEBUG, "TEST early print should go to 'real' stderr");
+
+	int  ret;
+    struct netlev_option op;
+    ret = parse_options(argc, argv, &op);
+
+    redirect_stderr("NetMerger");
+    redirect_stdout("NetMerger");
+
+    log (lsINFO, "The version is %s",STR(VERSION_UDA));
+    log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
+
+    log (lsDEBUG, "number of rdma buffers as passed from java is %d\n", op.buffers);
+    log (lsDEBUG, "size of rdma buffer as passed from java is %d\n", op.buf_size);
+    /* initalize merging_sm */
+    memset(&merging_sm, 0, sizeof(merging_state_t));
+//    merging_sm.stop = 0;
+    merging_sm.online = op.online;
+
+    /* init map output memory pool */
+    memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
+    if (create_mem_pool(op.buf_size,
+    				op.buffers,
+                    &merging_sm.mop_pool)) {
+    	log(lsFATAL, "failed to create Map Output memory pool");
+    	exit(-1);
+    }
+//    pthread_mutex_init(&merging_sm.lock, NULL);
+//    pthread_cond_init(&merging_sm.cond, NULL);
+
+    /* Create a Fetcher
+     * -- an event-driven thread responsible for
+     * -- create a network connections with the server
+     * -- round-robin to process segment requests from all reducers
+     */
+    merging_sm.client = new InputClient(op.data_port, op.mode, &merging_sm);
+    merging_sm.client->start_client();
+    merging_sm.client->rdma->register_mem(&merging_sm.mop_pool);
+	log(lsINFO, " AFTER RDMA CLIENT CREATION");
+
+    spawn_reduce_task();
+
     return 0;
 }
 

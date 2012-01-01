@@ -43,6 +43,7 @@ extern void *merge_thread_main (void *context);
 static void init_reduce_task(struct reduce_task *task);
 
 reduce_task_t * g_task;
+void final_cleanup();
 
 
 void downcall_handler(const string & msg)
@@ -348,12 +349,7 @@ void finalize_reduce_task(reduce_task_t *task)
 
     pthread_mutex_destroy(&task->lock);
     pthread_cond_destroy(&task->cond);
-   
-    pthread_mutex_lock(&merging_sm.lock);
-    list_del(&task->list);
-    pthread_mutex_unlock(&merging_sm.lock);
-    
-    
+
     write_log(task->reduce_log, DBG_CLIENT, 
               "reduce task is freed successfully");
     close_log(task->reduce_log);   
@@ -364,11 +360,7 @@ void finalize_reduce_task(reduce_task_t *task)
 
 
 	log(lsINFO, "-------------- STOPING PROCESS ---------");
-
-    merging_sm.stop    = 1;
-    pthread_mutex_lock(&merging_sm.lock);
-    pthread_cond_broadcast(&merging_sm.cond);
-    pthread_mutex_unlock(&merging_sm.lock);
+    final_cleanup();
 
     log(lsTRACE, "*********  ALL C++ threads finished  ************");
 }

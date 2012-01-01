@@ -77,6 +77,7 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         {NULL,            0, NULL,  0 }
     };
     int buf_size;
+	errno = 0; // reset before we check!
     while ((choice = getopt_long(argc, argv, "c:r:l:a:m:g:t:b:s:v:h",
 
                             longopts, NULL)) != -1) {
@@ -161,6 +162,7 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         case 'h':
             usage(argv[0]);
         default: 
+        	printf("got invalid command line option choice=%c [%d] \n", choice, choice);
             break;
         }
     }
@@ -168,6 +170,13 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
     return 0;
 
 err_options:
+
+	printf("DEBUG: choice=%c [%d] optarg=%s\n", choice, choice, optarg);
+
+    for (int i=0; i<argc; i++) {
+    	printf("DEBUG: argv[%d] = %s\n", i, argv[i]);
+    }
+
     usage(argv[0]);
     return 1;
 }

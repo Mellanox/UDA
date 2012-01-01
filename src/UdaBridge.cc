@@ -2,6 +2,7 @@
 #include "UdaBridge.h"
 #include "IOUtility.h"
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
@@ -29,6 +30,7 @@ int MergeManager_main(int argc, char* argv[]);
 //direct buffer requires java 1.4
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
 {
+	errno = 0; // we don't want the value from JVM
 	printf("-->> In C++ JNI_OnLoad\n");
 
 	cached_jvm = jvm;
@@ -73,6 +75,7 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
 
 extern "C" JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
 {
+	errno = 0; // we don't want the value from JVM
 	// NOTE: We never reached this place
 	printf("-->> In C++ JNI_OnUnload\n");
 
@@ -115,6 +118,7 @@ void* mainThread(void* data)
 
 // This is the implementation of the native method
 extern "C" JNIEXPORT void JNICALL Java_org_apache_hadoop_mapred_UdaBridge_doCommand  (JNIEnv *env, jclass cls, jstring s) {
+	errno = 0; // we don't want the value from JVM
 
 	const char *str = env->GetStringUTFChars(s, NULL);
 	if (str == NULL) {
@@ -220,7 +224,9 @@ extern "C" jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* ad
 // This is the implementation of the native method
 extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_start  (JNIEnv *env, jclass cls, jobjectArray stringArray) {
 
-    int argc = env->GetArrayLength(stringArray);
+	errno = 0; // we don't want the value from JVM
+
+	int argc = env->GetArrayLength(stringArray);
     char **argv = new char*[argc];
 
     for (int i=0; i<argc; i++) {
@@ -230,15 +236,16 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_start 
         env->ReleaseStringUTFChars(string, rawString);
     }
 
-    printf("In 'C++ from Java Thread'\n");
+    printf("In 'C++ main from Java Thread'\n");
 
-    Args *pArgs = new Args(argc, argv);
+    int ret = MergeManager_main(argc, argv);
+	for (int i=0; i < argc; i++) {
+        free (argv[i]);
+    }
+	delete [] argv;
 
-    pthread_t thr;
-    pthread_create(&thr, NULL, mainThread, pArgs);
-    sleep(10);//temp
-    printf("exiting 'C++ from Java Thread'\n");
-    return 0;
+	log(lsINFO, "MergeManager_main finished ret=%d", ret);
+    return ret;
 }
 
 

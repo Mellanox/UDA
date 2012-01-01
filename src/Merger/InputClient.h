@@ -66,7 +66,6 @@ public:
     /* port for data movement between client and server.  */
     int                     data_port;
 
-    pthread_cond_t         *cond;
     RdmaClient             *rdma;
     TcpClient              *tcp;
     struct merging_state   *state; 
