@@ -359,6 +359,8 @@ class ReduceTask extends Task {
   @SuppressWarnings("unchecked")
   public void run(JobConf job, final TaskUmbilicalProtocol umbilical)
     throws IOException, InterruptedException, ClassNotFoundException {
+
+	LOG.info("thread started"); 
  
     /* for rdma measurement */
     long reduce_task_start = System.currentTimeMillis();
@@ -2737,36 +2739,37 @@ class ReduceTask extends Task {
       
       @Override
       public void run() {
-      
-        LOG.info(reduceTask.getTaskID() + " Thread started: " + getName());
-        
-        do {
-          try {
-            int numNewMaps = getMapCompletionEvents();
-            if (numNewMaps > 0) {
-              LOG.info(reduceTask.getTaskID() + ": " +  
-                  "Got " + numNewMaps + " new map-outputs"); 
-            }
-            Thread.sleep(SLEEP_TIME);
-          } 
-          catch (InterruptedException e) {
-            LOG.warn(reduceTask.getTaskID() +
-                " GetMapEventsThread returning after an " +
-                " interrupted exception");
-            return;
-          }
-          catch (Throwable t) {
-            String msg = reduceTask.getTaskID()
-                         + " GetMapEventsThread Ignoring exception : " 
-                         + StringUtils.stringifyException(t);
-            reportFatalError(getTaskID(), t, msg);
-          }
-        } while (!exitGetMapEvents);
 
-        LOG.info("GetMapEventsThread exiting");
-      
+    	  LOG.info(reduceTask.getTaskID() + " Thread started: " + getName());
+
+    	  do {
+    		  try {
+    			  int numNewMaps = getMapCompletionEvents();
+    			  if (numNewMaps > 0) {
+    				  LOG.info(reduceTask.getTaskID() + ": " +  
+    						  "Got " + numNewMaps + " new map-outputs"); 
+    			  }
+    			   // avner - This looks VERY strange
+    			  Thread.sleep(SLEEP_TIME);
+    		  } 
+    		  catch (InterruptedException e) {
+    			  LOG.warn(reduceTask.getTaskID() +
+    					  " GetMapEventsThread returning after an " +
+    					  " interrupted exception");
+    			  return;
+    		  }
+    		  catch (Throwable t) {
+    			  String msg = reduceTask.getTaskID()
+    					  + " GetMapEventsThread Ignoring exception : " 
+    					  + StringUtils.stringifyException(t);
+    			  reportFatalError(getTaskID(), t, msg);
+    		  }
+    	  } while (!exitGetMapEvents);
+
+    	  LOG.info("GetMapEventsThread exiting");
+
       }
-      
+
       /** 
        * Queries the {@link TaskTracker} for a set of map-completion events 
        * from a given event ID.
