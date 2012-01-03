@@ -538,7 +538,7 @@ RdmaClient::fetch(client_part_req_t *freq)
     
     /* keep information about who send request */
     wqe->context = freq;
-    log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%ld, qp=%d, hostname=%s", freq->info->params[2], freq->info->params[3], freq->mop->total_fetched, conn->qp_hndl->qp_num,freq->info->params[0]);
+    log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%lld, qp=%d, hostname=%s", freq->info->params[2], freq->info->params[3], freq->mop->total_fetched, conn->qp_hndl->qp_num,freq->info->params[0]);
     return netlev_post_send(msg, msg_len, ptr2long(wqe), wqe, conn);
 }
 
