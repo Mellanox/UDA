@@ -38,22 +38,18 @@ server_comp_ibv_send(netlev_wqe_t *wqe)
     hdr_header_t *h = (hdr_header_t *)wqe->data;
     netlev_conn_t *conn = wqe->conn;
     netlev_dev *dev = conn->dev;
-  
-    if (h->type == MSG_RTS) { 
-        if (wqe->shreq) {
-                state_mac.mover->insert_incoming_req(wqe->shreq);
-                wqe->shreq = NULL;
-        }
-    }
-    
+
+//    if (h->type == MSG_RTS) {
+//        if (wqe->shreq) {
+//                state_mac.mover->insert_incoming_req(wqe->shreq);
+//                wqe->shreq = NULL;
+//        }
+//    }
+
     pthread_mutex_lock(&dev->lock);
     release_netlev_wqe(wqe, &dev->wqe_list);
-    
-    /* Send a no_op for credit flow */
-    if (conn->returning >= (conn->peerinfo.credits >> 1)) {
-        netlev_send_noop(conn);
-    }
     pthread_mutex_unlock(&dev->lock);
+
 
 }
 
@@ -74,11 +70,10 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
 
     /* sanity check */
     if (conn->credits > wqes_perconn - 1) {
-        /* output_stderr("[%s,%d] credit overflow", 
-                      __FILE__,__LINE__); */
+         output_stderr("[%s,%d] credit overflow",
+                      __FILE__,__LINE__);
         conn->credits = wqes_perconn - 1;
     }
-    
     h->credits = 0;
 
     while (conn->credits > 0 && !list_empty(&conn->backlog)) {
@@ -94,7 +89,7 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
             bh->credits = conn->returning;
             conn->returning = 0;
         }
-        
+        log(lsDEBUG, "removing a wqe from backlog");
         if (ibv_post_send(conn->qp_hndl, &(w->desc.sr), &bad_sr)) {
             output_stderr("[%s,%d] Error posting send",
                           __FILE__,__LINE__);
@@ -105,9 +100,9 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
     if (h->type == MSG_RTS) {
         shuffle_req_t *data_req;
         string param((char *)(h + 1), h->tot_len);
-        
         /* XXX: create a free list of request to avoid malloc/free */
         data_req = get_shuffle_req(param);
+        log(lsTRACE, "request as received by server: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d, qpnum=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset, conn->qp_hndl->qp_num);
         data_req->conn = conn;
         data_req->peer_wqe = (void *)h->src_wqe;
 
@@ -115,10 +110,10 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
         log(lsTRACE, "server received RDMA fetch request: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset);
         state_mac.mover->insert_incoming_req(data_req);
     
-    } 
-    else {
-    	log(lsDEBUG, "ERROR: message is not of type MSG_RTS" );
+    } else{
+    	log(lsDEBUG, "received a noop" );
     }
+
 
     /* re-post wqe */
     wqe->state = RECV_WQE_COMP; 
@@ -133,12 +128,10 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
     conn->returning ++;
     pthread_mutex_unlock(&conn->lock);
 
-    pthread_mutex_lock(&dev->lock);
     /* Send a no_op for credit flow */
     if (conn->returning >= (conn->peerinfo.credits >> 1)) {
         netlev_send_noop(conn);
     }
-    pthread_mutex_unlock(&dev->lock);
 }
 
 static void server_cq_handler(progress_event_t *pevent, void *data)
@@ -158,11 +151,6 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 
     ibv_ack_cq_events(dev->cq, 1);
 
-    if (ibv_req_notify_cq(dev->cq, 0)) {
-        output_stderr("[%s,%d] ibv_req_notify_cq failed\n",
-                      __FILE__,__LINE__);
-        goto error_event;
-    }
 
     do {
         ne = ibv_poll_cq(dev->cq, 1, &desc);
@@ -186,12 +174,12 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
                 switch (desc.opcode) {
 
                     case IBV_WC_SEND:
-                    	log(lsTRACE, "calling to server_comp_ibv_send: %s", wqe->data);
+                    	log(lsTRACE, "rdma server got IBV_WC_SEND: local_qp=%d, remote_qp=%d, data=%s", wqe->conn->qp_hndl->qp_num, wqe->conn->peerinfo.qp, wqe->data);
                         server_comp_ibv_send(wqe);
                         break;
 
                     case IBV_WC_RECV:
-                    	log(lsTRACE, "calling to server_comp_ibv_recv: %s", wqe->data);
+                    	log(lsTRACE, "rdma server got IBV_WC_RECV: local_qp=%d, remote_qp=%d, data=%s", wqe->conn->qp_hndl->qp_num, wqe->conn->peerinfo.qp, wqe->data);
                         server_comp_ibv_recv(wqe);
                         break;
 
@@ -216,6 +204,10 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
     } while (ne);
 
 error_event:
+	if (ibv_req_notify_cq(dev->cq, 0)) {
+        output_stderr("[%s,%d] ibv_req_notify_cq failed\n",
+                      __FILE__,__LINE__);
+    }
     return;
 }
 
@@ -296,6 +288,7 @@ server_cm_handler(progress_event_t *pevent, void *data)
                 memcpy(&conn->peerinfo, cm_event->param.conn.private_data, 
                         sizeof(conn->peerinfo));
                 conn->credits = conn->peerinfo.credits;
+                log(lsTRACE,"Server conn->credits in the beginning is %d", conn->credits);
                 conn->returning = 0;
 
                 conn->state = NETLEV_CONN_RTR;
@@ -307,9 +300,11 @@ server_cm_handler(progress_event_t *pevent, void *data)
 
         case RDMA_CM_EVENT_ESTABLISHED:
             conn = netlev_conn_established(cm_event, &ctx->hdr_conn_list);
+            log(lsTRACE, "QQ connection in server is %d", conn->qp_hndl->qp_num);
             break;
 
         case RDMA_CM_EVENT_DISCONNECTED:
+        	log(lsTRACE, "received event RDMA_CM_EVENT_DISCONNECTED");
             conn = netlev_disconnect(cm_event, &ctx->hdr_conn_list);
             if (conn) {
                 pthread_mutex_lock(&ctx->lock);
@@ -392,6 +387,8 @@ RdmaServer::start_server()
 
 RdmaServer::~RdmaServer()
 {
+
+	log(lsTRACE,"QQ server dtor");
     pthread_mutex_destroy(&this->ctx.lock);
     this->parent  = NULL;
     this->data_mac = NULL;
@@ -411,6 +408,7 @@ RdmaServer::stop_server()
 
     while (!list_empty(&this->ctx.hdr_conn_list)) {
         conn = list_entry(this->ctx.hdr_conn_list.next, typeof(*conn), list);
+        log(lsINFO,"DD Server conn->credits is %d", conn->credits);
         netlev_conn_free(conn);
     }
     output_stdout("all connections are released");
@@ -433,6 +431,7 @@ RdmaServer::stop_server()
 
     close(this->ctx.epoll_fd);
     rdma_destroy_event_channel(this->ctx.cm_channel);
+    log(lsDEBUG,"RDMA server stopped");
 }
 
 /* Create a RDMA listener for incoming connection requests */
@@ -530,8 +529,7 @@ post_confirmation(const char *params, int length,
         wqe->context = chunk;
         wqe->shreq = req;
         lkey = dev->mem->mr->lkey;
-        netlev_post_send(tmp_params, length, wqeid, wqe, conn);
-        return 0;
+        return netlev_post_send(tmp_params, length, wqeid, wqe, conn);
     } else {
         output_stderr("[%s,%d] run out of wqes",__FILE__,__LINE__);
         return -1;
@@ -573,7 +571,6 @@ RdmaServer::rdma_write_mof(netlev_conn_t *conn,
     }
 
     lkey = dev->rdma_mem->mr->lkey;
-
     send_size = rdma_chunk_len > req_size ? req_size : rdma_chunk_len; 
 
     init_wqe_rdmaw(wqe, 
@@ -588,7 +585,7 @@ RdmaServer::rdma_write_mof(netlev_conn_t *conn,
     if (ibv_post_send(conn->qp_hndl, &(wqe->desc.sr), &bad_sr)) {
         output_stderr("ServerConn: RDMA Post Failed, %s", strerror(errno));
         return 0;
-    }    
+    }
 
     return wqe->sge.length;
 }

@@ -26,6 +26,7 @@
 #include "RDMAComm.h"
 #include "IOUtility.h"
 
+
 int rdma_debug_flag = 0x0;
 
 int 
@@ -135,7 +136,6 @@ netlev_init_dev_mem(struct netlev_dev *dev)
         cur->data = (char *)(dma_mem) + (i * NETLEV_FETCH_REQSIZE);
         list_add_tail(&cur->list, &dev->wqe_list);
     }
-
     dev->mem = dev_mem;
     return 0;
 
@@ -234,7 +234,6 @@ void
 netlev_conn_free(netlev_conn_t *conn)
 {
     netlev_wqe_t *wqe;
-
     /* free wqes */
     pthread_mutex_lock(&conn->lock);
     while (!list_empty(&conn->backlog)) {
@@ -308,7 +307,7 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     }
     conn->qp_hndl = conn->cm_id->qp;
     memset(&conn->peerinfo, 0, sizeof(connreq_data_t));
-
+    log(lsDEBUG, "allocating %d wqes to be receving wqes", NETLEV_WQES_RECV_PERCONN);
     /* post as many recv wqes as possible, up to NETLEV_WQES_RECV_PERCONN */
     for (int i = 0; i < wqes_perconn; ++i) {
         netlev_wqe_t *wqe = get_netlev_wqe(&dev->wqe_list);
@@ -500,7 +499,7 @@ netlev_init_conn(struct rdma_cm_event *event,
 
     /* Save an extra one for credit flow */
     memset(&xdata, 0, sizeof(xdata));
-    xdata.qp = event->id->qp->qp_num;
+    xdata.qp = conn->qp_hndl->qp_num;
     xdata.credits = wqes_perconn - 1;
     xdata.mem_rkey = dev->mem->mr->rkey;
     xdata.rdma_mem_rkey = dev->rdma_mem->mr->rkey;
@@ -580,10 +579,14 @@ netlev_send_noop(struct netlev_conn *conn)
     netlev_wqe_t       *wqe;
     hdr_header_t       *h;
     netlev_dev_t       *dev;
-    
     dev =conn->dev;
+    pthread_mutex_lock(&dev->lock);
     wqe = get_netlev_wqe(&dev->wqe_list);
-    if (!wqe) return false;
+    pthread_mutex_unlock(&dev->lock);
+    if (!wqe) {
+    	log(lsERROR,"no more wqes");
+    	return false;
+    }
 
     h = (hdr_header_t*) wqe->data;
     h->type = MSG_NOOP;
@@ -597,6 +600,7 @@ netlev_send_noop(struct netlev_conn *conn)
     if (conn->returning) {
         h->credits = conn->returning;
         conn->returning = 0;
+        conn->credits--;
         if (ibv_post_send(conn->qp_hndl, &(wqe->desc.sr), &bad_wr) != 0) {
             output_stderr("[%s,%d] Error posting send",
                           __FILE__,__LINE__);
@@ -635,9 +639,7 @@ netlev_post_send(void *buff, int bytes,
                       __FILE__,__LINE__);
         return -1;
     }
-
     init_wqe_send(wqe, (unsigned long) len, lkey, conn);
-
     /* XXX: if there is credits, send it 
      * Otherwise, put it in the backlog */
     pthread_mutex_lock(&conn->lock);
@@ -648,7 +650,8 @@ netlev_post_send(void *buff, int bytes,
             h->credits = conn->returning;
             conn->returning = 0;
         } 
-        
+        log(lsTRACE, "message before ibv_post_send is %s", (char*) buff);
+//        log(lsTRACE, "there are %d credits in connection_qp.num=%d", conn->credits, conn->qp_hndl->qp_num);
         log(lsTRACE, "ibv_post_send: %s", (char*)buff);
         if ((rc = ibv_post_send(conn->qp_hndl, &(wqe->desc.sr), &bad_wr)) != 0) {
             log(lsERROR, "ibv_post_send error: errno=%d %m", rc, (char*)buff);
