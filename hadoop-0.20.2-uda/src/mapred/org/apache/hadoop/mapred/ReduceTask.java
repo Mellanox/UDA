@@ -2749,7 +2749,7 @@ class ReduceTask extends Task {
     				  LOG.info(reduceTask.getTaskID() + ": " +  
     						  "Got " + numNewMaps + " new map-outputs"); 
     			  }
-    			   // avner - This looks VERY strange
+    			   // avner - TODO: check this sleep...
     			  Thread.sleep(SLEEP_TIME);
     		  } 
     		  catch (InterruptedException e) {
@@ -2914,7 +2914,7 @@ class ReduceTask extends Task {
           cmd.add("-m");
           cmd.add("1");
           cmd.add("-g");
-          cmd.add(fConf.get("mapred.rdma.log.dir","default"));
+          cmd.add( fConf.get("mapred.rdma.log.dir","default") + "/userlogs/" + reduceTask.getTaskID().toString() );
           cmd.add("-b");
           cmd.add(fConf.get("mapred.netmerger.rdma.num.buffers"));
           cmd.add("-s");
@@ -2967,7 +2967,7 @@ class ReduceTask extends Task {
     	  }
 //*/
     	  try{
-    		  Thread.sleep(3000);  //avner1: TEMP TODO 
+//    		  Thread.sleep(3000);  //avner1: TEMP TODO 
     	  }
     	  catch (Exception e){}
     	  
@@ -2975,7 +2975,7 @@ class ReduceTask extends Task {
     	  TaskAttemptID reduceId = reduceTask.getTaskID();
     	  mParams.clear();
     	  mParams.add(Integer.toString(numMaps));
-    	  mParams.add(reduceId.getJobID().toString());//avner1
+    	  mParams.add(reduceId.getJobID().toString());
     	  mParams.add(reduceId.toString());
 
     	  String [] dirs = this.mJobConf.getLocalDirs();
@@ -3088,56 +3088,36 @@ class ReduceTask extends Task {
     		  LOG.debug("dataFromUda"); // TODO: this doesn't show! 
     		  LOG.info ("-->> dataFromUda len=" + len);
 
-    		  int i = 0;
-    		  LOG.info ("----- dataFromUda i=" + i++ + " cur_kv_idx=" + cur_kv_idx + " (kv_bufs!=null)=" + (kv_bufs!=null));
-
     		  KVBuf buf = kv_bufs[cur_kv_idx];
-    		  LOG.info ("----- dataFromUda i=" + i++);
-			  
-			  synchronized (buf) {
-	    		  LOG.info ("----- dataFromUda before while");
-				  while (buf.status != kv_buf_recv_ready) {
-					  try{
-			    		  LOG.info ("----- dataFromUda waiting...");
-						  buf.wait();
-		    		  } catch (InterruptedException e) {}
-				  }
-	    		  LOG.info ("----- dataFromUda afer  while");
-				  
-	    		  LOG.info ("----- dataFromUda i=" + i++);
-	    		  buf.act_len = len;  // set merged size
-try {
-				  LOG.info ("----- dataFromUda before cast to ByteBuffer i=" + i++);
-				  java.nio.ByteBuffer directBuf = (java.nio.ByteBuffer) directBufAsObj;
-			
-				  LOG.info ("----- dataFromUda, before directBuf.position(0) i=" + i++);
-	    		  directBuf.position(0); // reset read position 		  
 
-	    		  LOG.info ("----- dataFromUda, before directBuf.remaining() i=" + i++);
-	    		  LOG.info ("----- dataFromUda, directBuf.remaining() = " + directBuf.remaining());
-	    		  
-	    		  LOG.info ("----- dataFromUda, before directBuf.get i=" + i++);
-	    		  directBuf.get(buf.kv_buf, 0, len);// memcpy from direct buf into java buf - TODO: try zero-copy
-} catch (Exception e) {
-	  LOG.info ("!!! !! dataFromUda GOT Exception i=" + i++);
-}
-	    		  
-	    		  LOG.info ("----- dataFromUda, before buf.kv.reset i=" + i++);
-	    		  buf.kv.reset(buf.kv_buf, 0, len); // reset KV read position
+    		  synchronized (buf) {
+    			  while (buf.status != kv_buf_recv_ready) {
+    				  try{
+    					  //LOG.info ("----- dataFromUda waiting...");
+    					  buf.wait();
+    				  } catch (InterruptedException e) {}
+    			  }
+    			  //LOG.info ("----- dataFromUda afer waiting");
 
-	    		  LOG.info ("----- dataFromUda i=" + i++);
-				  buf.status = kv_buf_redc_ready;
-	    		  LOG.info ("----- dataFromUda i=" + i++);
-				  ++cur_kv_idx;
-	    		  LOG.info ("----- dataFromUda i=" + i++);
-				  if (cur_kv_idx >= kv_buf_num) {
-					  cur_kv_idx = 0;
-				  }
-	    		  LOG.info ("----- dataFromUda i=" + i++);
-				  buf.notifyAll();
-	    		  LOG.info ("----- dataFromUda i=" + i++);
-			  }    		  
-    		  LOG.info ("----- dataFromUda i=" + i++);
+    			  buf.act_len = len;  // set merged size
+    			  try {
+    				  //LOG.info ("----- dataFromUda before handling ByteBuffer...");
+    				  java.nio.ByteBuffer directBuf = (java.nio.ByteBuffer) directBufAsObj;
+    				  directBuf.position(0); // reset read position 		  
+    				  directBuf.get(buf.kv_buf, 0, len);// memcpy from direct buf into java buf - TODO: try zero-copy
+    			  } catch (Exception e) {
+    				  LOG.warn ("!!! !! dataFromUda GOT Exception");
+    			  }
+
+    			  buf.kv.reset(buf.kv_buf, 0, len); // reset KV read position
+
+    			  buf.status = kv_buf_redc_ready;
+    			  ++cur_kv_idx;
+    			  if (cur_kv_idx >= kv_buf_num) {
+    				  cur_kv_idx = 0;
+    			  }
+    			  buf.notifyAll();
+    		  }    		  
     		  LOG.info ("<<-- dataFromUda finished callback");
     	  }    	  
 

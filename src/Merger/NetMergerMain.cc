@@ -41,8 +41,8 @@ int MergeManager_main(int argc, char* argv[])
     struct netlev_option op;
     ret = parse_options(argc, argv, &op);
 
-    redirect_stderr("NetMerger");
-    redirect_stdout("NetMerger");
+    redirect_stderr_ex("NetMerger");
+//    redirect_stdout("NetMerger");
 
     log (lsINFO, "The version is %s",STR(VERSION_UDA));
     log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
