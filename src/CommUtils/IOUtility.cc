@@ -19,6 +19,9 @@
 #include <sys/socket.h>
 #include <execinfo.h>  // for backtrace
 
+#include <limits.h> // for PATH_MAX
+
+
 #include "IOUtility.h"
 
 
@@ -619,7 +622,7 @@ void output_stdout(const char *fmt, ...)
 
 FILE* create_log(const char *log_name)
 {
-    char full_path[256];
+    char full_path[PATH_MAX];
 
     if (log_name == NULL 
      || !record) {
@@ -638,10 +641,29 @@ void close_log(FILE *log)
     if (log != NULL)
       fclose(log);
 }
+void redirect_stderr_ex(const char *proc)
+{
+    char full_path[PATH_MAX];
+
+    if (!record)
+        return;
+
+    const char * const hadoop_home = getenv("HADOOP_HOME");
+    if (hadoop_home) {
+    	sprintf(full_path, "%s/%s/uda-%s.log", hadoop_home, rdmalog_dir, proc);
+    	freopen (full_path,"w",stderr);
+        printf("log will go to: %s\n", full_path);
+    }
+    else {
+        printf("log will go to stderr\n");
+        fprintf(stderr, "log will go to stderr\n");
+    }
+}
+
 
 void redirect_stderr(const char *proc)
 {
-    char full_path[256];
+    char full_path[PATH_MAX];
 
     if (!record)
         return;
@@ -664,7 +686,7 @@ void redirect_stderr(const char *proc)
 
 void redirect_stdout(const char *proc)
 {
-    char full_path[256];
+    char full_path[PATH_MAX];
     
     if (!record)
         return;
