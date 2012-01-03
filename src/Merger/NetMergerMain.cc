@@ -33,35 +33,6 @@ merging_state_t merging_sm;
 
 
 
-void final_cleanup(){
-    output_stdout("MAIN THREAD EXIT #2");
-
-
-    /* free map output pool */
-    while (!list_empty(&merging_sm.mop_pool.free_descs)) {
-        mem_desc_t *desc =
-            list_entry(merging_sm.mop_pool.free_descs.next,
-                       typeof(*desc), list);
-        list_del(&desc->list);
-        free(desc);
-    }
-    pthread_mutex_destroy(&merging_sm.mop_pool.lock);
-    free(merging_sm.mop_pool.mem);
-    output_stdout("mop pool is freed");
-
-    merging_sm.client->stop_client();
-    output_stdout("client is stoped");
-
-    delete merging_sm.client;
-    output_stdout("client is deleted");
-
-    log (lsDEBUG, "finished all C++ threads");
-
-    fclose(stdout);
-    fclose(stderr);
-}
-
-
 int MergeManager_main(int argc, char* argv[])
 {
     log (lsDEBUG, "TEST early print should go to 'real' stderr");

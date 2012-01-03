@@ -263,8 +263,8 @@ void *event_processor(void *context)
 
         if (nevents < 0) {
             if (errno != EINTR) {
-                perror("Error from epoll\n");
-                pthread_exit(NULL);
+            	log(lsERROR, "pollfd=%d: epoll_wait failed for with ret=%d (errno=%d: %m)", th->pollfd, nevents, errno);
+                pthread_exit(NULL);  // TODO: consider exit
             }
         } else if (nevents) {
             for (i = 0; i < nevents; i++) {

@@ -43,8 +43,6 @@ extern void *merge_thread_main (void *context);
 static void init_reduce_task(struct reduce_task *task);
 
 reduce_task_t * g_task;
-void final_cleanup();
-
 
 void downcall_handler(const string & msg)
 {
@@ -272,12 +270,42 @@ void spawn_reduce_task()
 //    g_task->nexus->send_int((int)RT_LAUNCHED);
 }
 
+
+
+//------------------------------------------------------------------------------
+void final_cleanup(){
+
+	log(lsINFO, "-------------- STOPING PROCESS ---------");
+    /* free map output pool */
+    while (!list_empty(&merging_sm.mop_pool.free_descs)) {
+        mem_desc_t *desc =
+            list_entry(merging_sm.mop_pool.free_descs.next,
+                       typeof(*desc), list);
+        list_del(&desc->list);
+        free(desc);
+    }
+    pthread_mutex_destroy(&merging_sm.mop_pool.lock);
+    free(merging_sm.mop_pool.mem);
+    log (lsDEBUG, "mop pool is freed");
+
+    merging_sm.client->stop_client();
+    log (lsDEBUG, "RDMA client is stoped");
+
+    delete merging_sm.client;
+    log (lsDEBUG, "RDMA client is deleted");
+
+    log (lsDEBUG, "finished all C++ threads");
+
+    fclose(stdout);
+    fclose(stderr);
+}
+
+//------------------------------------------------------------------------------
 void finalize_reduce_task(reduce_task_t *task) 
 {
    /* for measurement please enable the codes and set up your directory */
-	log(lsTRACE, "function started");
+	log(lsINFO, "-------------- STOPING REDUCER ---------");
 
-	int i = 0;
 /*
  Avner: no one has ever updated this counters
 
@@ -302,21 +330,20 @@ void finalize_reduce_task(reduce_task_t *task)
     pthread_mutex_lock(&task->lock);
     pthread_cond_broadcast(&task->cond);
     pthread_mutex_unlock(&task->lock);
-	log(lsDEBUG, "before joining task->fetch_thread.thread i=%d", i++);
+	log(lsDEBUG, ">> before joining fetch_thread");
     pthread_join(task->fetch_thread.thread, NULL);
-	log(lsDEBUG, "after joining task->fetch_thread.thread i=%d", i++);
+	log(lsDEBUG, "<< after joining fetch_thread");
     delete task->fetch_man;
-    write_log(task->reduce_log, DBG_CLIENT, 
-              "fetch thread joined");
+    write_log(task->reduce_log, DBG_CLIENT, "fetch thread joined");
     
     /* stop merge thread - This will only happen after joining fetch_thread*/
     task->merge_thread.stop = 1;
     pthread_mutex_lock(&task->merge_man->lock);
     pthread_cond_broadcast(&task->merge_man->cond);
     pthread_mutex_unlock(&task->merge_man->lock);
-	log(lsDEBUG, "before joining task->merge_thread.thread i=%d", i++);
+	log(lsDEBUG, "<< before joining merge_thread");
     pthread_join(task->merge_thread.thread, NULL);  
-	log(lsDEBUG, "after joining task->merge_thread.thread i=%d", i++);
+	log(lsDEBUG, ">> after joining merge_thread");
     delete task->merge_man;
     write_log(task->reduce_log, DBG_CLIENT, 
               "merge thread joined");
@@ -333,7 +360,7 @@ void finalize_reduce_task(reduce_task_t *task)
     DBGPRINT(DBG_CLIENT, "host lists and map are freed\n"); */
 
     /* free large pool */
-	log(lsTRACE, "before loop i=%d", i++);
+	log(lsTRACE, ">> before free pool loop");
     while (!list_empty(&task->kv_pool.free_descs)) {
         mem_desc_t *desc = 
             list_entry(task->kv_pool.free_descs.next, 
@@ -341,17 +368,15 @@ void finalize_reduce_task(reduce_task_t *task)
         list_del(&desc->list);
         free(desc);
     }
-	log(lsTRACE, "after loop i=%d", i++);
+	log(lsTRACE, "<< after  free pool loop");
     pthread_mutex_destroy(&task->kv_pool.lock);
     free(task->kv_pool.mem);
-    write_log(task->reduce_log, DBG_CLIENT, 
-              "kv pool is freed");
+    write_log(task->reduce_log, DBG_CLIENT, "kv pool is freed");
 
     pthread_mutex_destroy(&task->lock);
     pthread_cond_destroy(&task->cond);
 
-    write_log(task->reduce_log, DBG_CLIENT, 
-              "reduce task is freed successfully");
+    write_log(task->reduce_log, DBG_CLIENT, "reduce task is freed successfully");
     close_log(task->reduce_log);   
     
     free(task->reduce_task_id);
@@ -359,7 +384,6 @@ void finalize_reduce_task(reduce_task_t *task)
     free(task);
 
 
-	log(lsINFO, "-------------- STOPING PROCESS ---------");
     final_cleanup();
 
     log(lsTRACE, "*********  ALL C++ threads finished  ************");

@@ -284,7 +284,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
         list_for_each_entry(mem_pool, registered_mem, register_mem_list) {
             rc = netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
             if (rc) {
-                output_stderr("[%s,%d] FATAL ERROR: failed on netlev_init_rdma_mem , rc=%d ==> exit process", __FILE__,__LINE__, rc);
+                log(lsFATAL, "FATAL ERROR: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
                 exit(rc);
             }
         }
