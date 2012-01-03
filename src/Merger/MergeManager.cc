@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <limits.h>
+#include <limits.h> // for PATH_MAX
 #include "MergeQueue.h"
 #include "MergeManager.h"
 #include "StreamRW.h"
@@ -22,10 +22,6 @@
 #include "IOUtility.h"
 #include "C2JNexus.h"
 #include "UdaBridge.h"
-
-#ifndef PATH_MAX  // normally defined in limits.h
-#define PATH_MAX 4096
-#endif
 
 using namespace std;
 

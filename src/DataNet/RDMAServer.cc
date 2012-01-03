@@ -330,9 +330,11 @@ server_cm_handler(progress_event_t *pevent, void *data)
                 pthread_mutex_unlock(&ctx->lock);
             }
 //*/
+
+            // don't break here to avoid ack after disconnect
             return;
 
-            break;
+
         case RDMA_CM_EVENT_TIMEWAIT_EXIT:  // avner: don't bail out
             log(lsWARN, "got RDMA_CM_EVENT_TIMEWAIT_EXIT");
             // TODO: consider cleanup
