@@ -527,21 +527,21 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
     int rc=0;
 
     if (!retrieve_path(req->m_jobid, req->m_map, idx_path, out_path)) {
-        output_stderr("[%s,%d] retrieve path failed for fetch reques", __FILE__,__LINE__);
+        log(lsERROR, "retrieve_path failed in fetch request: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
         return -1;
     }
 
     ifile=getIFile(key, &is_new);
 
     if (ifile==NULL){
-        output_stderr("[%s,%d] failed to get ifile", __FILE__,__LINE__);
+        log(lsERROR, "getIFile failed: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
         return -2;
     }
 
     if (is_new) {
     	rc=read_records(ifile, idx_path, 0);
     	if (rc) {
-            output_stderr("[%s,%d] failed to read ifile records. rc=%d", __FILE__,__LINE__, rc);
+            log(lsERROR, "read_records failed: jobid=%s, map=%s, rc=%d", req->m_jobid.c_str(), req->m_map.c_str(), rc);
             return -3;
     	}
     }
@@ -552,7 +552,7 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
     chunk = occupy_chunk();
 
     if (chunk == NULL) {
-        output_stderr("[%s,%d] failed to occupy chunk (No free chunks)", __FILE__,__LINE__);
+        log(lsERROR, "occupy_chunk failed: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
         return -4;
     }
 
