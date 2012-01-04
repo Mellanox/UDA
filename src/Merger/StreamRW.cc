@@ -118,8 +118,7 @@ bool write_kv_to_file(MergeQueue<Segment*> *records, const char *file_name, int3
 {
     FILE *file = fopen(file_name, "wb");
     if (!file) {
-    	output_stderr("[%d:%s:%d] fail to open file(errno=%d: %m)\n"
-    			, getpid(), __FILE__, __LINE__, errno);
+    	log(lsFATAL, "[pid=%d] fail to open file(errno=%d: %m)\n", getpid(), errno);
     	exit(-1); //temp TODO
     }
 
@@ -141,40 +140,6 @@ bool write_kv_to_mem(MergeQueue<Segment*> *records,
     delete stream;
     return ret;
 }
-
-
-
-#if 0
-void write_kv_to_disk(RawKeyValueIterator *records, const char *file_name)
-{
-    int32_t key_len, val_len;
-    FILE *file = fopen(file_name, "wb");
-    if (!file) {
-        fprintf(stderr, "[%d:%s:%d] fail to open file\n",
-                getpid(), __FILE__, __LINE__);
-    }
-    FileStream *stream = new FileStream(file);
-
-    while (records->next()) {
-        DataStream *k = records->getKey();
-        DataStream *v = records->getVal();
-    
-        key_len = k->getLength() - k->getPosition(); 
-        val_len = v->getLength() - v->getPosition(); 
-        if (key_len < 0 || val_len < 0) {
-            fprintf(stderr, "key_len or val_len < 0\n");
-        }
-    
-        StreamUtility::serializeInt(key_len, *stream);
-        StreamUtility::serializeInt(val_len, *stream);
-        stream->write(k->getData(), key_len);
-        stream->write(v->getData(), val_len);
-    }
-
-    fclose(file);
-    delete stream;
-}
-#endif
 
 /*  The following is for class Segment */
 Segment::Segment(MapOutput *mapOutput)
