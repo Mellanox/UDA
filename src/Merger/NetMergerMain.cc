@@ -42,9 +42,10 @@ int MergeManager_main(int argc, char* argv[])
     ret = parse_options(argc, argv, &op);
 
     redirect_stderr_ex("NetMerger");
-//    redirect_stdout("NetMerger");
 
-    log (lsINFO, "The version is %s",STR(VERSION_UDA));
+	log(lsINFO, "======== pid=%d ========", getpid() );
+
+    log (lsINFO, "UDA version is %s",STR(VERSION_UDA));
     log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
 
     log (lsDEBUG, "number of rdma buffers as passed from java is %d\n", op.buffers);

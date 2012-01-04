@@ -584,7 +584,7 @@ void redirect_stderr_ex(const char *proc)
     const char * const hadoop_home = getenv("HADOOP_HOME");
     if (hadoop_home) {
     	sprintf(full_path, "%s/%s/uda-%s.log", hadoop_home, rdmalog_dir, proc);
-    	freopen (full_path,"w",stderr);
+    	freopen (full_path,"a",stderr);
         printf("log will go to: %s\n", full_path);
     }
     else {
