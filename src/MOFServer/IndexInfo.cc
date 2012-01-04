@@ -303,7 +303,7 @@ DataEngine::start()
                 
                 rc = read_mof_index_records(jobid, mapid);
                 if (rc) {
-                	log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid, mapid);
+                	log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid.c_str(), mapid.c_str());
                 }
                 free (comp->jobid);
                 free (comp->mapid);
