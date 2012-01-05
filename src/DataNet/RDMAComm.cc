@@ -307,8 +307,8 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     }
     conn->qp_hndl = conn->cm_id->qp;
     memset(&conn->peerinfo, 0, sizeof(connreq_data_t));
-    log(lsDEBUG, "allocating %d wqes to be receving wqes", NETLEV_WQES_RECV_PERCONN);
-    /* post as many recv wqes as possible, up to NETLEV_WQES_RECV_PERCONN */
+    log(lsDEBUG, "allocating %d wqes to be receving wqes", wqes_perconn);
+    /* post as many recv wqes as possible, up to wqes_perconn */
     for (int i = 0; i < wqes_perconn; ++i) {
         netlev_wqe_t *wqe = get_netlev_wqe(&dev->wqe_list);
         if (!wqe) {
