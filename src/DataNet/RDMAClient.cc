@@ -62,10 +62,10 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
     conn->credits += h->credits; /* credits from peer */
 
     /* sanity check */
-    if (conn->credits > wqes_perconn - 1) {
+    if (conn->credits > wqes_perconn/2 - 1) {
          output_stderr("[%s,%d] credit overflow",
                       __FILE__,__LINE__);
-        conn->credits = wqes_perconn - 1;
+        conn->credits = wqes_perconn/2 - 1;
     }
 
     h->credits = 0;
@@ -312,7 +312,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
     /* Save an extra one for credit flow */
     memset(&xdata, 0, sizeof(xdata));
     xdata.qp = cm_id->qp->qp_num;
-    xdata.credits = wqes_perconn - 1;
+    xdata.credits = wqes_perconn/2 - 1;
     xdata.mem_rkey = dev->mem->mr->rkey;
     xdata.rdma_mem_rkey = dev->rdma_mem->mr->rkey;
 

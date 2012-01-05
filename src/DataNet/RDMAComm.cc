@@ -66,7 +66,6 @@ netlev_init_rdma_mem(void *mem, uint64_t total_size,
         return -1;
     }
 
-    rdma_mem->buf_start = mem;
     rdma_mem->total_size = total_size;
     rdma_mem->mr = ibv_reg_mr(dev->pd, mem, total_size, NETLEV_MEM_ACCESS_PERMISSION);
     if (!rdma_mem->mr) {
@@ -164,7 +163,7 @@ int
 netlev_dev_init(struct netlev_dev *dev)
 {
     struct ibv_device_attr device_attr;
-    int cqe_num, max_sge, max_wr;
+    int cqe_num, max_sge;
 
     INIT_LIST_HEAD(&dev->wqe_list);
     pthread_mutex_init(&dev->lock, NULL);
@@ -189,7 +188,6 @@ netlev_dev_init(struct netlev_dev *dev)
 
     cqe_num = device_attr.max_cqe;
     max_sge = device_attr.max_sge;
-    max_wr  = device_attr.max_qp_wr;
 
     dev->cq_channel = ibv_create_comp_channel(dev->ibv_ctx);
     if (!dev->cq_channel) {
@@ -212,7 +210,6 @@ netlev_dev_init(struct netlev_dev *dev)
     }
 
     dev->max_sge = max_sge;
-    dev->max_wr  = max_wr ;
     dev->cqe_num = cqe_num;
     return 0;
 }
@@ -243,7 +240,6 @@ netlev_conn_free(netlev_conn_t *conn)
     }
     pthread_mutex_unlock(&conn->lock);
 
-    free(conn->sg_array);
     rdma_destroy_qp(conn->cm_id);
     rdma_destroy_id(conn->cm_id);
     pthread_mutex_destroy(&conn->lock);
@@ -288,28 +284,17 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
         qp_init_attr.cap.max_send_sge = dev->max_sge - 1;
     }
 
-    /* Alloc an array for rdma write */
-    conn->sg_array = (ibv_sge*)malloc(dev->max_sge * sizeof (struct ibv_sge));
-    memset(conn->sg_array, 0, dev->max_sge * sizeof(struct ibv_sge));
-    if (!conn->sg_array) {
-        output_stderr("[%s,%d] Create sg_array failed",
-                      __FILE__,__LINE__);
-        free(conn);
-        return NULL;
-    }
-
     if (rdma_create_qp(conn->cm_id, dev->pd, &qp_init_attr) != 0) {
         output_stderr("[%s,%d] Create qp failed - %m",
                      __FILE__,__LINE__);
-        free(conn->sg_array);
         free(conn);
         return NULL;
     }
     conn->qp_hndl = conn->cm_id->qp;
     memset(&conn->peerinfo, 0, sizeof(connreq_data_t));
-    log(lsDEBUG, "allocating %d wqes to be receving wqes", wqes_perconn);
-    /* post as many recv wqes as possible, up to wqes_perconn */
-    for (int i = 0; i < wqes_perconn; ++i) {
+    log(lsDEBUG, "allocating %d wqes to be receving wqes", wqes_perconn/2);
+    /* post as many recv wqes as possible, up to wqes_perconn/2 */
+    for (int i = 0; i < wqes_perconn/2; ++i) {
         netlev_wqe_t *wqe = get_netlev_wqe(&dev->wqe_list);
         if (!wqe) {
            output_stderr("[%s,%d] no more wqe for receiving",
@@ -500,7 +485,7 @@ netlev_init_conn(struct rdma_cm_event *event,
     /* Save an extra one for credit flow */
     memset(&xdata, 0, sizeof(xdata));
     xdata.qp = conn->qp_hndl->qp_num;
-    xdata.credits = wqes_perconn - 1;
+    xdata.credits = wqes_perconn/2 - 1;
     xdata.mem_rkey = dev->mem->mr->rkey;
     xdata.rdma_mem_rkey = dev->rdma_mem->mr->rkey;
 

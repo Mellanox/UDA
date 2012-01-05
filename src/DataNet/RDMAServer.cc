@@ -39,13 +39,6 @@ server_comp_ibv_send(netlev_wqe_t *wqe)
     netlev_conn_t *conn = wqe->conn;
     netlev_dev *dev = conn->dev;
 
-//    if (h->type == MSG_RTS) {
-//        if (wqe->shreq) {
-//                state_mac.mover->insert_incoming_req(wqe->shreq);
-//                wqe->shreq = NULL;
-//        }
-//    }
-
     pthread_mutex_lock(&dev->lock);
     release_netlev_wqe(wqe, &dev->wqe_list);
     pthread_mutex_unlock(&dev->lock);
@@ -69,10 +62,10 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
     conn->credits += h->credits; /* Credits from peer */
 
     /* sanity check */
-    if (conn->credits > wqes_perconn - 1) {
+    if (conn->credits > wqes_perconn/2 - 1) {
          output_stderr("[%s,%d] credit overflow",
                       __FILE__,__LINE__);
-        conn->credits = wqes_perconn - 1;
+        conn->credits = wqes_perconn/2 - 1;
     }
     h->credits = 0;
 

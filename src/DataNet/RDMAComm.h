@@ -97,7 +97,6 @@ typedef struct netlev_mem {
 typedef struct netlev_rdma_mem {
     struct ibv_mr       *mr;   
     uint64_t       total_size;
-    void                *buf_start;
 } netlev_rdma_mem_t;
 
 
@@ -114,7 +113,6 @@ typedef struct netlev_dev {
     pthread_mutex_t           lock;
     uint32_t                  cqe_num;
     uint32_t                  max_sge;
-    uint32_t                  max_wr;
 } netlev_dev_t;
 
 typedef enum {
@@ -129,7 +127,6 @@ typedef struct netlev_conn
     struct netlev_dev  *dev;
     struct rdma_cm_id  *cm_id;
     struct ibv_qp      *qp_hndl;
-    struct ibv_sge     *sg_array; /* for rdma write */
 
     struct list_head    backlog;
     struct list_head    list;
@@ -141,7 +138,6 @@ typedef struct netlev_conn
     connreq_data_t      peerinfo;
 
     unsigned long       peerIPAddr;
-    unsigned int        peerPort;
     unsigned int        state;
 } netlev_conn_t;
 

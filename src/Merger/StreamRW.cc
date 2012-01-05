@@ -465,8 +465,6 @@ bool Segment::switch_mem()
             return false;
         }
 
-        MergeManager *merger = map_output->task->merge_man;
-
         time_t st, ed;
         time(&st);
         pthread_mutex_lock(&map_output->lock);
