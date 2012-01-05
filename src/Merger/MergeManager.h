@@ -49,9 +49,6 @@ typedef struct memory_pool {
  */
 typedef struct client_part_req
 {
-    int              st;
-    int              ed;
-    int              total;
     /**
      * Form a new fetch request object.  the default offset for maps is 0.
      * This constructor is basically for the fetching request from hadoop
