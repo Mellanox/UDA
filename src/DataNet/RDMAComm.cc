@@ -177,6 +177,7 @@ netlev_dev_init(struct netlev_dev *dev)
     }
 
     if (netlev_init_dev_mem(dev) != 0) {
+    	log(lsERROR, "failed to init device");
         return -1;
     }
 
@@ -213,6 +214,7 @@ netlev_dev_init(struct netlev_dev *dev)
     dev->max_sge = max_sge;
     dev->max_wr  = max_wr ;
     dev->cqe_num = cqe_num;
+	log(lsINFO, "Successfully init'ed device");
     return 0;
 }
  
