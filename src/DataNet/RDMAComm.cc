@@ -186,7 +186,8 @@ netlev_dev_init(struct netlev_dev *dev)
         return -1;
     }
 
-    cqe_num = device_attr.max_cqe;
+//    cqe_num = device_attr.max_cqe;
+    cqe_num = wqes_perconn  * max_hosts;
     max_sge = device_attr.max_sge;
 
     dev->cq_channel = ibv_create_comp_channel(dev->ibv_ctx);
@@ -202,6 +203,7 @@ netlev_dev_init(struct netlev_dev *dev)
                       __FILE__,__LINE__);
         return -1;
     }
+    log (lsDEBUG, "device_attr.max_cqe is %d, cqe_num is %d, actual cqe is %d", device_attr.max_cqe, cqe_num, dev->cq->cqe );
 
     if (ibv_req_notify_cq(dev->cq, 0) != 0) {
         output_stderr("[%s,%d] ibv_req_notify failed",
@@ -254,6 +256,7 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     netlev_conn_t *conn;
     struct ibv_recv_wr *bad_wr;
     struct ibv_qp_init_attr qp_init_attr;
+    int wqes_recv_perconn = wqes_perconn/2;
 
     conn = (netlev_conn_t*) calloc(1, sizeof(netlev_conn_t));
     if (!conn) {
@@ -272,8 +275,8 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     memset(&qp_init_attr, 0, sizeof(qp_init_attr));
     qp_init_attr.send_cq  = dev->cq;
     qp_init_attr.recv_cq  = dev->cq;
-    qp_init_attr.cap.max_send_wr  = 2048;
-    qp_init_attr.cap.max_recv_wr  = 2048;
+    qp_init_attr.cap.max_send_wr  = wqes_recv_perconn;
+    qp_init_attr.cap.max_recv_wr  = wqes_recv_perconn;
     qp_init_attr.cap.max_send_sge = 16; /* 28 is the limit */  
     qp_init_attr.cap.max_recv_sge = 16; /* 28 is the limit */
     qp_init_attr.qp_type = IBV_QPT_RC;
@@ -292,9 +295,9 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     }
     conn->qp_hndl = conn->cm_id->qp;
     memset(&conn->peerinfo, 0, sizeof(connreq_data_t));
-    log(lsDEBUG, "allocating %d wqes to be receving wqes", wqes_perconn/2);
+    log(lsDEBUG, "allocating %d wqes to be receving wqes", wqes_recv_perconn);
     /* post as many recv wqes as possible, up to wqes_perconn/2 */
-    for (int i = 0; i < wqes_perconn/2; ++i) {
+    for (int i = 0; i < wqes_recv_perconn; ++i) {
         netlev_wqe_t *wqe = get_netlev_wqe(&dev->wqe_list);
         if (!wqe) {
            output_stderr("[%s,%d] no more wqe for receiving",
