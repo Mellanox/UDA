@@ -16,6 +16,7 @@
 #include <sys/epoll.h>
 #include <malloc.h>
 #include <netdb.h>
+#include <errno.h>
 
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
@@ -133,72 +134,76 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
 static void 
 client_cq_handler(progress_event_t *pevent, void *data)
 {
-    int rc=0;
+	int rc=0;
 	int ne = 0;
-    struct ibv_wc desc;
-    void *ctx;
-    netlev_wqe_t *wqe = NULL;
-    netlev_dev_t *dev = (netlev_dev_t *) pevent->data;
+	struct ibv_wc desc;
+	void *ctx;
+	netlev_wqe_t *wqe = NULL;
+	netlev_dev_t *dev = (netlev_dev_t *) pevent->data;
 
-    if ((rc = ibv_get_cq_event(dev->cq_channel, &dev->cq, &ctx)) != 0) {
-        output_stderr("[%s,%d] notification, but no CQ event or bad rc=%d \n", __FILE__,__LINE__, rc);
-        goto error_event;
-    }
+	if ((rc = ibv_get_cq_event(dev->cq_channel, &dev->cq, &ctx)) != 0) {
+		output_stderr("[%s,%d] notification, but no CQ event or bad rc=%d \n", __FILE__,__LINE__, rc);
+		goto error_event;
+	}
 
-    ibv_ack_cq_events(dev->cq, 1);
+	ibv_ack_cq_events(dev->cq, 1);
 
-    if (ibv_req_notify_cq(dev->cq, 0) != 0) {
-        output_stderr("[%s,%d] ibv_req_notify_cq failed\n",
-                      __FILE__,__LINE__);
-        goto error_event;
-    }
+	if (ibv_req_notify_cq(dev->cq, 0) != 0) {
+		output_stderr("[%s,%d] ibv_req_notify_cq failed\n",
+				__FILE__,__LINE__);
+		goto error_event;
+	}
 
-    do {
-        ne = ibv_poll_cq(dev->cq, 1, &desc);
+	do {
+		ne = ibv_poll_cq(dev->cq, 1, &desc);
 
-        if (ne) {
-            if (desc.status != IBV_WC_SUCCESS) {
-                if (desc.status == IBV_WC_WR_FLUSH_ERR) {
-                    output_stderr("Operation: %s. Dev %p wr flush err. quitting...",
-                                  netlev_stropcode(desc.opcode), dev);
-                    goto error_event;
-                } else {
-                    output_stderr("Operation: %s. Bad WC status %d for wr_id 0x%llx",
-                                  netlev_stropcode(desc.opcode), desc.status, 
-                                  (unsigned long long) desc.wr_id);
-                    goto error_event;
-                }
-            } else {
-                wqe = (netlev_wqe_t *) (long2ptr(desc.wr_id));
+		if ( ne < 0) {
+			log(lsERROR, "ibv_poll_cq failed ne=%d, (errno=%d %m)", ne, errno);
+			return;
+		}
 
-                /* output_stdout("Detect cq event wqe=%p, opcode=%d", 
+		if (ne) {
+			if (desc.status != IBV_WC_SUCCESS) {
+				if (desc.status == IBV_WC_WR_FLUSH_ERR) {
+					output_stderr("Operation: %s. Dev %p wr flush err. quitting...",
+							netlev_stropcode(desc.opcode), dev);
+					goto error_event;
+				} else {
+					output_stderr("Operation: %s. Bad WC status %d for wr_id 0x%llx",
+							netlev_stropcode(desc.opcode), desc.status,
+							(unsigned long long) desc.wr_id);
+					goto error_event;
+				}
+			} else {
+				wqe = (netlev_wqe_t *) (long2ptr(desc.wr_id));
+
+				/* output_stdout("Detect cq event wqe=%p, opcode=%d",
                               wqe, desc.opcode); */
 
-                switch (desc.opcode) {
+				switch (desc.opcode) {
 
-                    case IBV_WC_SEND:
-                        client_comp_ibv_send(wqe);
-                        break;
+				case IBV_WC_SEND:
+					client_comp_ibv_send(wqe);
+					break;
 
-                    case IBV_WC_RECV:
-                        client_comp_ibv_recv(wqe);
-                        break;
+				case IBV_WC_RECV:
+					client_comp_ibv_recv(wqe);
+					break;
 
-                    default:
-                        output_stderr("%s: id %llx status %d unknown opcode %d",
-                                      __func__, 
-                                      desc.wr_id, 
-                                      desc.status, 
-                                      desc.opcode);
-                        break;
-                }
-            }
-            /* output_stdout("Complete event wr_id=0x%lx", desc.wr_id); */
-        }
-    } while (ne);
+				default:
+					output_stderr("id %llx status %d unknown opcode %d",
+							desc.wr_id,
+							desc.status,
+							desc.opcode);
+					break;
+				}
+			}
+			/* output_stdout("Complete event wr_id=0x%lx", desc.wr_id); */
+		}
+	} while (ne);
 
-error_event:
-    return;
+	error_event:
+	return;
 }
 
 
@@ -295,6 +300,8 @@ netlev_get_conn(unsigned long ipaddr, int port,
                          dev, &ctx->hdr_event_list);
 
         list_add_tail(&dev->list, &ctx->hdr_dev_list);
+    } else {
+    	log(lsDEBUG, "device found");
     }
 
     conn = netlev_conn_alloc(dev, cm_id);
@@ -330,6 +337,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
     }
 
     if (event->event == RDMA_CM_EVENT_ESTABLISHED) {
+    	log(lsINFO, "Successfully got RDMA_CM_EVENT_ESTABLISHED with peer %x:%d", (int)ipaddr, port);
         conn->peerIPAddr = ipaddr;
         list_add_tail(&conn->list, &ctx->hdr_conn_list);
 

@@ -161,6 +161,11 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
     do {
         ne = ibv_poll_cq(dev->cq, 1, &desc);
 
+		if ( ne < 0) {
+			log(lsERROR, "ibv_poll_cq failed ne=%d, (errno=%d %m)", ne, errno);
+			return;
+		}
+
         if (ne) {
             if (desc.status != IBV_WC_SUCCESS) {
                 if (desc.status == IBV_WC_WR_FLUSH_ERR) {
