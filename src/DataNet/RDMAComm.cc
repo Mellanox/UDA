@@ -580,7 +580,7 @@ netlev_send_noop(struct netlev_conn *conn)
     h->type = MSG_NOOP;
     h->tot_len = 0;
     h->credits = 0;
-    h->src_wqe = 0;
+    h->src_req = 0;
 
     init_wqe_send (wqe, sizeof(hdr_header_t), dev->mem->mr->lkey, conn);
 
@@ -603,7 +603,7 @@ netlev_send_noop(struct netlev_conn *conn)
 
 int 
 netlev_post_send(void *buff, int bytes, 
-                 uint64_t wqeid,
+                 uint64_t srcreq,
                  netlev_wqe_t *wqe, 
                  netlev_conn_t *conn)
 {
@@ -617,7 +617,7 @@ netlev_post_send(void *buff, int bytes,
     h->type = MSG_RTS;
     h->tot_len = bytes;
     h->credits = 0;
-    h->src_wqe = wqeid ? wqeid : 0;
+    h->src_req = srcreq ? srcreq : 0;
 
     len = sizeof(*h) + bytes;
     if (len <= NETLEV_FETCH_REQSIZE) {

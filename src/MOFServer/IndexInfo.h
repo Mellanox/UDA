@@ -45,15 +45,15 @@ typedef struct shuffle_req
 {
     struct list_head    list;
     struct netlev_conn *conn;
-    void               *peer_wqe;
 
     string    m_jobid;
     string    m_reduceid;
     string    m_map;
-    bool      prefetch;
+//    bool      prefetch;
     int32_t   reduceID;
     int64_t   map_offset;
     int64_t   remote_addr;
+    uint64_t  freq; //saving pointer to client's request
 } shuffle_req_t;
 
 typedef struct comp_mof_info

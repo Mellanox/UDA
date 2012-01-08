@@ -46,6 +46,9 @@ shuffle_req_t* get_shuffle_req(const string &param)
     end = param.find(':', start);
     sreq->remote_addr = atoll(param.substr(start, end - start).c_str());
 
+    start = ++end;
+    end = param.find(':', start);
+    sreq->freq = atoll(param.substr(start, end - start).c_str());
     return sreq;
 }
 
@@ -128,10 +131,10 @@ void OutputServer::start_outgoing_req(shuffle_req_t *req, index_record_t* record
                                             req_size, 
                                             req->remote_addr, (void*)chunk);
 
-    len = sprintf(ack, "%ld:%ld:%d:", 
+    len = sprintf(ack, "%ld:%ld:%d:",
                   record->rawLength,
                   record->partLength,
-                  send_bytes); 
+                  send_bytes);
 
     /* bool prefetch = req_size > send_bytes; */
     shuffle_req_t *prefetch_req = NULL;
@@ -140,8 +143,9 @@ void OutputServer::start_outgoing_req(shuffle_req_t *req, index_record_t* record
         prefetch_req->prefetch = true;
     } */
 
-    this->rdma->send_msg(ack, len + 1, (uint64_t)req->peer_wqe,
-                         (void *)chunk, req->conn, prefetch_req);
+//    this->rdma->send_msg(ack, len + 1, (uint64_t)req->peer_wqe, (void *)chunk, req->conn, prefetch_req);
+    this->rdma->send_msg(ack, len + 1, req->freq,
+    		(void *)chunk, req->conn, prefetch_req);
     
     /* testing section */
     /* if (req->map_offset == 0) {

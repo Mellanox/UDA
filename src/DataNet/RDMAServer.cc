@@ -35,7 +35,6 @@ extern uint32_t wqes_perconn;
 static void 
 server_comp_ibv_send(netlev_wqe_t *wqe)
 {
-    hdr_header_t *h = (hdr_header_t *)wqe->data;
     netlev_conn_t *conn = wqe->conn;
     netlev_dev *dev = conn->dev;
 
@@ -97,7 +96,7 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
         data_req = get_shuffle_req(param);
         log(lsTRACE, "request as received by server: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d, qpnum=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset, conn->qp_hndl->qp_num);
         data_req->conn = conn;
-        data_req->peer_wqe = (void *)h->src_wqe;
+
 
         /* pass to parent and wake up other threads for processing */
         log(lsTRACE, "server received RDMA fetch request: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset);
@@ -503,7 +502,7 @@ RdmaServer::destroy_listener()
 
 static int 
 post_confirmation(const char *params, int length,
-                  uint64_t wqeid, void* chunk,
+                  uint64_t src_req, void* chunk,
                   netlev_conn_t *conn, struct shuffle_req *req)
 {
     netlev_dev_t       *dev;
@@ -522,7 +521,7 @@ post_confirmation(const char *params, int length,
         wqe->context = chunk;
         wqe->shreq = req;
         lkey = dev->mem->mr->lkey;
-        return netlev_post_send(tmp_params, length, wqeid, wqe, conn);
+        return netlev_post_send(tmp_params, length, src_req, wqe, conn);
     } else {
         output_stderr("[%s,%d] run out of wqes",__FILE__,__LINE__);
         return -1;
@@ -531,11 +530,11 @@ post_confirmation(const char *params, int length,
 
 
 int 
-RdmaServer::send_msg(const char *buf, int len, uint64_t wqeid, 
+RdmaServer::send_msg(const char *buf, int len, uint64_t src_req,
                      void *chunk, netlev_conn_t *conn, struct shuffle_req *req)
 {
     int ret;
-    ret = post_confirmation(buf, len, wqeid, chunk, conn, req);
+    ret = post_confirmation(buf, len, src_req, chunk, conn, req);
     return ret > 0;
 }
 

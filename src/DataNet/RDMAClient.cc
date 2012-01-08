@@ -32,19 +32,13 @@ extern uint32_t wqes_perconn;
 static void 
 client_comp_ibv_send(netlev_wqe_t *wqe)
 {
-    hdr_header_t  *h = (hdr_header_t *)wqe->data;
     netlev_conn_t *conn = wqe->conn;
     netlev_dev_t  *dev = conn->dev;
 
-    if (h->type == MSG_RTS) {
-        /* not release wqe until receive confirmation message */
-    } else { 
-    	log(lsDEBUG, "sent a noop");
-        pthread_mutex_lock(&dev->lock);
-        release_netlev_wqe(wqe, &dev->wqe_list);
-        pthread_mutex_unlock(&dev->lock);
-    }
-    
+    pthread_mutex_lock(&dev->lock);
+    release_netlev_wqe(wqe, &dev->wqe_list);
+    pthread_mutex_unlock(&dev->lock);
+
 }
 
 static void 
@@ -93,15 +87,11 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
     pthread_mutex_unlock(&conn->lock);
 
     if ( h->type == MSG_RTS ) {
-    
-        netlev_wqe_t *org_wqe = (netlev_wqe_t *)(long2ptr(h->src_wqe));
-        client_part_req_t *req = (client_part_req_t*) org_wqe->context;
+    	client_part_req_t *req = (client_part_req_t*) (long2ptr(h->src_req));
+
         char *tmp = (char *)(h + 1);
         memcpy(req->recvd_msg, tmp, h->tot_len);
-        log (lsTRACE, "inside rdma client request: jobid=%s, mapid=%s, reducer_id=%s, total_fetched=%lld (not updated for this comp)", req->info->params[1], req->info->params[2], req->info->params[3], req->mop->total_fetched);
-        pthread_mutex_lock(&dev->lock);
-        release_netlev_wqe(org_wqe, &dev->wqe_list);
-        pthread_mutex_unlock(&dev->lock);
+
         log(lsTRACE, "Client received RDMA completion for fetch request: jobid=%s, mapid=%s, reducer_id=%s, total_fetched=%lld (not updated for this comp)", req->info->params[1], req->info->params[2], req->info->params[3], req->mop->total_fetched);
         merging_sm.client->rdma->fetch_over(req); 
     } 
@@ -517,12 +507,12 @@ RdmaClient::fetch(client_part_req_t *freq)
     addr = (uint64_t)((uintptr_t)(freq->mop->mop_bufs[idx]->buff));
     
     /* jobid:mapid:mop_offset:reduceid:mem_addr */
-    msg_len = sprintf(msg,"%s:%s:%ld:%s:%lu", 
+    msg_len = sprintf(msg,"%s:%s:%ld:%s:%lu:%lu",
                       freq->info->params[1], 
                       freq->info->params[2], 
                       freq->mop->total_fetched, 
                       freq->info->params[3], 
-                      addr);
+                      addr,(uint64_t) freq);
 
     conn = connect(freq->info->params[0], svc_port);
     if (!conn) return -1;
@@ -539,7 +529,8 @@ RdmaClient::fetch(client_part_req_t *freq)
     /* keep information about who send request */
     wqe->context = freq;
     log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%lld, qp=%d, hostname=%s", freq->info->params[2], freq->info->params[3], freq->mop->total_fetched, conn->qp_hndl->qp_num,freq->info->params[0]);
-    return netlev_post_send(msg, msg_len, ptr2long(wqe), wqe, conn);
+
+    return netlev_post_send(msg, msg_len, 0, wqe, conn);
 }
 
 unsigned long 

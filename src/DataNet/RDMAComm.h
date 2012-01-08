@@ -63,7 +63,7 @@ typedef struct hdr_header {
     uint8_t   credits;  /* credits to the peer */      
     uint16_t  padding; 
     uint32_t  tot_len;  /* reserved for matching */
-    uint64_t  src_wqe;  /* for fast lookup of request */
+    uint64_t  src_req;  /* for fast lookup of request: server will use it to pass pointer to the original request */
 } hdr_header_t;
 
 typedef struct netlev_wqe {
