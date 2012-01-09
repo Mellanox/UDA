@@ -61,7 +61,7 @@ AIOHandler::~AIOHandler() {
 
 }
 
-int AIOHandler::prepare_read(int fd, long fileOffset, size_t sizeToRead, char* dstBuffer, void* callback_arg) {
+int AIOHandler::prepare_read(int fd, uint64_t fileOffset, size_t sizeToRead, char* dstBuffer, void* callback_arg) {
 
 	if (!validateAligment(fileOffset, sizeToRead, dstBuffer))
 		return -1;
@@ -76,7 +76,7 @@ int AIOHandler::prepare_read(int fd, long fileOffset, size_t sizeToRead, char* d
 	return 0;
 }
 
-int AIOHandler::prepare_write(int fd, long fileOffset, size_t sizeToWrite, char* srcBuffer, void* callback_arg) {
+int AIOHandler::prepare_write(int fd, uint64_t fileOffset, size_t sizeToWrite, char* srcBuffer, void* callback_arg) {
 	throw "NOT Implemented";
 }
 

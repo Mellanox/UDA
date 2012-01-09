@@ -284,7 +284,7 @@ int Segment::nextKVInternal(InStream *stream)
     if (!stream) return 0;
     
     /* no enough for key + val */
-    if (!stream->hasMore(cur_key_len + cur_val_len)) 
+    if (!stream->hasMore(2*sizeof(int32_t)))
         return -1;   
 
     /* key length */
