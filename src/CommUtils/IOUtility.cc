@@ -40,7 +40,7 @@ void log_func(const char * func, const char * file, int line, log_severity_t sev
 
     static const char *severity_string[] = {
 		"NONE",
-		"FATAL",
+		"FATAL_ERROR",
 		"ERROR",
 		"WARN",
 		"INFO",
