@@ -283,8 +283,8 @@ int Segment::nextKVInternal(InStream *stream)
 
     if (!stream) return 0;
     
-    /* no enough for key + val */
-    if (!stream->hasMore(2*sizeof(int32_t)))
+    /* check if streeam has enough bytes to read the length of next K+V */
+    if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len)))
         return -1;   
 
     /* key length */
