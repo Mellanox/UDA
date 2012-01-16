@@ -230,7 +230,7 @@ static void init_reduce_task(struct reduce_task *task)
     pthread_attr_init(&task->merge_thread.attr);
     pthread_attr_setdetachstate(&task->merge_thread.attr, 
                                 PTHREAD_CREATE_JOINABLE); 
-    pthread_create(&task->merge_thread.thread, 
+    log(lsINFO, "CREATING THREAD"); pthread_create(&task->merge_thread.thread,
                    &task->merge_thread.attr, 
                    merge_thread_main, task);
 
@@ -242,7 +242,7 @@ static void init_reduce_task(struct reduce_task *task)
     pthread_attr_init(&task->fetch_thread.attr); 
     pthread_attr_setdetachstate(&task->fetch_thread.attr, 
                                 PTHREAD_CREATE_JOINABLE);
-    pthread_create(&task->fetch_thread.thread, 
+    log(lsINFO, "CREATING THREAD"); pthread_create(&task->fetch_thread.thread,
                    &task->fetch_thread.attr, 
                    fetch_thread_main, task);
 }
@@ -331,10 +331,9 @@ void finalize_reduce_task(reduce_task_t *task)
     pthread_cond_broadcast(&task->cond);
     pthread_mutex_unlock(&task->lock);
 	log(lsDEBUG, ">> before joining fetch_thread");
-    pthread_join(task->fetch_thread.thread, NULL);
-	log(lsDEBUG, "<< after joining fetch_thread");
+    pthread_join(task->fetch_thread.thread, NULL); log(lsINFO, "THREAD JOINED");
+	log(lsINFO, "-------------->>> fetch_thread has joined <<<<------------");
     delete task->fetch_man;
-    write_log(task->reduce_log, DBG_CLIENT, "fetch thread joined");
     
     /* stop merge thread - This will only happen after joining fetch_thread*/
     task->merge_thread.stop = 1;
@@ -342,11 +341,9 @@ void finalize_reduce_task(reduce_task_t *task)
     pthread_cond_broadcast(&task->merge_man->cond);
     pthread_mutex_unlock(&task->merge_man->lock);
 	log(lsDEBUG, "<< before joining merge_thread");
-    pthread_join(task->merge_thread.thread, NULL);  
-	log(lsDEBUG, ">> after joining merge_thread");
+    pthread_join(task->merge_thread.thread, NULL); log(lsINFO, "THREAD JOINED");
+	log(lsINFO, "-------------->>> merge_thread has joined <<<<------------");
     delete task->merge_man;
-    write_log(task->reduce_log, DBG_CLIENT, 
-              "merge thread joined");
    
     /* delete map */
     /* map <string, host_list_t*>::iterator iter =

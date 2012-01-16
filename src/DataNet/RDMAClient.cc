@@ -399,7 +399,7 @@ RdmaClient::RdmaClient(int port, merging_state_t *state)
     th->pollfd = this->ctx.epoll_fd;
     pthread_attr_init(&th->attr);
     pthread_attr_setdetachstate(&th->attr, PTHREAD_CREATE_JOINABLE);
-    pthread_create(&th->thread, &th->attr, event_processor, th);
+    log(lsINFO, "CREATING THREAD"); pthread_create(&th->thread, &th->attr, event_processor, th);
 
     /* FIXME: 
      * When we consider disconnection we need to add 
@@ -432,7 +432,7 @@ RdmaClient::~RdmaClient()
 
     this->helper.stop = 1;
     pthread_attr_destroy(&this->helper.attr);
-    pthread_join(this->helper.thread, NULL);
+    pthread_join(this->helper.thread, NULL); log(lsINFO, "THREAD JOINED");
     //DBGPRINT(DBG_CLIENT, "RDMAClient is shut down \n");
 
     rdma_destroy_event_channel(this->ctx.cm_channel);
@@ -524,7 +524,7 @@ RdmaClient::fetch(client_part_req_t *freq)
                       addr);
     
     conn = connect(freq->info->params[0], svc_port);
-    if (!conn) return -1;
+    if (!conn) return -1; //log was already issued inside connect
    
     pthread_mutex_lock(&conn->dev->lock); 
     wqe = get_netlev_wqe(&conn->dev->wqe_list); 

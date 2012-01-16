@@ -270,11 +270,13 @@ void *event_processor(void *context)
             for (i = 0; i < nevents; i++) {
                 progress_event_t *pevent;
                 pevent = (progress_event_t *)events[i].data.ptr;
-//                log(lsTRACE, "EVENT calling handler=0x%x with data=0x%x; result of: th->pollfd=%d; nevents=%d", pevent->handler, pevent->data, th->pollfd, nevents);
+                //avner - TODO: remove this log line it is extra verbose....
+                //log(lsTRACE, "EVENT calling handler=0x%x with data=0x%x; result of: th->pollfd=%d; nevents=%d", pevent->handler, pevent->data, th->pollfd, nevents);
                 pevent->handler(pevent, pevent->data);
             }
         } 
     }
+	log(lsINFO, "-------->>>>> event_processor thread stopped <<<<<--------");
     return NULL; //quite the compiler
 }
 
@@ -380,7 +382,7 @@ C2JNexus::C2JNexus(int mode,
 
     pthread_attr_init(&th->attr);
     pthread_attr_setdetachstate(&th->attr, PTHREAD_CREATE_JOINABLE);
-    pthread_create(&th->thread, &th->attr, event_processor, th);
+    log(lsINFO, "CREATING THREAD"); pthread_create(&th->thread, &th->attr, event_processor, th);
     return;
 
 err_add_svc:
@@ -444,7 +446,7 @@ C2JNexus::C2JNexus(int mode, int socket, void *ctx,
     th->pollfd = this->epoll_fd;
     pthread_attr_init(&th->attr);
     pthread_attr_setdetachstate(&th->attr, PTHREAD_CREATE_JOINABLE);
-    pthread_create(&th->thread, &th->attr, event_processor, th);
+    log(lsINFO, "CREATING THREAD"); pthread_create(&th->thread, &th->attr, event_processor, th);
     return;
 
 err_add_client:
@@ -466,8 +468,7 @@ C2JNexus::~C2JNexus( )
     void *pstatus;
     this->engine.stop = 1;
     pthread_attr_destroy(&this->engine.attr);
-    pthread_join(this->engine.thread, &pstatus);
-    output_stdout("C2JNexus joined");
+    pthread_join(this->engine.thread, &pstatus); log(lsINFO, "nexus THREAD JOINED");
     
     /* close reduce task listener socket */
     if (this->svc_fd) {

@@ -636,8 +636,7 @@ netlev_post_send(void *buff, int bytes,
     if (len <= NETLEV_FETCH_REQSIZE) {
         memcpy (((char *) h + sizeof (*h)), buff, bytes);
     } else {
-        output_stderr("[%s,%d] request too long",
-                      __FILE__,__LINE__);
+        log(lsERROR, "request too long len=%d", len);
         return -1;
     }
 
@@ -653,10 +652,11 @@ netlev_post_send(void *buff, int bytes,
             h->credits = conn->returning;
             conn->returning = 0;
         } 
+
         
+        //log(lsTRACE, "calling ibv_post_send..."); // avner: TODO remove this verbose log
         if (ibv_post_send(conn->qp_hndl, &(wqe->desc.sr), &bad_wr) != 0) {
-            output_stderr("[%s,%d] Error posting send",
-                          __FILE__,__LINE__);
+            log(lsERROR, "ibv_post_send failed");
             pthread_mutex_unlock(&conn->lock);
             return -1;
         }

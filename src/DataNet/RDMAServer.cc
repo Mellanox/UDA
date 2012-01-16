@@ -316,13 +316,17 @@ server_cm_handler(progress_event_t *pevent, void *data)
         case RDMA_CM_EVENT_DISCONNECTED:
             log(lsDEBUG, "got RDMA_CM_EVENT_DISCONNECTED");
 
-
+//            log(lsWARN, "== TODO: cleanup was commented out");
+//*
             conn = netlev_conn_find(cm_event, &ctx->hdr_conn_list);
             log(lsTRACE, "calling rdma_ack_cm_event for event=%d", cm_event->event);
             ret = rdma_ack_cm_event(cm_event);
             if (ret) { log(lsWARN, "ack cm event failed"); }
 
             netlev_disconnect(conn);
+
+//*/
+
 /*
             // Avner: TODO
             // it is true that list_del is wrong (after conn was freed) and it is
@@ -412,7 +416,7 @@ RdmaServer::start_server()
 
     pthread_attr_init(&th->attr);
     pthread_attr_setdetachstate(&th->attr, PTHREAD_CREATE_JOINABLE);
-    pthread_create(&th->thread, &th->attr, event_processor, th);
+    log(lsINFO, "CREATING THREAD"); pthread_create(&th->thread, &th->attr, event_processor, th);
 }
 
 RdmaServer::~RdmaServer()
@@ -454,7 +458,7 @@ RdmaServer::stop_server()
 
     this->helper.stop = 1;
     pthread_attr_destroy(&this->helper.attr);
-    pthread_join(this->helper.thread, &pstatus);
+    pthread_join(this->helper.thread, &pstatus); log(lsINFO, "THREAD JOINED");
 
     close(this->ctx.epoll_fd);
     rdma_destroy_event_channel(this->ctx.cm_channel);

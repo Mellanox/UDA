@@ -40,7 +40,7 @@ int AIOHandler::start() {
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
 		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-		pthread_create(&_callbackProcessorThread, &attr,  thunk<AIOHandler, &AIOHandler::processEventsCallbacks>, this);
+		log(lsINFO, "CREATING THREAD"); pthread_create(&_callbackProcessorThread, &attr,  thunk<AIOHandler, &AIOHandler::processEventsCallbacks>, this);
 	}
 
 	return rc;
@@ -52,7 +52,7 @@ AIOHandler::~AIOHandler() {
 	if (_callbackProcessorThread) {
 		_stopCallbackProcessor=true;
 
-		pthread_join(_callbackProcessorThread, NULL);
+		pthread_join(_callbackProcessorThread, NULL); log(lsINFO, "THREAD JOINED");
 
 		io_destroy(_context);
 	}
@@ -60,7 +60,7 @@ AIOHandler::~AIOHandler() {
 
 }
 
-int AIOHandler::prepare_read(int fd, long fileOffset, size_t sizeToRead, char* dstBuffer, void* callback_arg) {
+int AIOHandler::prepare_read(int fd, uint64_t fileOffset, size_t sizeToRead, char* dstBuffer, void* callback_arg) {
 
 	if (!validateAligment(fileOffset, sizeToRead, dstBuffer))
 		return -1;
@@ -75,7 +75,7 @@ int AIOHandler::prepare_read(int fd, long fileOffset, size_t sizeToRead, char* d
 	return 0;
 }
 
-int AIOHandler::prepare_write(int fd, long fileOffset, size_t sizeToWrite, char* srcBuffer, void* callback_arg) {
+int AIOHandler::prepare_write(int fd, uint64_t fileOffset, size_t sizeToWrite, char* srcBuffer, void* callback_arg) {
 	throw "NOT Implemented";
 }
 

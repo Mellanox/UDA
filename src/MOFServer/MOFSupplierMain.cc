@@ -29,6 +29,8 @@ void mof_downcall_handler(progress_event_t *pevent, void *ctx)
     hadoop_cmd_t hadoop_cmd;
     parse_hadoop_cmd(msg, hadoop_cmd);
 
+    log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd.count - 1, (int)hadoop_cmd.header);
+
     if (hadoop_cmd.header == NEW_MAP_MSG) { 
         /*2. Insert the MOF */
         comp_mof_info_t *comp = NULL;
@@ -45,6 +47,8 @@ void mof_downcall_handler(progress_event_t *pevent, void *ctx)
         comp->jobid = strdup(hadoop_cmd.params[0]);
         comp->mapid = strdup(hadoop_cmd.params[1]);
 
+        log(lsDEBUG, "NEW_MAP_MSG: jobid=%s, mapid=%s", comp->jobid, comp->mapid);
+
         if (hadoop_cmd.count>5){
             /*hadoop version >=0.2.203. 
              * user name is passed and is part of path to out and index files*/
@@ -58,13 +62,11 @@ void mof_downcall_handler(progress_event_t *pevent, void *ctx)
             /*hadoop version == 0.2.20 user name is not passed. 
              * "taskTracker" is part of path to out and index files */
 
-            string taskTracker ("taskTracker");
-            const char * cTaskTracker = taskTracker.c_str();
            state_mac.data_mac->add_new_mof(comp->jobid,
                                         comp->mapid,
                                         hadoop_cmd.params[2],
                                         hadoop_cmd.params[3],
-                                        cTaskTracker);
+                                        "taskTracker");
 
 
         }    
@@ -120,7 +122,7 @@ int MOFSupplier_main(int argc, char *argv[])
     ret = parse_options(argc, argv, &op);
     
     redirect_stderr("MOFSupplier");
-    redirect_stdout("MOFSupplier");
+//    redirect_stdout("MOFSupplier");
   
     log (lsINFO, "The version is %s",STR(VERSION_UDA));
     log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
