@@ -2975,7 +2975,7 @@ class ReduceTask extends Task {
     	  }
 //*/
     	  try{
-    		  Thread.sleep(3000);  //avner1: TEMP TODO 
+//    		  Thread.sleep(3000);  //avner1: TEMP TODO 
     	  }
     	  catch (Exception e){}
     	  
