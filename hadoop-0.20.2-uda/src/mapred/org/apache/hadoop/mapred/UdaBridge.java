@@ -18,10 +18,10 @@ public class UdaBridge {
 		LOG = _LOG;
 	}
 	
-    private static native int startNative(String args[]);
-    public static int start(String args[]) {
-		LOG.info(" +++>>> invoking UdaBridge.startNative");
-		int ret = startNative(args);
+    private static native int startNative(String args[], boolean isNetMerger);
+    public static int start(String args[], boolean isNetMerger) {
+		LOG.info(" +++>>> invoking UdaBridge.startNative: isNetMerger=" + isNetMerger);
+		int ret = startNative(args, isNetMerger);
 		LOG.info(" <<<+++ after UdaBridge.startNative ret=" + ret);
 		return ret;
     }
@@ -38,7 +38,7 @@ public class UdaBridge {
 	 */
     public static void main(String args[]) {
     	String[] s  = {"bin/NetMerger", "-c", "9010", "-r", "9011", "-l", "9012", "-a", "2", "-m", "1", "-g", "logs/", "-b", "16383", "-s", "128", "-t", "7"};
-        UdaBridge.start(s);
+        UdaBridge.start(s, true);
     }
     static {
         System.loadLibrary("uda");

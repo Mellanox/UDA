@@ -24,8 +24,16 @@ static jmethodID jmethodID_dataFromUda; // handle to java cb method
 
 
 //forward declarion until in H file...
-void downcall_handler(const std::string & msg); // #include "reducer.h"
+void reduce_downcall_handler(const std::string & msg); // #include "reducer.h"
 int MergeManager_main(int argc, char* argv[]);
+
+//void mof_downcall_handler(progress_event_t *pevent, void *ctx);
+
+typedef void (*downcall_handler_t) (const std::string & msg);
+typedef int (*main_t)(int argc, char* argv[]);
+static downcall_handler_t my_downcall_handler;
+static main_t my_main;
+
 
 //direct buffer requires java 1.4
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
@@ -129,7 +137,7 @@ extern "C" JNIEXPORT void JNICALL Java_org_apache_hadoop_mapred_UdaBridge_doComm
 	std::string msg(str);
 	env->ReleaseStringUTFChars(s, str);
 
-	downcall_handler(msg);
+	my_downcall_handler(msg);
 	log(lsTRACE, "<<< finished");
 }
 
@@ -224,7 +232,7 @@ extern "C" jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* ad
 }
 
 // This is the implementation of the native method
-extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jobjectArray stringArray) {
+extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jobjectArray stringArray, jboolean isNetMerger) {
 
 	errno = 0; // we don't want the value from JVM
 	log(lsTRACE, ">>> started");
@@ -239,10 +247,18 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startN
         env->ReleaseStringUTFChars(string, rawString);
     }
 
-    printf("In 'C++ main from Java Thread'\n");
+    if (isNetMerger) {
+        printf("In NetMerger 'C++ main from Java Thread'\n");
+    	my_downcall_handler = reduce_downcall_handler;
+    	my_main = MergeManager_main;
+    }
+    else {
+        printf("Only NetMerger is supported at the moment\n");
+        exit (255);
+    }
 
-    int ret = MergeManager_main(argc, argv);
-	log(lsINFO, "MergeManager_main finished ret=%d", ret);
+    int ret = my_main(argc, argv);
+	log(lsINFO, "main finished ret=%d", ret);
 	for (int i=0; i < argc; i++) {
         free (argv[i]);
     }

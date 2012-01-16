@@ -2936,7 +2936,7 @@ class ReduceTask extends Task {
     	  stringarray = cmd.toArray(new String[0]);
 	      try {
 	    	  UdaBridge.init(this, LOG);
-	    	  rc = UdaBridge.start(stringarray);
+	    	  rc = UdaBridge.start(stringarray, true);
 	      
 	      } catch (UnsatisfiedLinkError e) {
 	          LOG.warn("J2CNexus:Exception when launching child");    	  

@@ -44,7 +44,7 @@ static void init_reduce_task(struct reduce_task *task);
 
 reduce_task_t * g_task;
 
-void downcall_handler(const string & msg)
+void reduce_downcall_handler(const string & msg)
 {
     client_part_req_t   *req;
     hadoop_cmd_t        *hadoop_cmd;

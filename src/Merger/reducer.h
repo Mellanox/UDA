@@ -82,7 +82,7 @@ typedef struct reduce_task {
     std::vector<std::string>   local_dirs; // local dirs will serve for lpq temp files
 } reduce_task_t;
 
-void downcall_handler(const std::string & msg);
+void reduce_downcall_handler(const std::string & msg);
 extern reduce_task_t * g_task; // we only support 1 reducer per process
 void spawn_reduce_task();
 void finalize_reduce_task(reduce_task_t *task);
