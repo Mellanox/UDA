@@ -522,37 +522,6 @@ int StreamUtility::getVIntSize(int64_t i)
 const char *rdmalog_dir = "default";
 const char *default_log = "default";
 bool record = true;
-
-void write_log(FILE *log, int dbg, const char *fmt, ...)
-{
-    if (dbg && record && log != NULL) {
-      time_t rawtime;
-      struct tm *ti = NULL;
-
-      time(&rawtime);
-      ti = localtime(&rawtime);
-
-      const int SIZE = 1024;
-      char s1[SIZE];
-      va_list ap;
-      va_start(ap, fmt);
-      vsnprintf(s1, SIZE, fmt, ap);
-      va_end(ap);
-      s1[SIZE-1] = '\0';
-
-      if (ti) {
-        fprintf(log, "Time %d:%d:%d LOG: %s\n",
-                ti->tm_hour,
-                ti->tm_min,
-                ti->tm_sec, s1);
-      } else {
-        fprintf(log, "Time is missing. LOG: %s\n", s1);
-      }
-
-      fflush(log);
-    }
-}
-
 FILE* create_log(const char *log_name)
 {
     char full_path[PATH_MAX];
@@ -607,7 +576,7 @@ void redirect_stderr(const char *proc)
 
     const char * const hadoop_home = getenv("HADOOP_HOME");
     if (hadoop_home) {
-    	sprintf(full_path, "%s/%s/hadoop-%s-%s-%s.stderr", hadoop_home, rdmalog_dir, getlogin(), proc, host);
+    	sprintf(full_path, "%s/%s/hadoop-%s-%s-%s.log", hadoop_home, rdmalog_dir, getlogin(), proc, host);
     	freopen (full_path,"w",stderr);
         printf("log will go to: %s\n", full_path);
     }

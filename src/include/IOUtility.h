@@ -185,7 +185,7 @@ public:
 };
 
 /*log functions */ 
-void write_log(FILE *log, int dbg, const char *fmt, ...);
+//void write_log(FILE *log, int dbg, const char *fmt, ...);
 FILE* create_log(const char *log_name);
 void close_log(FILE *log);
 void redirect_stderr_ex(const char *proc);
@@ -193,6 +193,7 @@ void redirect_stderr(const char *);
 void redirect_stdout(const char *);
 #define output_stderr(...) log(lsERROR, __VA_ARGS__) // support for deprecated code
 #define output_stdout(...) log(lsINFO,  __VA_ARGS__) // support for deprecated code
+#define write_log(f, dbg, ...) log(lsDEBUG,  __VA_ARGS__) // support for deprecated code
 
 
 
