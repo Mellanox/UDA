@@ -63,11 +63,11 @@ public:
 	 * @param void* arg The argument which will be delivered to callback when it will be invoked
 	 * @param void* callback the callback function which will be executed when event will notified by aio context that the submitted request was finished.
 	 * */
-	int prepare_read(int fd, long fileOffset, size_t sizeToRead, char* dstBuffer, void* callback_arg /*, bool create_callback_thread=false*/ );
+	int prepare_read(int fd, uint64_t fileOffset, size_t sizeToRead, char* dstBuffer, void* callback_arg /*, bool create_callback_thread=false*/ );
 
 
 	// TODO:
-	int prepare_write(int fd, long fileOffset, size_t sizeToWrite, char* srcBuffer, void* callback_arg);
+	int prepare_write(int fd, uint64_t fileOffset, size_t sizeToWrite, char* srcBuffer, void* callback_arg);
 
 	/* submits prepared aio operations
 	 * returns the number of submitted aio operations or <0 for error

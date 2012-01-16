@@ -261,9 +261,11 @@ public:
                 break;
         }
 
-        write_log(segment->get_task()->reduce_log,
-                  DBG_CLIENT, "MergeQueue: current size %d", core_queue.size());
+        if (ret) {
+			write_log(segment->get_task()->reduce_log,
+					  DBG_CLIENT, "MergeQueue: current size %d", core_queue.size());
 
+        }
         return true;
     }
 
