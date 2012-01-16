@@ -26,6 +26,7 @@ static jmethodID jmethodID_dataFromUda; // handle to java cb method
 //forward declarion until in H file...
 void reduce_downcall_handler(const std::string & msg); // #include "reducer.h"
 int MergeManager_main(int argc, char* argv[]);
+int MOFSupplier_main(int argc, char* argv[]);
 
 //void mof_downcall_handler(progress_event_t *pevent, void *ctx);
 
@@ -33,6 +34,7 @@ typedef void (*downcall_handler_t) (const std::string & msg);
 typedef int (*main_t)(int argc, char* argv[]);
 static downcall_handler_t my_downcall_handler;
 static main_t my_main;
+static bool is_net_merger;
 
 
 //direct buffer requires java 1.4
@@ -105,16 +107,16 @@ struct Args{
 void* mainThread(void* data)
 {
 	Args* pArgs = (Args*) data;
-    printf("In C++ main thread: calling: MergeManager_main\n");
+    printf("In C++ main thread: calling: MOFSupplier_main\n");
 
     for (int i=0; i<pArgs->argc; i++) {
         printf ("%d: %s\n", i, pArgs->argv[i]);
     }
 
     // change only this line (based on argv[0]) if you want to start MOFSupplier
-    int rc = MergeManager_main(pArgs->argc, pArgs->argv);
+    int rc = MOFSupplier_main(pArgs->argc, pArgs->argv);
 
-    printf("In C++ main thread: MergeManager_main returned %d\n", rc);
+    printf("In C++ main thread: MOFSupplier_main returned %d\n", rc);
 
     for (int i=0; i<pArgs->argc; i++) {
         free (pArgs->argv[i]);
@@ -247,14 +249,24 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startN
         env->ReleaseStringUTFChars(string, rawString);
     }
 
-    if (isNetMerger) {
+    is_net_merger = isNetMerger;
+    if (is_net_merger) {
         printf("In NetMerger 'C++ main from Java Thread'\n");
     	my_downcall_handler = reduce_downcall_handler;
     	my_main = MergeManager_main;
     }
     else {
-        printf("Only NetMerger is supported at the moment\n");
-        exit (255);
+
+        printf("In MOFSupplier 'C++ main from Java Thread'\n");
+        Args *pArgs = new Args(argc, argv);
+
+        pthread_t thr;
+        pthread_create(&thr, NULL, mainThread, pArgs);
+        sleep(5);//temp
+        printf("exiting 'C++ from Java Thread'\n");
+
+        return (0);
+
     }
 
     int ret = my_main(argc, argv);

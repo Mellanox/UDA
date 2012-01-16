@@ -3222,7 +3222,11 @@ public class TaskTracker
   }
   
   /*  The following is for MOFSupplier JavaSide. */
-  private class J2CNexus {    
+  private class J2CNexus implements UdaCallable {
+	  
+	public void fetchOverMessage(){}
+	public void dataFromUda(Object directBufAsObj, int len){}
+	  
     private static final int MOF = 0;
     private static final int NET = 1;
     private final int BUF_SIZE = 1 << 20;
@@ -3232,7 +3236,7 @@ public class TaskTracker
     private Socket[]           mClientSocket = new Socket[1];
     private DataOutputStream[] mStreamToCpp  = new DataOutputStream[1];//avner
     private DataInputStream[]  mStreamFromCpp= new DataInputStream[1];
-    private Process[]          mRDMAProcess  = new Process[1];
+//    private Process[]          mRDMAProcess  = new Process[1];
     private Vector<String>     mParams       = new Vector<String>();
     private int                mPort;
     private boolean            mInit;
@@ -3336,8 +3340,24 @@ public class TaskTracker
       cmd.add("-t");
       cmd.add(fConf.get("mapred.uda.log.tracelevel"));
 
-      ProcessBuilder pd = new ProcessBuilder(cmd);
-      this.mRDMAProcess[proc_idx] = pd.start();
+	  String[] stringarray = null;
+	  int rc = 0;
+      LOG.info("J2CNexus:going to execute child: " + cmd);    	  
+	  stringarray = cmd.toArray(new String[0]);
+      try {
+    	  UdaBridge.init(this, LOG);
+    	  rc = UdaBridge.start(stringarray, false); // false => this is MOFSupplier
+      
+      } catch (UnsatisfiedLinkError e) {
+          LOG.warn("J2CNexus:Exception when launching child");    	  
+          LOG.warn(StringUtils.stringifyException(e));
+          throw (e);
+      }
+
+      
+      
+//      ProcessBuilder pd = new ProcessBuilder(cmd);
+//      this.mRDMAProcess[proc_idx] = pd.start();
     }
 
     private void buildConn(int proc_idx) throws IOException {
