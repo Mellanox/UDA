@@ -100,7 +100,7 @@ int FetchManager::start_fetch_req(client_part_req_t *req)
     req->mop->mop_bufs[req->mop->staging_mem_idx]->status = BUSY;
   
     int ret = merging_sm.client->start_fetch_req(req);
-    log(lsDEBUG, "after start_fetch_req from host=%s ret=%d", req->info->params[0], ret);
+    log(lsTRACE, "after start_fetch_req from host=%s ret=%d", req->info->params[0], ret); //TODO consider if this log is too verbose
     if ( ret == 0 ) {
         if (req->mop->fetch_count == 0) {
             write_log(task->reduce_log, DBG_CLIENT,
@@ -165,8 +165,9 @@ int FetchManager::update_fetch_req(client_part_req_t *req)
                   ++task->total_first_return); */
         pthread_mutex_unlock(&merger->lock);
     } else {
-        /* wake up the merging thread */
-		log(lsTRACE, "Got subsequent chunk for existing segment"); // TODO: remove this log
+		// log(lsTRACE, "Got subsequent chunk for existing segment"); // TODO: remove this log
+
+		/* wake up the merging thread */
         //pthread_mutex_lock(&req->mop->lock);
         pthread_cond_broadcast(&req->mop->cond); 
         //pthread_mutex_unlock(&req->mop->lock);
