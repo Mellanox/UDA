@@ -44,7 +44,7 @@ void *fetch_thread_main(void *context)
 
     while (!task->fetch_thread.stop) {
 
-        while (fetch_man->fetch_list.size() > 0) {
+        while (! fetch_man->fetch_list.empty()) {
             client_part_req *fetch_req = NULL;
             pthread_mutex_lock(&fetch_man->send_lock);
             fetch_req = fetch_man->fetch_list.front();
@@ -58,7 +58,7 @@ void *fetch_thread_main(void *context)
 
         /* 1: check if there are more fetch requests. */ 
         pthread_mutex_lock(&fetch_man->send_lock);
-        if (fetch_man->fetch_list.size() > 0 ) {
+        if (! fetch_man->fetch_list.empty() ) {
             pthread_mutex_unlock(&fetch_man->send_lock);
             continue;
         }
@@ -99,7 +99,8 @@ int FetchManager::start_fetch_req(client_part_req_t *req)
     /* Update the buf status */
     req->mop->mop_bufs[req->mop->staging_mem_idx]->status = BUSY;
   
-    int ret = merging_sm.client->start_fetch_req(req); 
+    int ret = merging_sm.client->start_fetch_req(req);
+    log(lsDEBUG, "after start_fetch_req from host=%s ret=%d", req->info->params[0], ret);
     if ( ret == 0 ) {
         if (req->mop->fetch_count == 0) {
             write_log(task->reduce_log, DBG_CLIENT,
@@ -115,9 +116,7 @@ int FetchManager::start_fetch_req(client_part_req_t *req)
         }
     } else {
         if (req->mop->fetch_count == 0) {
-            write_log(task->reduce_log, DBG_CLIENT, 
-                     "First time fetch is lost %d", 
-                     task->total_first_fetch);
+            log(lsERROR, "First time fetch is lost %d", task->total_first_fetch);
         }
     }
     
@@ -156,7 +155,8 @@ int FetchManager::update_fetch_req(client_part_req_t *req)
     pthread_mutex_unlock(&req->mop->lock);
 
     if (!in_queue) {
-        /* Insert into merge manager fetched_mops */
+        // Insert into merge manager fetched_mops
+		log(lsTRACE, "Inserting into merge manager fetched_mops...");
         pthread_mutex_lock(&merger->lock);
         merger->fetched_mops.push_back(req->mop);
         pthread_cond_broadcast(&merger->cond);
@@ -166,6 +166,7 @@ int FetchManager::update_fetch_req(client_part_req_t *req)
         pthread_mutex_unlock(&merger->lock);
     } else {
         /* wake up the merging thread */
+		log(lsTRACE, "Got subsequent chunk for existing segment"); // TODO: remove this log
         //pthread_mutex_lock(&req->mop->lock);
         pthread_cond_broadcast(&req->mop->cond); 
         //pthread_mutex_unlock(&req->mop->lock);
