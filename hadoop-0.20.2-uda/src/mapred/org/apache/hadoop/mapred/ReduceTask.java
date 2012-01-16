@@ -2749,7 +2749,6 @@ class ReduceTask extends Task {
     				  LOG.info(reduceTask.getTaskID() + ": " +  
     						  "Got " + numNewMaps + " new map-outputs"); 
     			  }
-    			   // avner - TODO: check this sleep...
     			  Thread.sleep(SLEEP_TIME);
     		  } 
     		  catch (InterruptedException e) {
@@ -2762,6 +2761,9 @@ class ReduceTask extends Task {
     			  String msg = reduceTask.getTaskID()
     					  + " GetMapEventsThread Ignoring exception : " 
     					  + StringUtils.stringifyException(t);
+    			  
+    	    	  LOG.info(msg); //avner2 - temp
+
     			  reportFatalError(getTaskID(), t, msg);
     		  }
     	  } while (!exitGetMapEvents);
@@ -2780,12 +2782,18 @@ class ReduceTask extends Task {
         int numNewMaps = 0;
         
         MapTaskCompletionEventsUpdate update = 
-          umbilical.getMapCompletionEvents(reduceTask.getJobID(), 
+          umbilical.getMapCompletionEvents(reduceTask.getJobID(), //avner2 - check this area for "lost map"
                                            fromEventId.get(), 
                                            MAX_EVENTS_TO_FETCH,
                                            reduceTask.getTaskID());
         TaskCompletionEvent events[] = update.getMapTaskCompletionEvents();
-          
+/*
+        if (events.length != 0) {
+        	LOG.info("getMapCompletionEvents=" + events.length ); //avner2 - temp
+        }
+//*/    	
+
+        
         // Check if the reset is required.
         // Since there is no ordering of the task completion events at the 
         // reducer, the only option to sync with the new jobtracker is to reset 
@@ -2967,7 +2975,7 @@ class ReduceTask extends Task {
     	  }
 //*/
     	  try{
-//    		  Thread.sleep(3000);  //avner1: TEMP TODO 
+    		  Thread.sleep(3000);  //avner1: TEMP TODO 
     	  }
     	  catch (Exception e){}
     	  
@@ -3039,22 +3047,18 @@ class ReduceTask extends Task {
       }
 
       public void fetchOverMessage() {
-    	  LOG.info("in fetchOverMessage"); 
+    	  LOG.info(">> in fetchOverMessage"); 
     	  mMapsCount += mReportCount;
-    	  LOG.info("in fetchOverMessage: before mTaskReporter.progress..."); 
     	  mTaskReporter.progress();
     	  LOG.info("in fetchOverMessage: mMapsCount=" + mMapsCount + " mMapsNeed=" + mMapsNeed); 
 
     	  if (mMapsCount >= this.mMapsNeed) {
     		  /* wake up ReduceCopier */
-        	  LOG.info("in fetchOverMessage - syncing on ReduceCopier... "); 
     		  synchronized(ReduceCopier.this) {
-            	  LOG.info("in fetchOverMessage - wake up ReduceCopier... "); 
     			  ReduceCopier.this.notify();
-    	    	  LOG.info("in fetchOverMessage - after notify"); 
     		  }
     	  }  		
-    	  LOG.info("out fetchOverMessage"); 
+    	  LOG.info("<< out fetchOverMessage"); 
       }
       
       /* kv buf object, j2c_queue uses 
