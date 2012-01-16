@@ -2621,10 +2621,10 @@ public class TaskTracker
       /* report to the rdma */
       if (rdmaSetting==1) {
         Task task = tip.getTask();
-        String jobid = task.getJobID().toString();
-        String tid= task.getTaskID().toString();
         if (task.isMapTask()) {
-          rdmaChannel.notifyMapDone(jobid, tid);
+        	String jobid = task.getJobID().toString();
+        	String tid= task.getTaskID().toString();
+        	rdmaChannel.notifyMapDone(jobid, tid);
         }
       } 
 
@@ -3297,8 +3297,10 @@ public class TaskTracker
         mStreamToCpp[MOF].flush();
 
         LOG.info("J2CNexus: Finshed Map:(" + msg + ")");
+      } catch (DiskChecker.DiskErrorException dee) {
+          LOG.info("J2CNexus: DiskErrorException when handling map done - probably OK (map was not created)\n" + StringUtils.stringifyException(dee));
       } catch (IOException ioe) {
-        LOG.info("J2CNexus Error: Error when notify map done\n" + StringUtils.stringifyException(ioe));
+        LOG.error("J2CNexus: Error when notify map done\n" + StringUtils.stringifyException(ioe));
       }
     }
   
