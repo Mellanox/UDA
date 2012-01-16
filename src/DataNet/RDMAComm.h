@@ -163,7 +163,7 @@ netlev_find_conn_by_qp (uint32_t qp_num, struct list_head *q);
 struct netlev_conn * 
 netlev_find_conn_by_ip(unsigned long ipaddr, struct list_head *q);
 
-void init_wqe_rdmaw(netlev_wqe_t *wqe, int len,
+void init_wqe_rdmaw(struct ibv_send_wr *send_wr, struct ibv_sge *sg, int len,
                     void *laddr, uint32_t lkey,
                     void *raddr, uint32_t rkey);
 

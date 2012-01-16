@@ -166,7 +166,11 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
                 switch (desc.opcode) {
 
                     case IBV_WC_SEND:
-                    	log(lsTRACE, "rdma server got IBV_WC_SEND: local_qp=%d, remote_qp=%d, data=%s", wqe->conn->qp_hndl->qp_num, wqe->conn->peerinfo.qp, wqe->data);
+
+                    	log(lsTRACE, "rdma server got IBV_WC_SEND: local_qp=%d, remote_qp=%d, context=%lld", wqe->conn->qp_hndl->qp_num, wqe->conn->peerinfo.qp,(uintptr_t)wqe->context );
+                    	if (wqe->context){//in case of noop it will be null
+                    		state_mac.data_mac->release_chunk((chunk_t*)wqe->context);
+                    	}
                         server_comp_ibv_send(wqe);
                         break;
 
@@ -176,15 +180,6 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
                         break;
 
                     case IBV_WC_RDMA_WRITE:
-                    	log(lsTRACE, "Server RDMA_WRITE completion: %s", wqe->data);
-                        state_mac.data_mac->release_chunk((chunk_t*)wqe->context);
-
-                        pthread_mutex_lock(&dev->lock);
-                        release_netlev_wqe(wqe, &dev->wqe_list);
-                        pthread_mutex_unlock(&dev->lock);
-
-                        break;
-
                     case IBV_WC_RDMA_READ:
                     default:
                         output_stderr("%s: id %llx status %d unknown opcode %d\n",
@@ -545,41 +540,32 @@ RdmaServer::rdma_write_mof(netlev_conn_t *conn,
                            uint64_t remote_addr, void* chunk)
 {
     netlev_dev_t         *dev;
-    netlev_wqe_t         *wqe;
     struct ibv_send_wr   *bad_sr;
     int32_t               send_size;
     uint32_t              lkey;
 
+    struct ibv_send_wr   send_wr;
+    struct ibv_sge       sge;
+
     dev = conn->dev;
-
-    pthread_mutex_lock(&dev->lock);
-    wqe = get_netlev_wqe(&dev->wqe_list);
-    pthread_mutex_unlock(&dev->lock);
-
-    if (!wqe) {
-        output_stderr("[%s,%d] run out of wqes",
-                     __FILE__,__LINE__);
-        return 0;
-    }
 
     lkey = dev->rdma_mem->mr->lkey;
     send_size = rdma_chunk_len > req_size ? req_size : rdma_chunk_len; 
 
-    init_wqe_rdmaw(wqe, 
-                   (int)send_size, 
-                   (void *)laddr, 
-                   lkey, 
-                   (void *)remote_addr,
-                   (uint32_t)conn->peerinfo.rdma_mem_rkey);
+    init_wqe_rdmaw(&send_wr, &sge,
+                       (int)send_size,
+                       (void *)laddr,
+                       lkey,
+                       (void *)remote_addr,
+                       (uint32_t)conn->peerinfo.rdma_mem_rkey);
 
-    wqe->context=chunk;
-
-    if (ibv_post_send(conn->qp_hndl, &(wqe->desc.sr), &bad_sr)) {
+    if (ibv_post_send(conn->qp_hndl, &send_wr, &bad_sr)) {
         output_stderr("ServerConn: RDMA Post Failed, %s", strerror(errno));
         return 0;
     }
 
-    return wqe->sge.length;
+    return send_size;
+
 }
 
 /*

@@ -406,24 +406,25 @@ release_netlev_wqe (netlev_wqe_t *wqe, struct list_head *head)
     wqe->state &= SEND_WQE_AVAIL;
 }
 
-void 
-init_wqe_rdmaw(netlev_wqe_t *wqe, int len,
+void
+init_wqe_rdmaw(struct ibv_send_wr *send_wr, struct ibv_sge *sg, int len,
                void *laddr, uint32_t lkey,
                void *raddr, uint32_t rkey)
 {
-    wqe->desc.sr.next       = NULL;
-    wqe->desc.sr.opcode     = IBV_WR_RDMA_WRITE;
-    wqe->desc.sr.send_flags = IBV_SEND_SIGNALED;
-    wqe->desc.sr.wr_id      = (uintptr_t) wqe;
-    wqe->desc.sr.num_sge    = 1;
-    wqe->desc.sr.sg_list    = &(wqe->sge);
-    wqe->state              = SEND_WQE_INIT;
-    wqe->sge.length         = (len);
-    wqe->sge.lkey           = (lkey);
-    wqe->sge.addr           = (uintptr_t)(laddr);
-    wqe->desc.sr.wr.rdma.rkey = (rkey);
-    wqe->desc.sr.wr.rdma.remote_addr = (uintptr_t) (raddr);
+	send_wr->next       = NULL;
+	send_wr->opcode     = IBV_WR_RDMA_WRITE;
+	send_wr->send_flags = 0; //setting to 0 to avoid getting completion event
+//	send_wr->send_flags = IBV_SEND_SIGNALED;
+	send_wr->wr_id      = (uintptr_t) send_wr;
+	send_wr->num_sge    = 1;
+	send_wr->sg_list    = sg;
+    sg->length         = (len);
+    sg->lkey           = (lkey);
+    sg->addr           = (uintptr_t)(laddr);
+    send_wr->wr.rdma.rkey = (rkey);
+    send_wr->wr.rdma.remote_addr = (uintptr_t) (raddr);
 }
+
 
 int 
 netlev_event_add(int poll_fd, int fd, int events, 
@@ -576,6 +577,8 @@ netlev_send_noop(struct netlev_conn *conn)
     	return false;
     }
 
+    wqe->context = NULL; //so release chunk won't be called
+
     h = (hdr_header_t*) wqe->data;
     h->type = MSG_NOOP;
     h->tot_len = 0;
@@ -640,7 +643,7 @@ netlev_post_send(void *buff, int bytes,
         } 
         log(lsTRACE, "message before ibv_post_send is %s", (char*) buff);
 //        log(lsTRACE, "there are %d credits in connection_qp.num=%d", conn->credits, conn->qp_hndl->qp_num);
-        log(lsTRACE, "ibv_post_send: %s", (char*)buff);
+//        log(lsTRACE, "ibv_post_send: %s", (char*)buff);
         if ((rc = ibv_post_send(conn->qp_hndl, &(wqe->desc.sr), &bad_wr)) != 0) {
             log(lsERROR, "ibv_post_send error: errno=%d %m", rc, (char*)buff);
             pthread_mutex_unlock(&conn->lock);
