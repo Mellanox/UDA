@@ -2901,7 +2901,7 @@ class ReduceTask extends Task {
       }
 
       // avner
-      private void launchCppSide(JobConf fConf) throws IOException {
+      private void launchCppSide(JobConf fConf) {
     	  
           String driver = fConf.get("mapred.rdma.netmerger");
           LOG.info("J2CNexus: Launching " + driver + " Process");
@@ -2935,8 +2935,7 @@ class ReduceTask extends Task {
           LOG.info("J2CNexus:going to execute child: " + cmd);    	  
     	  stringarray = cmd.toArray(new String[0]);
 	      try {
-	    	  UdaBridge.init(this, LOG);
-	    	  rc = UdaBridge.start(stringarray, true); // true => this is NetMerger
+	    	  rc = UdaBridge.start(true, stringarray, LOG, this); // true => this is NetMerger
 	      
 	      } catch (UnsatisfiedLinkError e) {
 	          LOG.warn("J2CNexus:Exception when launching child");    	  

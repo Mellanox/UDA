@@ -234,7 +234,7 @@ extern "C" jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* ad
 }
 
 // This is the implementation of the native method
-extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jobjectArray stringArray, jboolean isNetMerger) {
+extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jboolean isNetMerger, jobjectArray stringArray) {
 
 	errno = 0; // we don't want the value from JVM
 	log(lsTRACE, ">>> started");
@@ -249,11 +249,21 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startN
         env->ReleaseStringUTFChars(string, rawString);
     }
 
+    int ret = 0;
     is_net_merger = isNetMerger;
     if (is_net_merger) {
         printf("In NetMerger 'C++ main from Java Thread'\n");
     	my_downcall_handler = reduce_downcall_handler;
     	my_main = MergeManager_main;
+
+    	ret = my_main(argc, argv);
+    	log(lsINFO, "main finished ret=%d", ret);
+    	for (int i=0; i < argc; i++) {
+            free (argv[i]);
+        }
+    	delete [] argv;
+
+    	log(lsTRACE, "<<< finished");
     }
     else {
 
@@ -267,19 +277,8 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startN
         pthread_t thr;
         pthread_create(&thr, NULL, mainThread, pArgs);
         printf("exiting 'C++ from Java Thread'\n");
-
-        return (0);
-
     }
 
-    int ret = my_main(argc, argv);
-	log(lsINFO, "main finished ret=%d", ret);
-	for (int i=0; i < argc; i++) {
-        free (argv[i]);
-    }
-	delete [] argv;
-
-	log(lsTRACE, "<<< finished");
     return ret;
 }
 

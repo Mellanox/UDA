@@ -3280,7 +3280,7 @@ public class TaskTracker
     }
     
     
-    private void launchCppSide() throws IOException {
+    private void launchCppSide() {
 
       String driver = fConf.get("mapred.rdma.mofsupplier");
       LOG.info("J2CNexus: Launching " + driver + " Process");
@@ -3314,9 +3314,7 @@ public class TaskTracker
       LOG.info("J2CNexus:going to execute child: " + cmd);    	  
 	  stringarray = cmd.toArray(new String[0]);
       try {
-    	  UdaBridge.init(null, LOG);
-    	  rc = UdaBridge.start(stringarray, false); // false => this is MOFSupplier
-      
+    	  rc = UdaBridge.start(false, stringarray, LOG, null); // false => this is MOFSupplier      
       } catch (UnsatisfiedLinkError e) {
           LOG.warn("J2CNexus:Exception when launching child");    	  
           LOG.warn(StringUtils.stringifyException(e));
