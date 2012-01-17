@@ -21,7 +21,6 @@ using namespace std;
 supplier_state_t state_mac;
 
 
-
 void mof_downcall_handler(const std::string & msg)
 {
 
@@ -83,17 +82,22 @@ void mof_downcall_handler(const std::string & msg)
         pthread_mutex_unlock(&state_mac.sm_lock); */
 
     } else if (hadoop_cmd.header == INIT_MSG) {
+        log(lsINFO, "===>>> we got INIT COMMAND");
         /* base path of the directory containing
            the intermediate map output files
         state_mac.data_mac->base_path = strdup(hadoop_cmd.params[0]);*/
 
     } else if (hadoop_cmd.header == JOB_OVER_MSG) {
+        log(lsINFO, "======>>> we got JOB OVER COMMAND");
         string jobid = hadoop_cmd.params[0];
         state_mac.mover->clean_job();
         state_mac.data_mac->clean_job();
 
     } else if (hadoop_cmd.header == EXIT_MSG) {
-        /* Stop all threads */
+
+        log(lsINFO, "============>>> we got EXIT COMMAND");
+
+    	/* Stop all threads */
 
          /* rdma listening thread*/
          state_mac.mover->rdma->helper.stop = 1;
@@ -118,7 +122,6 @@ int MOFSupplier_main(int argc, char *argv[])
     ret = parse_options(argc, argv, &op);
     
     redirect_stderr("MOFSupplier");
-//    redirect_stdout("MOFSupplier");
   
     log (lsINFO, "The version is %s",STR(VERSION_UDA));
     log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
@@ -154,15 +157,23 @@ int MOFSupplier_main(int argc, char *argv[])
                                         state_mac.mover->rdma->rdma_chunk_len,
                                         &state_mac, /* op.base_path */ NULL, op.mode, op.buf_size);
 
+    return 0;
+}
+
+extern "C" void * MOFSupplierRun(void *) {
+
     log (lsDEBUG, "state_mac.data_mac->rdma_buf_size is %d", state_mac.data_mac->rdma_buf_size);
     state_mac.data_mac->start();
 
+    // cleanup code starts here (after thread termination)
     delete state_mac.mover;
     delete state_mac.data_mac;
 
     pthread_mutex_destroy(&state_mac.sm_lock);
     pthread_cond_destroy(&state_mac.cond);
-  
+
+    log (lsINFO, "==================  C++ 'main' thread exited ======================");
+
     fclose(stdout);
     fclose(stderr);
 

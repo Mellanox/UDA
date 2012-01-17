@@ -29,6 +29,7 @@ int MergeManager_main(int argc, char* argv[]);
 
 void mof_downcall_handler(const std::string & msg); // #include ...
 int MOFSupplier_main(int argc, char* argv[]);
+extern "C" void * MOFSupplierRun(void *);
 
 typedef void (*downcall_handler_t) (const std::string & msg);
 typedef int (*main_t)(int argc, char* argv[]);
@@ -249,35 +250,39 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startN
         env->ReleaseStringUTFChars(string, rawString);
     }
 
-    int ret = 0;
     is_net_merger = isNetMerger;
     if (is_net_merger) {
         printf("In NetMerger 'C++ main from Java Thread'\n");
     	my_downcall_handler = reduce_downcall_handler;
     	my_main = MergeManager_main;
-
-    	ret = my_main(argc, argv);
-    	log(lsINFO, "main finished ret=%d", ret);
-    	for (int i=0; i < argc; i++) {
-            free (argv[i]);
-        }
-    	delete [] argv;
-
-    	log(lsTRACE, "<<< finished");
     }
     else {
-
         printf("In MOFSupplier 'C++ main from Java Thread'\n");
-
     	my_downcall_handler = mof_downcall_handler;
     	my_main = MOFSupplier_main;
-
-        Args *pArgs = new Args(my_main, argc, argv);
-
-        pthread_t thr;
-        pthread_create(&thr, NULL, mainThread, pArgs);
-        printf("exiting 'C++ from Java Thread'\n");
     }
+
+    int ret = my_main(argc, argv);
+    if (ret != 0) {
+        fprintf(stdout, "error in main'\n");
+        fprintf(stderr, "error in main'\n");
+    	log(lsFATAL, "error in main");
+    	exit(255); //TODO: this is too brutal
+    }
+
+	log(lsINFO, "main initialization finished ret=%d", ret);
+	if (! is_net_merger) {
+		pthread_t thr;
+		log(lsINFO, "CREATING THREAD"); pthread_create(&thr, NULL, MOFSupplierRun, NULL);  // This is actual main of MOFSupplier
+	}
+
+	for (int i=0; i < argc; i++) {
+        free (argv[i]);
+    }
+	delete [] argv;
+
+	log(lsTRACE, "<<< finished");
+
 
     return ret;
 }
