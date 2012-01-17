@@ -42,33 +42,6 @@ enum cmd_item {
 
 class NetStream;
 
-class C2JNexus 
-{
-public:
-    C2JNexus(int mode, int socket, void *ctx,
-             event_handler_t downcall);
-    C2JNexus(int mode, int client_port, event_handler_t downcall,
-             int svc_port, event_handler_t service, void *context);
-    ~C2JNexus();
-
-    /* FIXME: clusmy to receive a single downcall via these calls*/
-    string recv_string();
-    void send_int(int64_t);
-    void send_buf(void *buf, size_t len);
-
-    int epoll_fd;  
-    int client_fd; /* The client socket for task tracker */
-    int svc_port;  /* service port */
-    int svc_fd;    /* listening socket */
-    int mode;      /* running mode (standalone or integrated) */
-
-    NetStream  *stream;
-
-    pthread_mutex_t  lock;
-    netlev_thread_t  engine;
-    struct list_head nx_event_list;
-};
-
 
 typedef struct hadoop_cmd {
     int            count;

@@ -26,9 +26,9 @@ static jmethodID jmethodID_dataFromUda; // handle to java cb method
 //forward declarion until in H file...
 void reduce_downcall_handler(const std::string & msg); // #include "reducer.h"
 int MergeManager_main(int argc, char* argv[]);
-int MOFSupplier_main(int argc, char* argv[]);
 
-//void mof_downcall_handler(progress_event_t *pevent, void *ctx);
+void mof_downcall_handler(const std::string & msg); // #include ...
+int MOFSupplier_main(int argc, char* argv[]);
 
 typedef void (*downcall_handler_t) (const std::string & msg);
 typedef int (*main_t)(int argc, char* argv[]);
@@ -99,24 +99,24 @@ extern "C" JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
 
 
 struct Args{
+	main_t mainf;
 	int    argc;
 	char** argv;
-	Args(int _argc, char** _argv) : argc(_argc), argv(_argv){}
+	Args(main_t _mainf, int _argc, char** _argv) : mainf(_mainf), argc(_argc), argv(_argv){}
 };
 
 void* mainThread(void* data)
 {
 	Args* pArgs = (Args*) data;
-    printf("In C++ main thread: calling: MOFSupplier_main\n");
+    printf("In C++ main thread: calling: main\n");
 
     for (int i=0; i<pArgs->argc; i++) {
         printf ("%d: %s\n", i, pArgs->argv[i]);
     }
 
-    // change only this line (based on argv[0]) if you want to start MOFSupplier
-    int rc = MOFSupplier_main(pArgs->argc, pArgs->argv);
+    int rc = pArgs->mainf(pArgs->argc, pArgs->argv);
 
-    printf("In C++ main thread: MOFSupplier_main returned %d\n", rc);
+    printf("In C++ main thread: main returned %d\n", rc);
 
     for (int i=0; i<pArgs->argc; i++) {
         free (pArgs->argv[i]);
@@ -258,11 +258,14 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startN
     else {
 
         printf("In MOFSupplier 'C++ main from Java Thread'\n");
-        Args *pArgs = new Args(argc, argv);
+
+    	my_downcall_handler = mof_downcall_handler;
+    	my_main = MOFSupplier_main;
+
+        Args *pArgs = new Args(my_main, argc, argv);
 
         pthread_t thr;
         pthread_create(&thr, NULL, mainThread, pArgs);
-        sleep(5);//temp
         printf("exiting 'C++ from Java Thread'\n");
 
         return (0);

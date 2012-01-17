@@ -3004,8 +3004,6 @@ class ReduceTask extends Task {
     	  }
 
     	  String msg = RDMACmd.formCmd(RDMACmd.INIT_COMMAND, mParams);
-    	  //        Text.writeString(mToMerger, msg);
-    	  //        mToMerger.flush(); 
     	  UdaBridge.doCommand(msg);
     	  this.mProgress = new Progress(); 
     	  this.mProgress.set((float)(1/2));
@@ -3022,8 +3020,6 @@ class ReduceTask extends Task {
     	  mParams.add(loc.getTaskAttemptId().toString());
     	  mParams.add(Integer.toString(getPartition()));
     	  String msg = RDMACmd.formCmd(RDMACmd.FETCH_COMMAND, mParams); 
-    	  //        Text.writeString(mToMerger, msg);
-    	  //        mToMerger.flush();
     	  UdaBridge.doCommand(msg);
     	  /* LOG.info("Send down to rdma " + (++mReqNums)); */
       }
@@ -3031,8 +3027,6 @@ class ReduceTask extends Task {
       public void close() throws IOException {
     	  mParams.clear();
     	  String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
-    	  //        Text.writeString(mToMerger, msg);
-    	  //        mToMerger.flush();
     	  UdaBridge.doCommand(msg);
     	  this.j2c_queue.close();
       }

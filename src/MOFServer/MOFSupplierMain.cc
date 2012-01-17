@@ -20,21 +20,21 @@ using namespace std;
 
 supplier_state_t state_mac;
 
-void mof_downcall_handler(progress_event_t *pevent, void *ctx)
+
+
+void mof_downcall_handler(const std::string & msg)
 {
-    C2JNexus *nexus = (C2JNexus *)ctx;
 
     /* 1. Extract the command from Java */
-    string msg = nexus->recv_string();
     hadoop_cmd_t hadoop_cmd;
     parse_hadoop_cmd(msg, hadoop_cmd);
 
     log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd.count - 1, (int)hadoop_cmd.header);
 
-    if (hadoop_cmd.header == NEW_MAP_MSG) { 
+    if (hadoop_cmd.header == NEW_MAP_MSG) {
         /*2. Insert the MOF */
         comp_mof_info_t *comp = NULL;
-        
+
         /*
          * 1. Create a new MOF entry
          * 2. Insert it to the list of DataEngine
@@ -50,7 +50,7 @@ void mof_downcall_handler(progress_event_t *pevent, void *ctx)
         log(lsDEBUG, "NEW_MAP_MSG: jobid=%s, mapid=%s", comp->jobid, comp->mapid);
 
         if (hadoop_cmd.count>5){
-            /*hadoop version >=0.2.203. 
+            /*hadoop version >=0.2.203.
              * user name is passed and is part of path to out and index files*/
             state_mac.data_mac->add_new_mof(comp->jobid,
                                         comp->mapid,
@@ -59,7 +59,7 @@ void mof_downcall_handler(progress_event_t *pevent, void *ctx)
                                         hadoop_cmd.params[4]);
         }
         else{
-            /*hadoop version == 0.2.20 user name is not passed. 
+            /*hadoop version == 0.2.20 user name is not passed.
              * "taskTracker" is part of path to out and index files */
 
            state_mac.data_mac->add_new_mof(comp->jobid,
@@ -69,13 +69,13 @@ void mof_downcall_handler(progress_event_t *pevent, void *ctx)
                                         "taskTracker");
 
 
-        }    
+        }
         pthread_mutex_lock(&state_mac.data_mac->index_lock);
-        list_add_tail(&comp->list, 
+        list_add_tail(&comp->list,
                       &state_mac.data_mac->comp_mof_list);
         pthread_mutex_unlock(&state_mac.data_mac->index_lock);
 
-        /* XXX: Wake up DataEngine threads to do prefetchin. 
+        /* XXX: Wake up DataEngine threads to do prefetchin.
          * Mutex not required but good to have for better scheduling */
         pthread_cond_broadcast(&state_mac.mover->in_cond);
         /* pthread_mutex_lock(&state_mac.sm_lock);
@@ -83,8 +83,8 @@ void mof_downcall_handler(progress_event_t *pevent, void *ctx)
         pthread_mutex_unlock(&state_mac.sm_lock); */
 
     } else if (hadoop_cmd.header == INIT_MSG) {
-        /* base path of the directory containing 
-           the intermediate map output files 
+        /* base path of the directory containing
+           the intermediate map output files
         state_mac.data_mac->base_path = strdup(hadoop_cmd.params[0]);*/
 
     } else if (hadoop_cmd.header == JOB_OVER_MSG) {
@@ -95,24 +95,20 @@ void mof_downcall_handler(progress_event_t *pevent, void *ctx)
     } else if (hadoop_cmd.header == EXIT_MSG) {
         /* Stop all threads */
 
-         /* hadoop comand thread */
-         nexus->engine.stop = 1;
-
          /* rdma listening thread*/
          state_mac.mover->rdma->helper.stop = 1;
-         
+
          /* the DataEngine threads */
          state_mac.data_mac->stop = 1;
          pthread_mutex_lock(&state_mac.sm_lock);
          pthread_cond_broadcast(&state_mac.cond);
          pthread_mutex_unlock(&state_mac.sm_lock);
-        
+
          pthread_cond_broadcast(&state_mac.mover->in_cond);
     }
-    
+
     free_hadoop_cmd(hadoop_cmd);
 }
-
 
 int MOFSupplier_main(int argc, char *argv[])
 {
@@ -130,16 +126,6 @@ int MOFSupplier_main(int argc, char *argv[])
     memset(&state_mac, 0, sizeof(supplier_state_t));
     pthread_mutex_init(&state_mac.sm_lock, NULL);
     pthread_cond_init(&state_mac.cond, NULL);
-
-    /* Create a nexus talking back to the supplier,
-     * -- An event-driven thread responsible for
-     * -- receiving control commands; 
-     * -- inserting new MOFs into DataEngine
-     * XXX: note that the context and the service are NULL 
-     */
-    state_mac.nexus = new C2JNexus(op.mode, op.cmd_port, 
-                                   mof_downcall_handler, 
-	                               0, NULL, NULL);
 
     /* Create an OutputServer
      * -- an event-driven thread responsible for
@@ -172,7 +158,6 @@ int MOFSupplier_main(int argc, char *argv[])
     state_mac.data_mac->start();
 
     delete state_mac.mover;
-    delete state_mac.nexus;
     delete state_mac.data_mac;
 
     pthread_mutex_destroy(&state_mac.sm_lock);

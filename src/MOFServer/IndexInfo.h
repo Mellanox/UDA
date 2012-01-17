@@ -67,7 +67,6 @@ typedef struct comp_mof_info
 typedef struct supplier_state {
     pthread_mutex_t  sm_lock;  /* lock for the global state machine */
     pthread_cond_t   cond; ;   /* conditional signal for thread activation */
-    C2JNexus        *nexus;    /* control channel */
     DataEngine      *data_mac; /* data machine    */
     OutputServer    *mover;    /* Transport */
 } supplier_state_t;
