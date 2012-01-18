@@ -2068,11 +2068,23 @@ public class TaskTracker
       this.taskStatus.setProgress(1.0f);
       this.taskStatus.setFinishTime(System.currentTimeMillis());
       this.done = true;
+
       jvmManager.taskFinished(runner);
       runner.signalDone();
       LOG.info("Task " + task.getTaskID() + " is done.");
       LOG.info("reported output size for " + task.getTaskID() +  "  was " + taskStatus.getOutputSize());
-
+/*      
+      //avner3 - try it later
+      // report to the rdma 
+      if (rdmaSetting==1) {
+        Task task = this.getTask();
+        if (task.isMapTask()) {
+        	String jobid = task.getJobID().toString();
+        	String tid= task.getTaskID().toString();
+        	rdmaChannel.notifyMapDone(jobid, tid);
+        }
+      }
+//*/      
     }
     
     public boolean wasKilled() {
@@ -2617,8 +2629,9 @@ public class TaskTracker
     commitResponses.remove(taskid);
     if (tip != null) {
       tip.reportDone();
-    
-      /* report to the rdma */
+
+//* avner3 - try it later      
+      // report to the rdma 
       if (rdmaSetting==1) {
         Task task = tip.getTask();
         if (task.isMapTask()) {
@@ -2627,7 +2640,7 @@ public class TaskTracker
         	rdmaChannel.notifyMapDone(jobid, tid);
         }
       } 
-
+//*/
     } else {
       LOG.warn("Unknown child task done: " + taskid + ". Ignored.");
     }
