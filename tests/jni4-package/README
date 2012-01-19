@@ -1,0 +1,16 @@
+Purpose:
+	JNI Test: Java -> calls C++ -> that invoke a java callback
+	1. This test uses java class inside a package like org.apachehadoop.mapred
+	2. The test utilize cached class & method ID, (based JavaWeakGlobalRef for best JNI behavior)
+	3. the test calculate (and cache) JNIEnv at thread level for using from native code at C++ will.
+	
+Details:
+	Java class that - upon load - calls native C++ library for registering a java function as callback
+	As a result, The C++ calculate once the ID of the JAVA callback and keep it for future use
+	Later, the "JAVA Main" invokes C++ native function that calls the registered java callback
+	NOTE: no args are passing at this phase (except for 'this' object from the java calling class)
+	
+
+for building and running:
+	make clean all test
+	

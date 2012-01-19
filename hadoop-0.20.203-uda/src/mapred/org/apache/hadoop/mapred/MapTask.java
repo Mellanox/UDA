@@ -344,6 +344,7 @@ class MapTask extends Task {
   public void run(final JobConf job, final TaskUmbilicalProtocol umbilical)
     throws IOException, ClassNotFoundException, InterruptedException {
  
+    LOG.info("thread started"); 
     long map_start = System.currentTimeMillis();
  
     this.umbilical = umbilical;

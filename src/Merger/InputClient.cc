@@ -23,7 +23,6 @@ using namespace std;
 InputClient::InputClient(int data_port, int mode, merging_state_t *state)
 {
     this->data_port = data_port;
-    this->cond  = &state->cond;
     this->rdma  = NULL; 
     this->tcp   = NULL;
     this->state = state;

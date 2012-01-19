@@ -42,9 +42,11 @@ bool write_kv_to_stream(MergeQueue<Segment*> *records, int32_t len, OutStream *s
 
     bytes_write = 0;
     key_len = val_len = kbytes = vbytes = 0;
+    log(lsINFO, ">>>> started");
 
+    int i = 0;
     while (records->next()) {
-        //output_stdout(" << %s: in loop head ->", __func__);
+        //log(lsTRACE, "in loop i=%d", i++);
         DataStream *k = records->getKey();
         DataStream *v = records->getVal();
     
@@ -52,7 +54,7 @@ bool write_kv_to_stream(MergeQueue<Segment*> *records, int32_t len, OutStream *s
         val_len = records->get_val_len(); 
 
         if (key_len < 0 || val_len < 0) {
-            output_stderr("key_len or val_len < 0");
+            log(lsERROR, "key_len or val_len < 0");
             return true;
         }
    
@@ -64,6 +66,7 @@ bool write_kv_to_stream(MergeQueue<Segment*> *records, int32_t len, OutStream *s
         if ( record_len + bytes_write > len ) {
             total_write = bytes_write;
             records->mergeq_flag = 1;
+            log(lsINFO, "return false because record_len + bytes_write > len");
             return false;
         }
 
@@ -83,7 +86,7 @@ bool write_kv_to_stream(MergeQueue<Segment*> *records, int32_t len, OutStream *s
     if (record_len + bytes_write > len) {
         total_write = bytes_write;
         records->mergeq_flag = 1;
-    	output_stdout(" << %s: return false", __func__);
+        log(lsINFO, "return false because record_len + bytes_write > len");
         return false;
     }
     
@@ -94,6 +97,7 @@ bool write_kv_to_stream(MergeQueue<Segment*> *records, int32_t len, OutStream *s
     bytes_write += record_len;  
    
     total_write = bytes_write; 
+    log(lsINFO, "<<<< finished");
     return true;
 }
 
@@ -114,8 +118,7 @@ bool write_kv_to_file(MergeQueue<Segment*> *records, const char *file_name, int3
 {
     FILE *file = fopen(file_name, "wb");
     if (!file) {
-    	output_stderr("[%d:%s:%d] fail to open file(errno=%d: %m)\n"
-    			, getpid(), __FILE__, __LINE__, errno);
+    	log(lsFATAL, "[pid=%d] fail to open file(errno=%d: %m)\n", getpid(), errno);
     	exit(-1); //temp TODO
     }
 
@@ -137,40 +140,6 @@ bool write_kv_to_mem(MergeQueue<Segment*> *records,
     delete stream;
     return ret;
 }
-
-
-
-#if 0
-void write_kv_to_disk(RawKeyValueIterator *records, const char *file_name)
-{
-    int32_t key_len, val_len;
-    FILE *file = fopen(file_name, "wb");
-    if (!file) {
-        fprintf(stderr, "[%d:%s:%d] fail to open file\n",
-                getpid(), __FILE__, __LINE__);
-    }
-    FileStream *stream = new FileStream(file);
-
-    while (records->next()) {
-        DataStream *k = records->getKey();
-        DataStream *v = records->getVal();
-    
-        key_len = k->getLength() - k->getPosition(); 
-        val_len = v->getLength() - v->getPosition(); 
-        if (key_len < 0 || val_len < 0) {
-            fprintf(stderr, "key_len or val_len < 0\n");
-        }
-    
-        StreamUtility::serializeInt(key_len, *stream);
-        StreamUtility::serializeInt(val_len, *stream);
-        stream->write(k->getData(), key_len);
-        stream->write(v->getData(), val_len);
-    }
-
-    fclose(file);
-    delete stream;
-}
-#endif
 
 /*  The following is for class Segment */
 Segment::Segment(MapOutput *mapOutput)

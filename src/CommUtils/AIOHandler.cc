@@ -41,7 +41,7 @@ int AIOHandler::start() {
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
 		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-		pthread_create(&_callbackProcessorThread, &attr,  thunk<AIOHandler, &AIOHandler::processEventsCallbacks>, this);
+		log(lsINFO, "CREATING THREAD"); pthread_create(&_callbackProcessorThread, &attr,  thunk<AIOHandler, &AIOHandler::processEventsCallbacks>, this);
 	}
 
 	return rc;
@@ -53,7 +53,7 @@ AIOHandler::~AIOHandler() {
 	if (_callbackProcessorThread) {
 		_stopCallbackProcessor=true;
 
-		pthread_join(_callbackProcessorThread, NULL);
+		pthread_join(_callbackProcessorThread, NULL); log(lsINFO, "THREAD JOINED");
 
 		io_destroy(_context);
 	}

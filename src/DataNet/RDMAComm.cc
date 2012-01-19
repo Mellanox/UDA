@@ -69,7 +69,7 @@ netlev_init_rdma_mem(void *mem, uint64_t total_size,
     rdma_mem->total_size = total_size;
     rdma_mem->mr = ibv_reg_mr(dev->pd, mem, total_size, NETLEV_MEM_ACCESS_PERMISSION);
     if (!rdma_mem->mr) {
-        log(lsERROR,"register rdma memory region. total_size=%llu  , MSG=%m", total_size);
+        log(lsERROR,"ibv_reg_mr failed for memory of total_size=%llu  , MSG=%m (errno=%d)", total_size, errno);
         free(rdma_mem);
         return -1;
     }
@@ -177,6 +177,7 @@ netlev_dev_init(struct netlev_dev *dev)
     }
 
     if (netlev_init_dev_mem(dev) != 0) {
+    	log(lsERROR, "failed to init device");
         return -1;
     }
 
@@ -213,6 +214,7 @@ netlev_dev_init(struct netlev_dev *dev)
 
     dev->max_sge = max_sge;
     dev->cqe_num = cqe_num;
+	log(lsINFO, "Successfully init'ed device");
     return 0;
 }
  
@@ -234,6 +236,7 @@ netlev_conn_free(netlev_conn_t *conn)
 {
     netlev_wqe_t *wqe;
     /* free wqes */
+
     pthread_mutex_lock(&conn->lock);
     while (!list_empty(&conn->backlog)) {
         wqe = list_entry(conn->backlog.next, typeof(*wqe), list);
@@ -245,7 +248,7 @@ netlev_conn_free(netlev_conn_t *conn)
     rdma_destroy_qp(conn->cm_id);
     rdma_destroy_id(conn->cm_id);
     pthread_mutex_destroy(&conn->lock);
-    list_del(&conn->list);
+    list_del(&conn->list); // TODO: consider lock!
     free(conn);
 };
 
@@ -288,8 +291,7 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     }
 
     if (rdma_create_qp(conn->cm_id, dev->pd, &qp_init_attr) != 0) {
-        output_stderr("[%s,%d] Create qp failed - %m",
-                     __FILE__,__LINE__);
+        output_stderr("Create qp failed - %m");
         free(conn);
         return NULL;
     }
@@ -300,8 +302,7 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     for (int i = 0; i < wqes_recv_perconn; ++i) {
         netlev_wqe_t *wqe = get_netlev_wqe(&dev->wqe_list);
         if (!wqe) {
-           output_stderr("[%s,%d] no more wqe for receiving",
-                        __FILE__,__LINE__);
+           output_stderr("no more wqe for receiving");
            if (i == 0) {
                netlev_conn_free(conn);
                return NULL;
@@ -310,8 +311,7 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
         }
         init_wqe_recv(wqe, NETLEV_FETCH_REQSIZE, dev->mem->mr->lkey, conn);
         if (ibv_post_recv(conn->qp_hndl, &wqe->desc.rr, &bad_wr) != 0) {
-            output_stderr("[%s,%d] ibv_post_recv",
-                          __FILE__,__LINE__);
+            output_stderr("ibv_post_recv failed");
             netlev_conn_free(conn);
             return NULL;
         }
@@ -445,9 +445,9 @@ netlev_event_add(int poll_fd, int fd, int events,
     ev.data.fd = fd;
     ev.data.ptr = pevent;
     err = epoll_ctl(poll_fd, EPOLL_CTL_ADD, fd, &ev);
+    log(lsTRACE, "EVENT adding handler=0x%x with data=0x%x; for: pollfd=%d; fd=%d", handler, data, poll_fd, fd);
     if (err) {
-        output_stderr("[%s,%d] cannot add fd",
-                     __FILE__,__LINE__);
+        log(lsERROR, "cannot add fd");
         return err;
     }
 
@@ -462,6 +462,7 @@ netlev_event_del(int poll_fd, int fd, struct list_head *head)
 
     list_for_each_entry(pevent, head, list) {
         if (pevent->fd == fd) {
+            log(lsTRACE, "EVENT deleting handler for: pollfd=%d; fd=%d", poll_fd, fd);
             epoll_ctl(poll_fd, EPOLL_CTL_DEL, fd, NULL);
             list_del(&pevent->list);
             free(pevent);
@@ -469,8 +470,7 @@ netlev_event_del(int poll_fd, int fd, struct list_head *head)
         }
     }
     
-    output_stderr("[%s,%d] Event fd %d not found",
-                 __FILE__,__LINE__,fd);
+    log(lsERROR, "Event fd %d not found", fd);
 }
 
 struct netlev_conn*
@@ -545,20 +545,28 @@ netlev_conn_established(struct rdma_cm_event *event,
     }
 }
 
+
 struct netlev_conn*
-netlev_disconnect(struct rdma_cm_event *ev, 
-                  struct list_head *head)
+netlev_conn_find(struct rdma_cm_event *ev, struct list_head *head)
 {
     struct netlev_conn *conn;
 
     list_for_each_entry(conn, head, list) {
         if (conn->qp_hndl->qp_num == ev->id->qp->qp_num) {
-            rdma_disconnect(ev->id);
-            netlev_conn_free(conn);
+        	log(lsDEBUG, "conn was found based on ev->id->qp->qp_num=%x; ev->id->channel->fd=%d", (int)conn->qp_hndl->qp_num, ev->id->channel ? ev->id->channel->fd : 0);
             return conn;
         }
     }
+	log(lsDEBUG, "conn was not found");
     return NULL;
+}
+
+void netlev_disconnect(struct netlev_conn *conn)
+{
+    if (conn) {
+        rdma_disconnect(conn->cm_id);
+        netlev_conn_free(conn);
+    }
 }
 
 int
@@ -626,8 +634,7 @@ netlev_post_send(void *buff, int bytes,
     if (len <= NETLEV_FETCH_REQSIZE) {
         memcpy (((char *) h + sizeof (*h)), buff, bytes);
     } else {
-        output_stderr("[%s,%d] request too long",
-                      __FILE__,__LINE__);
+        log(lsERROR, "request too long len=%d", len);
         return -1;
     }
     init_wqe_send(wqe, (unsigned long) len, lkey, conn);
@@ -641,6 +648,7 @@ netlev_post_send(void *buff, int bytes,
             h->credits = conn->returning;
             conn->returning = 0;
         } 
+        // avner: TODO remove this verbose log
         log(lsTRACE, "message before ibv_post_send is %s", (char*) buff);
 //        log(lsTRACE, "there are %d credits in connection_qp.num=%d", conn->credits, conn->qp_hndl->qp_num);
 //        log(lsTRACE, "ibv_post_send: %s", (char*)buff);

@@ -147,6 +147,11 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
     do {
         ne = ibv_poll_cq(dev->cq, 1, &desc);
 
+		if ( ne < 0) {
+			log(lsERROR, "ibv_poll_cq failed ne=%d, (errno=%d %m)", ne, errno);
+			return;
+		}
+
         if (ne) {
             if (desc.status != IBV_WC_SUCCESS) {
                 if (desc.status == IBV_WC_WR_FLUSH_ERR) {
@@ -206,7 +211,7 @@ server_cm_handler(progress_event_t *pevent, void *data)
 
     struct netlev_ctx    *ctx;
     struct rdma_cm_event *cm_event;
-    struct netlev_conn   *conn;
+    struct netlev_conn   *conn = 0;
     struct netlev_dev    *dev;
     RdmaServer           *server;
 
@@ -222,11 +227,16 @@ server_cm_handler(progress_event_t *pevent, void *data)
         return;
     }
 
+    log(lsDEBUG, "got rdma event = %d", cm_event->event);
+
     switch (cm_event->event) {
         case RDMA_CM_EVENT_CONNECT_REQUEST:
             {
                 dev = netlev_dev_find(cm_event->id, 
                                       &ctx->hdr_dev_list); 
+
+                log(lsTRACE, "got RDMA_CM_EVENT_CONNECT_REQUEST; found dev=%x", dev);
+
                 if (!dev) {
                     dev = (struct netlev_dev *) malloc(sizeof(struct netlev_dev));
                     memset(dev, 0, sizeof(struct netlev_dev));
@@ -237,6 +247,7 @@ server_cm_handler(progress_event_t *pevent, void *data)
                     }
                     dev->ibv_ctx = cm_event->id->verbs; 
                     if (netlev_dev_init(dev) != 0) {
+                        log(lsWARN, "netlev_dev_init failed");
                         free(dev);
                         return;
                     }
@@ -245,6 +256,7 @@ server_cm_handler(progress_event_t *pevent, void *data)
                                                rdma_server->rdma_total_len,
                                                dev);
                     if (ret) {
+                        log(lsWARN, "netlev_init_rdma_mem failed");
                         free(dev);
                         return;
                     }
@@ -254,6 +266,7 @@ server_cm_handler(progress_event_t *pevent, void *data)
                                            EPOLLIN, server_cq_handler, 
                                            dev, &ctx->hdr_event_list);
                     if (ret) {
+                        log(lsWARN, "netlev_event_add failed");
                         free(dev);
                         return;
                     }
@@ -264,12 +277,11 @@ server_cm_handler(progress_event_t *pevent, void *data)
                 }
 
                 conn = netlev_init_conn(cm_event, dev);
+                log(lsTRACE, "conn=%x", conn);
                 if (!cm_event->param.conn.private_data || 
                     (cm_event->param.conn.private_data_len < sizeof(conn->peerinfo))) 
                 {
-                    output_stderr("[%s:%d] bad private data len %d", 
-                                  __FILE__, __LINE__,
-                                  cm_event->param.conn.private_data_len);
+                    log(lsERROR, "bad private data len %d", cm_event->param.conn.private_data_len);
                 }
 
                 memcpy(&conn->peerinfo, cm_event->param.conn.private_data, 
@@ -287,25 +299,51 @@ server_cm_handler(progress_event_t *pevent, void *data)
 
         case RDMA_CM_EVENT_ESTABLISHED:
             conn = netlev_conn_established(cm_event, &ctx->hdr_conn_list);
+            log(lsDEBUG, "RDMA_CM_EVENT_ESTABLISHED - netlev_conn_established returned conn=%x", conn);
             log(lsTRACE, "QQ connection in server is %d", conn->qp_hndl->qp_num);
             break;
 
         case RDMA_CM_EVENT_DISCONNECTED:
-        	log(lsTRACE, "received event RDMA_CM_EVENT_DISCONNECTED");
-            conn = netlev_disconnect(cm_event, &ctx->hdr_conn_list);
+            log(lsDEBUG, "got RDMA_CM_EVENT_DISCONNECTED");
+
+//            log(lsWARN, "== TODO: cleanup was commented out");
+//*
+            conn = netlev_conn_find(cm_event, &ctx->hdr_conn_list);
+            log(lsTRACE, "calling rdma_ack_cm_event for event=%d", cm_event->event);
+            ret = rdma_ack_cm_event(cm_event);
+            if (ret) { log(lsWARN, "ack cm event failed"); }
+
+            netlev_disconnect(conn);
+
+//*/
+
+/*
+            // Avner: TODO
+            // it is true that list_del is wrong (after conn was freed) and it is
+            // redundant (since it was already performed inside netlev_disconnect()->netlev_conn_free())
+            // However, here there is a lock around list_del; while netlev_conn_free() use no lock
+
             if (conn) {
                 pthread_mutex_lock(&ctx->lock);
                 list_del(&conn->list);
                 pthread_mutex_unlock(&ctx->lock);
             }
+//*/
+
+            // don't break here to avoid ack after disconnect
+            return;
+
+
+        case RDMA_CM_EVENT_TIMEWAIT_EXIT:  // avner: don't bail out
+            log(lsWARN, "got RDMA_CM_EVENT_TIMEWAIT_EXIT");
+            // TODO: consider cleanup
             break;
 
         default:
-            output_stderr("Server got unknown event %d, bailing out", 
-                    cm_event->event);
+            log(lsFATAL, "Server got unknown event %d, bailing out", cm_event->event);
             if (cm_event->id) {
                 if (rdma_destroy_id(cm_event->id)){
-                    output_stderr("rdma_destroy_id failed");
+                    log(lsERROR, "rdma_destroy_id failed");
                 }
             }
             /* XXX: Trigger the exit of all threads */
@@ -313,10 +351,9 @@ server_cm_handler(progress_event_t *pevent, void *data)
             break;
     }
 
+    log(lsTRACE, "calling rdma_ack_cm_event for event=%d", cm_event->event);
     ret = rdma_ack_cm_event(cm_event);
-    if (ret) {
-        output_stderr("ack cm event failed");
-    }
+    if (ret) { log(lsWARN, "ack cm event failed"); }
 }
 
 
@@ -369,7 +406,7 @@ RdmaServer::start_server()
 
     pthread_attr_init(&th->attr);
     pthread_attr_setdetachstate(&th->attr, PTHREAD_CREATE_JOINABLE);
-    pthread_create(&th->thread, &th->attr, event_processor, th);
+    log(lsINFO, "CREATING THREAD"); pthread_create(&th->thread, &th->attr, event_processor, th);
 }
 
 RdmaServer::~RdmaServer()
@@ -414,7 +451,7 @@ RdmaServer::stop_server()
 
     this->helper.stop = 1;
     pthread_attr_destroy(&this->helper.attr);
-    pthread_join(this->helper.thread, &pstatus);
+    pthread_join(this->helper.thread, &pstatus); log(lsINFO, "THREAD JOINED");
 
     close(this->ctx.epoll_fd);
     rdma_destroy_event_channel(this->ctx.cm_channel);
@@ -429,16 +466,14 @@ RdmaServer::create_listener ()
 
     this->ctx.cm_channel = rdma_create_event_channel();
     if (!this->ctx.cm_channel) {
-        output_stderr("[%s,%d] create_event_channel failed",
-                      __FILE__,__LINE__);
+        output_stderr("create_event_channel failed");
         goto err_listener;
     }
 
     if (rdma_create_id(this->ctx.cm_channel, 
                        &this->ctx.cm_id, 
                        NULL, RDMA_PS_TCP)) {
-        output_stderr("[%s,%d] rdma_create_id failed",
-                      __FILE__,__LINE__);
+        output_stderr("rdma_create_id failed");
         goto err_listener;
     }
 
@@ -448,15 +483,13 @@ RdmaServer::create_listener ()
     sin.sin_addr.s_addr = INADDR_ANY; /* any device */
 
     if (rdma_bind_addr(this->ctx.cm_id, (struct sockaddr *) &sin)) {
-        output_stderr("[%s,%d] rdma_bind_addr failed", 
-                      __FILE__,__LINE__);
+        output_stderr("rdma_bind_addr failed");
         goto err_listener;
     }
 
     /* 0 == maximum backlog. XXX: not yet bind to any device */
     if (rdma_listen(this->ctx.cm_id, NETLEV_LISTENER_BACKLOG)) {
-        output_stderr("[%s,%d] rdma_listen failed",
-                      __FILE__,__LINE__);
+        output_stderr("rdma_listen failed");
         goto err_listener;
     }
 

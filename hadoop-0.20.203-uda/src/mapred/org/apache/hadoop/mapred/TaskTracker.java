@@ -2567,7 +2567,18 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       runner.signalDone();
       LOG.info("Task " + task.getTaskID() + " is done.");
       LOG.info("reported output size for " + task.getTaskID() +  "  was " + taskStatus.getOutputSize());
-
+/*      
+      //avner3 - try it later
+      // report to the rdma 
+      if (rdmaSetting==1) {
+        Task task = this.getTask();
+        if (task.isMapTask()) {
+        	String jobid = task.getJobID().toString();
+        	String tid= task.getTaskID().toString();
+        	rdmaChannel.notifyMapDone(jobid, tid);
+        }
+      }
+//*/      
     }
     
     public boolean wasKilled() {
@@ -3184,16 +3195,19 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     commitResponses.remove(taskid);
     if (tip != null) {
       tip.reportDone();
-    /* report to the rdma */
+
+//* avner3 - try it later      
+      // report to the rdma 
       if (rdmaSetting==1) {
          Task task = tip.getTask();
-         String jobid = task.getJobID().toString();
-         String tid= task.getTaskID().toString();
-         String userName = task.getUser();
          if (task.isMapTask()) {
+           String jobid = task.getJobID().toString();
+           String tid= task.getTaskID().toString();
+           String userName = task.getUser();
            rdmaChannel.notifyMapDone(userName, jobid, tid);
          }
        } 
+//*/
     } else {
       LOG.warn("Unknown child task done: "+taskid+". Ignored.");
     }
@@ -4091,52 +4105,24 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
 
   /*  The following is for MOFSupplier JavaSide. */
   private class J2CNexus {    
-    private static final int MOF = 0;
-    private static final int NET = 1;
-    private final int BUF_SIZE = 1 << 20;
     
-    private ServerSocket       mServerSocket;
-    private String[]           mDrivers      = new String[2];
-    private Socket[]           mClientSocket = new Socket[2];
-    private DataOutputStream[] mStreamToCpp  = new DataOutputStream[2];
-    private DataInputStream[]  mStreamFromCpp= new DataInputStream[2];
-    private Process[]          mRDMAProcess  = new Process[2];
     private Vector<String>     mParams       = new Vector<String>();
-    private int                mPort;
-    private boolean            mInit;
 
-    public J2CNexus() 
-                     throws IOException {
-      this.mDrivers[MOF]= fConf.get("mapred.rdma.mofsupplier");
-      this.mDrivers[NET]= fConf.get("mapred.rdma.netmerger");
-      this.mPort        = fConf.getInt("mapred.tasktracker.rdma.server.port", 9010);
-      this.mServerSocket = new ServerSocket(this.mPort);
+    public J2CNexus() throws IOException {
+
+   // TODO: remove from conf: "mapred.tasktracker.rdma.server.port", 9010
 
       // launch MOFSupplier
-      this.launchCppSide(MOF);
-      this.buildConn(MOF);
-
-      // launch NetMerger
-      this.launchCppSide(NET);
-      this.buildConn(NET);
-
-      //this.mInit = false;
+      this.launchCppSide();
     }
 
     public void jobOver(String jobId) {
-      try {
-        int num = 0;
         mParams.clear();
         mParams.add(jobId);
         String msg = RDMACmd.formCmd(RDMACmd.JOB_OVER_COMMAND, mParams);
         LOG.info("J2CNexus: JOBOVER:(" + msg + ")");
-        while (num < 2) {
-          Text.writeString(mStreamToCpp[num],msg);
-          num++;
-        }
-      } catch (IOException ioe) {
-        LOG.info("J2CNexus:ERRO when sending kill job(" + jobId + ")");
-      }
+
+    	UdaBridge.doCommand(msg);
     }  
 
     public void notifyMapDone(String userName, String jobId, String mapId) {
@@ -4165,18 +4151,20 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
         mParams.add(fidx.toString());
         mParams.add(userName);
         String msg = RDMACmd.formCmd(RDMACmd.NEW_MAP_COMMAND, mParams);
-        Text.writeString(mStreamToCpp[MOF], msg); 
-        mStreamToCpp[MOF].flush();
+        UdaBridge.doCommand(msg);
 
         LOG.info("J2CNexus: Finshed Map:(" + msg + ")");
+      } catch (DiskChecker.DiskErrorException dee) {
+          LOG.info("J2CNexus: DiskErrorException when handling map done - probably OK (map was not created)\n" + StringUtils.stringifyException(dee));
       } catch (IOException ioe) {
-        LOG.info("J2CNexus Error: Error when notify map done");
+        LOG.error("J2CNexus: Error when notify map done\n" + StringUtils.stringifyException(ioe));
       }
     }
   
-    private void launchCppSide(int proc_idx) throws IOException {
 
-      String driver = this.mDrivers[proc_idx];
+    private void launchCppSide() {
+
+      String driver = fConf.get("mapred.rdma.mofsupplier");
       LOG.info("J2CNexus: Launching " + driver + " Process");
       List<String> cmd = new ArrayList<String>();
      
@@ -4207,45 +4195,28 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       cmd.add("-t");
       cmd.add(fConf.get("mapred.uda.log.tracelevel"));
 
-      
-      
-      ProcessBuilder pd = new ProcessBuilder(cmd);
-      this.mRDMAProcess[proc_idx] = pd.start();
+	  String[] stringarray = null;
+	  int rc = 0;
+	  stringarray = cmd.toArray(new String[0]);
+      LOG.info("J2CNexus:going to execute child: " + cmd);    	  
+      try {
+    	  rc = UdaBridge.start(false, stringarray, LOG, null); // false => this is MOFSupplier      
+      } catch (UnsatisfiedLinkError e) {
+          LOG.warn("J2CNexus:Exception when launching child");    	  
+		  LOG.warn("java.library.path=" + System.getProperty("java.library.path"));
+          LOG.warn(StringUtils.stringifyException(e));
+          throw (e);
     }
 
-    private void buildConn(int proc_idx) throws IOException {
-      LOG.info("J2CNexus: wait " + this.mDrivers[proc_idx]);
-      while(true) {
-        this.mClientSocket[proc_idx] = mServerSocket.accept();
-        this.mStreamToCpp[proc_idx]  = new DataOutputStream(
-                  this.mClientSocket[proc_idx].getOutputStream());
-        this.mStreamFromCpp[proc_idx]= new DataInputStream(
-                  new BufferedInputStream(
-                    this.mClientSocket[proc_idx].getInputStream(), BUF_SIZE));
-        break;
-      }       
-      LOG.info("J2CNexus: conn with " + this.mDrivers[proc_idx] + " is up");
     }
      
     public void close() {
-      try {
-        int num = 0;
+    	
         mParams.clear();
         String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
-        while (num < 2) {
-          Text.writeString(mStreamToCpp[num], msg);
-          mStreamToCpp[num].flush();
-          mStreamFromCpp[num].close();
-          mStreamToCpp  [num].close();
-          mClientSocket [num].close();
-          num++;
-        }
-        mServerSocket.close();
-      }
-      catch (Exception e) {
-        LOG.info("J2CNexus:ERROR when close conns");
-      }
+	    UdaBridge.doCommand(msg);        
     }
   }
-  /*  The above is for MOFSupplier java side. */
+
+
 }

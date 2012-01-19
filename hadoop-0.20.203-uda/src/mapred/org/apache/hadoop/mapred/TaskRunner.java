@@ -565,6 +565,8 @@ abstract class TaskRunner extends Thread {
       ldLibraryPath.append(oldLdLibraryPath);
     }
     env.put("LD_LIBRARY_PATH", ldLibraryPath.toString());
+    LOG.info("ldLibraryPath=" + ldLibraryPath.toString());
+
     env.put(HADOOP_WORK_DIR, workDir.toString());
     //update user configured login-shell properties
     updateUserLoginEnv(errorInfo, user, conf, env);

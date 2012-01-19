@@ -26,7 +26,11 @@
 
 AC_PREREQ(2.59)
 AC_INIT([rdmamove], [0.1], support@mellanox.com)
+
 AC_PREFIX_DEFAULT([`pwd`/bin])
+
+AC_PROG_LIBTOOL
+AM_PROG_LIBTOOL
 
 USE_HADOOP_UTILS
 #HADOOP_RDMA_SETUP
@@ -38,14 +42,19 @@ syscmd(echo "version:"vers  > ../ver.txt)
 syscmd(echo "revison:"ver_svn >> ../ver.txt)
 syscmd(echo "c code complied on the:"`date` >> ../ver.txt)
 syscmd(echo "compiled on:"`hostname` >> ../ver.txt)
+syscmd(touch ltmain.sh) #TODO: check if can be removed
 VERSION=vers.ver_svn
 CXXFLAGS="-DVERSION_UDA=$VERSION"
+
 
 # Generates Makefile from Makefile.am. Modify when new subdirs are added.
 # Change Makefile.am also to add subdirectly.
 AM_INIT_AUTOMAKE(foreign no-dist)
+
+
 ##AC_CONFIG_FILES([Makefile MOFServer/Makefile])
 AC_CONFIG_FILES([Makefile])
+
 
 AC_CONFIG_MACRO_DIR([../utils/m4])
 
@@ -75,8 +84,6 @@ AC_CANONICAL_HOST
 AC_PROG_CC
 AM_PROG_CC_C_O
 AC_PROG_CXX
-AC_PROG_RANLIB
-#AC_PROG_LIBTOOL
 
 # Checks for header files.
 # AC_LANG(C++)
@@ -95,3 +102,4 @@ AC_C_VOLATILE
 AC_FUNC_MALLOC
 AC_HEADER_STDBOOL
 AC_OUTPUT
+

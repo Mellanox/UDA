@@ -102,7 +102,6 @@ class MergeManager
 {
 public:
     MergeManager(int threads, 
-                 list_head_t *dir_list, 
                  int online, 
                  struct reduce_task *task,
                  int _num_lpqs);
@@ -113,7 +112,7 @@ public:
     pthread_cond_t       cond;
     volatile MERGE_FLAG  flag;
  
-    list_head_t        *dir_list; /*  All end with '/' ? "YES" */
+//    list_head_t        *dir_list; /*  All end with '/' ? "YES" */
     struct reduce_task *task;
     int                 online;
 

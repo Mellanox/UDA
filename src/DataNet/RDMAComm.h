@@ -148,8 +148,10 @@ int netlev_dev_init(struct netlev_dev *dev);
 void netlev_dev_release(struct netlev_dev *dev);
 
 struct netlev_dev *
-netlev_dev_find(struct rdma_cm_id *cm_id, 
-                struct list_head *head);
+netlev_dev_find(struct rdma_cm_id *cm_id, struct list_head *head);
+
+struct netlev_conn*
+netlev_conn_find(struct rdma_cm_event *ev, struct list_head *head);
 
 void netlev_conn_free(netlev_conn_t *conn);
 
@@ -200,8 +202,7 @@ netlev_init_conn(struct rdma_cm_event *event,
 struct netlev_conn *
 netlev_conn_established(struct rdma_cm_event *event, struct list_head *head);
 
-struct netlev_conn *
-netlev_disconnect(struct rdma_cm_event *ev, struct list_head *head);
+void netlev_disconnect(struct netlev_conn *conn);
 
 int 
 netlev_send_noop(struct netlev_conn *conn);

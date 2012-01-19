@@ -256,8 +256,8 @@ DataEngine::start()
         shuffle_req_t *req  = NULL;
         int rc=0;
 
-        /* 
-         * 1.0 Process new shuffle requests 
+		/*
+		 * 1.0 Process new shuffle requests
          * FIXME 1.5 Start new threads if the queue is long
          */
         while (!list_empty(&state_mac->mover->incoming_req_list)) {
@@ -278,7 +278,7 @@ DataEngine::start()
 
         _aioHandler->submit();
 
-                
+
         /* 2.0 Process new MOF files */
         do {
             if (!list_empty(&this->comp_mof_list)) {
@@ -295,17 +295,17 @@ DataEngine::start()
                 string idx_path, out_path;
                 string jobid(comp->jobid);
                 string mapid(comp->mapid);
-                
+
                 rc = read_mof_index_records(jobid, mapid);
                 if (rc) {
-                	log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid.c_str(), mapid.c_str());
+					log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid.c_str(), mapid.c_str());
                 }
                 free (comp->jobid);
                 free (comp->mapid);
                 free (comp);
             }
 
-        } while (!list_empty(&this->comp_mof_list)); 
+		} while (!list_empty(&this->comp_mof_list));
 
         /* check if there is a new incoming shuffle req */
         pthread_mutex_lock(&state_mac->mover->in_lock);
@@ -315,8 +315,8 @@ DataEngine::start()
         }
         pthread_cond_wait(&state_mac->mover->in_cond,
                           &state_mac->mover->in_lock);
-        pthread_mutex_unlock(&state_mac->mover->in_lock);        
-    } 
+		pthread_mutex_unlock(&state_mac->mover->in_lock);
+	}
 
     output_stdout("DataEngine stopped");
 }
@@ -332,34 +332,30 @@ int DataEngine::read_mof_index_records(const string &jobid, const string &mapid)
     int rc=0;
 
     if (!retrieve_path(jobid, mapid, idx_path, out_path)) {
-    	output_stderr("[%s,%d] failed to retrieve path",__FILE__,__LINE__);
+    	output_stderr("failed to retrieve path");
         return -1; // TODO:  error code
     }
 
     ifile = getIFile(key, &is_new);
 
     if (ifile == NULL){
-    	output_stderr("[%s,%d] Failed to get iFile (key=%s)",__FILE__,__LINE__, key.c_str());
+    	output_stderr("Failed to get iFile (key=%s)", key.c_str());
         return -1; // TODO:  error code
     }
     
     if (!is_new) {
-    	output_stderr("[%s,%d] read_mof_index_records: index records for MOF already loaded. idx_path=%s",__FILE__,__LINE__, idx_path.c_str());
+    	output_stderr("index records for MOF already loaded. idx_path=%s", idx_path.c_str());
         //rc = -1;
     }
     else {
     	rc = read_records(ifile, idx_path, 0);
     	if (rc) {
-    		output_stderr("[%s,%d] failed to read_records idx_path=%s  ",__FILE__,__LINE__,idx_path.c_str() );
+    		output_stderr("failed to read_records idx_path=%s  ", idx_path.c_str() );
     	}
     }
 
     return rc;
 }
-
-
-
-
 
 bool DataEngine::retrieve_path(const string &jobid,
                                const string &mapid,
@@ -522,21 +518,21 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
     int rc=0;
 
     if (!retrieve_path(req->m_jobid, req->m_map, idx_path, out_path)) {
-        output_stderr("[%s,%d] retrieve path failed for fetch reques", __FILE__,__LINE__);
+        log(lsERROR, "retrieve_path failed in fetch request: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
         return -1;
     }
 
     ifile=getIFile(key, &is_new);
 
     if (ifile==NULL){
-        output_stderr("[%s,%d] failed to get ifile", __FILE__,__LINE__);
+        log(lsERROR, "getIFile failed: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
         return -2;
     }
 
     if (is_new) {
     	rc=read_records(ifile, idx_path, 0);
     	if (rc) {
-            output_stderr("[%s,%d] failed to read ifile records. rc=%d", __FILE__,__LINE__, rc);
+            log(lsERROR, "read_records failed: jobid=%s, map=%s, rc=%d", req->m_jobid.c_str(), req->m_map.c_str(), rc);
             return -3;
     	}
     }
@@ -547,7 +543,7 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
     chunk = occupy_chunk();
 
     if (chunk == NULL) {
-        output_stderr("[%s,%d] failed to occupy chunk (No free chunks)", __FILE__,__LINE__);
+        log(lsERROR, "occupy_chunk failed: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
         return -4;
     }
 

@@ -19,6 +19,9 @@
 #include <sys/socket.h>
 #include <execinfo.h>  // for backtrace
 
+#include <limits.h> // for PATH_MAX
+
+
 #include "IOUtility.h"
 
 
@@ -61,7 +64,7 @@ void log_func(const char * func, const char * file, int line, log_severity_t sev
     va_end(ap);
     s1[SIZE-1] = '\0';
 
-  fprintf(stream, "%02d:%02d:%02d %-5s [thr=%d %s() %s:%d] %s\n",
+  fprintf(stream, "%02d:%02d:%02d %-5s [thr=%x %s() %s:%d] %s\n",
 		  _tm.tm_hour,
 		  _tm.tm_min,
 		  _tm.tm_sec,
@@ -520,115 +523,18 @@ int StreamUtility::getVIntSize(int64_t i)
 const char *rdmalog_dir = "default";
 const char *default_log = "default";
 bool record = true;
-
-void write_log(FILE *log, int dbg, const char *fmt, ...)
-{
-    if (dbg && record && log != NULL) {
-      time_t rawtime;
-      struct tm *ti = NULL;
-
-      time(&rawtime);
-      ti = localtime(&rawtime);
-
-      const int SIZE = 1024;
-      char s1[SIZE];
-      va_list ap;
-      va_start(ap, fmt);
-      vsnprintf(s1, SIZE, fmt, ap);
-      va_end(ap);
-      s1[SIZE-1] = '\0';
-
-      if (ti) {
-        fprintf(log, "Time %d:%d:%d LOG: %s\n",
-                ti->tm_hour,
-                ti->tm_min,
-                ti->tm_sec, s1);
-      } else {
-        fprintf(log, "Time is missing. LOG: %s\n", s1);
-      }
-
-      fflush(log);
-    }
-}
-
-#if 0
-void output_stderr(const char *fmt, ...)
-{
-    static FILE *stream = stderr; // will be evaluated at first call to the function
-    if (!record) {
-         return;
-    }
-
-    time_t rawtime;
-    struct tm *ti = NULL;
-    time(&rawtime);
-    ti = localtime(&rawtime);
-
-    const int SIZE = 1024;
-    char s1[SIZE];
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(s1, SIZE, fmt, ap);
-    va_end(ap);
-    s1[SIZE-1] = '\0';
-
-    if (ti) {
-      fprintf(stream, "Time %d:%d:%d: %s\n",
-              ti->tm_hour,
-              ti->tm_min,
-              ti->tm_sec,
-              s1);
-    } else {
-      fprintf(stream, "Time is missing: %s\n", s1);
-    }
-    fflush(stream);
-}
-
-// TODO: combine with output_stderr
-void output_stdout(const char *fmt, ...)
-{
-    static FILE *stream = stdout; // will be evaluated at first call to the function
-    if (!record) {
-         return;
-    }
-
-    time_t rawtime;
-    struct tm *ti = NULL;
-    time(&rawtime);
-    ti = localtime(&rawtime);
-
-    const int SIZE = 1024;
-    char s1[SIZE];
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(s1, SIZE, fmt, ap);
-    va_end(ap);
-    s1[SIZE-1] = '\0';
-
-    if (ti) {
-      fprintf(stream, "Time %d:%d:%d: %s\n",
-              ti->tm_hour,
-              ti->tm_min,
-              ti->tm_sec,
-              s1);
-    } else {
-      fprintf(stream, "Time is missing: %s\n", s1);
-    }
-    fflush(stream);
-}
-#endif
-
+//*
 FILE* create_log(const char *log_name)
 {
-    char full_path[256];
+    char full_path[PATH_MAX];
 
-    if (log_name == NULL 
+    if (log_name == NULL
      || !record) {
         return NULL;
     }
 
-    /*log name*/
-    sprintf(full_path, "%s%s", 
+    //log name
+    sprintf(full_path, "%s%s",
             rdmalog_dir, log_name);
     FILE *log = fopen(full_path, "w");
     return log;
@@ -639,10 +545,30 @@ void close_log(FILE *log)
     if (log != NULL)
       fclose(log);
 }
+//*/
+void redirect_stderr_ex(const char *proc)
+{
+    char full_path[PATH_MAX];
+
+    if (!record)
+        return;
+
+    const char * const hadoop_home = getenv("HADOOP_HOME");
+    if (hadoop_home) {
+    	sprintf(full_path, "%s/%s/uda-%s.log", hadoop_home, rdmalog_dir, proc);
+    	freopen (full_path,"a",stderr);
+        printf("log will go to: %s\n", full_path);
+    }
+    else {
+        printf("log will go to stderr\n");
+        fprintf(stderr, "log will go to stderr\n");
+    }
+}
+
 
 void redirect_stderr(const char *proc)
 {
-    char full_path[256];
+    char full_path[PATH_MAX];
 
     if (!record)
         return;
@@ -651,14 +577,21 @@ void redirect_stderr(const char *proc)
     int rc = gethostname(host, 99);
     if (rc) fprintf(stderr, "gethostname failed: %m(%d)", errno);
 
-//    sprintf(full_path, "%s%s.stderr", rdmalog_dir, proc);
-    sprintf(full_path, "%s/hadoop-%s-%s-%s.stderr", rdmalog_dir, getlogin(), proc, host);
-    freopen (full_path,"w",stderr);
+    const char * const hadoop_home = getenv("HADOOP_HOME");
+    if (hadoop_home) {
+    	sprintf(full_path, "%s/%s/hadoop-%s-%s-%s.log", hadoop_home, rdmalog_dir, getlogin(), proc, host);
+    	freopen (full_path,"w",stderr);
+        printf("log will go to: %s\n", full_path);
+    }
+    else {
+        printf("log will go to stderr\n");
+        fprintf(stderr, "log will go to stderr\n");
+    }
 }
 
 void redirect_stdout(const char *proc)
 {
-    char full_path[256];
+    char full_path[PATH_MAX];
     
     if (!record)
         return;
@@ -668,7 +601,6 @@ void redirect_stdout(const char *proc)
     if (rc) fprintf(stderr, "gethostname failed: %m(%d)", errno);
 
 
-//    sprintf(full_path, "%s%s.stdout", rdmalog_dir, proc);
     sprintf(full_path, "%s/hadoop-%s-%s-%s.stdout", rdmalog_dir, getlogin(), proc, host);
     freopen (full_path,"w",stdout);
 }

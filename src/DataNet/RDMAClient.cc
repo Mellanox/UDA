@@ -16,6 +16,7 @@
 #include <sys/epoll.h>
 #include <malloc.h>
 #include <netdb.h>
+#include <errno.h>
 
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
@@ -105,6 +106,7 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
     
     /* put the receive wqe back */
     init_wqe_recv(wqe, NETLEV_FETCH_REQSIZE, dev->mem->mr->lkey, conn);
+    // TODO: this log might be too verbose
     log(lsTRACE, "ibv_post_recv");
     if (ibv_post_recv(conn->qp_hndl, &wqe->desc.rr, &bad_rr)) {
         output_stderr("[%s,%d] ibv_post_recv failed\n",
@@ -144,6 +146,11 @@ client_cq_handler(progress_event_t *pevent, void *data)
     do {
         ne = ibv_poll_cq(dev->cq, 1, &desc);
 
+		if ( ne < 0) {
+			log(lsERROR, "ibv_poll_cq failed ne=%d, (errno=%d %m)", ne, errno);
+			return;
+		}
+
         if (ne) {
             if (desc.status != IBV_WC_SUCCESS) {
                 if (desc.status == IBV_WC_WR_FLUSH_ERR) {
@@ -152,14 +159,14 @@ client_cq_handler(progress_event_t *pevent, void *data)
                     goto error_event;
                 } else {
                     output_stderr("Operation: %s. Bad WC status %d for wr_id 0x%llx",
-                                  netlev_stropcode(desc.opcode), desc.status, 
+							netlev_stropcode(desc.opcode), desc.status,
                                   (unsigned long long) desc.wr_id);
                     goto error_event;
                 }
             } else {
                 wqe = (netlev_wqe_t *) (long2ptr(desc.wr_id));
 
-                /* output_stdout("Detect cq event wqe=%p, opcode=%d", 
+				/* output_stdout("Detect cq event wqe=%p, opcode=%d",
                               wqe, desc.opcode); */
 
                 switch (desc.opcode) {
@@ -176,10 +183,9 @@ client_cq_handler(progress_event_t *pevent, void *data)
                         break;
 
                     default:
-                        output_stderr("%s: id %llx status %d unknown opcode %d",
-                                      __func__, 
-                                      desc.wr_id, 
-                                      desc.status, 
+					output_stderr("id %llx status %d unknown opcode %d",
+							desc.wr_id,
+							desc.status,
                                       desc.opcode);
                         break;
                 }
@@ -188,7 +194,7 @@ client_cq_handler(progress_event_t *pevent, void *data)
         }
     } while (ne);
 
-error_event:
+	error_event:
 
 	if (ibv_req_notify_cq(dev->cq, 0) != 0) {
         output_stderr("[%s,%d] ibv_req_notify_cq failed\n",
@@ -281,7 +287,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
         list_for_each_entry(mem_pool, registered_mem, register_mem_list) {
             rc = netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
             if (rc) {
-                output_stderr("[%s,%d] FATAL ERROR: failed on netlev_init_rdma_mem , rc=%d ==> exit process", __FILE__,__LINE__, rc);
+                log(lsFATAL, "FATAL ERROR: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
                 exit(rc);
             }
         }
@@ -292,6 +298,8 @@ netlev_get_conn(unsigned long ipaddr, int port,
                          dev, &ctx->hdr_event_list);
 
         list_add_tail(&dev->list, &ctx->hdr_dev_list);
+    } else {
+    	log(lsDEBUG, "device found");
     }
 
     conn = netlev_conn_alloc(dev, cm_id);
@@ -327,6 +335,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
     }
 
     if (event->event == RDMA_CM_EVENT_ESTABLISHED) {
+    	log(lsINFO, "Successfully got RDMA_CM_EVENT_ESTABLISHED with peer %x:%d", (int)ipaddr, port);
         conn->peerIPAddr = ipaddr;
         list_add_tail(&conn->list, &ctx->hdr_conn_list);
 
@@ -389,7 +398,7 @@ RdmaClient::RdmaClient(int port, merging_state_t *state)
     th->pollfd = this->ctx.epoll_fd;
     pthread_attr_init(&th->attr);
     pthread_attr_setdetachstate(&th->attr, PTHREAD_CREATE_JOINABLE);
-    pthread_create(&th->thread, &th->attr, event_processor, th);
+    log(lsINFO, "CREATING THREAD"); pthread_create(&th->thread, &th->attr, event_processor, th);
 
     /* FIXME: 
      * When we consider disconnection we need to add 
@@ -424,7 +433,7 @@ RdmaClient::~RdmaClient()
 
     this->helper.stop = 1;
     pthread_attr_destroy(&this->helper.attr);
-    pthread_join(this->helper.thread, NULL);
+    pthread_join(this->helper.thread, NULL); log(lsINFO, "THREAD JOINED");
     //DBGPRINT(DBG_CLIENT, "RDMAClient is shut down \n");
 
     rdma_destroy_event_channel(this->ctx.cm_channel);
@@ -515,7 +524,7 @@ RdmaClient::fetch(client_part_req_t *freq)
                       addr,(uint64_t) freq);
 
     conn = connect(freq->info->params[0], svc_port);
-    if (!conn) return -1;
+    if (!conn) return -1; //log was already issued inside connect
     pthread_mutex_lock(&conn->dev->lock); 
     wqe = get_netlev_wqe(&conn->dev->wqe_list); 
     pthread_mutex_unlock(&conn->dev->lock); 

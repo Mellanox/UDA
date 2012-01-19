@@ -359,6 +359,8 @@ class ReduceTask extends Task {
   @SuppressWarnings("unchecked")
   public void run(JobConf job, final TaskUmbilicalProtocol umbilical)
     throws IOException, InterruptedException, ClassNotFoundException {
+
+	LOG.info("thread started"); 
  
     /* for rdma measurement */
     long reduce_task_start = System.currentTimeMillis();
@@ -1880,7 +1882,7 @@ class ReduceTask extends Task {
         // start the map events thread
         getMapEventsThread = new GetMapEventsThread();
         getMapEventsThread.start();         
-        this.rdmaChannel.start();
+//avner        this.rdmaChannel.start();
         
         LOG.info("ReduceCopier: Wait for fetching");
         synchronized(ReduceCopier.this) {
@@ -2737,9 +2739,9 @@ class ReduceTask extends Task {
       
       @Override
       public void run() {
-      
+
         LOG.info(reduceTask.getTaskID() + " Thread started: " + getName());
-        
+
         do {
           try {
             int numNewMaps = getMapCompletionEvents();
@@ -2759,14 +2761,17 @@ class ReduceTask extends Task {
             String msg = reduceTask.getTaskID()
                          + " GetMapEventsThread Ignoring exception : " 
                          + StringUtils.stringifyException(t);
+    			  
+    	    	  LOG.info(msg); //avner2 - temp
+
             reportFatalError(getTaskID(), t, msg);
           }
         } while (!exitGetMapEvents);
 
         LOG.info("GetMapEventsThread exiting");
-      
+
       }
-      
+
       /** 
        * Queries the {@link TaskTracker} for a set of map-completion events 
        * from a given event ID.
@@ -2777,11 +2782,17 @@ class ReduceTask extends Task {
         int numNewMaps = 0;
         
         MapTaskCompletionEventsUpdate update = 
-          umbilical.getMapCompletionEvents(reduceTask.getJobID(), 
+          umbilical.getMapCompletionEvents(reduceTask.getJobID(), //avner2 - check this area for "lost map"
                                            fromEventId.get(), 
                                            MAX_EVENTS_TO_FETCH,
                                            reduceTask.getTaskID());
         TaskCompletionEvent events[] = update.getMapTaskCompletionEvents();
+/*
+        if (events.length != 0) {
+        	LOG.info("getMapCompletionEvents=" + events.length ); //avner2 - temp
+        }
+//*/    	
+
           
         // Check if the reset is required.
         // Since there is no ordering of the task completion events at the 
@@ -2859,15 +2870,13 @@ class ReduceTask extends Task {
     }
 
     /* Communicating with netlev reduce task */ 
-    private class DataSocket<K,V> extends Thread {
-      private Socket            mSocket       = null;
-      private DataOutputStream  mToMerger     = null;
-      private DataInputStream   mFromMerger   = null;
+    private class DataSocket<K,V> extends Thread implements UdaCallable {
       private JobConf           mJobConf      = null;
       private TaskReporter      mTaskReporter = null;    
       private Progress          mProgress     = null;
       private Vector<String>    mParams       = new Vector<String>();
-      private int               mMapsNeed     = 0;      
+      private int               mMapsNeed     = 0;
+      private int               mMapsCount    = 0; // we probably can remove this var
       private int               mReqNums      = 0;
       private final int         socket_timeout= 360 * 1000; /* 6 minutes */
       private final int         mReportCount  = 20;
@@ -2891,33 +2900,88 @@ class ReduceTask extends Task {
         } 
       }
 
+      // avner
+      private void launchCppSide(JobConf fConf) {
+    	  
+          String driver = fConf.get("mapred.rdma.netmerger");
+          LOG.info("J2CNexus: Launching " + driver + " Process");
+          List<String> cmd = new ArrayList<String>();
+         
+          /* cmd */
+          cmd.add(driver);
+          
+          /* arguments */
+          cmd.add("-o");
+          cmd.add(fConf.get("mapred.rdma.max.hosts"));
+          cmd.add("-w");
+          cmd.add(fConf.get("mapred.rdma.wqe.per.conn"));
+          cmd.add("-c");
+          cmd.add(fConf.get("mapred.taskTracker.rdma.server.port"));
+          cmd.add("-r");
+          cmd.add(fConf.get("mapred.rdma.cma.port"));      
+          cmd.add("-l");     
+          cmd.add(fConf.get("mapred.netmerger.listener.port"));
+          cmd.add("-a");
+          cmd.add(fConf.get("mapred.netmerger.merge.approach"));
+          cmd.add("-m");
+          cmd.add("1");
+          cmd.add("-g");
+          cmd.add( fConf.get("mapred.rdma.log.dir","default") + "/userlogs/" + reduceTask.getTaskID().toString() );
+          cmd.add("-b");
+          cmd.add(fConf.get("mapred.netmerger.rdma.num.buffers"));
+          cmd.add("-s");
+          cmd.add(fConf.get("mapred.rdma.buf.size"));
+          cmd.add("-t");
+          cmd.add(fConf.get("mapred.uda.log.tracelevel"));
+
+    	  String[] stringarray = null;
+    	  int rc = 0;
+    	  stringarray = cmd.toArray(new String[0]);
+          LOG.info("J2CNexus:going to execute child: " + cmd);    	  
+	      try {
+	    	  rc = UdaBridge.start(true, stringarray, LOG, this); // true => this is NetMerger
+	      
+	      } catch (UnsatisfiedLinkError e) {
+	          LOG.warn("J2CNexus:Exception when launching child");    	  
+	          LOG.warn(StringUtils.stringifyException(e));
+	          throw (e);
+	      }
+
+
+        }
+
+  	public void dataFromUda(Object directBufAsObj, int len) {
+  		this.kv_buf_receiver.dataFromUda(directBufAsObj, len);
+  	}
+
       public DataSocket(JobConf jobConf, TaskReporter reporter,
                         int numMaps) throws IOException {
-        
+
         /* init variables */
         init_kv_bufs(); 
         this.kv_buf_receiver = new KVBufReceiver();
+    	  
+    	  launchCppSide(jobConf);//avner1
+    	  
         this.j2c_queue = new J2CQueue<K, V>();
         this.mJobConf = jobConf;
         this.mTaskReporter = reporter;
         this.mMapsNeed = numMaps;
+/*    	      	  
         int listener = jobConf.getInt("mapred.netmerger.listener.port", 9012);
         InetAddress addr = InetAddress.getByName("localhost");
-        SocketAddress sockaddr = new InetSocketAddress(addr, listener);
-        this.mSocket = new Socket();
-        this.mSocket.setReceiveBufferSize(SOCKET_BUF_SIZE);
-        this.mSocket.connect(sockaddr);
-        
-        this.mSocket.setSoTimeout(socket_timeout);
-        this.mToMerger = new DataOutputStream(mSocket.getOutputStream());
-        this.mFromMerger = new DataInputStream(mSocket.getInputStream());
- 
-        /* make sure netlev reduce task is completely launched*/
-        int launch_ret = WritableUtils.readVInt(this.mFromMerger);
-        if (launch_ret == RDMACmd.NETLEV_REDUCE_LAUNCHED) {
-          /* just simply block for now */
-        }
 
+    	  // make sure netlev reduce task is completely launched
+        int launch_ret = WritableUtils.readVInt(this.mFromMerger);
+    	  if (launch_ret == RDMACmd.NETLEV_REDUCE_LAUNCHED) {//avner1
+    		  // just simply block for now
+        }
+//*/
+    	  try{
+//    		  Thread.sleep(3000);  //avner1: TEMP TODO 
+    	  }
+    	  catch (Exception e){}
+    	  
         /* send init message */
         TaskAttemptID reduceId = reduceTask.getTaskID();
         
@@ -2943,10 +3007,9 @@ class ReduceTask extends Task {
         for (int i=0; i<numDirs; i++ ){
         	mParams.add(dirsCanBeCreated.get(i));
         }
-               
+
         String msg = RDMACmd.formCmd(RDMACmd.INIT_COMMAND, mParams);
-        Text.writeString(mToMerger, msg);
-        mToMerger.flush(); 
+    	  UdaBridge.doCommand(msg);
         this.mProgress = new Progress(); 
         this.mProgress.set((float)(1/2));
 
@@ -2962,20 +3025,15 @@ class ReduceTask extends Task {
         mParams.add(loc.getTaskAttemptId().toString());
         mParams.add(Integer.toString(getPartition()));
         String msg = RDMACmd.formCmd(RDMACmd.FETCH_COMMAND, mParams); 
-        Text.writeString(mToMerger, msg);
-        mToMerger.flush();
+    	  UdaBridge.doCommand(msg);
         /* LOG.info("Send down to rdma " + (++mReqNums)); */
       }
 
       public void close() throws IOException {
         mParams.clear();
         String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
-        Text.writeString(mToMerger, msg);
-        mToMerger.flush();
+    	  UdaBridge.doCommand(msg);
         this.j2c_queue.close();
-        this.mFromMerger.close();
-        this.mToMerger.close();
-        this.mSocket.close();
       }
 
       public <K extends Object, V extends Object>
@@ -2983,43 +3041,25 @@ class ReduceTask extends Task {
           JobConf job, FileSystem fs, Reporter reporter) 
           throws IOException {
         this.j2c_queue.initialize();
-        kv_buf_receiver.start();
+    	  //avner        kv_buf_receiver.start();
         return this.j2c_queue; 
       }
-      
-      public void run() {
-        try {
-          LOG.info("DataSocket: start running, numMaps = " 
-                   + this.mMapsNeed);
-          /* count the finished fetch map */
-          int count = 0;
-          while (true) {
-            try {
-              int ret = WritableUtils.readVInt(mFromMerger);
-              if (ret == RDMACmd.FETCH_OVER_COMMAND) {
-                count += mReportCount;
+
+      public void fetchOverMessage() {
+    	  LOG.info(">> in fetchOverMessage"); 
+    	  mMapsCount += mReportCount;
                 mTaskReporter.progress();
-                if (count >= this.mMapsNeed) {
-                  break;
-                }
-              }
-            } catch (SocketTimeoutException e) {
-              mTaskReporter.progress();
-              /* LOG.info("J2CQueue: fetch failed"); */
-              /* break; */
-              continue;
-            } 
-          }
-                    
+    	  LOG.info("in fetchOverMessage: mMapsCount=" + mMapsCount + " mMapsNeed=" + mMapsNeed); 
+
+    	  if (mMapsCount >= this.mMapsNeed) {
           /* wake up ReduceCopier */
           synchronized(ReduceCopier.this) {
             ReduceCopier.this.notify();
           }
-	} catch (IOException e) {
-          LOG.info("DataSocket: Error in IOException");
+    	  }  		
+    	  LOG.info("<< out fetchOverMessage"); 
       	}
-      }
-
+      
       /* kv buf object, j2c_queue uses 
          the kv object inside.
        */
@@ -3028,7 +3068,7 @@ class ReduceTask extends Task {
         private int act_len;
         private int status;        
         public DataInputBuffer kv;
-        
+
         public KVBuf(int size) {
           kv_buf = new byte[size];
           kv = new DataInputBuffer();
@@ -3038,91 +3078,52 @@ class ReduceTask extends Task {
       }
 
       private class KVBufReceiver<K, V>
-                        extends Thread {
+      {
         boolean stop;
+    	  int cur_kv_idx = 0;
         public KVBufReceiver() {
           stop = false;
         }
         
-        private void read_from_stream(byte[] ary, int len) 
-                                        throws IOException {
-          int byte_len = len;
-	  int offset = 0;
-	  while (byte_len > 0) {
-            int r;
-	    while (true) {
-              try {
-                r = mFromMerger.read(ary, offset, byte_len);
-                break;
-              } catch(SocketTimeoutException e) {
-                mTaskReporter.progress();
-              }
-            }
-	    offset += r;
-	    byte_len -= r;
-	  }
-        }
  
-	public long readVLong_rdma(DataInput stream) throws IOException {
-          byte[] ary = new byte[1];
-          read_from_stream(ary, 1);
-	  byte firstByte = ary[0];
-	  int len = WritableUtils.decodeVIntSize(firstByte);
-	  if (len == 1) {
-	    return firstByte;
-	  }
-	  long i = 0;
-	  for (int idx = 0; idx < len-1; idx++) {
-            read_from_stream(ary, 1);
-	    byte b = ary[0];
-	    i = i << 8;
-	    i = i | (b & 0xFF);
-	  }
-	  return (WritableUtils.isNegativeVInt(firstByte) ? (i ^ -1L) : i);
-	}
-        
-        private boolean read_data(KVBuf buf) throws IOException {
-          /* get merged size */ 
-          int len = (int) readVLong_rdma(mFromMerger);
-          if (len < 0 || len > kv_buf_size) {
-            return false;
-          }
-          buf.act_len = len;
-          read_from_stream(buf.kv_buf, len); 
-	  buf.kv.reset(buf.kv_buf, 0, len); 
-          return true;
-        }
+    	  public void dataFromUda(Object directBufAsObj, int len) {
+    		  LOG.debug("dataFromUda"); // TODO: this doesn't show! 
+    		  LOG.info ("-->> dataFromUda len=" + len);
 
-        public void run() {
-          int cur_kv_idx = 0;
-          try {
-	    while (!stop) {
 	      KVBuf buf = kv_bufs[cur_kv_idx];
-	     
+
 	      synchronized (buf) {
-		if (buf.status != kv_buf_recv_ready) {
+    			  while (buf.status != kv_buf_recv_ready) {
+    				  try{
+    					  //LOG.info ("----- dataFromUda waiting...");
 		  buf.wait();
+    				  } catch (InterruptedException e) {}
 		}
-		if (stop) {
-		  break;
+    			  //LOG.info ("----- dataFromUda afer waiting");
+
+    			  buf.act_len = len;  // set merged size
+    			  try {
+    				  //LOG.info ("----- dataFromUda before handling ByteBuffer...");
+    				  java.nio.ByteBuffer directBuf = (java.nio.ByteBuffer) directBufAsObj;
+    				  directBuf.position(0); // reset read position 		  
+    				  directBuf.get(buf.kv_buf, 0, len);// memcpy from direct buf into java buf - TODO: try zero-copy
+    			  } catch (Exception e) {
+    				  LOG.warn ("!!! !! dataFromUda GOT Exception");
 		}
-		read_data(buf);
+
+    			  buf.kv.reset(buf.kv_buf, 0, len); // reset KV read position
+
 		buf.status = kv_buf_redc_ready;
 		++cur_kv_idx;
 		if (cur_kv_idx >= kv_buf_num) {
 		  cur_kv_idx = 0;
 		}
 		buf.notifyAll();
+    		  }    		  
+    		  LOG.info ("<<-- dataFromUda finished callback");
+    	  }    	  
+
 	      }
-	    }
-          } catch (InterruptedException e) {
-            return;
-          } catch (IOException e) {
-            LOG.info("IOException in read data");
-          }
-          LOG.info("KV receiver stopped");
-        }
-      }
 
       private class J2CQueue<K extends Object, V extends Object> 
         implements RawKeyValueIterator {  

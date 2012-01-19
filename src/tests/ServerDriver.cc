@@ -49,7 +49,7 @@ void launchThread(pthread_t *t, threadFunc func, void *classPtr)
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-    pthread_create(t, &attr, func, classPtr);
+    log(lsINFO, "CREATING THREAD"); pthread_create(t, &attr, func, classPtr);
 }
 
 int main()

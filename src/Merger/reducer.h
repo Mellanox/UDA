@@ -40,32 +40,15 @@ typedef struct reduce_directory {
 
 typedef struct merging_state {
 
-    pthread_mutex_t    lock;  /* lock for the global state machine */
-    pthread_cond_t     cond;  /* conditional signal for thread activation */
-
-    C2JNexus          *nexus;    /* control channel */
     InputClient       *client;   /* Transport */
 
-    volatile int       stop;
     int                online;
 
-    struct list_head   socket_list;
-    struct list_head   dir_list;
-    struct list_head   task_list;
-    
     memory_pool_t      mop_pool; 
 
 } merging_state_t;
-
-typedef struct reduce_socket {
-    struct list_head   list;
-    int                sock_fd;
-    int                reduce_id;
-} reduce_socket_t;
-
 typedef struct reduce_task {
     struct list_head   list;
-    int                sock_fd;
     int                reduce_id;
 
     pthread_cond_t     cond;
@@ -76,17 +59,11 @@ typedef struct reduce_task {
     char              *reduce_task_id;
     int                mop_index;
 
-    std::map <std::string, host_list_t *> *hostmap;
-
-    C2JNexus          *nexus;
     FetchManager      *fetch_man;
     netlev_thread_t    fetch_thread;
 
     MergeManager      *merge_man;  
     netlev_thread_t    merge_thread;
-
-    /* The thread upload merged data to java */
-    netlev_thread_t    upload_thread; 
 
     memory_pool_t      kv_pool; 
 
@@ -106,7 +83,9 @@ typedef struct reduce_task {
     std::vector<std::string>   local_dirs; // local dirs will serve for lpq temp files
 } reduce_task_t;
 
-reduce_task_t *spawn_reduce_task(int mode, reduce_socket_t *sock);
+void reduce_downcall_handler(const std::string & msg);
+extern reduce_task_t * g_task; // we only support 1 reducer per process
+void spawn_reduce_task();
 void finalize_reduce_task(reduce_task_t *task);
 int  create_mem_pool(int logsize, int num, memory_pool_t *pool);
 

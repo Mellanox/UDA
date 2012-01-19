@@ -26,16 +26,20 @@
 
 AUTOMAKE_OPTIONS = subdir-objects
 
-ACLOCAL_AMFLAGS = -I m4
+ACLOCAL_AMFLAGS = -I ../utils/m4
 AM_LDFLAGS = -rdynamic
-AM_CPPFLAGS = -I$(top_srcdir) -I. -I$(top_srcdir)/include \
-			  -I/usr/ofed-1.5.2/include \
-			  -Wall -g -D_GNU_SOURCE -O2 $(INCLUDE_DIR)
+JDK = $(JAVA_HOME)
+AM_CPPFLAGS = $(INCLUDE_DIR) -I$(top_srcdir) -I. -I$(top_srcdir)/include \
+			  -I$(JDK)/include -I$(JDK)/include/linux
+			  -Wall -g -D_GNU_SOURCE -O3 -fPIC
 
 # Specify the source files for a library
 # Append additional directory to the end of this list
-lib_LIBRARIES = librdmamove.a
-librdmamove_a_SOURCES = \
+
+lib_LTLIBRARIES = libhadoopUda.la
+#noinst_LTLIBRARIES = libhadoopUda.la
+
+libhadoopUda_la_SOURCES = \
 						include/atomic.h         \
 						include/C2JNexus.h       \
 						include/IOUtility.h      \
@@ -47,6 +51,7 @@ librdmamove_a_SOURCES = \
 					   	MOFServer/MOFServlet.h \
 					   	MOFServer/IndexInfo.cc  \
 						MOFServer/MOFServlet.cc \
+						MOFServer/MOFSupplierMain.cc \
 					   	DataNet/RDMAClient.h \
 					   	DataNet/RDMAComm.h \
 					   	DataNet/RDMAServer.h \
@@ -68,13 +73,24 @@ librdmamove_a_SOURCES = \
 						Merger/reducer.h \
 						Merger/reducer.cc \
                         Merger/MergeQueue.h \
-                        Merger/MergeQueue.cc 
+                        Merger/MergeQueue.cc \
+                        Merger/NetMergerMain.cc \
+                        UdaBridge.cc 
+
+						
+#libhadoopUda_la_LDFLAGS = -module
+
+libhadoopUda_la_LIBADD =  -lpthread -libverbs -lrdmacm -laio
+#libhadoopUda_LDADD =  -lpthread -libverbs -lrdmacm -laio
 
 # Two main binary programs will be created
 # These programs will borrow all functions from the library
 bin_PROGRAMS = MOFSupplier NetMerger
 
-LDADD = librdmamove.a -lpthread -libverbs -lrdmacm -laio
+LDADD = -lhadoopUda -lpthread -libverbs -lrdmacm -laio
+#MOFSupplier_LDFLAGS = -lhadoopUda
+#NetMerger_LDFLAGS = -lhadoopUda
+
 MOFSupplier_SOURCES = MOFSupplier.cc
 NetMerger_SOURCES = NetMerger.cc
 # vim: sw=4: ts=4: noet

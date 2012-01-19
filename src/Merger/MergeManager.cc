@@ -14,89 +14,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <limits.h>
+#include <limits.h> // for PATH_MAX
 #include "MergeQueue.h"
 #include "MergeManager.h"
 #include "StreamRW.h"
 #include "reducer.h"
 #include "IOUtility.h"
 #include "C2JNexus.h"
-
-#ifndef PATH_MAX  // normally defined in limits.h
-#define PATH_MAX 4096
-#endif
+#include "UdaBridge.h"
 
 using namespace std;
 
 extern merging_state_t merging_sm;
         
 int num_stage_mem = 2;
-
-void *upload_online(reduce_task_t *task)
-{
-    MergeManager *merger = task->merge_man;
-
-	/* now we have only two buffer for staging */
-	int cur_idx = 0;
-
-	while (!task->upload_thread.stop) {
-		mem_desc_t *desc = merger->merge_queue->staging_bufs[cur_idx];
-
-		pthread_mutex_lock(&desc->lock);
-
-		if ( desc->status != MERGE_READY ) {
-			pthread_cond_wait(&desc->cond, &desc->lock);
-
-			if (task->upload_thread.stop) {
-				log(lsDEBUG, " << BREAKING because of task->upload_thread.stop=%d", task->upload_thread.stop);
-				pthread_mutex_unlock(&desc->lock);
-				break;
-			}
-		}
-
-		log(lsDEBUG, "writing to nexus desc->act_len=%d", desc->act_len);
-
-		/* upload */
-		task->nexus->send_int((int) desc->act_len);
-		task->nexus->stream->write( desc->buff, desc->act_len);
-
-		/* change status */
-		desc->status = FETCH_READY;
-		++cur_idx;
-		if (cur_idx >= num_stage_mem) {
-			cur_idx = 0;
-		}
-		pthread_cond_broadcast(&desc->cond);
-		pthread_mutex_unlock(&desc->lock);
-	}
-
-    return NULL;
-}
-
-
-void *upload_thread_main(void *context) 
-{
-    reduce_task_t *task = (reduce_task_t *) context;
-    MergeManager *merger = task->merge_man;
-
-    int online = merger->online;
-    log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
-
-	switch (online) {
-	case 0:
-		/* FIXME: on-disk merge*/
-		break;
-	case 1:
-		upload_online (task);
-		break;
-	case 2: default:
-		//upload_hybrid (task);
-		upload_online (task);
-		break;
-	}
-
-    return NULL;
-}
 
 /* report progress every 256 map outputs*/
 #define PROGRESS_REPORT_LIMIT 20
@@ -105,16 +36,18 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_
 {
     MergeManager *manager = task->merge_man;
     int target_maps_count = manager->total_count + num_maps;
-    log(lsDEBUG, "task->num_maps=%d target_maps_count=%d", task->num_maps, target_maps_count);
+    log(lsDEBUG, ">> function started task->num_maps=%d target_maps_count=%d", task->num_maps, target_maps_count);
 	do {
-		while (manager->fetched_mops.size() > 0 ) {
+		while (! manager->fetched_mops.empty() ) {
 			MapOutput *mop = NULL;
 
 			pthread_mutex_lock(&manager->lock);
+		    log(lsTRACE, "after pthread_mutex_lock");
 			mop = manager->fetched_mops.front();
 			manager->fetched_mops.pop_front();
 			pthread_mutex_unlock(&manager->lock);
 
+			log(lsTRACE, "found new segment in list");
 			/* not in queue yet */
 			if (manager->mops_in_queue.find(mop->mop_id)
 				== manager->mops_in_queue.end()) {
@@ -130,8 +63,9 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_
 
 				if (manager->progress_count == PROGRESS_REPORT_LIMIT
 				 || manager->total_count == task->num_maps) {
-					log(lsDEBUG, "nexus sending FETCH_OVER_MSG...");
-					task->nexus->send_int((int)FETCH_OVER_MSG);
+					log(lsDEBUG, "JNI sending fetchOverMessage...");
+					UdaBridge_invoke_fetchOverMessage_callback(task->merge_thread.jniEnv);
+
 					manager->progress_count = 0;
 				}
 
@@ -144,15 +78,17 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_
 		if (manager->total_count == target_maps_count) break;
 
 		pthread_mutex_lock(&manager->lock);
-		if (manager->fetched_mops.size() > 0) {
+		if (! manager->fetched_mops.empty()) {
 			pthread_mutex_unlock(&manager->lock);
 			continue;
 		}
+	    log(lsTRACE, "before pthread_cond_wait");
 		pthread_cond_wait(&manager->cond, &manager->lock);
 		pthread_mutex_unlock(&manager->lock);
 
 	} while (true);
 
+    log(lsDEBUG, "<< function finished");
     return NULL;
 }
 
@@ -163,6 +99,19 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_q
 	/* merging phase */
 	int idx = 0;
 	bool b = false;
+
+// TODO: 
+// NetMerger can use just we can use just 1 staging_buf
+// - no need for staging_bufs array and loop on it
+
+	JNIEnv *jniEnv = task->merge_thread.jniEnv;
+    for (int i = 0; i < num_stage_mem; ++i) {
+    	mem_desc_t  *desc = merge_queue->staging_bufs[i];
+    	desc->jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
+    	log(lsINFO, "GOT: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
+
+    }
+
 
 	while (!task->merge_thread.stop && !b) {
 		mem_desc_t *desc = merge_queue->staging_bufs[idx];
@@ -180,6 +129,10 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_q
 							desc->act_len);
 
 		desc->status = MERGE_READY;
+    	log(lsDEBUG, "MERGER: invoking java callback: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
+		UdaBridge_invoke_dataFromUda_callback(task->merge_thread.jniEnv, desc->jbuf, desc->act_len);
+		desc->status = FETCH_READY;
+
 		if (!b) {
 			++idx;
 			if (idx >= num_stage_mem) {
@@ -189,6 +142,16 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_q
 		pthread_cond_broadcast(&desc->cond);
 		pthread_mutex_unlock(&desc->lock);
 	}
+
+//* TODO: move to UdaBridge
+    for (int i = 0; i < num_stage_mem; ++i) {
+    	mem_desc_t  *desc = merge_queue->staging_bufs[i];
+    	log(lsDEBUG, "invoking DeleteWeakGlobalRef: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
+    	jniEnv->DeleteWeakGlobalRef(desc->jbuf);
+    	desc->jbuf = NULL;
+    	log(lsDEBUG, "After DeleteWeakGlobalRef");
+    }
+//*/
 
     return NULL;
 }
@@ -289,6 +252,9 @@ void *merge_thread_main (void *context)
     int online = manager->online;
     log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
 
+    task->merge_thread.jniEnv = attachNativeThread();
+
+
 	switch (online) {
 	case 0:
 		/* FIXME: on-disk merge*/
@@ -369,11 +335,9 @@ MapOutput::~MapOutput()
 }
 
 /* The following is for MergeManager */
-MergeManager::MergeManager(int threads, list_head_t *list,
-                           int online, struct reduce_task *task, int _num_lpqs) : num_lpqs(_num_lpqs)
+MergeManager::MergeManager(int threads, int online, struct reduce_task *task, int _num_lpqs) : num_lpqs(_num_lpqs)
 {
     this->task = task;
-    this->dir_list = list;
     this->online = online;
     this->flag = INIT_FLAG;
 
@@ -402,6 +366,15 @@ MergeManager::MergeManager(int threads, list_head_t *list,
             list_del(&merge_queue->staging_bufs[i]->list);
         }
         pthread_mutex_unlock(&task->kv_pool.lock);
+/*
+    	JNIEnv *jniEnv = attachNativeThread();
+        for (int i = 0; i < num_stage_mem; ++i) {
+        	mem_desc_t  *desc = merge_queue->staging_bufs[i];
+        	desc->jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
+        	log(lsINFO, "GOT: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
+
+        }
+//*/
     }
 }
 
@@ -425,6 +398,8 @@ MergeManager::~MergeManager()
         delete merge_queue; 
     }
 }
+
+
 
 /*
  * Local variables:
