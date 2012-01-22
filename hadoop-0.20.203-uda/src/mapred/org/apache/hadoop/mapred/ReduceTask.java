@@ -3137,7 +3137,7 @@ class ReduceTask extends Task {
           cmd.add("-m");
           cmd.add("1");
           cmd.add("-g");
-          cmd.add( fConf.get("mapred.rdma.log.dir","default") + "/userlogs/" + reduceTask.getTaskID().toString() );
+          cmd.add( fConf.get("mapred.rdma.log.dir","default") + "/userlogs/" + reduceTask.getTaskID().getJobID().toString() + "/"  + reduceTask.getTaskID().toString() );
           cmd.add("-b");
           cmd.add(fConf.get("mapred.netmerger.rdma.num.buffers"));
           cmd.add("-s");
