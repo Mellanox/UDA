@@ -97,6 +97,11 @@ size_t NetStream::read(void *buf, size_t len)
 
 size_t NetStream::write(const void *buf, size_t len)
 {
+	if (len == 0) {
+		log(lsERROR, "write with len=0");
+		return 0;
+	}
+
     size_t result = send(socket, buf, len, 0);
     if (result == (size_t)(-1)) {
         output_stderr("NetStream: send error, %s",

@@ -187,7 +187,6 @@ netlev_dev_init(struct netlev_dev *dev)
         return -1;
     }
 
-//    cqe_num = device_attr.max_cqe;
     cqe_num = wqes_perconn  * max_hosts;
     max_sge = device_attr.max_sge;
 
@@ -650,8 +649,6 @@ netlev_post_send(void *buff, int bytes,
         } 
         // avner: TODO remove this verbose log
         log(lsTRACE, "message before ibv_post_send is %s", (char*) buff);
-//        log(lsTRACE, "there are %d credits in connection_qp.num=%d", conn->credits, conn->qp_hndl->qp_num);
-//        log(lsTRACE, "ibv_post_send: %s", (char*)buff);
         if ((rc = ibv_post_send(conn->qp_hndl, &(wqe->desc.sr), &bad_wr)) != 0) {
             log(lsERROR, "ibv_post_send error: errno=%d %m", rc, (char*)buff);
             pthread_mutex_unlock(&conn->lock);

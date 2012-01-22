@@ -22,17 +22,74 @@
 #include "IOUtility.h"
 #include "C2JNexus.h"
 #include "UdaBridge.h"
+#include "AIOHandler.h"
 
-using namespace std;
+
+
+#ifndef PATH_MAX  // normally defined in limits.h
+#define PATH_MAX 4096
+#endif
+
+#define LPQ_STAGE_MEM_SIZE (1<<20)
 
 extern merging_state_t merging_sm;
         
-int num_stage_mem = 2;
+int aio_lpq_write_completion_handler(void* data) {
+	lpq_aio_arg* arg = (lpq_aio_arg*)data;
+
+	pthread_mutex_lock(&arg->desc->lock);
+	arg->desc->status = FETCH_READY;
+	if (arg->last_lpq_submition) { // wrting last part of lpq output with blocking write (without AIO) because AIO must write aligned size
+		close(arg->fd); // reopen file because it was opened for AIO with O_DIRECT which forbiddens calling sync lseek
+		arg->fd = open(arg->filename, O_WRONLY);
+		lseek(arg->fd, arg->aligment_carry_fileOffset, SEEK_SET);
+		write(arg->fd, arg->aligment_carry_buff, arg->aligment_carry_size);
+		close(arg->fd);
+		log(lsTRACE, "IDAN_LPQ_WAIT last completion for fd=%d", arg->fd);
+	}
+	pthread_cond_broadcast(&arg->desc->cond);
+	pthread_mutex_unlock(&arg->desc->lock);
+
+	delete arg;
+
+	return 0;
+}
+
+int aio_rpq_read_completion_handler(void* data) {
+	rpq_aio_arg* arg = (rpq_aio_arg*)data;
+	
+	pthread_mutex_lock(&arg->kv_output->lock);
+	arg->kv_output->last_fetched = arg->size;
+	arg->kv_output->total_fetched += arg->size;
+	arg->desc->status = MERGE_READY;
+	log(lsTRACE, "IDAN RPQ READ completion: size=%llu total_fetched=%lld", arg->size, arg->kv_output->total_fetched);
+	pthread_cond_broadcast(&arg->kv_output->cond);
+	pthread_mutex_unlock(&arg->kv_output->lock);
+
+	// if this is the first completion for the segment
+	if (arg->kv_output->total_fetched == arg->size) {
+		log(lsTRACE, "IDAN RPQ Segment's first completion");
+
+		// after completion for first buff , send second buff aio request
+		arg->segment->send_request();
+
+		// after first buffer aio read is completed, it is possible to insert the segment to PQ for merging
+		arg->kv_output->task->merge_man->merge_queue->insert(arg->segment);
+
+		// merge manager is waiting for all first completions of RPQ's AioSegments to complete , for starting RPQ merge phase
+		pthread_mutex_lock(&arg->kv_output->task->merge_man->lock);
+		pthread_cond_broadcast(&arg->kv_output->task->merge_man->cond);
+		pthread_mutex_unlock(&arg->kv_output->task->merge_man->lock);
+	}
+
+	delete arg;
+	return 0;
+}
 
 /* report progress every 256 map outputs*/
 #define PROGRESS_REPORT_LIMIT 20
 
-void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_queue, int num_maps)
+void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *merge_queue, int num_maps)
 {
     MergeManager *manager = task->merge_man;
     int target_maps_count = manager->total_count + num_maps;
@@ -54,6 +111,8 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_
 
 				manager->mops_in_queue.insert(mop->mop_id);
 				Segment *segment = new Segment(mop);
+				segment->send_request(); // send rew for second buffer
+				// the above send was called from the Segment's Ctor before, but now because it is a virtual method it canot be called from CTOR
 				merge_queue->insert(segment);
 
 				/* report */
@@ -94,7 +153,7 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_
 
 
 
-void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_queue)
+void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *merge_queue)
 {
 	/* merging phase */
 	int idx = 0;
@@ -105,7 +164,7 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_q
 // - no need for staging_bufs array and loop on it
 
 	JNIEnv *jniEnv = task->merge_thread.jniEnv;
-    for (int i = 0; i < num_stage_mem; ++i) {
+    for (int i = 0; i < NUM_STAGE_MEM; ++i) {
     	mem_desc_t  *desc = merge_queue->staging_bufs[i];
     	desc->jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
     	log(lsINFO, "GOT: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
@@ -135,7 +194,7 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_q
 
 		if (!b) {
 			++idx;
-			if (idx >= num_stage_mem) {
+			if (idx >= NUM_STAGE_MEM) {
 				idx = 0;
 			}
 		}
@@ -144,7 +203,7 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<Segment*> *merge_q
 	}
 
 //* TODO: move to UdaBridge
-    for (int i = 0; i < num_stage_mem; ++i) {
+    for (int i = 0; i < NUM_STAGE_MEM; ++i) {
     	mem_desc_t  *desc = merge_queue->staging_bufs[i];
     	log(lsDEBUG, "invoking DeleteWeakGlobalRef: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
     	jniEnv->DeleteWeakGlobalRef(desc->jbuf);
@@ -167,12 +226,13 @@ void *merge_online (reduce_task_t *task)
     return NULL;
 }
 
-void *merge_hybrid (reduce_task_t *task)
+// hybrid merge - LPQs phase: executes merge of RDMA segments with LPQs to disk, one after another,  + using AIO
+void merge_hybrid_lpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpqs[], reduce_task_t* task)
 {
-	// in case we have K segments and lpq_size=K+1 then we will do online merge insterad of  hybtid with 2 lpqs: one with K segments and second with 1 segment only.
-	if ((task->num_maps < task->merge_man->num_lpqs) || (task->num_maps <= task->lpq_size + 1)) 
-		return merge_online(task); 
-		
+	char temp_file[PATH_MAX];
+
+	static int lpq_shared_counter = -1; // shared between all reducers of all threads
+	int mem_desc_idx=0;
 	bool b = true;
 	int32_t total_write;
 
@@ -184,7 +244,7 @@ void *merge_hybrid (reduce_task_t *task)
 		subsequent_fetch = task->lpq_size;
 		num_to_fetch = task->num_maps % task->lpq_size;
 		if (num_to_fetch <= 1) // in case of 1 segment left, 1st lpq will merge it
-			num_to_fetch += subsequent_fetch;		
+			num_to_fetch += subsequent_fetch;
 	}
 	else if (task->num_maps % regular_lpqs) {
 		num_to_fetch = task->num_maps % regular_lpqs; //1st lpq will be smaller than all others
@@ -196,9 +256,26 @@ void *merge_hybrid (reduce_task_t *task)
 	}
 
 
-	MergeQueue<Segment*>* merge_lpq[task->merge_man->num_lpqs];
-	char temp_file[PATH_MAX];
-	static int lpq_shared_counter = -1; // shared between all reducers of all threads
+    // allocating aligned buffer for staging mem
+    char* staging_row_mem;
+    int total_stating_size = NUM_STAGE_MEM * LPQ_STAGE_MEM_SIZE;
+    int rc = posix_memalign((void**)&staging_row_mem,  AIO_ALIGNMENT, total_stating_size);
+    if (rc) {
+    	log(lsFATAL, "failed to allocate memory for LPQs stating buffer. posix_memalign failed: alignment=%d , total_size=%ll --> rc=%d %m", AIO_ALIGNMENT, total_stating_size, rc );
+        exit(-1);
+    }
+
+    // creating one set of staging mem for all LPQs - TODO: on future non-blocking LPQs, will need a set of stating mem for each LPQ
+	mem_desc_t* staging_descs = new mem_desc_t[NUM_STAGE_MEM];
+    for (int i = 0; i < NUM_STAGE_MEM; ++i) {
+        staging_descs[i].buff  = staging_row_mem + i*LPQ_STAGE_MEM_SIZE;
+        staging_descs[i].buf_len = LPQ_STAGE_MEM_SIZE;
+        staging_descs[i].owner = NULL;
+        staging_descs[i].status = INIT;
+        pthread_mutex_init(&staging_descs[i].lock, NULL);
+        pthread_cond_init(&staging_descs[i].cond, NULL);
+    }
+
 	for (int i = 0; task->merge_man->total_count < task->num_maps; ++i)
 	{
 		log(lsDEBUG, "====== [%d] Creating LPQ for %d segments (already fetched=%d; num_maps=%d)", i, num_to_fetch, task->merge_man->total_count, task->num_maps);
@@ -208,38 +285,110 @@ void *merge_hybrid (reduce_task_t *task)
 		local_counter %= task->local_dirs.size();
 		const string & dir = task->local_dirs[local_counter]; //just ref - no copy
 		sprintf(temp_file, "%s/NetMerger.%s.lpq-%d", dir.c_str(), task->reduce_task_id, i);
-		merge_lpq[i] = new MergeQueue<Segment*>(num_to_fetch, temp_file);
-		merge_do_fetching_phase(task, merge_lpq[i], num_to_fetch);
-
-		log(lsDEBUG, "[%d] === Enter merging LPQ using file: %s", i, merge_lpq[i]->filename.c_str());
-		b = write_kv_to_file(merge_lpq[i], merge_lpq[i]->filename.c_str(), total_write);
+		merge_lpqs[i] = new MergeQueue<BaseSegment*>(num_to_fetch, staging_descs, temp_file);
+		merge_do_fetching_phase(task, merge_lpqs[i], num_to_fetch);
+		log(lsDEBUG, "[%d] === Enter merging LPQ using file: %s", i, merge_lpqs[i]->filename.c_str());
+		merge_lpq_to_aio_file(task, merge_lpqs[i], merge_lpqs[i]->filename.c_str(), aio , total_write, mem_desc_idx);
 		log(lsDEBUG, "===after merge of LPQ b=%d, total_write=%d", (int)b, total_write);
 		// end of block from previous loop
 
 		num_to_fetch = subsequent_fetch;
 	}
 
-	log(lsDEBUG, "=== ALL LPQs completed  building RPQ...");
-	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
-	{
-		log(lsDEBUG, "[%d] === inserting LPQ using file: %s", i, merge_lpq[i]->filename.c_str());
-		task->merge_man->merge_queue->insert(new SuperSegment(task, merge_lpq[i]->filename.c_str()));
-		log(lsDEBUG, "[%d] === after insert LPQ into RPQ", i);
-		num_to_fetch = subsequent_fetch;
+    log(lsTRACE, "IDAN_LPQ after merge loop - AIO ONAIR=%d", aio->getOnAir());
+
+	// wait for aio to complete all LPQs outputs async write
+	while(aio->getOnAir() > 0)  {
+		mem_desc_idx = (mem_desc_idx == NUM_STAGE_MEM - 1) ? 0 : (mem_desc_idx + 1) ;
+		pthread_mutex_lock(&staging_descs[mem_desc_idx].lock);
+		if (aio->getOnAir() > 0) {
+			log(lsTRACE, "IDAN_LPQ_WAIT REDUCEID=%s waiting for lpqs AIO: ONAIR=%d", task->reduce_task_id ,aio->getOnAir());
+			if (staging_descs[mem_desc_idx].status != FETCH_READY)
+				pthread_cond_wait(&staging_descs[mem_desc_idx].cond, &staging_descs[mem_desc_idx].lock);
+	}
+		pthread_mutex_unlock(&staging_descs[mem_desc_idx].lock);
 	}
 
+	// delete LPQs staging buffers
+	log(lsTRACE, "IDAN LPQ - destrying staging buffers's cond&mutex");
+    for (int i = 0; i < NUM_STAGE_MEM; ++i) {
+        if ((rc=pthread_cond_destroy(&staging_descs[i].cond))) {
+        	log(lsERROR, "Faile to destroy pthread_cond - rc=%d", rc);
+        }
+        if ((rc=pthread_mutex_destroy(&staging_descs[i].lock))) {
+        	log(lsERROR, "Faile to destroy pthread_mutex - rc=%d", rc);
+        }
+    }
+	log(lsTRACE, "IDAN LPQ - deleting staging buffers");
+	delete[] staging_descs;
+    free(staging_row_mem);
+
+}
+
+// hybrid merge - RPQ phase: executes merge of LPQs spilled outputs to JAVA by using AIO to read spills and nexuses to write to JAVA stream
+void merge_hybrid_rpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpqs[], reduce_task_t* task)
+{
+	AioSegment** rpqSegmentsArr = new AioSegment*[task->merge_man->num_lpqs];
 
 	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
 	{
-		merge_lpq[i]->core_queue.clear();
-		delete merge_lpq[i];
+		log(lsDEBUG, "[%d] === creating AioSegment for RPQ using file: %s", i, merge_lpqs[i]->filename.c_str());
+
+		// create AioSegment for RPQ
+		rpqSegmentsArr[i] = new AioSegment(new KVOutput(task), aio , merge_lpqs[i]->filename.c_str());
+
+		// send first aio request
+		rpqSegmentsArr[i]->send_request();
+
+		// delete LPQ after inserting AioSegment to RPQ
+		merge_lpqs[i]->core_queue.clear();
+		delete merge_lpqs[i];
+
 	}
+
+	// wait for RPQ's first aio read completions of all LPQs outputs
+	pthread_mutex_lock(&task->merge_man->lock);
+	while (task->merge_man->merge_queue->getQueueSize() < task->merge_man->num_lpqs) {
+		log(lsTRACE, "IDAN_LPQ_WAIT REDUCEID=%s waiting for RPQ first AIO reads: current on Queue:%d num_lpqs=%d", task->reduce_task_id, task->merge_man->merge_queue->getQueueSize(), task->merge_man->num_lpqs);
+		pthread_cond_wait(&task->merge_man->cond, &task->merge_man->lock);
+	}
+	log(lsTRACE, "IDAN_LPQ_WAIT REDUCEID=%s all first RPQ's AIO read completed (%d)", task->reduce_task_id ,task->merge_man->num_lpqs);
+	pthread_mutex_unlock(&task->merge_man->lock);
+
 
 	log(lsDEBUG, "RPQ phase: going to merge all LPQs...");
 	merge_do_merging_phase(task, task->merge_man->merge_queue);
 	log(lsDEBUG, "after ALL merge");
 
-	write_log(task->reduce_log, DBG_CLIENT, "merge thread exit");
+	delete[] rpqSegmentsArr;
+
+}
+
+void *merge_hybrid (reduce_task_t *task)
+{
+	// in case we have K segments and lpq_size=K+1 then we will do online merge insterad of  hybtid with 2 lpqs: one with K segments and second with 1 segment only.
+	if ((task->num_maps < task->merge_man->num_lpqs) || (task->num_maps <= task->lpq_size + 1) || (task->merge_man->num_lpqs < 2))
+		return merge_online(task); 
+		
+    // Setup AIO context
+	int max_simultaniesly_aios= (NUM_STAGE_MEM * task->merge_man->num_lpqs);
+	int max_events= max(MERGE_AIOHANDLER_CTX_MAXEVENTS, (2 * max_simultaniesly_aios)); // x2 to be on safe side
+	int nr=max(MERGE_AIOHANDLER_NR, max_simultaniesly_aios); // represent the max amount of aio events pulled&callbacked for one call of io_getevents
+	timespec timeout;
+    timeout.tv_nsec=MERGE_AIOHANDLER_TIMEOUT_IN_NSEC;
+    timeout.tv_sec=0;
+	log(lsINFO, "AIO: creating new AIOHandler with maxevents=%d , min_nr=%d, nr=%d timeout=%ds %ldns", max_events, MERGE_AIOHANDLER_MIN_NR, nr , timeout.tv_sec, timeout.tv_nsec );
+	AIOHandler* aio = new AIOHandler(aio_lpq_write_completion_handler, max_events, MERGE_AIOHANDLER_MIN_NR , MERGE_AIOHANDLER_NR, &timeout );
+    aio->start();
+
+	MergeQueue<BaseSegment*>* merge_lpqs[task->merge_man->num_lpqs];
+	merge_hybrid_lpq_phase(aio, merge_lpqs, task);
+	log(lsINFO, "=== REDUCEID=%s ALL LPQs completed  building RPQ...", task->reduce_task_id);
+	aio->setCompletionCallback(aio_rpq_read_completion_handler);
+	merge_hybrid_rpq_phase(aio, merge_lpqs, task);
+
+	delete aio;
+	log(lsINFO, "hybrid merge finish");
     return NULL;
 }
 
@@ -271,24 +420,30 @@ void *merge_thread_main (void *context)
     return NULL;
 }
 
+
 /* in-memory map output */
-MapOutput::MapOutput(struct reduce_task *task) 
+MapOutput::MapOutput(struct reduce_task *task) : KVOutput(task)
+{
+    this->part_req = NULL;
+    this->fetch_count = 0;
+
+   	pthread_mutex_lock(&task->lock);
+  	mop_id = this->task->mop_index++;
+   	pthread_mutex_unlock(&task->lock);
+}
+
+KVOutput::KVOutput(struct reduce_task *task)
 {
     memory_pool_t *mem_pool;
 
     this->task = task;
     this->staging_mem_idx = 0;
-    this->part_req = NULL;
     this->total_len = 0;
     this->total_fetched = 0;
-    this->fetch_count = 0;
+    this->last_fetched = 0;
     pthread_mutex_init(&this->lock, NULL);
     pthread_cond_init(&this->cond, NULL);
-
-    pthread_mutex_lock(&task->lock); 
-    mop_id = this->task->mop_index++;
-    pthread_mutex_unlock(&task->lock);
-
+    
     mem_pool = &(merging_sm.mop_pool);
 
     pthread_mutex_lock(&mem_pool->lock);
@@ -312,6 +467,7 @@ MapOutput::MapOutput(struct reduce_task *task)
     mop_bufs[1]->status = FETCH_READY;
     list_del(&mop_bufs[1]->list);
     pthread_mutex_unlock(&mem_pool->lock);
+	
 }
 
 MapOutput::~MapOutput()
@@ -320,7 +476,10 @@ MapOutput::~MapOutput()
     free_hadoop_cmd(*(part_req->info));
     free(part_req->info);
     free(part_req);
+}
 
+KVOutput::~KVOutput() 
+{
     /* return mem */
     memory_pool_t *mem_pool = &(merging_sm.mop_pool);
     pthread_mutex_lock(&mem_pool->lock);
@@ -331,7 +490,7 @@ MapOutput::~MapOutput()
     pthread_mutex_unlock(&mem_pool->lock);
     
     pthread_mutex_destroy(&this->lock);
-    pthread_cond_destroy(&this->cond);
+    pthread_cond_destroy(&this->cond);	
 }
 
 /* The following is for MergeManager */
@@ -350,16 +509,16 @@ MergeManager::MergeManager(int threads, int online, struct reduce_task *task, in
     if (online) {    
 
     	if (online == 1) {
-    		merge_queue = new MergeQueue<Segment*>(task->num_maps);
+    		merge_queue = new MergeQueue<BaseSegment*>(task->num_maps);
     	}
     	else { //online == 2
     		log(lsDEBUG, "hybrid merge will use %d lpqs", num_lpqs);
-    		merge_queue = new MergeQueue<Segment*>(num_lpqs);
+    		merge_queue = new MergeQueue<BaseSegment*>(num_lpqs);
     	}
 
         /* get staging mem from memory_pool*/
         pthread_mutex_lock(&task->kv_pool.lock);
-        for (int i = 0; i < num_stage_mem; ++i) {
+        for (int i = 0; i < NUM_STAGE_MEM; ++i) {
             merge_queue->staging_bufs[i] = 
               list_entry(task->kv_pool.free_descs.next,
                          typeof(*merge_queue->staging_bufs[i]), list);
@@ -385,7 +544,7 @@ MergeManager::~MergeManager()
     
     if (merge_queue != NULL ) {
         pthread_mutex_lock(&task->kv_pool.lock);
-        for (int i = 0; i < num_stage_mem; ++i) {
+        for (int i = 0; i < NUM_STAGE_MEM; ++i) {
             mem_desc_t *desc = 
                 merge_queue->staging_bufs[i];
             pthread_cond_broadcast(&desc->cond); 

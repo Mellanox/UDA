@@ -14,6 +14,9 @@
 #ifndef PRIORITYQUEUE_H_
 #define PRIORITYQUEUE_H_
 
+#define NUM_STAGE_MEM (2)
+
+
 #include <vector>
 #include <list>
 #include <string>
@@ -208,11 +211,12 @@ private:
     T min_segment;
     DataStream *key;
     DataStream *val;
+    int num_of_segments;
 public:
     const std::string filename;
 
 public: 
-
+    size_t getQueueSize() { return num_of_segments; }
     virtual ~MergeQueue(){}
     int        mergeq_flag;  /* flag to check the former k,v */
     RawKeyValueIterator* merge(int factor, int inMem, std::string &tmpDir);
@@ -226,6 +230,7 @@ public:
         if (core_queue.size() == 0) {
         	return false;
         }
+
 
         if (this->min_segment != NULL) {
             this->adjustPriorityQueue(this->min_segment);
@@ -249,6 +254,7 @@ public:
             }
             case 1: { /*next keyVal exist*/
                 core_queue.put(segment);
+                num_of_segments++;
                 break;
             }
             case -1: { /*break in the middle of the data*/
@@ -259,12 +265,6 @@ public:
             default:
                 output_stderr("MergeQueue: Error in insert");
                 break;
-        }
-
-
-        if (ret){
-        	write_log(segment->get_task()->reduce_log,
-                  DBG_CLIENT, "MergeQueue: current size %d", core_queue.size());
 
         }
 
@@ -276,16 +276,22 @@ public:
     int32_t get_key_bytes(){return this->min_segment->kbytes;}
     int32_t get_val_bytes() {return this->min_segment->vbytes;}
 
-      MergeQueue(int numMaps, const char*fname = "") : filename(fname){
+      MergeQueue(int numMaps, mem_desc_t* staging_descs = NULL ,const char*fname = "") : filename(fname){        
         this->mSegments = NULL;
         this->min_segment = NULL;
         this->key = NULL;
         this->val = NULL;
         this->mergeq_flag = 0;
-        this->staging_bufs[0] = NULL;
-        this->staging_bufs[1] = NULL;
+        
+        
+        if (staging_descs) {
+        	for (int i=0;i < NUM_STAGE_MEM; i++)  
+		        this->staging_bufs[i] = &staging_descs[i];
+        }
+        
         core_queue.initialize(numMaps);
         core_queue.clear();
+        
     }
 
     MergeQueue(std::list<T> *segments){
@@ -293,7 +299,7 @@ public:
         this->min_segment = NULL;
     }
 
-    mem_desc_t  *staging_bufs[2]; 
+    mem_desc_t*  staging_bufs[NUM_STAGE_MEM];
     PriorityQueue<T> core_queue;
 
 protected:
@@ -306,6 +312,7 @@ protected:
             case 0: { /*no more data for this segment*/
                 T s = core_queue.pop();
                 delete s;
+                num_of_segments--;
                 break;
             }
             case 1: { /*next KV pair exist*/
@@ -318,6 +325,7 @@ protected:
                     core_queue.adjustTop();
                 } else {
                     T s = core_queue.pop();
+                    num_of_segments--;
                     delete s;
                 }
                 break;

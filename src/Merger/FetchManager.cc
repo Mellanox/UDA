@@ -103,15 +103,13 @@ int FetchManager::start_fetch_req(client_part_req_t *req)
     log(lsTRACE, "after start_fetch_req from host=%s ret=%d", req->info->params[0], ret); //TODO consider if this log is too verbose
     if ( ret == 0 ) {
         if (req->mop->fetch_count == 0) {
-            write_log(task->reduce_log, DBG_CLIENT,
-                     "First time fetch: %d destination: %s", 
+            log(lsDEBUG, "First time fetch: %d destination: %s",
                       task->total_first_fetch,
                       req->info->params[0]);
         }
     } else if(ret == -2) {
         if (req->mop->fetch_count == 0) {
-            write_log(task->reduce_log, DBG_CLIENT,
-                     "First time fetch request is in backlog: %d", 
+        	log(lsDEBUG, "First time fetch request is in backlog: %d",
                      task->total_first_fetch);
         }
     } else {
@@ -149,6 +147,7 @@ int FetchManager::update_fetch_req(client_part_req_t *req)
 
     pthread_mutex_lock(&req->mop->lock);
     /* set variables in map output */
+    req->mop->last_fetched = req->last_fetched;
     req->mop->total_len      = req->total_len;
     req->mop->total_fetched += req->last_fetched;
     req->mop->mop_bufs[req->mop->staging_mem_idx]->status = MERGE_READY;
@@ -160,20 +159,10 @@ int FetchManager::update_fetch_req(client_part_req_t *req)
         pthread_mutex_lock(&merger->lock);
         merger->fetched_mops.push_back(req->mop);
         pthread_cond_broadcast(&merger->cond);
-        /* write_log(task->reduce_log, DBG_CLIENT, 
-                  "First time return: %d", 
-                  ++task->total_first_return); */
         pthread_mutex_unlock(&merger->lock);
     } else {
-		// log(lsTRACE, "Got subsequent chunk for existing segment"); // TODO: remove this log
-
-		/* wake up the merging thread */
-        //pthread_mutex_lock(&req->mop->lock);
         pthread_cond_broadcast(&req->mop->cond); 
-        //pthread_mutex_unlock(&req->mop->lock);
-        //pthread_cond_broadcast(&merger->cond);
     } 
-    //pthread_cond_broadcast(&req->mop->cond);
    
     return 1;
 }

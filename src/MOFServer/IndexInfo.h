@@ -49,7 +49,6 @@ typedef struct shuffle_req
     string    m_jobid;
     string    m_reduceid;
     string    m_map;
-//    bool      prefetch;
     int32_t   reduceID;
     int64_t   map_offset;
     int64_t   remote_addr;

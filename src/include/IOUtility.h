@@ -135,8 +135,8 @@ class DataStream : public InStream,
 {
 protected:
     char   *buf;
-    int32_t count;
-    int32_t pos;
+    size_t count;
+    size_t pos;
 
 public:
     DataStream(char*, int32_t);

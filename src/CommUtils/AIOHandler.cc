@@ -19,6 +19,7 @@ AIOHandler::AIOHandler(AioCallback callback, int ctx_maxevents, long min_nr, lon
 	_cbRow = new iocb*[MAX_EVENTS];
 	_cbRowIndex=0;
 	_onAirCounter=0;
+	_onAirKernelCounter=0;
 	pthread_mutex_init(&_cbRowLock, NULL);
 }
 
@@ -57,6 +58,7 @@ AIOHandler::~AIOHandler() {
 
 		io_destroy(_context);
 	}
+	pthread_mutex_destroy(&_cbRowLock);
 	free(_cbRow);
 
 }
@@ -77,10 +79,25 @@ int AIOHandler::prepare_read(int fd, uint64_t fileOffset, size_t sizeToRead, cha
 }
 
 int AIOHandler::prepare_write(int fd, uint64_t fileOffset, size_t sizeToWrite, char* srcBuffer, void* callback_arg) {
-	throw "NOT Implemented";
+	if (!validateAligment(fileOffset, sizeToWrite, srcBuffer))
+		return -1;
+
+	pthread_mutex_lock(&_cbRowLock);
+	_cbRow[_cbRowIndex]=new iocb();
+	io_prep_pwrite(_cbRow[_cbRowIndex] ,fd, srcBuffer,  sizeToWrite, fileOffset);
+	_cbRow[_cbRowIndex]->data = callback_arg;
+	_cbRowIndex++;
+	pthread_mutex_unlock(&_cbRowLock);
+
+	return 0;
 }
 
 bool AIOHandler::validateAligment(long fileOffset, size_t size, char* buff) {
+	if (size < 0) {
+		log(lsERROR,"AIO parameter is not legal: size<0");
+		return false;
+	}
+
 	int mod;
 	mod = fileOffset&ALIGMENT_MASK;
 	if (mod) {
@@ -110,20 +127,19 @@ int AIOHandler::submit() {
 	if (_cbRowIndex != 0) {
 		pthread_mutex_lock(&_cbRowLock);
 		if (_cbRowIndex != 0) {
-			if ((rc = io_submit(_context, _cbRowIndex, _cbRow)) <= 0) {
-				log(lsERROR,"io_submit (read) failure: rc=%d", rc);
+			_onAirCounter+=_cbRowIndex;
+			_onAirKernelCounter+=_cbRowIndex;
+			log(lsTRACE,"AIO: %d operations submitted. current ONAIR=%d ONAIRKERNEL=%d", rc, _onAirCounter, _onAirKernelCounter);
+			if ((rc = io_submit(_context, _cbRowIndex, _cbRow)) < 0) {
+				log(lsERROR,"io_submit failure: rc=%d", rc);
 			}
-
-			if (rc != _cbRowIndex) {
+			else if (rc != _cbRowIndex) {
 				log(lsERROR,"io_submit unexpectedly returned only %d submitted operations , instead of %d",rc, _cbRowIndex);
+				_onAirCounter-= (_cbRowIndex-rc);
+				_onAirKernelCounter-=(_cbRowIndex-rc);
 			}
 
 			_cbRowIndex=0;
-		}
-
-		if (rc>0) {
-			_onAirCounter+=rc;
-			log(lsTRACE,"AIO: %d operations submitted. current ONAIR=%d", rc, _onAirCounter);
 		}
 		pthread_mutex_unlock(&_cbRowLock);
 
@@ -174,8 +190,8 @@ void AIOHandler::processEventsCallbacks() {
 		else if (rc > 0) {
 
 
-			_onAirCounter-=rc;
-			log(lsTRACE, "AIO: %d events notified. current ONAIR=%d", rc, _onAirCounter);
+			_onAirKernelCounter-=rc;
+			log(lsTRACE,"AIO: %d operations submitted. current ONAIR=%d ONAIRKERNEL=%d", rc, _onAirCounter, _onAirKernelCounter);
 
 			for (int i=0; i < rc ; i++ ) {
 				cb = (iocb*)eventArr[i].obj;
@@ -200,6 +216,9 @@ void AIOHandler::processEventsCallbacks() {
 				delete cb; // delete the submitted iocb
 				// TODO: make a pool of iocb instead of making new and deleteing for each operation
 
+				_onAirCounter--;
+				log(lsTRACE,"AIO: %d operations submitted. current ONAIR=%d ONAIRKERNEL=%d", rc, _onAirCounter, _onAirKernelCounter);
+
 			}
 		}
 		/*else {
@@ -213,6 +232,11 @@ void AIOHandler::processEventsCallbacks() {
 	log(lsINFO, "AIO: Events processor stopped");
 }
 
+void AIOHandler::setCompletionCallback(AioCallback callback) {
+	pthread_mutex_lock(&_cbRowLock);
+	_callback=callback;
+	pthread_mutex_unlock(&_cbRowLock);
+}
 
 
 

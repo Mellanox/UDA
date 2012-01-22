@@ -22,14 +22,15 @@
 class MapOutput;
 class RawKeyValueIterator;
 #include "MergeQueue.h"
+#include "AIOHandler.h"
 
-/* The following is for class Segment */
-class Segment
+
+class BaseSegment
 {
 public:
-    Segment (MapOutput *mapOutput);
+    BaseSegment (KVOutput *kvOutput);
     /* Segment (const std::string &path); */
-    virtual ~Segment();
+    virtual ~BaseSegment();
 
     /**
      *-1: data interruption;
@@ -42,15 +43,16 @@ public:
     virtual int         nextKV();
     virtual bool        switch_mem();
     virtual void        close();
-    virtual void        send_request();
-    virtual reduce_task *get_task() {return map_output->task;}
+    virtual void        send_request() = 0;
+    virtual reduce_task *get_task() {return kv_output->task;}
 
     DataStream  key;
     DataStream  val;
 protected:
     virtual int         nextKVInternal(InStream *stream);
     virtual bool        join (char *src, int32_t src_len);
-    MapOutput   *map_output;
+
+    KVOutput   *kv_output;
 public:
     int32_t      cur_key_len;
     int32_t      cur_val_len;
@@ -63,6 +65,21 @@ public:
     int32_t      temp_buf_len;
     int64_t      byte_read;
     DataStream  *in_mem_data;
+};
+	
+
+/* The following is for class Segment */
+class Segment : public BaseSegment
+{
+public:
+    Segment (MapOutput *mapOutput);
+    /* Segment (const std::string &path); */
+    virtual ~Segment();
+
+    virtual void        send_request();
+
+protected:
+    MapOutput   *map_output;
 #if 0
     FILE        *file;
     FileStream  *file_stream;
@@ -109,12 +126,25 @@ public:
     std::string  path;
 };
 
-bool write_kv_to_mem (MergeQueue<Segment*> *records, char *src,
+class AioSegment : public BaseSegment {
+protected:
+	AIOHandler* aio;
+	int			fd;
+public:
+	AioSegment(KVOutput* kvOutput, AIOHandler* aio, const char* filename);
+	~AioSegment();
+	virtual void send_request();
+};
+
+bool write_kv_to_mem (MergeQueue<BaseSegment*> *records, char *src,
                       int32_t len, int32_t &total_write);
 
-bool write_kv_to_file(MergeQueue<Segment*> *records, const char *file_name, int32_t &total_write);
+bool write_kv_to_file(MergeQueue<BaseSegment*> *records, const char *file_name, int32_t &total_write);
 
 void write_kv_to_disk(RawKeyValueIterator *records, const char *file_name);
+
+void merge_lpq_to_aio_file(reduce_task* task, MergeQueue<BaseSegment*> *records, const char *file_name, AIOHandler* aio, int32_t &total_write, int32_t& mem_desc_idx);
+
 
 #endif
 

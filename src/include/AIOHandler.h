@@ -28,7 +28,9 @@ private:
 	iocb**			_cbRow;
 	int				_cbRowIndex;
 	pthread_mutex_t	_cbRowLock;
-	int	_onAirCounter;
+	int	_onAirKernelCounter;
+	int _onAirCounter;
+
 
 	// thread function for processing aio events callbacks .
 	void processEventsCallbacks();
@@ -78,6 +80,17 @@ public:
 	// initializes aio context and starts the thread for processing submitted aio events callbacks
 	// D'tor will stop the thread.
 	int start();
+
+	/*
+	 * Set the function method which will be called for each aio completion event
+	 */
+	void setCompletionCallback(AioCallback callback);
+
+	/*
+	 * return the current number of submitted AIOs that wasn't completed yet AND it's callback wasn't processed yet
+	 */
+	int getOnAir() { return _onAirCounter; }
+
 
 };
 

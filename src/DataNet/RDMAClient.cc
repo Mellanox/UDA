@@ -39,7 +39,6 @@ client_comp_ibv_send(netlev_wqe_t *wqe)
     pthread_mutex_lock(&dev->lock);
     release_netlev_wqe(wqe, &dev->wqe_list);
     pthread_mutex_unlock(&dev->lock);
-
 }
 
 static void 
@@ -99,7 +98,6 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
     else {
     	log(lsDEBUG, "received a noop");
     }
-
 
 
     wqe->state = RECV_WQE_COMP; 
@@ -195,6 +193,12 @@ client_cq_handler(progress_event_t *pevent, void *data)
     } while (ne);
 
 	error_event:
+
+	if (ibv_req_notify_cq(dev->cq, 0) != 0) {
+        output_stderr("[%s,%d] ibv_req_notify_cq failed\n",
+                      __FILE__,__LINE__);
+    }
+
 
 	if (ibv_req_notify_cq(dev->cq, 0) != 0) {
         output_stderr("[%s,%d] ibv_req_notify_cq failed\n",

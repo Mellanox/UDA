@@ -36,7 +36,6 @@
 using namespace std;
 
 extern merging_state_t merging_sm;
-extern int num_stage_mem;
 extern void *fetch_thread_main (void *context);
 extern void *merge_thread_main (void *context);
 
@@ -272,7 +271,7 @@ void spawn_reduce_task()
     /* init large memory pool for merged kv buffer */
     memset(&g_task->kv_pool, 0, sizeof(memory_pool_t));
     netlev_kv_pool_size  = 1 << NETLEV_KV_POOL_EXPO;
-    if (create_mem_pool(netlev_kv_pool_size, num_stage_mem, &g_task->kv_pool)) {
+    if (create_mem_pool(netlev_kv_pool_size, NUM_STAGE_MEM, &g_task->kv_pool)) {
     	log(lsFATAL, "failed to create memory pool for reduce g_task for merged kv buffer");
     	exit(-1);
     }
@@ -344,9 +343,10 @@ void finalize_reduce_task(reduce_task_t *task)
 	log(lsDEBUG, ">> before joining fetch_thread");
     pthread_join(task->fetch_thread.thread, NULL); log(lsINFO, "THREAD JOINED");
 	log(lsINFO, "-------------->>> fetch_thread has joined <<<<------------");
+
     delete task->fetch_man;
     
-    /* stop merge thread - This will only happen after joining fetch_thread*/
+    /* stop merge thread and upload thread - This will only happen after joining fetch_thread*/
     task->merge_thread.stop = 1;
     pthread_mutex_lock(&task->merge_man->lock);
     pthread_cond_broadcast(&task->merge_man->cond);
@@ -354,6 +354,7 @@ void finalize_reduce_task(reduce_task_t *task)
 	log(lsDEBUG, "<< before joining merge_thread");
     pthread_join(task->merge_thread.thread, NULL); log(lsINFO, "THREAD JOINED");
 	log(lsINFO, "-------------->>> merge_thread has joined <<<<------------");
+
     delete task->merge_man;
    
     /* delete map */
@@ -368,12 +369,19 @@ void finalize_reduce_task(reduce_task_t *task)
     DBGPRINT(DBG_CLIENT, "host lists and map are freed\n"); */
 
     /* free large pool */
-	log(lsTRACE, ">> before free pool loop");
+	int rc=0;
+    log(lsTRACE, ">> before free pool loop");
     while (!list_empty(&task->kv_pool.free_descs)) {
         mem_desc_t *desc = 
             list_entry(task->kv_pool.free_descs.next, 
                        typeof(*desc), list);
         list_del(&desc->list);
+        if ((rc=pthread_cond_destroy(&desc->cond))) {
+        	log(lsERROR, "Faile to destroy pthread_cond - rc=%d", rc);
+        }
+        if ((rc=pthread_mutex_destroy(&desc->lock))) {
+        	log(lsERROR, "Faile to destroy pthread_mutex - rc=%d", rc);
+        }
         free(desc);
     }
 	log(lsTRACE, "<< after  free pool loop");
@@ -381,8 +389,12 @@ void finalize_reduce_task(reduce_task_t *task)
     free(task->kv_pool.mem);
     write_log(task->reduce_log, DBG_CLIENT, "kv pool is freed");
 
-    pthread_mutex_destroy(&task->lock);
-    pthread_cond_destroy(&task->cond);
+    if ((rc=pthread_cond_destroy(&task->cond))) {
+    	log(lsERROR, "Faile to destroy pthread_cond - rc=%d", rc);
+    }
+    if ((rc=pthread_mutex_destroy(&task->lock))) {
+    	log(lsERROR, "Faile to destroy pthread_mutex - rc=%d", rc);
+    }
 
     write_log(task->reduce_log, DBG_CLIENT, "reduce task is freed successfully");
     close_log(task->reduce_log);

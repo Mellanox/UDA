@@ -27,6 +27,7 @@
 #include "../DataNet/RDMAComm.h"
 #include "../Merger/MergeManager.h"
 #include "../Merger/FetchManager.h"
+#include "AIOHandler.h"
 
 class InputClient;
 class C2JNexus;
@@ -44,8 +45,8 @@ typedef struct merging_state {
 
     int                online;
 
-    memory_pool_t      mop_pool; 
-
+    memory_pool_t      mop_pool;
+    
 } merging_state_t;
 typedef struct reduce_task {
     struct list_head   list;
