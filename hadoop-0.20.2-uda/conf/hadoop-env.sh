@@ -7,7 +7,7 @@
 
 # The java implementation to use.  Required.
 export JAVA_HOME=/usr/lib64/java/jdk1.6.0_25/
-export LD_LIBRARY_PATH=./bin
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:./bin
 
 # Extra Java CLASSPATH elements.  Optional.
 # export HADOOP_CLASSPATH=
