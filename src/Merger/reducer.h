@@ -68,8 +68,6 @@ typedef struct reduce_task {
 
     memory_pool_t      kv_pool; 
 
-    FILE              *reduce_log;
-
     /* for measurement */
     int           total_wait_mem_time;
     int           total_fetch_time;

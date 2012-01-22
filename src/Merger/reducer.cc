@@ -210,8 +210,6 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool)
 
 static void init_reduce_task(struct reduce_task *task)
 {
-    /* Initialize log for reduce task */
-    task->reduce_log = create_log(task->reduce_task_id);
     write_log(task->reduce_log, DBG_CLIENT, 
               "%s launched", 
               task->reduce_task_id); 
@@ -305,9 +303,6 @@ void final_cleanup(){
     log (lsDEBUG, "RDMA client is deleted");
 
     log (lsDEBUG, "finished all C++ threads");
-
-//    fclose(stdout);
-    fclose(stderr);
 }
 
 //------------------------------------------------------------------------------
@@ -397,16 +392,14 @@ void finalize_reduce_task(reduce_task_t *task)
     }
 
     write_log(task->reduce_log, DBG_CLIENT, "reduce task is freed successfully");
-    close_log(task->reduce_log);
     
     free(task->reduce_task_id);
     free(task->job_id);
     free(task);
 
-
     final_cleanup();
-
-    log(lsTRACE, "*********  ALL C++ threads finished  ************");
+    log(lsINFO, "*********  ALL C++ threads finished  ************");
+    closeLog();
 }
 
 /*

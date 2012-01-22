@@ -132,7 +132,7 @@ int MOFSupplier_main(int argc, char *argv[])
     memset(&op, 0, sizeof(netlev_option_t));
     ret = parse_options(argc, argv, &op);
     
-    redirect_stderr("MOFSupplier");
+    startLogMOFSupplier();
   
     log (lsINFO, "The version is %s",STR(VERSION_UDA));
     log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
@@ -198,9 +198,7 @@ extern "C" void * MOFSupplierRun(void *) {
     pthread_cond_destroy(&state_mac.cond);
 
     log (lsINFO, "==================  C++ 'main' thread exited ======================");
-
-//    fclose(stdout);
-    fclose(stderr);
+    closeLog();
 
     /* if (op.base_path) { 
         free(op.base_path);

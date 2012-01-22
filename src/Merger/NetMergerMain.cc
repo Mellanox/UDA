@@ -43,7 +43,7 @@ int MergeManager_main(int argc, char* argv[])
     struct netlev_option op;
     ret = parse_options(argc, argv, &op);
 
-    redirect_stderr_ex("NetMerger");
+    startLogNetMerger();
 
 	log(lsINFO, "======== pid=%d ========", getpid() );
 

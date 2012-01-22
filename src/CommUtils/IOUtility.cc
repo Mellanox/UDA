@@ -28,56 +28,6 @@
 using namespace std;
 
 
-log_severity_t g_log_threshold = DEFAULT_LOG_THRESHOLD;
-void log_set_threshold(log_severity_t _threshold)
-{
-	g_log_threshold = (lsNONE <= _threshold && _threshold <= lsALL) ? _threshold : DEFAULT_LOG_THRESHOLD;
-}
-
-void log_func(const char * func, const char * file, int line, log_severity_t severity, const char *fmt, ...)
-{
-	if (severity <= lsNONE) return; //sanity (no need to check upper bound since we already checked threshold )
-
-	// all log goes to stderr!
-    static FILE *stream = stderr; // will be evaluated at first call to the function
-
-    static const char *severity_string[] = {
-		"NONE",
-		"FATAL",
-		"ERROR",
-		"WARN",
-		"INFO",
-		"DEBUG",
-		"TRACE",
-		"ALL"
-    };
-
-    time_t _time = time(0);
-    struct tm _tm;
-    localtime_r(&_time, &_tm);
-
-    const int SIZE = 1024;
-    char s1[SIZE];
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(s1, SIZE, fmt, ap);
-    va_end(ap);
-    s1[SIZE-1] = '\0';
-
-  fprintf(stream, "%02d:%02d:%02d %-5s [thr=%x %s() %s:%d] %s\n",
-		  _tm.tm_hour,
-		  _tm.tm_min,
-		  _tm.tm_sec,
-
-		  severity_string[severity],
-
-		  (int)pthread_self(), func, file, line,
-
-		  s1);
-    fflush(stream);
-}
-
-
 /* FileStream class */
 NetStream::NetStream(int socket)
 {
@@ -525,57 +475,42 @@ int StreamUtility::getVIntSize(int64_t i)
 }
 
 
+//------------------------------------------------------------------------------
 const char *rdmalog_dir = "default";
-const char *default_log = "default";
-bool record = true;
-//*
-FILE* create_log(const char *log_name)
+static FILE *log_file = NULL;
+log_severity_t g_log_threshold = DEFAULT_LOG_THRESHOLD;
+
+//------------------------------------------------------------------------------
+void startLogNetMerger()
 {
+	log_file = NULL;
     char full_path[PATH_MAX];
 
-    if (log_name == NULL
-     || !record) {
-        return NULL;
-    }
-
-    //log name
-    sprintf(full_path, "%s%s",
-            rdmalog_dir, log_name);
-    FILE *log = fopen(full_path, "w");
-    return log;
-}
-
-void close_log(FILE *log)
-{
-    if (log != NULL)
-      fclose(log);
-}
-//*/
-void redirect_stderr_ex(const char *proc)
-{
-    char full_path[PATH_MAX];
-
-    if (!record)
+    if (g_log_threshold <= lsNONE)
         return;
 
     const char * const hadoop_home = getenv("HADOOP_HOME");
     if (hadoop_home) {
-    	sprintf(full_path, "%s/%s/uda-%s.log", hadoop_home, rdmalog_dir, proc);
-    	freopen (full_path,"a",stderr);
+    	sprintf(full_path, "%s/%s/udaNetMerger.log", hadoop_home, rdmalog_dir);
         printf("log will go to: %s\n", full_path);
+    	log_file = fopen (full_path,"a");
     }
-    else {
+
+    if (!log_file) {
         printf("log will go to stderr\n");
         fprintf(stderr, "log will go to stderr\n");
+    	log_file = stderr;
     }
 }
 
 
-void redirect_stderr(const char *proc)
+//------------------------------------------------------------------------------
+void startLogMOFSupplier()
 {
+	log_file = NULL;
     char full_path[PATH_MAX];
 
-    if (!record)
+	if (g_log_threshold <= lsNONE)
         return;
       
     char host[100] = {0};
@@ -584,32 +519,27 @@ void redirect_stderr(const char *proc)
 
     const char * const hadoop_home = getenv("HADOOP_HOME");
     if (hadoop_home) {
-    	sprintf(full_path, "%s/%s/hadoop-%s-%s-%s.log", hadoop_home, rdmalog_dir, getlogin(), proc, host);
-    	freopen (full_path,"w",stderr);
+    	sprintf(full_path, "%s/%s/hadoop-%s-udaMOFSupplier-%s.log", hadoop_home, rdmalog_dir, getlogin(), host);
         printf("log will go to: %s\n", full_path);
+    	log_file = fopen (full_path,"a");
     }
-    else {
+
+    if (!log_file) {
         printf("log will go to stderr\n");
         fprintf(stderr, "log will go to stderr\n");
+    	log_file = stderr;
     }
 }
 
-void redirect_stdout(const char *proc)
+//------------------------------------------------------------------------------
+void closeLog()
 {
-    char full_path[PATH_MAX];
-    
-    if (!record)
-        return;
-    
-    char host[100] = {0};
-    int rc = gethostname(host, 99);
-    if (rc) fprintf(stderr, "gethostname failed: %m(%d)", errno);
-
-
-    sprintf(full_path, "%s/hadoop-%s-%s-%s.stdout", rdmalog_dir, getlogin(), proc, host);
-    freopen (full_path,"w",stdout);
+    if (log_file && log_file != stderr) {
+        log(lsDEBUG, "closing the log...");
+    	fclose(log_file);
+    	log_file = stderr;  // in case a stubborn thread still write too log
+    }
 }
-
 
 //------------------------------------------------------------------------------
 void print_backtrace(const char *label)
@@ -625,6 +555,54 @@ void print_backtrace(const char *label)
 		log(lsTRACE, "=== label=%s: [%i] %s", label, i, strings[i]);
 //*/
 	free(strings);
+}
+
+
+//------------------------------------------------------------------------------
+void log_set_threshold(log_severity_t _threshold)
+{
+	g_log_threshold = (lsNONE <= _threshold && _threshold <= lsALL) ? _threshold : DEFAULT_LOG_THRESHOLD;
+}
+
+//------------------------------------------------------------------------------
+void log_func(const char * func, const char * file, int line, log_severity_t severity, const char *fmt, ...)
+{
+	if (severity <= lsNONE) return; //sanity (no need to check upper bound since we already checked threshold )
+
+    static const char *severity_string[] = {
+		"NONE",
+		"FATAL",
+		"ERROR",
+		"WARN",
+		"INFO",
+		"DEBUG",
+		"TRACE",
+		"ALL"
+    };
+
+    time_t _time = time(0);
+    struct tm _tm;
+    localtime_r(&_time, &_tm);
+
+    const int SIZE = 1024;
+    char s1[SIZE];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(s1, SIZE, fmt, ap);
+    va_end(ap);
+    s1[SIZE-1] = '\0';
+
+  fprintf(log_file, "%02d:%02d:%02d %-5s [thr=%x %s() %s:%d] %s\n",
+		  _tm.tm_hour,
+		  _tm.tm_min,
+		  _tm.tm_sec,
+
+		  severity_string[severity],
+
+		  (int)pthread_self(), func, file, line,
+
+		  s1);
+    fflush(log_file);
 }
 
 

@@ -29,9 +29,7 @@
 #include "IOUtility.h"
 #include "AIOHandler.h"
 
-extern const char *default_log;
 extern char *rdmalog_dir;
-extern bool record;
 extern uint32_t max_hosts;
 extern uint32_t wqes_perconn;
 
@@ -135,10 +133,6 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
             break;
         case 'g':
             rdmalog_dir=strdup(optarg);
-            if (strcmp(rdmalog_dir,
-                       default_log) == 0) {
-                record = false;
-            }
             break;
 
         case 't':
