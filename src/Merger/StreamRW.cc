@@ -321,18 +321,9 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 	if (!stream)
 		return 0;
     
-    /* check if streeam has enough bytes to read the length of next K+V */
+    /* check if stream has enough bytes to read the length of next K+V */
     if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len)))
         return -1;   
-    
-    /* check if streeam has enough bytes to read the length of next K+V */
-    if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len)))
-        return -1;   
-
-	/* check for enough bytes on stream to read keylen + vallen */
-	if (!stream->hasMore(2 * sizeof(int32_t)))
-		return -1;
-
     /* key length */
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
 	if (!k)

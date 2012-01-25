@@ -188,7 +188,7 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *mer
 							desc->act_len);
 
 		desc->status = MERGE_READY;
-    	log(lsDEBUG, "MERGER: invoking java callback: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
+    	log(lsDEBUG, "MERGER: invoking java callback: desc=%p, desc->jbuf=%p, address=%p, capacity=%d act_len=%d", desc, desc->jbuf, desc->buff, desc->buf_len, desc->act_len);
 		UdaBridge_invoke_dataFromUda_callback(task->merge_thread.jniEnv, desc->jbuf, desc->act_len);
 		desc->status = FETCH_READY;
 

@@ -66,7 +66,7 @@
   <loadproperties srcfile="${hadoop.root}/ivy/libraries.properties"/>
   <property name="ivy.jar" location="${hadoop.root}/ivy/ivy-${ivy.version}.jar"/>
   <property name="ivy_repo_url" 
-	value="file:///.autodirect/mtrswgwork/alekseys/ivy-${ivy.version}.jar" />
+	value="http://repo2.maven.org/maven2/org/apache/ivy/ivy/${ivy.version}/ivy-${ivy.version}.jar" />
   <property name="build.dir" location="build" />
   <property name="build.ivy.dir" location="${build.dir}/ivy" />
   <property name="build.ivy.lib.dir" location="${build.ivy.dir}/lib" />

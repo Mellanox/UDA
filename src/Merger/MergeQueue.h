@@ -276,7 +276,8 @@ public:
     int32_t get_key_bytes(){return this->min_segment->kbytes;}
     int32_t get_val_bytes() {return this->min_segment->vbytes;}
 
-      MergeQueue(int numMaps, mem_desc_t* staging_descs = NULL ,const char*fname = "") : filename(fname){        
+      MergeQueue(int numMaps, mem_desc_t* staging_descs = NULL ,const char*fname = "") : filename(fname){
+    	this->num_of_segments=0;
         this->mSegments = NULL;
         this->min_segment = NULL;
         this->key = NULL;

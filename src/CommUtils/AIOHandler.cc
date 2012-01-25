@@ -129,7 +129,6 @@ int AIOHandler::submit() {
 		if (_cbRowIndex != 0) {
 			_onAirCounter+=_cbRowIndex;
 			_onAirKernelCounter+=_cbRowIndex;
-			log(lsTRACE,"AIO: %d operations submitted. current ONAIR=%d ONAIRKERNEL=%d", rc, _onAirCounter, _onAirKernelCounter);
 			if ((rc = io_submit(_context, _cbRowIndex, _cbRow)) < 0) {
 				log(lsERROR,"io_submit failure: rc=%d", rc);
 			}
@@ -138,7 +137,9 @@ int AIOHandler::submit() {
 				_onAirCounter-= (_cbRowIndex-rc);
 				_onAirKernelCounter-=(_cbRowIndex-rc);
 			}
-
+			else {
+				log(lsTRACE,"AIO: %d operations submitted. current ONAIR=%d ONAIRKERNEL=%d", rc, _onAirCounter, _onAirKernelCounter);
+			}
 			_cbRowIndex=0;
 		}
 		pthread_mutex_unlock(&_cbRowLock);
