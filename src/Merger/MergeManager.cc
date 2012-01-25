@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/time.h>
 #include <limits.h> // for PATH_MAX
 #include "MergeQueue.h"
 #include "MergeManager.h"
@@ -230,8 +231,6 @@ void *merge_online (reduce_task_t *task)
 void merge_hybrid_lpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpqs[], reduce_task_t* task)
 {
 	char temp_file[PATH_MAX];
-
-	static int lpq_shared_counter = -1; // shared between all reducers of all threads
 	int mem_desc_idx=0;
 	bool b = true;
 	int32_t total_write;
@@ -276,14 +275,20 @@ void merge_hybrid_lpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpq
         pthread_cond_init(&staging_descs[i].cond, NULL);
     }
 
+    // no more shared index for all reducers as a result of running each R with a different process (JNI)
+    // therfore, using random index for first local dir index
+    timeval tv;
+    tv.tv_usec=0;
+    gettimeofday(&tv, NULL);
+    srand(tv.tv_usec);
+	int local_dir_index = rand() % task->local_dirs.size();
+	log(lsDEBUG, "start with loc"
+			"al_dir_index=%d", local_dir_index);
 	for (int i = 0; task->merge_man->total_count < task->num_maps; ++i)
 	{
 		log(lsDEBUG, "====== [%d] Creating LPQ for %d segments (already fetched=%d; num_maps=%d)", i, num_to_fetch, task->merge_man->total_count, task->num_maps);
 
-
-		int local_counter = ++lpq_shared_counter; // not critical to sync between threads here
-		local_counter %= task->local_dirs.size();
-		const string & dir = task->local_dirs[local_counter]; //just ref - no copy
+		const string & dir = task->local_dirs[local_dir_index]; //just ref - no copy
 		sprintf(temp_file, "%s/NetMerger.%s.lpq-%d", dir.c_str(), task->reduce_task_id, i);
 		merge_lpqs[i] = new MergeQueue<BaseSegment*>(num_to_fetch, staging_descs, temp_file);
 		merge_do_fetching_phase(task, merge_lpqs[i], num_to_fetch);
@@ -292,6 +297,8 @@ void merge_hybrid_lpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpq
 		log(lsDEBUG, "===after merge of LPQ b=%d, total_write=%d", (int)b, total_write);
 		// end of block from previous loop
 
+		++local_dir_index;
+		local_dir_index %= task->local_dirs.size();
 		num_to_fetch = subsequent_fetch;
 	}
 
