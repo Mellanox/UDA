@@ -45,6 +45,7 @@ public:
     virtual void        close();
     virtual void        send_request() = 0;
     virtual reduce_task *get_task() {return kv_output->task;}
+	bool operator<(BaseSegment &seg) { return  (memcmp(key.getData(), seg.key.getData(), key.getLength())  <  0)  ;    }
 
     DataStream  key;
     DataStream  val;

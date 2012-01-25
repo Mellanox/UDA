@@ -61,17 +61,7 @@ private:
     int            m_maxSize;
 
 public:
-    /** 
-     * Determines the ordering of objects in this priority queue.  
-     * Subclasses must define this one method. 
-     */
-    virtual bool lessThan(T a, T b) {
-        DataStream *key1 = &a->key;
-        DataStream *key2 = &b->key;
-        return memcmp(key1->getData(), key2->getData(), key1->getLength()) < 0;
-    }
-
-    void initialize(int maxSize) {
+     void initialize(int maxSize) {
         m_size = 0;
         int heapSize = maxSize + 1;
         m_maxSize = maxSize;
@@ -106,7 +96,7 @@ public:
             put(element);
             return true;
         }
-        else if (m_size > 0 && !lessThan(element, top())) {
+        else if (m_size > 0 && !(*element < *(top()))) {
             m_heap[1] = element;
             adjustTop();
             return true;
@@ -169,7 +159,7 @@ private:
         int i = m_size;
         T node = m_heap[i];			  /* save bottom node*/
         int j = i >> 1;
-        while (j > 0 && lessThan(node, m_heap[j])) {
+        while (j > 0 && (*node < *(m_heap[j]))) {
             m_heap[i] = m_heap[j];	  /* shift parents down*/
             i = j;
             j = j >> 1;				 
@@ -182,16 +172,16 @@ private:
         T node = m_heap[i];			  /* save top node*/
         int j = i << 1;				  /* find smaller child*/
         int k = j + 1;
-        if (k <= m_size && lessThan(m_heap[k], m_heap[j])) {
+        if (k <= m_size && (*(m_heap[k]) < *(m_heap[j]))) {
             j = k;
         }
 
-        while (j <= m_size && lessThan(m_heap[j], node)) {
+        while (j <= m_size && (*(m_heap[j]) < *node)) {
             m_heap[i] = m_heap[j];	  /* shift up child*/
             i = j;
             j = i << 1;
             k = j + 1;
-            if (k <= m_size && lessThan(m_heap[k], m_heap[j])) {
+            if (k <= m_size && (*(m_heap[k]) < *m_heap[j])) {
                 j = k;
             }
         }
