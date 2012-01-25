@@ -164,38 +164,38 @@ import org.apache.hadoop.io.Closeable;
  */
 @Deprecated
 public interface Reducer<K2, V2, K3, V3> extends JobConfigurable, Closeable {
-  
-  /** 
-   * <i>Reduces</i> values for a given key.  
-   * 
-   * <p>The framework calls this method for each 
-   * <code>&lt;key, (list of values)></code> pair in the grouped inputs.
-   * Output values must be of the same type as input values.  Input keys must 
-   * not be altered. The framework will <b>reuse</b> the key and value objects
-   * that are passed into the reduce, therefore the application should clone
-   * the objects they want to keep a copy of. In many cases, all values are 
-   * combined into zero or one value.
-   * </p>
-   *   
-   * <p>Output pairs are collected with calls to  
-   * {@link OutputCollector#collect(Object,Object)}.</p>
-   *
-   * <p>Applications can use the {@link Reporter} provided to report progress 
-   * or just indicate that they are alive. In scenarios where the application 
-   * takes an insignificant amount of time to process individual key/value 
-   * pairs, this is crucial since the framework might assume that the task has 
-   * timed-out and kill that task. The other way of avoiding this is to set 
-   * <a href="{@docRoot}/../mapred-default.html#mapred.task.timeout">
-   * mapred.task.timeout</a> to a high-enough value (or even zero for no 
-   * time-outs).</p>
-   * 
-   * @param key the key.
-   * @param values the list of values to reduce.
-   * @param output to collect keys and combined values.
-   * @param reporter facility to report progress.
-   */
-  void reduce(K2 key, Iterator<V2> values,
-              OutputCollector<K3, V3> output, Reporter reporter)
-    throws IOException;
+
+	/** 
+	 * <i>Reduces</i> values for a given key.  
+	 * 
+	 * <p>The framework calls this method for each 
+	 * <code>&lt;key, (list of values)></code> pair in the grouped inputs.
+	 * Output values must be of the same type as input values.  Input keys must 
+	 * not be altered. The framework will <b>reuse</b> the key and value objects
+	 * that are passed into the reduce, therefore the application should clone
+	 * the objects they want to keep a copy of. In many cases, all values are 
+	 * combined into zero or one value.
+	 * </p>
+	 *   
+	 * <p>Output pairs are collected with calls to  
+	 * {@link OutputCollector#collect(Object,Object)}.</p>
+	 *
+	 * <p>Applications can use the {@link Reporter} provided to report progress 
+	 * or just indicate that they are alive. In scenarios where the application 
+	 * takes an insignificant amount of time to process individual key/value 
+	 * pairs, this is crucial since the framework might assume that the task has 
+	 * timed-out and kill that task. The other way of avoiding this is to set 
+	 * <a href="{@docRoot}/../mapred-default.html#mapred.task.timeout">
+	 * mapred.task.timeout</a> to a high-enough value (or even zero for no 
+	 * time-outs).</p>
+	 * 
+	 * @param key the key.
+	 * @param values the list of values to reduce.
+	 * @param output to collect keys and combined values.
+	 * @param reporter facility to report progress.
+	 */
+	void reduce(K2 key, Iterator<V2> values,
+			OutputCollector<K3, V3> output, Reporter reporter)
+					throws IOException;
 
 }

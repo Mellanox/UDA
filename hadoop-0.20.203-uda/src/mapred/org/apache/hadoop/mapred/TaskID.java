@@ -46,94 +46,94 @@ import java.io.IOException;
 @Deprecated
 public class TaskID extends org.apache.hadoop.mapreduce.TaskID {
 
-  /**
-   * Constructs a TaskID object from given {@link JobID}.  
-   * @param jobId JobID that this tip belongs to 
-   * @param isMap whether the tip is a map 
-   * @param id the tip number
-   */
-  public TaskID(org.apache.hadoop.mapreduce.JobID jobId, boolean isMap,int id) {
-    super(jobId, isMap, id);
-  }
-  
-  /**
-   * Constructs a TaskInProgressId object from given parts.
-   * @param jtIdentifier jobTracker identifier
-   * @param jobId job number 
-   * @param isMap whether the tip is a map 
-   * @param id the tip number
-   */
-  public TaskID(String jtIdentifier, int jobId, boolean isMap, int id) {
-    this(new JobID(jtIdentifier, jobId), isMap, id);
-  }
-  
-  public TaskID() {
-    super(new JobID(), false, 0);
-  }
-  
-  /**
-   * Downgrade a new TaskID to an old one
-   * @param old a new or old TaskID
-   * @return either old or a new TaskID build to match old
-   */
-  public static TaskID downgrade(org.apache.hadoop.mapreduce.TaskID old) {
-    if (old instanceof TaskID) {
-      return (TaskID) old;
-    } else {
-      return new TaskID(JobID.downgrade(old.getJobID()), old.isMap(), 
-                        old.getId());
-    }
-  }
+	/**
+	 * Constructs a TaskID object from given {@link JobID}.  
+	 * @param jobId JobID that this tip belongs to 
+	 * @param isMap whether the tip is a map 
+	 * @param id the tip number
+	 */
+	public TaskID(org.apache.hadoop.mapreduce.JobID jobId, boolean isMap,int id) {
+		super(jobId, isMap, id);
+	}
 
-  @Deprecated
-  public static TaskID read(DataInput in) throws IOException {
-    TaskID tipId = new TaskID();
-    tipId.readFields(in);
-    return tipId;
-  }
-  
-  public JobID getJobID() {
-    return (JobID) super.getJobID();
-  }
+	/**
+	 * Constructs a TaskInProgressId object from given parts.
+	 * @param jtIdentifier jobTracker identifier
+	 * @param jobId job number 
+	 * @param isMap whether the tip is a map 
+	 * @param id the tip number
+	 */
+	public TaskID(String jtIdentifier, int jobId, boolean isMap, int id) {
+		this(new JobID(jtIdentifier, jobId), isMap, id);
+	}
 
-  /** 
-   * Returns a regex pattern which matches task IDs. Arguments can 
-   * be given null, in which case that part of the regex will be generic.  
-   * For example to obtain a regex matching <i>the first map task</i> 
-   * of <i>any jobtracker</i>, of <i>any job</i>, we would use :
-   * <pre> 
-   * TaskID.getTaskIDsPattern(null, null, true, 1);
-   * </pre>
-   * which will return :
-   * <pre> "task_[^_]*_[0-9]*_m_000001*" </pre> 
-   * @param jtIdentifier jobTracker identifier, or null
-   * @param jobId job number, or null
-   * @param isMap whether the tip is a map, or null 
-   * @param taskId taskId number, or null
-   * @return a regex pattern matching TaskIDs
-   */
-  @Deprecated
-  public static String getTaskIDsPattern(String jtIdentifier, Integer jobId
-      , Boolean isMap, Integer taskId) {
-    StringBuilder builder = new StringBuilder(TASK).append(SEPARATOR)
-      .append(getTaskIDsPatternWOPrefix(jtIdentifier, jobId, isMap, taskId));
-    return builder.toString();
-  }
-  
-  @Deprecated
-  static StringBuilder getTaskIDsPatternWOPrefix(String jtIdentifier
-      , Integer jobId, Boolean isMap, Integer taskId) {
-    StringBuilder builder = new StringBuilder();
-    builder.append(JobID.getJobIDsPatternWOPrefix(jtIdentifier, jobId))
-      .append(SEPARATOR)
-      .append(isMap != null ? (isMap ? "m" : "r") : "(m|r)").append(SEPARATOR)
-      .append(taskId != null ? idFormat.format(taskId) : "[0-9]*");
-    return builder;
-  }
+	public TaskID() {
+		super(new JobID(), false, 0);
+	}
 
-  public static TaskID forName(String str
-                               ) throws IllegalArgumentException {
-    return (TaskID) org.apache.hadoop.mapreduce.TaskID.forName(str);
-  }
+	/**
+	 * Downgrade a new TaskID to an old one
+	 * @param old a new or old TaskID
+	 * @return either old or a new TaskID build to match old
+	 */
+	public static TaskID downgrade(org.apache.hadoop.mapreduce.TaskID old) {
+		if (old instanceof TaskID) {
+			return (TaskID) old;
+		} else {
+			return new TaskID(JobID.downgrade(old.getJobID()), old.isMap(), 
+					old.getId());
+		}
+	}
+
+	@Deprecated
+	public static TaskID read(DataInput in) throws IOException {
+		TaskID tipId = new TaskID();
+		tipId.readFields(in);
+		return tipId;
+	}
+
+	public JobID getJobID() {
+		return (JobID) super.getJobID();
+	}
+
+	/** 
+	 * Returns a regex pattern which matches task IDs. Arguments can 
+	 * be given null, in which case that part of the regex will be generic.  
+	 * For example to obtain a regex matching <i>the first map task</i> 
+	 * of <i>any jobtracker</i>, of <i>any job</i>, we would use :
+	 * <pre> 
+	 * TaskID.getTaskIDsPattern(null, null, true, 1);
+	 * </pre>
+	 * which will return :
+	 * <pre> "task_[^_]*_[0-9]*_m_000001*" </pre> 
+	 * @param jtIdentifier jobTracker identifier, or null
+	 * @param jobId job number, or null
+	 * @param isMap whether the tip is a map, or null 
+	 * @param taskId taskId number, or null
+	 * @return a regex pattern matching TaskIDs
+	 */
+	@Deprecated
+	public static String getTaskIDsPattern(String jtIdentifier, Integer jobId
+			, Boolean isMap, Integer taskId) {
+		StringBuilder builder = new StringBuilder(TASK).append(SEPARATOR)
+				.append(getTaskIDsPatternWOPrefix(jtIdentifier, jobId, isMap, taskId));
+		return builder.toString();
+	}
+
+	@Deprecated
+	static StringBuilder getTaskIDsPatternWOPrefix(String jtIdentifier
+			, Integer jobId, Boolean isMap, Integer taskId) {
+		StringBuilder builder = new StringBuilder();
+		builder.append(JobID.getJobIDsPatternWOPrefix(jtIdentifier, jobId))
+		.append(SEPARATOR)
+		.append(isMap != null ? (isMap ? "m" : "r") : "(m|r)").append(SEPARATOR)
+		.append(taskId != null ? idFormat.format(taskId) : "[0-9]*");
+		return builder;
+	}
+
+	public static TaskID forName(String str
+			) throws IllegalArgumentException {
+		return (TaskID) org.apache.hadoop.mapreduce.TaskID.forName(str);
+	}
 
 }
