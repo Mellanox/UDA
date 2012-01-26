@@ -1897,6 +1897,7 @@
 					failonerror="yes">
 		<arg value="clean"/>
 		<arg value="all"/>
+		<env key="JAVA_HOME" value="${java5.home}"/>
 	</exec>
 	<copy file="${c++.rdma.src.MOFSupplier}" todir="bin/" overwrite="true"/>
 	<copy file="${c++.rdma.src.NetMerger}"   todir="bin/" overwrite="true"/>

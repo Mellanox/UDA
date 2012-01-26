@@ -13,7 +13,7 @@ version=$ver.$revision
 
 function build {
 	cd $1
-	/usr/local/ant-1.8.2/bin/ant -Djava5.home=/usr/libjava/jdk1.6.0_25 -Dversion=$version  package 
+	/usr/local/ant-1.8.2/bin/ant -Djava5.home=/usr/lib64/java/jdk1.6.0_25 -Dversion=$version  package 
 	ret_val=$?
 	if [ $ret_val -eq 0 ]
 	then
