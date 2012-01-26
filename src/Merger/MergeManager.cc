@@ -235,7 +235,6 @@ void merge_hybrid_lpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpq
 	bool b = true;
 	int32_t total_write;
 
-
 	const int regular_lpqs = task->merge_man->num_lpqs > 1 ?  task->merge_man->num_lpqs - 1 : 1; // all lpqs but the 1st will have same number of segments
 	int num_to_fetch = 0;
 	int subsequent_fetch = 0;

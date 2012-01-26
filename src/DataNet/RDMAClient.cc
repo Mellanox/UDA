@@ -30,16 +30,6 @@ extern int netlev_dbg_flag;
 extern merging_state_t merging_sm; 
 extern uint32_t wqes_perconn;
 
-static void 
-client_comp_ibv_send(netlev_wqe_t *wqe)
-{
-    netlev_conn_t *conn = wqe->conn;
-    netlev_dev_t  *dev = conn->dev;
-
-    pthread_mutex_lock(&dev->lock);
-    release_netlev_wqe(wqe, &dev->wqe_list);
-    pthread_mutex_unlock(&dev->lock);
-}
 
 static void 
 client_comp_ibv_recv(netlev_wqe_t *wqe)
@@ -47,7 +37,7 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
     struct ibv_send_wr *bad_sr;
     struct ibv_recv_wr *bad_rr;
 
-    hdr_header_t  *h = (hdr_header_t *)wqe->data;
+    netlev_msg_t  *h = (netlev_msg_t *)wqe->data;
     netlev_conn_t *conn = wqe->conn;
     netlev_dev_t  *dev = conn->dev;
 
@@ -66,31 +56,38 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
 
     /* empty backlog */
     while (conn->credits > 0 && !list_empty(&conn->backlog)) {
-        netlev_wqe_t *w;
-        hdr_header_t *bh;
+    	netlev_msg_backlog_t *back = list_entry(conn->backlog.next, typeof(*back), list);
+    	list_del(&back->list);
+    	netlev_msg_t h_back;
+    	h_back.credits = conn->returning;
+		conn->returning = 0;
+
+		h_back.type = back->type;
+		h_back.tot_len = back->len;
+		h_back.src_req = back->src_req ? back->src_req : 0;
+		memcpy(h_back.msg, back->msg, back->len);
+    	int len = sizeof(netlev_msg_t)-(NETLEV_FETCH_REQSIZE-back->len);
+	    struct ibv_send_wr send_wr;
+	    ibv_sge sg ;
+	    bool send_signal = !(conn->sent_counter%SIGNAL_INTERVAL);
+	    conn->sent_counter++;
+    	init_wqe_send(&send_wr, &sg, &h_back, len, send_signal, back->context);
 
         conn->credits--;
-        w = list_entry(conn->backlog.next, typeof(*w), list);
-        list_del(&w->list);
-        bh = (hdr_header_t *)w->data;
 
-        if (conn->returning) {
-            bh->credits = conn->returning;
-            conn->returning = 0;
-        }
         log(lsTRACE, "removing a wqe from backlog");
-        if (ibv_post_send(conn->qp_hndl, &(w->desc.sr), &bad_sr)) {
+        if (ibv_post_send(conn->qp_hndl, &send_wr, &bad_sr)) {
             output_stderr("[%s,%d] Error posting send\n",
                           __FILE__,__LINE__);
         }
-    } 
+        free(back->msg);
+        free(back);
+    }
     pthread_mutex_unlock(&conn->lock);
 
     if ( h->type == MSG_RTS ) {
     	client_part_req_t *req = (client_part_req_t*) (long2ptr(h->src_req));
-
-        char *tmp = (char *)(h + 1);
-        memcpy(req->recvd_msg, tmp, h->tot_len);
+        memcpy(req->recvd_msg, h->msg, h->tot_len);
 
         log(lsTRACE, "Client received RDMA completion for fetch request: jobid=%s, mapid=%s, reducer_id=%s, total_fetched=%lld (not updated for this comp)", req->info->params[1], req->info->params[2], req->info->params[3], req->mop->total_fetched);
         merging_sm.client->rdma->fetch_over(req); 
@@ -99,8 +96,6 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
     	log(lsDEBUG, "received a noop");
     }
 
-
-    wqe->state = RECV_WQE_COMP; 
     
     /* put the receive wqe back */
     init_wqe_recv(wqe, NETLEV_FETCH_REQSIZE, dev->mem->mr->lkey, conn);
@@ -110,15 +105,15 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
         output_stderr("[%s,%d] ibv_post_recv failed\n",
                       __FILE__,__LINE__);
     }
-
     pthread_mutex_lock(&conn->lock);
     conn->returning++;
     pthread_mutex_unlock(&conn->lock);
 
     /* Send a no_op for credit flow */
     if (conn->returning >= (conn->peerinfo.credits >> 1)) {
+    	netlev_msg_t h;
     	log(lsDEBUG, "sending a noop");
-        netlev_send_noop(conn);
+    	netlev_post_send(&h,  0, 0, NULL, conn, MSG_NOOP);
     }
 }
 
@@ -162,7 +157,6 @@ client_cq_handler(progress_event_t *pevent, void *data)
                     goto error_event;
                 }
             } else {
-                wqe = (netlev_wqe_t *) (long2ptr(desc.wr_id));
 
 				/* output_stdout("Detect cq event wqe=%p, opcode=%d",
                               wqe, desc.opcode); */
@@ -170,12 +164,11 @@ client_cq_handler(progress_event_t *pevent, void *data)
                 switch (desc.opcode) {
 
                     case IBV_WC_SEND:
-                    	log(lsTRACE, "rdma client got IBV_WC_SEND local_qp=%d, remote_qp=%d, data=%s", wqe->conn->qp_hndl->qp_num, wqe->conn->peerinfo.qp, wqe->data);
-
-                        client_comp_ibv_send(wqe);
+                    	log(lsTRACE, "IBV_WC_SEND");
                         break;
 
                     case IBV_WC_RECV:
+                    	wqe = (netlev_wqe_t *) (long2ptr(desc.wr_id));
                     	log(lsTRACE, "rdma client got IBV_WC_RECV local_qp=%d, remote_qp=%d, data=%s", wqe->conn->qp_hndl->qp_num, wqe->conn->peerinfo.qp, wqe->data);
                         client_comp_ibv_recv(wqe);
                         break;
@@ -193,12 +186,6 @@ client_cq_handler(progress_event_t *pevent, void *data)
     } while (ne);
 
 	error_event:
-
-	if (ibv_req_notify_cq(dev->cq, 0) != 0) {
-        output_stderr("[%s,%d] ibv_req_notify_cq failed\n",
-                      __FILE__,__LINE__);
-    }
-
 
 	if (ibv_req_notify_cq(dev->cq, 0) != 0) {
         output_stderr("[%s,%d] ibv_req_notify_cq failed\n",
@@ -382,7 +369,6 @@ RdmaClient::RdmaClient(int port, merging_state_t *state)
     INIT_LIST_HEAD(&this->ctx.hdr_dev_list);
     INIT_LIST_HEAD(&this->ctx.hdr_conn_list);
     INIT_LIST_HEAD(&this->register_mems_head); 
-    INIT_LIST_HEAD(&this->wait_reqs);
 
     this->state = state;
     this->parent = state->client;
@@ -498,11 +484,6 @@ int
 RdmaClient::fetch_over(client_part_req_t *freq)
 {
     this->parent->comp_fetch_req(freq);
-    if (!list_empty(&this->wait_reqs)) {
-       client_part_req_t *rq = NULL; 
-       rq = list_entry(this->wait_reqs.next, typeof(*rq), list);
-       fetch(rq);
-    }
     return 0;
 }
 
@@ -510,41 +491,34 @@ RdmaClient::fetch_over(client_part_req_t *freq)
 int 
 RdmaClient::fetch(client_part_req_t *freq) 
 {
-    char            msg[NETLEV_FETCH_REQSIZE];
     int             msg_len;
     uint64_t        addr;
     netlev_conn_t  *conn;
-    netlev_wqe_t   *wqe;
 
     int idx = freq->mop->staging_mem_idx; 
     addr = (uint64_t)((uintptr_t)(freq->mop->mop_bufs[idx]->buff));
-    
+
+    netlev_msg_t h;
+
     /* jobid:mapid:mop_offset:reduceid:mem_addr */
-    msg_len = sprintf(msg,"%s:%s:%ld:%s:%lu:%lu",
-                      freq->info->params[1], 
-                      freq->info->params[2], 
-                      freq->mop->total_fetched, 
-                      freq->info->params[3], 
+    msg_len = sprintf(h.msg,"%s:%s:%ld:%s:%lu:%lu",
+                      freq->info->params[1],
+                      freq->info->params[2],
+                      freq->mop->total_fetched,
+                      freq->info->params[3],
                       addr,(uint64_t) freq);
 
     conn = connect(freq->info->params[0], svc_port);
     if (!conn) return -1; //log was already issued inside connect
-    pthread_mutex_lock(&conn->dev->lock); 
-    wqe = get_netlev_wqe(&conn->dev->wqe_list); 
-    pthread_mutex_unlock(&conn->dev->lock); 
-
-    if (!wqe) {
-    	log(lsERROR,"run out of wqe");
-        list_add_tail(&freq->list, &this->wait_reqs);
-        return 0;
-    }
-    
-    /* keep information about who send request */
-    wqe->context = freq;
     log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%lld, qp=%d, hostname=%s", freq->info->params[2], freq->info->params[3], freq->mop->total_fetched, conn->qp_hndl->qp_num,freq->info->params[0]);
 
-    return netlev_post_send(msg, msg_len, 0, wqe, conn);
+    log(lsTRACE, "msg len is %d", msg_len);
+    return netlev_post_send(&h,  msg_len, 0, freq, conn, MSG_RTS);
+
+
 }
+
+
 
 unsigned long 
 RdmaClient::get_hostip (const char *host)

@@ -118,35 +118,18 @@ void OutputServer::insert_incoming_req(shuffle_req_t *req)
 
 void OutputServer::start_outgoing_req(shuffle_req_t *req, index_record_t* record,  chunk_t *chunk, uint64_t length, int offsetAligment)
 {
-    int send_bytes, len;
-    char ack[NETLEV_FETCH_REQSIZE];
-    uint64_t req_size;
-    uintptr_t local_addr;
-
-    req_size   = length;
-    local_addr = (uintptr_t)(chunk->buff + offsetAligment);
-
-    send_bytes = this->rdma->rdma_write_mof(req->conn, 
-                                            local_addr, 
-                                            req_size, 
-                                            req->remote_addr, (void*)chunk);
-
-    len = sprintf(ack, "%ld:%ld:%d:",
-                  record->rawLength,
-                  record->partLength,
-                  send_bytes);
+    uintptr_t local_addr = (uintptr_t)(chunk->buff + offsetAligment);
 
     /* bool prefetch = req_size > send_bytes; */
-    shuffle_req_t *prefetch_req = NULL;
+//    shuffle_req_t *prefetch_req = NULL;
     /* if (prefetch) {
         prefetch_req = req;
         prefetch_req->prefetch = true;
     } */
 
-//    this->rdma->send_msg(ack, len + 1, (uint64_t)req->peer_wqe, (void *)chunk, req->conn, prefetch_req);
-    this->rdma->send_msg(ack, len + 1, req->freq,
-    		(void *)chunk, req->conn, prefetch_req);
-    
+    this->rdma->rdma_write_mof_send_ack(req, local_addr, length,(void*)chunk, record);
+
+
     /* testing section */
     /* if (req->map_offset == 0) {
         int reduceid = req->reduceID;

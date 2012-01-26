@@ -32,27 +32,15 @@ using namespace std;
 extern supplier_state_t state_mac;
 extern uint32_t wqes_perconn;
 
-static void 
-server_comp_ibv_send(netlev_wqe_t *wqe)
-{
-    netlev_conn_t *conn = wqe->conn;
-    netlev_dev *dev = conn->dev;
-
-    pthread_mutex_lock(&dev->lock);
-    release_netlev_wqe(wqe, &dev->wqe_list);
-    pthread_mutex_unlock(&dev->lock);
-
-
-}
 
 static void 
 server_comp_ibv_recv(netlev_wqe_t *wqe)
 {
     struct ibv_send_wr *bad_sr;
     struct ibv_recv_wr *bad_rr;
-    int rc;
+    int rc=0;
 
-    hdr_header_t  *h = (hdr_header_t*)wqe->data;
+    netlev_msg_t  *h = (netlev_msg_t*)wqe->data;
     netlev_conn_t *conn = wqe->conn;
     netlev_dev_t  *dev = conn->dev;
 
@@ -69,46 +57,50 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
     h->credits = 0;
 
     while (conn->credits > 0 && !list_empty(&conn->backlog)) {
-        netlev_wqe_t *w;
-        hdr_header_t *bh;
+    	netlev_msg_backlog_t *back = list_entry(conn->backlog.next, typeof(*back), list);
+    	list_del(&back->list);
+    	netlev_msg_t h_back;
+    	h_back.credits = conn->returning;
+		conn->returning = 0;
 
-        conn->credits --;
-        w = list_entry(conn->backlog.next, typeof(*w), list);
-        list_del(&w->list);
-        bh = (hdr_header_t *)w->data;
+		h_back.type = back->type;
+		h_back.tot_len = back->len;
+		h_back.src_req = back->src_req ? back->src_req : 0;
+		memcpy(h_back.msg, back->msg, back->len);
+    	int len = sizeof(netlev_msg_t)-(NETLEV_FETCH_REQSIZE-back->len);
+	    struct ibv_send_wr send_wr;
+	    ibv_sge sg ;
+    	init_wqe_send(&send_wr, &sg, &h_back, len, 1, back->context);
 
-        if (conn->returning) {
-            bh->credits = conn->returning;
-            conn->returning = 0;
+        conn->credits--;
+
+        log(lsTRACE, "removing message from backlog");
+        if ((rc = ibv_post_send(conn->qp_hndl, &send_wr, &bad_sr)) != 0) {
+            log(lsERROR, "Error posting send. rc=%d",rc);
         }
-        log(lsDEBUG, "removing a wqe from backlog");
-        if (ibv_post_send(conn->qp_hndl, &(w->desc.sr), &bad_sr)) {
-            output_stderr("[%s,%d] Error posting send",
-                          __FILE__,__LINE__);
-        }
-    } 
+        free(back->msg);
+        free(back);
+    }
     pthread_mutex_unlock(&conn->lock);
 
     if (h->type == MSG_RTS) {
         shuffle_req_t *data_req;
-        string param((char *)(h + 1), h->tot_len);
+        string param(h->msg, h->tot_len);
         /* XXX: create a free list of request to avoid malloc/free */
         data_req = get_shuffle_req(param);
         log(lsTRACE, "request as received by server: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d, qpnum=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset, conn->qp_hndl->qp_num);
         data_req->conn = conn;
 
-
         /* pass to parent and wake up other threads for processing */
         log(lsTRACE, "server received RDMA fetch request: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset);
         state_mac.mover->insert_incoming_req(data_req);
-    
+
     } else{
     	log(lsDEBUG, "received a noop" );
     }
 
 
     /* re-post wqe */
-    wqe->state = RECV_WQE_COMP; 
     /* Return the wqe of a noop message, recv */
     init_wqe_recv(wqe, NETLEV_FETCH_REQSIZE, dev->mem->mr->lkey, conn);
     log(lsTRACE, "calling ibv_post_recv");
@@ -122,7 +114,8 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
 
     /* Send a no_op for credit flow */
     if (conn->returning >= (conn->peerinfo.credits >> 1)) {
-        netlev_send_noop(conn);
+    	netlev_msg_t h;
+    	netlev_post_send(&h,  0, 0, NULL, conn, MSG_NOOP);
     }
 }
 
@@ -132,6 +125,7 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
     netlev_wqe_t *wqe = NULL;
     int ne = 0;
 
+    chunk_t *chunk;
     struct netlev_dev *dev = (netlev_dev_t *)data;
 
     void *ctx;
@@ -171,12 +165,10 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
                 switch (desc.opcode) {
 
                     case IBV_WC_SEND:
-
-                    	log(lsTRACE, "rdma server got IBV_WC_SEND: local_qp=%d, remote_qp=%d, context=%lld", wqe->conn->qp_hndl->qp_num, wqe->conn->peerinfo.qp,(uintptr_t)wqe->context );
-                    	if (wqe->context){//in case of noop it will be null
-                    		state_mac.data_mac->release_chunk((chunk_t*)wqe->context);
+                    	chunk = (chunk_t*) (long2ptr(desc.wr_id)); //wr_id is pointer to chunk
+                    	if (chunk){
+                    		state_mac.data_mac->release_chunk(chunk);
                     	}
-                        server_comp_ibv_send(wqe);
                         break;
 
                     case IBV_WC_RECV:
@@ -528,78 +520,99 @@ RdmaServer::destroy_listener()
     return 0;
 }
 
-static int 
-post_confirmation(const char *params, int length,
-                  uint64_t src_req, void* chunk,
-                  netlev_conn_t *conn, struct shuffle_req *req)
-{
-    netlev_dev_t       *dev;
-    netlev_wqe_t       *wqe;
-    uint32_t lkey;
 
-    char *tmp_params = const_cast<char*>(params);
-
-    dev = conn->dev;
-
-    pthread_mutex_lock(&dev->lock);
-    wqe = get_netlev_wqe(&dev->wqe_list);
-    pthread_mutex_unlock(&dev->lock);
-
-    if (wqe) {
-        wqe->context = chunk;
-        wqe->shreq = req;
-        lkey = dev->mem->mr->lkey;
-        return netlev_post_send(tmp_params, length, src_req, wqe, conn);
-    } else {
-        output_stderr("[%s,%d] run out of wqes",__FILE__,__LINE__);
-        return -1;
-    }
-}
-
-
-int 
-RdmaServer::send_msg(const char *buf, int len, uint64_t src_req,
-                     void *chunk, netlev_conn_t *conn, struct shuffle_req *req)
-{
-    int ret;
-    ret = post_confirmation(buf, len, src_req, chunk, conn, req);
-    return ret > 0;
-}
-
-int 
-RdmaServer::rdma_write_mof(netlev_conn_t *conn, 
+int
+RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req,
                            uintptr_t laddr,
-                           uint64_t req_size, 
-                           uint64_t remote_addr, void* chunk)
+                           uint64_t req_size,
+                           void* chunk,struct index_record *record)
 {
     netlev_dev_t         *dev;
-    struct ibv_send_wr   *bad_sr;
-    int32_t               send_size;
-    uint32_t              lkey;
+    int32_t               rdma_send_size, ack_msg_len, total_ack_len, lkey;
+    int rc;
+    struct ibv_send_wr   send_wr_rdma, send_wr_ack;
+    struct ibv_sge       sge_rdma, sge_ack;
+	struct ibv_send_wr *bad_wr;
+	netlev_msg_t h;
 
-    struct ibv_send_wr   send_wr;
-    struct ibv_sge       sge;
-
+    netlev_conn_t *conn = req->conn;
     dev = conn->dev;
 
     lkey = dev->rdma_mem->mr->lkey;
-    send_size = rdma_chunk_len > req_size ? req_size : rdma_chunk_len; 
+    rdma_send_size = rdma_chunk_len > req_size ? req_size : rdma_chunk_len;
 
-    init_wqe_rdmaw(&send_wr, &sge,
-                       (int)send_size,
-                       (void *)laddr,
-                       lkey,
-                       (void *)remote_addr,
-                       (uint32_t)conn->peerinfo.rdma_mem_rkey);
+	ack_msg_len = sprintf(h.msg, "%ld:%ld:%d:",
+				   record->rawLength,
+				   record->partLength,
+				   rdma_send_size);
 
-    if (ibv_post_send(conn->qp_hndl, &send_wr, &bad_sr)) {
-        output_stderr("ServerConn: RDMA Post Failed, %s", strerror(errno));
-        return 0;
+    if (conn->credits>0){
+
+		init_wqe_rdmaw(&send_wr_rdma, &sge_rdma,
+						   (int)rdma_send_size,
+						   (void *)laddr,
+						   lkey,
+						   (void *)req->remote_addr,
+						   (uint32_t)conn->peerinfo.rdma_mem_rkey, &send_wr_ack);
+
+		total_ack_len = sizeof(netlev_msg_t)-(NETLEV_FETCH_REQSIZE-ack_msg_len);
+
+		h.type = MSG_RTS;
+		h.tot_len = ack_msg_len;
+		h.src_req = req->freq ? req->freq : 0;
+		init_wqe_send(&send_wr_ack, &sge_ack, &h, total_ack_len, 1, chunk); //signal each time, to release the chunk
+
+		pthread_mutex_lock(&conn->lock);
+		h.credits = conn->returning;
+		conn->returning = 0;
+		conn->credits--;
+		pthread_mutex_unlock(&conn->lock);
+		if ((rc = ibv_post_send(conn->qp_hndl, &send_wr_rdma, &bad_wr)) != 0) {
+			log(lsERROR, "ibv_post_send of rdma_write&send ack failed. error: errno=%d %m", rc);
+			return -1;
+		}
+
+		return 0;
+    }else{
+    	//send RDMA (do not take up recv wqe at client's end) and save ack in backlog
+		init_wqe_rdmaw(&send_wr_rdma, &sge_rdma,
+						   (int)rdma_send_size,
+						   (void *)laddr,
+						   lkey,
+						   (void *)req->remote_addr,
+						   (uint32_t)conn->peerinfo.rdma_mem_rkey,NULL);
+
+		//save as backlog
+    	netlev_msg_backlog_t *back = init_backlog_data(MSG_RTS, ack_msg_len, req->freq, chunk, h.msg);
+    	list_add_tail(&back->list, &conn->backlog);
+
+        if (ibv_post_send(conn->qp_hndl, &send_wr_rdma, &bad_wr)) {
+            output_stderr("ServerConn: RDMA Post Failed, %s", strerror(errno));
+            return 0;
+        }
+
+    	return -2;
+
+
+
     }
 
-    return send_size;
-
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*
  * Local variables:

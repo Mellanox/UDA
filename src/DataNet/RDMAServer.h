@@ -20,7 +20,7 @@
 class OutputServer;
 class DataEngine;
 struct shuffle_req;
-
+struct index_record;
 class RdmaServer 
 {
 public:
@@ -31,13 +31,8 @@ public:
     void stop_server();
     int create_listener ();
     int destroy_listener();
-    int rdma_write_mof(netlev_conn_t *conn, uintptr_t addr, 
-                       uint64_t req_size, uint64_t remote_addr, void* chunk);
-
-    int send_msg(const char *, int len, 
-                 uint64_t wqeid, void* chunk, 
-                 netlev_conn_t *conn, struct shuffle_req*);
-
+    int rdma_write_mof_send_ack(struct shuffle_req *req, uintptr_t addr,
+                           uint64_t req_size, void* chunk, struct index_record* record);
     int                data_port;	
     void              *rdma_mem;
     unsigned long      rdma_total_len;

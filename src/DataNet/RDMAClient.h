@@ -36,7 +36,6 @@ public:
     netlev_ctx_t        ctx;
     InputClient        *parent;
     merging_state_t    *state;
-    struct list_head    wait_reqs;
     struct list_head    register_mems_head;
     std::map<std::string, unsigned long> local_dns;
 };

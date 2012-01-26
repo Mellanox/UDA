@@ -29,6 +29,7 @@
 
 int rdma_debug_flag = 0x0;
 
+
 int 
 netlev_dealloc_dev_mem(struct netlev_dev *dev, netlev_mem_t *mem)
 {
@@ -78,6 +79,7 @@ netlev_init_rdma_mem(void *mem, uint64_t total_size,
     return 0;
 }
 
+
 int
 netlev_init_dev_mem(struct netlev_dev *dev)
 {
@@ -87,12 +89,13 @@ netlev_init_dev_mem(struct netlev_dev *dev)
 
     int wqe_align = 64;
     int num_wqes  = wqes_perconn  * max_hosts;
-    int data_size = NETLEV_FETCH_REQSIZE * num_wqes;
+    int data_size = sizeof(netlev_msg_t) * num_wqes;
     int dma_align = getpagesize();
 
     log(lsDEBUG, "IDAN - wqes_perconn=%d max_hosts=%d", wqes_perconn  , max_hosts);
+    log(lsDEBUG, "SIGNAL_INTERVAL=%d", SIGNAL_INTERVAL);
 
-    /* alloc dev_mem struct */
+    //alloc dev_mem struct
     dev_mem = (netlev_mem_t *) malloc(sizeof(netlev_mem_t));
     if (!dev_mem) {
         output_stderr("[%s,%d] malloc netlev_mem_t failed",
@@ -101,7 +104,7 @@ netlev_init_dev_mem(struct netlev_dev *dev)
     }
     memset(dev_mem, 0, sizeof(struct netlev_mem));
 
-    /* alloc wqes */
+    //alloc wqes
     wqe_mem = memalign(wqe_align, num_wqes * sizeof(netlev_wqe_t));
     if (!wqe_mem) {
         output_stderr("[%s,%d] malloc netlev_wqe_t failed",
@@ -110,7 +113,7 @@ netlev_init_dev_mem(struct netlev_dev *dev)
     }
     memset(wqe_mem, 0, num_wqes * sizeof (netlev_wqe_t));
 
-    /* alloc memory buffer for wqes */
+    // alloc memory buffer for wqes
     dma_mem = memalign(dma_align, data_size);
     if (!dma_mem) {
         output_stderr("[%s,%d] malloc data buffer failed",
@@ -129,10 +132,10 @@ netlev_init_dev_mem(struct netlev_dev *dev)
         goto error_register;
     }
 
-    /* init the free wqe list */
+    //* init the free wqe list
     for (int i = 0; i < num_wqes; i++) {
         netlev_wqe_t *cur = dev_mem->wqe_start + i;
-        cur->data = (char *)(dma_mem) + (i * NETLEV_FETCH_REQSIZE);
+        cur->data = (char *)(dma_mem) + (i * sizeof(netlev_msg_t));
         list_add_tail(&cur->list, &dev->wqe_list);
     }
     dev->mem = dev_mem;
@@ -147,6 +150,8 @@ error_wqe:
 error_dev:
     return -1;
 }
+
+
 
 void 
 netlev_dev_release(struct netlev_dev *dev)
@@ -187,7 +192,7 @@ netlev_dev_init(struct netlev_dev *dev)
         return -1;
     }
 
-    cqe_num = wqes_perconn  * max_hosts;
+    cqe_num = (wqes_perconn*max_hosts> device_attr.max_cqe) ? device_attr.max_cqe : wqes_perconn*max_hosts; //taking the minimum
     max_sge = device_attr.max_sge;
 
     dev->cq_channel = ibv_create_comp_channel(dev->ibv_ctx);
@@ -203,13 +208,15 @@ netlev_dev_init(struct netlev_dev *dev)
                       __FILE__,__LINE__);
         return -1;
     }
-    log (lsDEBUG, "device_attr.max_cqe is %d, cqe_num is %d, actual cqe is %d", device_attr.max_cqe, cqe_num, dev->cq->cqe );
+    log (lsDEBUG, "device_attr.max_cqe is %d, cqe_num is %d, actual cqe is %d, wqes_perconn*max_hosts is %d", device_attr.max_cqe, cqe_num, dev->cq->cqe, wqes_perconn*max_hosts);
 
     if (ibv_req_notify_cq(dev->cq, 0) != 0) {
         output_stderr("[%s,%d] ibv_req_notify failed",
                      __FILE__,__LINE__);
         return -1;
     }
+
+    log (lsDEBUG, "device_attr.max_sge is %d, device_attr.max_sge_rd is %d, ", device_attr.max_sge, device_attr.max_sge_rd);
 
     dev->max_sge = max_sge;
     dev->cqe_num = cqe_num;
@@ -238,9 +245,10 @@ netlev_conn_free(netlev_conn_t *conn)
 
     pthread_mutex_lock(&conn->lock);
     while (!list_empty(&conn->backlog)) {
-        wqe = list_entry(conn->backlog.next, typeof(*wqe), list);
-        list_del(&wqe->list);
-        release_netlev_wqe(wqe, &conn->dev->wqe_list);
+    	netlev_msg_backlog_t *back = list_entry(conn->backlog.next, typeof(*back), list);
+    	list_del(&back->list);
+    	free(back->msg);
+    	free(back);
     }
     pthread_mutex_unlock(&conn->lock);
 
@@ -258,6 +266,7 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     netlev_conn_t *conn;
     struct ibv_recv_wr *bad_wr;
     struct ibv_qp_init_attr qp_init_attr;
+    struct ibv_qp_attr qp_attr;
     int wqes_recv_perconn = wqes_perconn/2;
 
     conn = (netlev_conn_t*) calloc(1, sizeof(netlev_conn_t));
@@ -271,16 +280,17 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     conn->dev = dev;
 
     pthread_mutex_init(&conn->lock, NULL);
-    INIT_LIST_HEAD(&conn->backlog); /* backlog of wqes */
+    INIT_LIST_HEAD(&conn->backlog);
     INIT_LIST_HEAD(&conn->list);
 
     memset(&qp_init_attr, 0, sizeof(qp_init_attr));
     qp_init_attr.send_cq  = dev->cq;
     qp_init_attr.recv_cq  = dev->cq;
-    qp_init_attr.cap.max_send_wr  = wqes_recv_perconn;
-    qp_init_attr.cap.max_recv_wr  = wqes_recv_perconn;
-    qp_init_attr.cap.max_send_sge = 16; /* 28 is the limit */  
+    qp_init_attr.cap.max_send_wr  = wqes_perconn; //on server side 2 wqes are sent for each wqe received from client
+    qp_init_attr.cap.max_recv_wr  = wqes_perconn/2;
+    qp_init_attr.cap.max_send_sge = 16; /* 28 is the limit */
     qp_init_attr.cap.max_recv_sge = 16; /* 28 is the limit */
+    qp_init_attr.cap.max_inline_data = sizeof(netlev_msg_t);
     qp_init_attr.qp_type = IBV_QPT_RC;
     qp_init_attr.sq_sig_all = 0;
 
@@ -294,10 +304,20 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
         free(conn);
         return NULL;
     }
+
+    conn->sent_counter = 0;
     conn->qp_hndl = conn->cm_id->qp;
+    if (ibv_query_qp (conn->qp_hndl, &qp_attr, 12, &qp_init_attr)){
+    	output_stderr("[%s,%d] ibv query failed - %m",
+    	                     __FILE__,__LINE__);
+		free(conn);
+		return NULL;
+    }
+    log(lsTRACE,"actual inline size is %d", qp_attr.cap.max_inline_data);
+
     memset(&conn->peerinfo, 0, sizeof(connreq_data_t));
     log(lsDEBUG, "allocating %d wqes to be receving wqes", wqes_recv_perconn);
-    /* post as many recv wqes as possible, up to wqes_perconn/2 */
+    /* post as many recv wqes as possible, up to wqes_recv_perconn */
     for (int i = 0; i < wqes_recv_perconn; ++i) {
         netlev_wqe_t *wqe = get_netlev_wqe(&dev->wqe_list);
         if (!wqe) {
@@ -308,7 +328,7 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
            } 
            break;
         }
-        init_wqe_recv(wqe, NETLEV_FETCH_REQSIZE, dev->mem->mr->lkey, conn);
+        init_wqe_recv(wqe, sizeof(netlev_msg_t), dev->mem->mr->lkey, conn);
         if (ibv_post_recv(conn->qp_hndl, &wqe->desc.rr, &bad_wr) != 0) {
             output_stderr("ibv_post_recv failed");
             netlev_conn_free(conn);
@@ -354,22 +374,43 @@ dprint(char *s, char *fmt, ...)
 }
 
 
-void 
-init_wqe_send (netlev_wqe_t *wqe, unsigned int len, 
-               uint32_t lkey, netlev_conn_t *conn)
+
+
+void
+init_wqe_send (ibv_send_wr *send_wr,ibv_sge *sg, netlev_msg_t *h, unsigned int len,
+               bool send_signal, void* context)
 {
-    wqe->desc.sr.next       = NULL;
-    wqe->desc.sr.send_flags = IBV_SEND_SIGNALED;
-    wqe->desc.sr.opcode     = IBV_WR_SEND;
-    wqe->desc.sr.wr_id      = (uintptr_t) wqe;
-    wqe->desc.sr.num_sge    = 1;
-    wqe->desc.sr.sg_list    = &(wqe->sge);
-    wqe->sge.length         = len;
-    wqe->sge.lkey           = lkey;
-    wqe->sge.addr           = (uintptr_t)(wqe->data);
-    wqe->conn               = conn;
-    wqe->state              = SEND_WQE_INIT;
+	send_wr->next       = NULL;
+	if (send_signal){
+		send_wr->send_flags = IBV_SEND_SIGNALED | IBV_SEND_INLINE;
+	}else{
+		send_wr->send_flags = IBV_SEND_INLINE;
+	}
+	send_wr->opcode     = IBV_WR_SEND;
+	send_wr->wr_id      = (uintptr_t) context; //context (in server's case)is pointer to chunk that will be released after WC_SEND
+	send_wr->num_sge    = 1;
+	send_wr->sg_list    = sg;
+    sg->length         = len;
+	sg->addr           = (uintptr_t) h;
 }
+
+netlev_msg_backlog_t *
+init_backlog_data(uint8_t type, uint32_t len, uint64_t src_req, void *context, char *msg)
+{
+	netlev_msg_backlog_t *back = (netlev_msg_backlog_t*)malloc (sizeof(netlev_msg_backlog_t));
+    if (back == NULL) {
+    	log(lsFATAL, "failed to allocate memory for netlev_msg_backlog");
+    	exit(-1);
+    }
+	back->type = type;
+	back->len = len;
+	back->msg = (char*)malloc (sizeof(char)*len);
+	memcpy(back->msg, msg, len);
+	back->src_req = src_req;
+	back->context = context;
+	return back;
+}
+
 
 void 
 init_wqe_recv (netlev_wqe_t *wqe, unsigned int len, 
@@ -383,7 +424,7 @@ init_wqe_recv (netlev_wqe_t *wqe, unsigned int len,
     wqe->sge.lkey       = lkey;
     wqe->sge.addr       = (uintptr_t)(wqe->data);
     wqe->conn           = conn;
-    wqe->state          = RECV_WQE_INIT;
+//    wqe->state          = RECV_WQE_INIT;
 }
 
 netlev_wqe_t* 
@@ -398,19 +439,13 @@ get_netlev_wqe (struct list_head *head)
     return (wqe);
 }
 
-void 
-release_netlev_wqe (netlev_wqe_t *wqe, struct list_head *head)
-{
-    list_add_tail(&wqe->list, head);
-    wqe->state &= SEND_WQE_AVAIL;
-}
 
 void
 init_wqe_rdmaw(struct ibv_send_wr *send_wr, struct ibv_sge *sg, int len,
                void *laddr, uint32_t lkey,
-               void *raddr, uint32_t rkey)
+               void *raddr, uint32_t rkey, struct ibv_send_wr *next_wr)
 {
-	send_wr->next       = NULL;
+	send_wr->next       = next_wr;
 	send_wr->opcode     = IBV_WR_RDMA_WRITE;
 	send_wr->send_flags = 0; //setting to 0 to avoid getting completion event
 //	send_wr->send_flags = IBV_SEND_SIGNALED;
@@ -569,101 +604,53 @@ void netlev_disconnect(struct netlev_conn *conn)
 }
 
 int
-netlev_send_noop(struct netlev_conn *conn)
-{
-    struct ibv_send_wr *bad_wr;
-    netlev_wqe_t       *wqe;
-    hdr_header_t       *h;
-    netlev_dev_t       *dev;
-    dev =conn->dev;
-    pthread_mutex_lock(&dev->lock);
-    wqe = get_netlev_wqe(&dev->wqe_list);
-    pthread_mutex_unlock(&dev->lock);
-    if (!wqe) {
-    	log(lsERROR,"no more wqes");
-    	return false;
-    }
-
-    wqe->context = NULL; //so release chunk won't be called
-
-    h = (hdr_header_t*) wqe->data;
-    h->type = MSG_NOOP;
-    h->tot_len = 0;
-    h->credits = 0;
-    h->src_req = 0;
-
-    init_wqe_send (wqe, sizeof(hdr_header_t), dev->mem->mr->lkey, conn);
-
-    pthread_mutex_lock(&conn->lock);
-    if (conn->returning) {
-        h->credits = conn->returning;
-        conn->returning = 0;
-        conn->credits--;
-        if (ibv_post_send(conn->qp_hndl, &(wqe->desc.sr), &bad_wr) != 0) {
-            output_stderr("[%s,%d] Error posting send",
-                          __FILE__,__LINE__);
-            pthread_mutex_unlock(&conn->lock);
-            return -1;
-        }
-    }
-    pthread_mutex_unlock(&conn->lock);
-    return 0;
-}
-
-
-int 
-netlev_post_send(void *buff, int bytes, 
-                 uint64_t srcreq,
-                 netlev_wqe_t *wqe, 
-                 netlev_conn_t *conn)
+netlev_post_send(netlev_msg_t *h, int bytes,
+                 uint64_t srcreq, void* context,
+                 netlev_conn_t *conn, uint8_t msg_type)
 {
 	int rc;
-    int len;
     struct ibv_send_wr *bad_wr;
-    uint32_t lkey = conn->dev->mem->mr->lkey;
-    hdr_header_t *h;
 
-    h = (hdr_header_t *) wqe->data;
-    h->type = MSG_RTS;
-    h->tot_len = bytes;
-    h->credits = 0;
-    h->src_req = srcreq ? srcreq : 0;
+    struct ibv_send_wr   send_wr;
+    ibv_sge sg ;
 
-    len = sizeof(*h) + bytes;
-    if (len <= NETLEV_FETCH_REQSIZE) {
-        memcpy (((char *) h + sizeof (*h)), buff, bytes);
-    } else {
-        log(lsERROR, "request too long len=%d", len);
-        return -1;
+    if (conn->credits > 0 || msg_type == MSG_NOOP) {
+    	//1 receiving wqe was set aside in order to send wqe if there are no credits
+
+		int len = sizeof(netlev_msg_t)-(NETLEV_FETCH_REQSIZE-bytes);
+
+		h->type = msg_type;
+		h->tot_len = bytes;
+		h->src_req = srcreq ? srcreq : 0;
+
+		bool send_signal = !(conn->sent_counter%SIGNAL_INTERVAL);
+
+		init_wqe_send(&send_wr, &sg, h, len, send_signal, context);
+		log(lsTRACE,"signal is being sent %d", send_signal);
+
+		pthread_mutex_lock(&conn->lock);
+		h->credits = conn->returning;
+		conn->returning = 0;
+		conn->credits--;
+		conn->sent_counter++;
+		pthread_mutex_unlock(&conn->lock);
+		rc = ibv_post_send(conn->qp_hndl, &send_wr, &bad_wr);
+		if (rc) {
+			log(lsERROR, "ibv_post_send error: errno=%d %m", rc);
+			pthread_mutex_unlock(&conn->lock);
+			return -1;
+		}
+
+
+		return 0;
+    }else{
+    		//there are no credits, save this to backlog
+    	netlev_msg_backlog_t *back = init_backlog_data(msg_type, bytes, srcreq, context, h->msg);
+    	list_add_tail(&back->list, &conn->backlog);
+    	return -2;
     }
-    init_wqe_send(wqe, (unsigned long) len, lkey, conn);
-    /* XXX: if there is credits, send it 
-     * Otherwise, put it in the backlog */
-    pthread_mutex_lock(&conn->lock);
-    if (conn->credits > 0) {
-        conn->credits --;
-        
-        if (conn->returning) {
-            h->credits = conn->returning;
-            conn->returning = 0;
-        } 
-        // avner: TODO remove this verbose log
-        log(lsTRACE, "message before ibv_post_send is %s", (char*) buff);
-        if ((rc = ibv_post_send(conn->qp_hndl, &(wqe->desc.sr), &bad_wr)) != 0) {
-            log(lsERROR, "ibv_post_send error: errno=%d %m", rc, (char*)buff);
-            pthread_mutex_unlock(&conn->lock);
-            return -1;
-        }
-        wqe->state = SEND_WQE_POST;
-    } else {
-    	log(lsDEBUG, "no credit to post send. add to backlog: %s", (char*)buff);
-        list_add_tail(&wqe->list, &conn->backlog);
-        pthread_mutex_unlock(&conn->lock);
-        return -2;
-    }
-    pthread_mutex_unlock(&conn->lock);
-    return 0;
 }
+
 
 const char* netlev_stropcode(int opcode)
 {

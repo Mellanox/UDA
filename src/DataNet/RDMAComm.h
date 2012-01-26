@@ -23,6 +23,8 @@
 #define RDMA_DEFAULT_RNR_RETRY  (7)
 #define NETLEV_MEM_ACCESS_PERMISSION (IBV_ACCESS_LOCAL_WRITE|IBV_ACCESS_REMOTE_WRITE)
 
+#define SIGNAL_INTERVAL (wqes_perconn/10) //every (signal_interval)th message will be sent with IBV_SEND_SIGNALED
+
 typedef struct connreq_data{
     uint32_t qp;
     uint32_t credits;
@@ -38,14 +40,6 @@ typedef enum {
     MSG_DONE   = 0x08
 } msg_type_t;
 
-typedef enum {
-    SEND_WQE_AVAIL = 0x0, /* Free */
-    SEND_WQE_INIT  = 0x1, /* claimed for usage */
-    SEND_WQE_POST  = 0x2, /* posted for send/recv data */
-    SEND_WQE_COMP  = 0x4, /* send completed */
-    SEND_WQE_ARRV  = 0x8, /* data arrived*/
-    SEND_WQE_DONE  = 0x10 /* ready to return into free list */
-} send_wqe_state_t ;
 
 typedef enum {
     RECV_WQE_AVAIL = 0x10, /* Free */
@@ -58,13 +52,15 @@ typedef enum {
 struct netlev_conn;
 struct shuffle_req;
 
-typedef struct hdr_header {
-    uint8_t   type;                                    
-    uint8_t   credits;  /* credits to the peer */      
-    uint16_t  padding; 
+typedef struct netlev_msg {
+    uint8_t   type;
+    uint8_t   credits;  /* credits to the peer */
+    uint16_t  padding;
     uint32_t  tot_len;  /* reserved for matching */
     uint64_t  src_req;  /* for fast lookup of request: server will use it to pass pointer to the original request */
-} hdr_header_t;
+    char  msg[NETLEV_FETCH_REQSIZE];
+} netlev_msg_t;
+
 
 typedef struct netlev_wqe {
     struct list_head         list;
@@ -74,16 +70,20 @@ typedef struct netlev_wqe {
     } desc;
     struct ibv_sge           sge;
     struct netlev_conn      *conn;
-
-    volatile int             state;
     char                    *data;
-    struct shuffle_req      *shreq;
-    void                    *context;/*use as a pointer 
-                                        pointing to the 
-                                        chunk at servier side.
-                                       */
-    //uint64_t                chunk;    
 } netlev_wqe_t;
+
+typedef struct netlev_msg_backlog {
+	struct list_head        list;
+	uint8_t   				type;
+	uint32_t				len;
+    uint8_t   				padding;
+    uint16_t  				padding2;
+    char                    *msg;
+    uint64_t      			src_req;
+    void                    *context; //save pointer to chunk(server/request(client)
+} netlev_msg_backlog_t;
+
 
 /* device memory for send/receive */
 typedef struct netlev_mem {
@@ -139,6 +139,7 @@ typedef struct netlev_conn
 
     unsigned long       peerIPAddr;
     unsigned int        state;
+    uint32_t			sent_counter;
 } netlev_conn_t;
 
 int netlev_dealloc_mem(struct netlev_dev *dev, netlev_mem_t *mem);
@@ -166,15 +167,14 @@ struct netlev_conn *
 netlev_find_conn_by_ip(unsigned long ipaddr, struct list_head *q);
 
 void init_wqe_rdmaw(struct ibv_send_wr *send_wr, struct ibv_sge *sg, int len,
-                    void *laddr, uint32_t lkey,
-                    void *raddr, uint32_t rkey);
+        void *laddr, uint32_t lkey,
+        void *raddr, uint32_t rkey, struct ibv_send_wr *next_wr);
 
-void init_wqe_send (netlev_wqe_t *wqe, unsigned int len, 
-                    uint32_t lkey, netlev_conn_t *conn);
+void init_wqe_send (ibv_send_wr *send_wr,ibv_sge *sg, netlev_msg_t *h, unsigned int len,
+               bool send_signal, void* context);
 void init_wqe_recv (netlev_wqe_t *wqe, unsigned int len, 
                     uint32_t lkey, netlev_conn_t *conn);
 netlev_wqe_t * get_netlev_wqe (struct list_head *head);
-void release_netlev_wqe (netlev_wqe_t * wqe, struct list_head *head);
 
 void set_wqe_addr_key(netlev_wqe_t * wqe, 
                       int len,
@@ -204,11 +204,16 @@ netlev_conn_established(struct rdma_cm_event *event, struct list_head *head);
 
 void netlev_disconnect(struct netlev_conn *conn);
 
-int 
-netlev_send_noop(struct netlev_conn *conn);
+netlev_msg_backlog_t *
+init_backlog_data(uint8_t type, uint32_t len, uint64_t src_req, void *context, char *msg );
 
-int netlev_post_send(void *buff, int bytes, uint64_t wqeid,
-                     netlev_wqe_t *wqe, netlev_conn_t *conn);
+struct netlev_conn *
+netlev_disconnect(struct rdma_cm_event *ev, struct list_head *head);
+
+int
+netlev_post_send(netlev_msg_t *h, int bytes,
+                 uint64_t srcreq, void* context,
+                 netlev_conn_t *conn, uint8_t msg_type);
 
 int netlev_init_rdma_mem(void *, unsigned long total_size,
                          netlev_dev_t *dev);
