@@ -366,7 +366,7 @@ class ReduceTask extends Task {
 	public void run(JobConf job, final TaskUmbilicalProtocol umbilical)
 			throws IOException, InterruptedException, ClassNotFoundException {
 
-		LOG.info("thread started"); 
+		LOG.debug("thread started"); 
 
 		/* for rdma measurement */
 		long reduce_task_start = System.currentTimeMillis();
@@ -3115,7 +3115,7 @@ class ReduceTask extends Task {
 			private void launchCppSide(JobConf fConf) {
 
 				String driver = fConf.get("mapred.rdma.netmerger");
-				LOG.info("J2CNexus: Launching " + driver + " Process");
+				LOG.info("UDA: Launching " + driver + " thru JNI");
 				List<String> cmd = new ArrayList<String>();
 
 				/* cmd */
@@ -3148,12 +3148,12 @@ class ReduceTask extends Task {
 				String[] stringarray = null;
 				int rc = 0;
 				stringarray = cmd.toArray(new String[0]);
-				LOG.info("J2CNexus:going to execute child: " + cmd);    	  
+				LOG.info("UDA: going to execute child thru JNI: " + cmd);    	  
 				try {
 					rc = UdaBridge.start(true, stringarray, LOG, this); // true => this is NetMerger
 
 				} catch (UnsatisfiedLinkError e) {
-					LOG.warn("J2CNexus:Exception when launching child");    	  
+					LOG.warn("UDA: Exception when launching child");    	  
 					LOG.warn(StringUtils.stringifyException(e));
 					throw (e);
 				}
@@ -3219,6 +3219,7 @@ class ReduceTask extends Task {
 					mParams.add(dirsCanBeCreated.get(i));
 				}
 
+				LOG.info("UDA: sending INIT_COMMAND");    	  
 				String msg = RDMACmd.formCmd(RDMACmd.INIT_COMMAND, mParams);
 				UdaBridge.doCommand(msg);
 				this.mProgress = new Progress(); 
@@ -3237,11 +3238,11 @@ class ReduceTask extends Task {
 				mParams.add(Integer.toString(getPartition()));
 				String msg = RDMACmd.formCmd(RDMACmd.FETCH_COMMAND, mParams); 
 				UdaBridge.doCommand(msg);
-				/* LOG.info("Send down to rdma " + (++mReqNums)); */
 			}
 
 			public void close() throws IOException {
 				mParams.clear();
+				LOG.info("UDA: sending EXIT_COMMAND");    	  
 				String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
 				UdaBridge.doCommand(msg);
 				this.j2c_queue.close();
@@ -3257,18 +3258,20 @@ class ReduceTask extends Task {
 			}
 
 			public void fetchOverMessage() {
-				LOG.info(">> in fetchOverMessage"); 
+				if (LOG.isDebugEnabled()) LOG.debug(">> in fetchOverMessage"); 
 				mMapsCount += mReportCount;
+				if (mMapsCount >= this.mMapsNeed) mMapsCount = this.mMapsNeed;
 				mTaskReporter.progress();
-				LOG.info("in fetchOverMessage: mMapsCount=" + mMapsCount + " mMapsNeed=" + mMapsNeed); 
+				if (LOG.isInfoEnabled()) LOG.info("in fetchOverMessage: mMapsCount=" + mMapsCount + " mMapsNeed=" + mMapsNeed); 
 
 				if (mMapsCount >= this.mMapsNeed) {
 					/* wake up ReduceCopier */
+					if (LOG.isInfoEnabled()) LOG.info("fetchOverMessage: reached desired num of maps, waiking up ReduceCopier"); 
 					synchronized(ReduceCopier.this) {
 						ReduceCopier.this.notify();
 					}
 				}
-				LOG.info("<< out fetchOverMessage"); 
+				if (LOG.isDebugEnabled()) LOG.debug("<< out fetchOverMessage"); 
 			}
 
 			/* kv buf object, j2c_queue uses 
@@ -3298,23 +3301,19 @@ class ReduceTask extends Task {
 
 
 				public void dataFromUda(Object directBufAsObj, int len) {
-					LOG.debug("dataFromUda"); // TODO: this doesn't show! 
-					LOG.info ("-->> dataFromUda len=" + len);
+					if (LOG.isDebugEnabled()) LOG.debug ("-->> dataFromUda len=" + len);
 
 					KVBuf buf = kv_bufs[cur_kv_idx];
 
 					synchronized (buf) {
 						while (buf.status != kv_buf_recv_ready) {
 							try{
-								//LOG.info ("----- dataFromUda waiting...");
 								buf.wait();
 							} catch (InterruptedException e) {}
 						}
-						//LOG.info ("----- dataFromUda afer waiting");
 
 						buf.act_len = len;  // set merged size
 						try {
-							//LOG.info ("----- dataFromUda before handling ByteBuffer...");
 							java.nio.ByteBuffer directBuf = (java.nio.ByteBuffer) directBufAsObj;
 							directBuf.position(0); // reset read position 		  
 							directBuf.get(buf.kv_buf, 0, len);// memcpy from direct buf into java buf - TODO: try zero-copy
@@ -3331,7 +3330,7 @@ class ReduceTask extends Task {
 						}
 						buf.notifyAll();
 					}
-					LOG.info ("<<-- dataFromUda finished callback");
+					if (LOG.isDebugEnabled()) LOG.debug ("<<-- dataFromUda finished callback");
 				}
 
 			}
