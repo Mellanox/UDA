@@ -169,7 +169,7 @@ client_cq_handler(progress_event_t *pevent, void *data)
 
                     case IBV_WC_RECV:
                     	wqe = (netlev_wqe_t *) (long2ptr(desc.wr_id));
-                    	log(lsTRACE, "rdma client got IBV_WC_RECV local_qp=%d, remote_qp=%d, data=%s", wqe->conn->qp_hndl->qp_num, wqe->conn->peerinfo.qp, wqe->data);
+                    	log(lsTRACE, "rdma client got IBV_WC_RECV local_qp=%d, remote_qp=%d", wqe->conn->qp_hndl->qp_num, wqe->conn->peerinfo.qp);
                         client_comp_ibv_recv(wqe);
                         break;
 
@@ -209,54 +209,48 @@ netlev_get_conn(unsigned long ipaddr, int port,
     struct rdma_conn_param conn_param;
     struct connreq_data    xdata;
     int rc=0;
+    errno = 0;
 
     sin.sin_addr.s_addr = ipaddr;
     sin.sin_family = AF_INET;
     sin.sin_port = htons(port);
 
     if (rdma_create_id(ctx->cm_channel, &cm_id, NULL, RDMA_PS_TCP) != 0) {
-        output_stderr("[%s,%d] rdma_create_id failed",
-                      __FILE__,__LINE__);
+    	log(lsFATAL, "rdma_create_id failed, (errno=%d %m)",errno);
         return NULL;
     }
 
     if (rdma_resolve_addr(cm_id, NULL, (struct sockaddr*)&sin, NETLEV_TIMEOUT_MS)) {
-        output_stderr("[%s,%d] rdma_resolve_addr failed",
-                      __FILE__,__LINE__);
+    	log(lsFATAL, "rdma_resolve_addr failed, (errno=%d %m)",errno);
         return NULL;
     }
 
     if (rdma_get_cm_event(ctx->cm_channel, &event)) {
-        output_stderr("[%s,%d] rdma_get_cm_event failed",
-                      __FILE__,__LINE__);
+    	log(lsFATAL, "rdma_get_cm_event failed, (errno=%d %m)",errno);
         return NULL;
     }
 
 
     if (event->event != RDMA_CM_EVENT_ADDR_RESOLVED) {
         rdma_ack_cm_event(event);
-        output_stderr("[%s,%d] unexpected CM event %d", 
-                      __FILE__,__LINE__,event->event);
+        log(lsFATAL, "unexpected CM event %d", event->event);
         return NULL;
     }
     rdma_ack_cm_event(event);
 
     if (rdma_resolve_route(cm_id, NETLEV_TIMEOUT_MS)) {
-        output_stderr("[%s,%d] rdma_resolve_route failed", 
-                      __FILE__,__LINE__);
+    	log(lsFATAL, "rdma_resolve_route failed, (errno=%d %m)",errno);
         return NULL;
     }
 
     if (rdma_get_cm_event(ctx->cm_channel, &event)) {
-        output_stderr("[%s,%d] rdma_get_cm_event failed",
-                      __FILE__,__LINE__);
+    	log(lsFATAL, "rdma_get_cm_event failed, (errno=%d %m)",errno);
         return NULL;
 	}
 
     if (event->event != RDMA_CM_EVENT_ROUTE_RESOLVED) {
         rdma_ack_cm_event(event);
-        output_stderr("[%s,%d] unexpected CM event %d", 
-                      __FILE__,__LINE__,event->event);
+        log(lsERROR, "unexpected CM event %d", event->event);
         return NULL;
     }
     rdma_ack_cm_event(event);
@@ -265,7 +259,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
     if (!dev) {
         dev = (netlev_dev_t*) malloc(sizeof(netlev_dev_t));
         if (dev == NULL) {
-            output_stderr("[%s,%d] failed to allocate memory for netlev_dev", __FILE__,__LINE__);
+        	log(lsFATAL, "failed to allocate memory for netlev_dev");
             return NULL;
         }
         dev->ibv_ctx = cm_id->verbs; 
@@ -314,14 +308,12 @@ netlev_get_conn(unsigned long ipaddr, int port,
     conn_param.private_data_len = sizeof(xdata);
 
     if (rdma_connect(cm_id, &conn_param)) {
-        output_stderr("[%s,%d] rdma_connect failure", 
-                      __FILE__,__LINE__);
+    	log(lsERROR, "rdma_connect failed, (errno=%d %m)",errno);
         goto err_rdma_connect;
     }
 
     if (rdma_get_cm_event(ctx->cm_channel, &event)) {
-        output_stderr("[%s,%d] rdma_get_cm_event err",
-                      __FILE__,__LINE__);
+    	log(lsERROR, "rdma_get_cm_event err, (errno=%d %m)",errno);
         goto err_rdma_connect;
     }
 
@@ -369,16 +361,21 @@ RdmaClient::RdmaClient(int port, merging_state_t *state)
     INIT_LIST_HEAD(&this->ctx.hdr_dev_list);
     INIT_LIST_HEAD(&this->ctx.hdr_conn_list);
     INIT_LIST_HEAD(&this->register_mems_head); 
+    errno = 0;
 
     this->state = state;
     this->parent = state->client;
     this->svc_port = port;
     this->ctx.cm_channel = rdma_create_event_channel();
+
+    if (!this->ctx.cm_channel)  {
+        log(lsFATAL, "rdma_create_event_channel failed, (errno=%d %m)",errno);
+    }
+
     this->ctx.epoll_fd = epoll_create(4096);
 
     if (this->ctx.epoll_fd < 0) {
-        output_stderr("[%s,%d] cannot create epoll fd",
-                      __FILE__,__LINE__);
+    	log(lsFATAL, "cannot create epoll fd, (errno=%d %m)",errno);
     }
 
     /* Start a new thread */

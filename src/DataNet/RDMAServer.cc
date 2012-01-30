@@ -381,11 +381,12 @@ RdmaServer::RdmaServer(int port, int rdma_buf_size, void *state)
 void 
 RdmaServer::start_server()
 {
+	errno = 0;
     netlev_thread_t *th;
 
     this->ctx.epoll_fd = epoll_create(4096);
     if (this->ctx.epoll_fd < 0) {
-        output_stderr("Cannot create epoll fd");
+        log(lsFATAL, "cannot create epoll fd, (errno=%d %m)",errno);
     }
 
     /* Start a new thread */
@@ -454,11 +455,12 @@ RdmaServer::stop_server()
 int 
 RdmaServer::create_listener ()
 {
+	errno = 0;
     struct sockaddr_in sin;
 
     this->ctx.cm_channel = rdma_create_event_channel();
     if (!this->ctx.cm_channel) {
-        output_stderr("create_event_channel failed");
+        log(lsFATAL, "rdma_create_event_channel failed, (errno=%d %m)",errno);
         goto err_listener;
     }
 
@@ -539,7 +541,7 @@ RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req,
     dev = conn->dev;
 
     lkey = dev->rdma_mem->mr->lkey;
-    rdma_send_size = rdma_chunk_len > req_size ? req_size : rdma_chunk_len;
+    rdma_send_size = this->rdma_chunk_len > req_size ? req_size : this->rdma_chunk_len;
 
 	ack_msg_len = sprintf(h.msg, "%ld:%ld:%d:",
 				   record->rawLength,
@@ -568,13 +570,14 @@ RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req,
 		conn->credits--;
 		pthread_mutex_unlock(&conn->lock);
 		if ((rc = ibv_post_send(conn->qp_hndl, &send_wr_rdma, &bad_wr)) != 0) {
-			log(lsERROR, "ibv_post_send of rdma_write&send ack failed. error: errno=%d %m", rc);
+			log(lsERROR, "ibv_post_send of rdma_write&send ack failed. error: errno=%d", rc);
 			return -1;
 		}
 
 		return 0;
     }else{
     	//send RDMA (do not take up recv wqe at client's end) and save ack in backlog
+    	log(lsTRACE, "there are no credits for ack. send only the rdma");
 		init_wqe_rdmaw(&send_wr_rdma, &sge_rdma,
 						   (int)rdma_send_size,
 						   (void *)laddr,
@@ -586,31 +589,14 @@ RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req,
     	netlev_msg_backlog_t *back = init_backlog_data(MSG_RTS, ack_msg_len, req->freq, chunk, h.msg);
     	list_add_tail(&back->list, &conn->backlog);
 
-        if (ibv_post_send(conn->qp_hndl, &send_wr_rdma, &bad_wr)) {
-            output_stderr("ServerConn: RDMA Post Failed, %s", strerror(errno));
-            return 0;
+    	if ((rc = ibv_post_send(conn->qp_hndl, &send_wr_rdma, &bad_wr)) != 0) {
+            log(lsERROR, "ServerConn: RDMA Post Failed, with exit status %d", rc);
+            return -1;
         }
-
     	return -2;
-
-
-
     }
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

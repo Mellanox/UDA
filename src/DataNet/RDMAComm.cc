@@ -636,7 +636,7 @@ netlev_post_send(netlev_msg_t *h, int bytes,
 		pthread_mutex_unlock(&conn->lock);
 		rc = ibv_post_send(conn->qp_hndl, &send_wr, &bad_wr);
 		if (rc) {
-			log(lsERROR, "ibv_post_send error: errno=%d %m", rc);
+			log(lsERROR, "ibv_post_send error: errno=%d", rc);
 			pthread_mutex_unlock(&conn->lock);
 			return -1;
 		}
