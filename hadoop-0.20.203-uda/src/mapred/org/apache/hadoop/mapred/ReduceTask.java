@@ -944,7 +944,7 @@ class ReduceTask extends Task {
 		 * This is the channel used to transfer the data between RDMA C++
 		 * and Hadoop ReduceTask
 		 */
-		private DataSocket rdmaChannel;
+		private RdmaChannel rdmaChannel;
 
 		/**
 		 * mapred.rdma.setting represents how users uses rdma
@@ -2043,7 +2043,7 @@ class ReduceTask extends Task {
 			//The followings are for rdma project
 			this.rdmaSetting = conf.getInt("mapred.rdma.setting", 0);
 			if (this.rdmaSetting > 0) {
-				this.rdmaChannel = new DataSocket(conf,reporter, numMaps);
+				this.rdmaChannel = new RdmaChannel(conf,reporter, numMaps);
 			}
 		}
 
@@ -3076,7 +3076,7 @@ class ReduceTask extends Task {
 		}
 
 		/* Communicating with netlev reduce task */ 
-		private class DataSocket<K,V> extends Thread implements UdaCallable {
+		private class RdmaChannel<K,V> implements UdaCallable {
 			private JobConf           mJobConf      = null;
 			private TaskReporter      mTaskReporter = null;    
 			private Progress          mProgress     = null;
@@ -3153,11 +3153,9 @@ class ReduceTask extends Task {
 					LOG.warn(StringUtils.stringifyException(e));
 					throw (e);
 				}
-
-
 			}
 			
-			public DataSocket(JobConf jobConf, TaskReporter reporter,
+			public RdmaChannel(JobConf jobConf, TaskReporter reporter,
 					int numMaps) throws IOException {
 
 				/* init variables */
@@ -3201,9 +3199,6 @@ class ReduceTask extends Task {
 				UdaBridge.doCommand(msg);
 				this.mProgress = new Progress(); 
 				this.mProgress.set((float)(1/2));
-
-				setName("Thread for communicating with netmerger");
-				setDaemon(true); 
 			}
 
 			public void sendFetchReq (MapOutputLocation loc) throws IOException {
