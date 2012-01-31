@@ -45,55 +45,55 @@ reduce_task_t * g_task;
 
 void reduce_downcall_handler(const string & msg)
 {
-    client_part_req_t   *req;
-    hadoop_cmd_t        *hadoop_cmd;
+	client_part_req_t   *req;
+	hadoop_cmd_t        *hadoop_cmd;
 
-    hadoop_cmd = (hadoop_cmd_t*) malloc(sizeof(hadoop_cmd_t));
-    memset(hadoop_cmd, 0, sizeof(hadoop_cmd_t));
+	hadoop_cmd = (hadoop_cmd_t*) malloc(sizeof(hadoop_cmd_t));
+	memset(hadoop_cmd, 0, sizeof(hadoop_cmd_t));
 
-    parse_hadoop_cmd(msg, *hadoop_cmd);
+	parse_hadoop_cmd(msg, *hadoop_cmd);
 
-    log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd->count - 1, (int)hadoop_cmd->header);
+	log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd->count - 1, (int)hadoop_cmd->header);
 
-    static const int DIRS_START = 4;
-    switch (hadoop_cmd->header) {
-    case INIT_MSG:
-    	assert (hadoop_cmd->count -1 > 2); // sanity under debug
-    	g_task->num_maps = atoi(hadoop_cmd->params[0]);
-    	g_task->job_id = strdup(hadoop_cmd->params[1]);
-    	g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
-    	g_task->lpq_size = atoi(hadoop_cmd->params[3]);
+	static const int DIRS_START = 4;
+	switch (hadoop_cmd->header) {
+	case INIT_MSG:
+		assert (hadoop_cmd->count -1 > 2); // sanity under debug
+		g_task->num_maps = atoi(hadoop_cmd->params[0]);
+		g_task->job_id = strdup(hadoop_cmd->params[1]);
+		g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
+		g_task->lpq_size = atoi(hadoop_cmd->params[3]);
 
-    	if (hadoop_cmd->count -1  > DIRS_START) {
-    		assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
-    		if (hadoop_cmd->params[DIRS_START] != NULL) {
-    			int num_dirs = atoi(hadoop_cmd->params[DIRS_START]);
-    			log(lsDEBUG, " ===>>> num_dirs=%d" , num_dirs);
+		if (hadoop_cmd->count -1  > DIRS_START) {
+			assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
+			if (hadoop_cmd->params[DIRS_START] != NULL) {
+				int num_dirs = atoi(hadoop_cmd->params[DIRS_START]);
+				log(lsDEBUG, " ===>>> num_dirs=%d" , num_dirs);
 
-    			assert (num_dirs >= 0); // sanity under debug
-    			if (num_dirs > 0 && DIRS_START + 1 + num_dirs  <= hadoop_cmd->count - 1) {
-    				g_task->local_dirs.resize(num_dirs);
-    				for (int i = 0; i < num_dirs; ++i) {
-    					g_task->local_dirs[i].assign(hadoop_cmd->params[DIRS_START + 1 + i]);
-    					log(lsINFO, " -> dir[%d]=%s", i, g_task->local_dirs[i].c_str());
-    				}
-    			}
-    		}
-    	}
-    	init_reduce_task(g_task);
-    	free_hadoop_cmd(*hadoop_cmd);
-    	free(hadoop_cmd);
-    	break;
+				assert (num_dirs >= 0); // sanity under debug
+				if (num_dirs > 0 && DIRS_START + 1 + num_dirs  <= hadoop_cmd->count - 1) {
+					g_task->local_dirs.resize(num_dirs);
+					for (int i = 0; i < num_dirs; ++i) {
+						g_task->local_dirs[i].assign(hadoop_cmd->params[DIRS_START + 1 + i]);
+						log(lsINFO, " -> dir[%d]=%s", i, g_task->local_dirs[i].c_str());
+					}
+				}
+			}
+		}
+		init_reduce_task(g_task);
+		free_hadoop_cmd(*hadoop_cmd);
+		free(hadoop_cmd);
+		break;
 
-    	case FETCH_MSG:
-            /*
-        * 1. find the hostid
-        * 2. map from the hostid to its request list
-            * 3. lock the list and insert the new request
-        */
-            //string hostid = hadoop_cmd->params[0];
+	case FETCH_MSG:
+		/*
+		 * 1. find the hostid
+		 * 2. map from the hostid to its request list
+		 * 3. lock the list and insert the new request
+		 */
+		//string hostid = hadoop_cmd->params[0];
 
-        /* map<string, host_list_t *>::iterator iter;
+		/* map<string, host_list_t *>::iterator iter;
         host = NULL;
         bool is_new = false;
 
@@ -111,22 +111,22 @@ void reduce_downcall_handler(const string & msg)
         }
             pthread_mutex_unlock(&g_task->lock); */
 
-        /* Insert a segment request into the list */
-        req = (client_part_req_t *) malloc(sizeof(client_part_req_t));
-        memset(req, 0, sizeof(client_part_req_t));
-        req->info = hadoop_cmd;
-        /* req->host = host; */
-        req->total_len = 0;
-        req->last_fetched = 0;
-        req->mop = NULL;
+		/* Insert a segment request into the list */
+		req = (client_part_req_t *) malloc(sizeof(client_part_req_t));
+		memset(req, 0, sizeof(client_part_req_t));
+		req->info = hadoop_cmd;
+		/* req->host = host; */
+		req->total_len = 0;
+		req->last_fetched = 0;
+		req->mop = NULL;
 
 
-            pthread_mutex_lock(&g_task->fetch_man->send_lock);
-            g_task->fetch_man->fetch_list.push_back(req);
-            pthread_cond_broadcast(&g_task->fetch_man->send_cond);
-            pthread_mutex_unlock(&g_task->fetch_man->send_lock);
+		pthread_mutex_lock(&g_task->fetch_man->send_lock);
+		g_task->fetch_man->fetch_list.push_back(req);
+		pthread_cond_broadcast(&g_task->fetch_man->send_cond);
+		pthread_mutex_unlock(&g_task->fetch_man->send_lock);
 
-        /* pthread_mutex_lock(&host->lock);
+		/* pthread_mutex_lock(&host->lock);
         list_add_tail(&req->list, &host->todo_fetch_list);
         pthread_mutex_unlock(&host->lock);
 
@@ -137,32 +137,32 @@ void reduce_downcall_handler(const string & msg)
             g_task->fetch_man->send_req_count++;
             pthread_mutex_unlock(&g_task->fetch_man->send_req_lock);*/
 
-        /* wake up fetch thread */
-            //pthread_cond_broadcast(&g_task->cond);
+		/* wake up fetch thread */
+		//pthread_cond_broadcast(&g_task->cond);
 
-            write_log(g_task->reduce_log, DBG_CLIENT,
-                      "Got 1 more fetch request, total is %d",
-                      ++g_task->total_java_reqs);
-            break;
+		write_log(g_task->reduce_log, DBG_CLIENT,
+				"Got 1 more fetch request, total is %d",
+				++g_task->total_java_reqs);
+		break;
 
-    	case FINAL_MSG:
-        /* do the final merge */
-            pthread_mutex_lock(&g_task->merge_man->lock);
-            g_task->merge_man->flag = FINAL_MERGE;
-            pthread_cond_broadcast(&g_task->merge_man->cond);
-            pthread_mutex_unlock(&g_task->merge_man->lock);
-        free_hadoop_cmd(*hadoop_cmd);
-        free(hadoop_cmd);
-            break;
+	case FINAL_MSG:
+		/* do the final merge */
+		pthread_mutex_lock(&g_task->merge_man->lock);
+		g_task->merge_man->flag = FINAL_MERGE;
+		pthread_cond_broadcast(&g_task->merge_man->cond);
+		pthread_mutex_unlock(&g_task->merge_man->lock);
+		free_hadoop_cmd(*hadoop_cmd);
+		free(hadoop_cmd);
+		break;
 
-    	case EXIT_MSG:
-            finalize_reduce_task(g_task);
-        free_hadoop_cmd(*hadoop_cmd);
-        free(hadoop_cmd);
-            break;
-    }
+	case EXIT_MSG:
+		finalize_reduce_task(g_task);
+		free_hadoop_cmd(*hadoop_cmd);
+		free(hadoop_cmd);
+		break;
+	}
 
-    log(lsDEBUG, "<<<=== HANDLED COMMAND FROM JAVA SIDE");
+	log(lsDEBUG, "<<<=== HANDLED COMMAND FROM JAVA SIDE");
 }
 
 int  create_mem_pool(int size, int num, memory_pool_t *pool)

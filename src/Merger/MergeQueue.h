@@ -25,7 +25,6 @@
 #include <NetlevComm.h>
 
 #include "IOUtility.h"
-#include "UdaBridge.h" //avner - TEMP - remove
 
 class RawKeyValueIterator;
 
@@ -38,9 +37,7 @@ typedef struct mem_desc {
     struct memory_pool  *owner;  /* owner pool */
     pthread_mutex_t      lock;
     pthread_cond_t       cond;
-    jobject              jbuf; // handle that we can pass to JVM to allow java code to access our data
 
-    mem_desc() : jbuf(NULL) {}
 } mem_desc_t;
 
 

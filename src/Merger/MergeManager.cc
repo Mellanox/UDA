@@ -152,67 +152,33 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
     return NULL;
 }
 
-
-
 void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *merge_queue)
 {
 	/* merging phase */
-	int idx = 0;
+	JNIEnv *jniEnv = task->merge_thread.jniEnv;
+
+	// register our staging_buf as DirectByteBuffer for sharing with Java
+	mem_desc_t  *desc = merge_queue->staging_bufs[0];  // we only need 1 staging_bufs: TODO: remove the array
+	jobject jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
+	log(lsINFO, "GOT: desc=%p, jbuf=%p, address=%p, capacity=%d", desc, jbuf, desc->buff, desc->buf_len);
+
+
 	bool b = false;
 
-// TODO: 
-// NetMerger can use just we can use just 1 staging_buf
-// - no need for staging_bufs array and loop on it
-
-	JNIEnv *jniEnv = task->merge_thread.jniEnv;
-    for (int i = 0; i < NUM_STAGE_MEM; ++i) {
-    	mem_desc_t  *desc = merge_queue->staging_bufs[i];
-    	desc->jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
-    	log(lsINFO, "GOT: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
-
-    }
-
-
 	while (!task->merge_thread.stop && !b) {
-		mem_desc_t *desc = merge_queue->staging_bufs[idx];
-
-		pthread_mutex_lock(&desc->lock);
-		if ( desc->status != FETCH_READY
-		 &&  desc->status != INIT ) {
-		   pthread_cond_wait(&desc->cond, &desc->lock);
-		}
 
 		log(lsDEBUG, "calling write_kv_to_mem desc->buf_len=%d", desc->buf_len);
-		b = write_kv_to_mem(merge_queue,
-							desc->buff,
-							desc->buf_len,
-							desc->act_len);
+		b = write_kv_to_mem(merge_queue, desc->buff, desc->buf_len, desc->act_len);
 
-		desc->status = MERGE_READY;
-    	log(lsDEBUG, "MERGER: invoking java callback: desc=%p, desc->jbuf=%p, address=%p, capacity=%d act_len=%d", desc, desc->jbuf, desc->buff, desc->buf_len, desc->act_len);
-		UdaBridge_invoke_dataFromUda_callback(task->merge_thread.jniEnv, desc->jbuf, desc->act_len);
-		desc->status = FETCH_READY;
-
-		if (!b) {
-			++idx;
-			if (idx >= NUM_STAGE_MEM) {
-				idx = 0;
-			}
-		}
-		pthread_cond_broadcast(&desc->cond);
-		pthread_mutex_unlock(&desc->lock);
+    	log(lsDEBUG, "MERGER: invoking java callback: desc=%p, desc->jbuf=%p, address=%p, capacity=%d act_len=%d", desc, jbuf, desc->buff, desc->buf_len, desc->act_len);
+		UdaBridge_invoke_dataFromUda_callback(task->merge_thread.jniEnv, jbuf, desc->act_len);
 	}
 
-//* TODO: move to UdaBridge
-    for (int i = 0; i < NUM_STAGE_MEM; ++i) {
-    	mem_desc_t  *desc = merge_queue->staging_bufs[i];
-    	log(lsDEBUG, "invoking DeleteWeakGlobalRef: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
-    	jniEnv->DeleteWeakGlobalRef(desc->jbuf);
-    	desc->jbuf = NULL;
-    	log(lsDEBUG, "After DeleteWeakGlobalRef");
-    }
-//*/
+	log(lsDEBUG, "invoking DeleteWeakGlobalRef: desc=%p, jbuf=%p, address=%p, capacity=%d", desc, jbuf, desc->buff, desc->buf_len);
+	jniEnv->DeleteWeakGlobalRef(jbuf);
+	log(lsDEBUG, "After DeleteWeakGlobalRef");
 
+	log(lsINFO, "----- merger thread completed ------");
     return NULL;
 }
 

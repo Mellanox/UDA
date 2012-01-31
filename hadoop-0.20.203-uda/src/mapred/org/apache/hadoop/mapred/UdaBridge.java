@@ -5,7 +5,7 @@ import org.apache.hadoop.util.StringUtils;
 
 interface UdaCallable {
 	public void fetchOverMessage();
-	public void dataFromUda(Object directBufAsObj, int len);
+	public void dataFromUda(Object directBufAsObj, int len) throws Throwable;
 }
 
 public class UdaBridge {

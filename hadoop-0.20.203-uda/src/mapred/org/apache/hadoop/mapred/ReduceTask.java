@@ -2999,11 +2999,6 @@ class ReduceTask extends Task {
 								MAX_EVENTS_TO_FETCH,
 								reduceTask.getTaskID());
 				TaskCompletionEvent events[] = update.getMapTaskCompletionEvents();
-				/*
-        if (events.length != 0) {
-        	LOG.info("getMapCompletionEvents=" + events.length ); //avner2 - temp
-        }
-//*/    	
 
 
 				// Check if the reset is required.
@@ -3102,7 +3097,7 @@ class ReduceTask extends Task {
 			private final int         kv_buf_size = 1 << 20;   /* 1 MB */
 			private final int         kv_buf_num = 2;
 			private KVBuf[]           kv_bufs = null;
-			private KVBufReceiver     kv_buf_receiver = null;
+//			private KVBufReceiver     kv_buf_receiver = null;
 
 			private void init_kv_bufs() {
 				kv_bufs = new KVBuf[kv_buf_num];
@@ -3154,44 +3149,26 @@ class ReduceTask extends Task {
 
 				} catch (UnsatisfiedLinkError e) {
 					LOG.warn("UDA: Exception when launching child");    	  
+					LOG.warn("java.library.path=" + System.getProperty("java.library.path"));
 					LOG.warn(StringUtils.stringifyException(e));
 					throw (e);
 				}
 
 
 			}
-
-			public void dataFromUda(Object directBufAsObj, int len) {
-				this.kv_buf_receiver.dataFromUda(directBufAsObj, len);
-			}
-
+			
 			public DataSocket(JobConf jobConf, TaskReporter reporter,
 					int numMaps) throws IOException {
 
 				/* init variables */
 				init_kv_bufs(); 
-				this.kv_buf_receiver = new KVBufReceiver();
-
 				launchCppSide(jobConf);//avner1
 
 				this.j2c_queue = new J2CQueue<K, V>();
 				this.mJobConf = jobConf;
 				this.mTaskReporter = reporter;
 				this.mMapsNeed = numMaps;
-				/*    	      	  
-        int listener = jobConf.getInt("mapred.netmerger.listener.port", 9012);
-        InetAddress addr = InetAddress.getByName("localhost");
 
-    	  // make sure netlev reduce task is completely launched
-        int launch_ret = WritableUtils.readVInt(this.mFromMerger);
-    	  if (launch_ret == RDMACmd.NETLEV_REDUCE_LAUNCHED) {//avner1
-    		  // just simply block for now
-        }
-//*/
-				try{
-					//    		  Thread.sleep(3000);  //avner1: TEMP TODO 
-				}
-				catch (Exception e){}
 
 				/* send init message */
 				TaskAttemptID reduceId = reduceTask.getTaskID();
@@ -3257,6 +3234,7 @@ class ReduceTask extends Task {
 				return this.j2c_queue; 
 			}
 
+			// callback from C++
 			public void fetchOverMessage() {
 				if (LOG.isDebugEnabled()) LOG.debug(">> in fetchOverMessage"); 
 				mMapsCount += mReportCount;
@@ -3266,13 +3244,52 @@ class ReduceTask extends Task {
 
 				if (mMapsCount >= this.mMapsNeed) {
 					/* wake up ReduceCopier */
-					if (LOG.isInfoEnabled()) LOG.info("fetchOverMessage: reached desired num of maps, waiking up ReduceCopier"); 
+					if (LOG.isInfoEnabled()) LOG.info("fetchOverMessage: reached desired num of maps, waking up ReduceCopier"); 
 					synchronized(ReduceCopier.this) {
 						ReduceCopier.this.notify();
 					}
 				}
 				if (LOG.isDebugEnabled()) LOG.debug("<< out fetchOverMessage"); 
 			}
+			
+			
+			// callback from C++
+			int __cur_kv_idx__ = 0;
+			public void dataFromUda(Object directBufAsObj, int len) throws Throwable {
+				if (LOG.isDebugEnabled()) LOG.debug ("-->> dataFromUda len=" + len);
+
+				KVBuf buf = kv_bufs[__cur_kv_idx__];
+
+				synchronized (buf) {
+					while (buf.status != kv_buf_recv_ready) {
+						try{
+							buf.wait();
+						} catch (InterruptedException e) {}
+					}
+
+					buf.act_len = len;  // set merged size
+					try {
+						java.nio.ByteBuffer directBuf = (java.nio.ByteBuffer) directBufAsObj;
+						directBuf.position(0); // reset read position 		  
+						directBuf.get(buf.kv_buf, 0, len);// memcpy from direct buf into java buf - TODO: try zero-copy
+					} catch (Throwable t) {
+						LOG.error ("!!! !! dataFromUda GOT Exception");
+						LOG.error(StringUtils.stringifyException(t));
+						throw (t);
+					}
+
+					buf.kv.reset(buf.kv_buf, 0, len); // reset KV read position
+
+					buf.status = kv_buf_redc_ready;
+					++__cur_kv_idx__;
+					if (__cur_kv_idx__ >= kv_buf_num) {
+						__cur_kv_idx__ = 0;
+					}
+					buf.notifyAll();
+				}
+				if (LOG.isDebugEnabled()) LOG.debug ("<<-- dataFromUda finished callback");
+			}
+			
 
 			/* kv buf object, j2c_queue uses 
          the kv object inside.
@@ -3289,50 +3306,6 @@ class ReduceTask extends Task {
 					kv.reset(kv_buf,0);
 					status = kv_buf_recv_ready;
 				}
-			}
-
-			private class KVBufReceiver<K, V>
-			{
-				boolean stop;
-				int cur_kv_idx = 0;
-				public KVBufReceiver() {
-					stop = false;
-				}
-
-
-				public void dataFromUda(Object directBufAsObj, int len) {
-					if (LOG.isDebugEnabled()) LOG.debug ("-->> dataFromUda len=" + len);
-
-					KVBuf buf = kv_bufs[cur_kv_idx];
-
-					synchronized (buf) {
-						while (buf.status != kv_buf_recv_ready) {
-							try{
-								buf.wait();
-							} catch (InterruptedException e) {}
-						}
-
-						buf.act_len = len;  // set merged size
-						try {
-							java.nio.ByteBuffer directBuf = (java.nio.ByteBuffer) directBufAsObj;
-							directBuf.position(0); // reset read position 		  
-							directBuf.get(buf.kv_buf, 0, len);// memcpy from direct buf into java buf - TODO: try zero-copy
-						} catch (Exception e) {
-							LOG.warn ("!!! !! dataFromUda GOT Exception");
-						}
-
-						buf.kv.reset(buf.kv_buf, 0, len); // reset KV read position
-
-						buf.status = kv_buf_redc_ready;
-						++cur_kv_idx;
-						if (cur_kv_idx >= kv_buf_num) {
-							cur_kv_idx = 0;
-						}
-						buf.notifyAll();
-					}
-					if (LOG.isDebugEnabled()) LOG.debug ("<<-- dataFromUda finished callback");
-				}
-
 			}
 
 			private class J2CQueue<K extends Object, V extends Object> 
@@ -3443,7 +3416,7 @@ class ReduceTask extends Task {
 				}
 
 				public void close() throws IOException {
-					kv_buf_receiver.stop = true;
+//avner					kv_buf_receiver.stop = true;
 					for (int i = 0; i < kv_buf_num; ++i) {
 						KVBuf buf = kv_bufs[i];
 						synchronized (buf) {

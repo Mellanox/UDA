@@ -99,6 +99,7 @@ extern "C" JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
 }
 
 
+
 struct Args{
 	main_t mainf;
 	int    argc;
@@ -109,16 +110,11 @@ struct Args{
 void* mainThread(void* data)
 {
 	Args* pArgs = (Args*) data;
-    printf("In C++ main thread: calling: main\n");
 
-    for (int i=0; i<pArgs->argc; i++) {
-        printf ("%d: %s\n", i, pArgs->argv[i]);
-    }
-
+	printf("In C++ main thread: calling: main\n");
     int rc = pArgs->mainf(pArgs->argc, pArgs->argv);
 
     printf("In C++ main thread: main returned %d\n", rc);
-
     for (int i=0; i<pArgs->argc; i++) {
         free (pArgs->argv[i]);
     }
@@ -126,6 +122,68 @@ void* mainThread(void* data)
     delete pArgs;
 }
 
+
+// This is the implementation of the native method
+extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jboolean isNetMerger, jobjectArray stringArray) {
+
+	errno = 0; // we don't want the value from JVM
+	printf("-->> In C++ Java_org_apache_hadoop_mapred_UdaBridge_startNative\n");
+
+	int argc = env->GetArrayLength(stringArray);
+    char **argv = new char*[argc];
+
+	printf("-- argc=%d\n", argc);
+
+    for (int i=0; i<argc; i++) {
+    	printf("-- i=%d\n", i);
+        jstring string = (jstring) env->GetObjectArrayElement(stringArray, i);
+        if (string != NULL) {
+			const char *rawString = env->GetStringUTFChars(string, 0);
+			argv[i] = strdup(rawString);
+			env->ReleaseStringUTFChars(string, rawString);
+        }
+        else {
+			argv[i] = strdup("");
+        }
+    }
+
+    is_net_merger = isNetMerger;
+    if (is_net_merger) {
+        printf("In NetMerger 'C++ main from Java Thread'\n");
+    	my_downcall_handler = reduce_downcall_handler;
+    	my_main = MergeManager_main;
+    }
+    else {
+        printf("In MOFSupplier 'C++ main from Java Thread'\n");
+    	my_downcall_handler = mof_downcall_handler;
+    	my_main = MOFSupplier_main;
+    }
+
+    int ret = my_main(argc, argv);
+    if (ret != 0) {
+        fprintf(stdout, "error in main'\n");
+        fprintf(stderr, "error in main'\n");
+    	log(lsFATAL, "error in main");
+    	exit(255); //TODO: this is too brutal
+    }
+
+	log(lsINFO, "main initialization finished ret=%d", ret);
+	if (! is_net_merger) {
+		pthread_t thr;
+		log(lsINFO, "CREATING THREAD"); pthread_create(&thr, NULL, MOFSupplierRun, NULL);  // This is actual main of MOFSupplier
+	}
+
+	for (int i=0; i < argc; i++) {
+        free (argv[i]);
+    }
+	delete [] argv;
+
+	log(lsTRACE, "<<< finished");
+	printf("<<-- Finished C++ Java_org_apache_hadoop_mapred_UdaBridge_startNative\n");
+
+
+    return ret;
+}
 
 // This is the implementation of the native method
 extern "C" JNIEXPORT void JNICALL Java_org_apache_hadoop_mapred_UdaBridge_doCommandNative  (JNIEnv *env, jclass cls, jstring s) {
@@ -168,7 +226,6 @@ extern "C" JNIEnv *attachNativeThread()
     return env; // note: this handler is valid for all functions in this tread
 }
 
-
 // must be called with JNIEnv that matched the caller's thread - see attachNativeThread() above
 // - otherwise TOO BAD unexpected results are expected!
 extern "C" void UdaBridge_invoke_fetchOverMessage_callback(JNIEnv * jniEnv) {
@@ -192,110 +249,16 @@ extern "C" jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* ad
 	log(lsINFO, "registering native buffer for JAVA usage (address=%p, capacity=%ld) ...", address, capacity);
 	jobject jbuf = jniEnv->NewDirectByteBuffer(address, capacity);
 
-	void* _address = jniEnv->GetDirectBufferAddress(jbuf);
-	jlong _capacity = jniEnv->GetDirectBufferCapacity(jbuf);
 	if (jbuf) {
-		if (_address != address)
-		{
-			log(lsFATAL, "invalid buffer address: expected %p but was %p", address, _address);
-			jbuf = NULL;
-		}
-		if (_capacity != capacity)
-		{
-			log(lsFATAL, "invalid buffer capacity: expected %d but was %d", capacity, _capacity);
-			jbuf = NULL;
-		}
+		jbuf = (jobject) jniEnv->NewWeakGlobalRef(jbuf); // Don't let GC to reclaim it while we need it
+		if (!jbuf)
+			log(lsERROR, "failed NewWeakGlobalRef");
 	}
-	else
-	{
-		// access to direct buffers not supported
-		if (_address != NULL | _capacity != -1)
-		{
-			log(lsFATAL, "inconsistent NIO support: "
-					"NewDirectByteBuffer() returned NULL; "
-					"GetDirectBufferAddress() returned %p; "
-					"GetDirectBufferCapacity() returned %d", _address, _capacity);
-		}
-		else
-		{
-			log(lsFATAL, "no NIO support");
-		}
+	else {
+		log(lsERROR, "failed NewDirectByteBuffer");
 	}
 
-	if (jbuf) {
-		// Don't let GC to reclaim it while we need it
-	    jweak weakBuf = jniEnv->NewWeakGlobalRef(jbuf);
-	    if (weakBuf == NULL) {
-			log(lsFATAL, "failed NewWeakGlobalRef");
-	    }
-	    jbuf = (jobject)weakBuf;
-
-	}
 	return jbuf;
-}
-
-// This is the implementation of the native method
-extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jboolean isNetMerger, jobjectArray stringArray) {
-
-	errno = 0; // we don't want the value from JVM
-	printf("-->> In C++ Java_org_apache_hadoop_mapred_UdaBridge_startNative\n");
-
-	int argc = env->GetArrayLength(stringArray);
-    char **argv = new char*[argc];
-
-	printf("-- argc=%d\n", argc);
-
-    for (int i=0; i<argc; i++) {
-    	printf("-- i=%d\n", i);
-        jstring string = (jstring) env->GetObjectArrayElement(stringArray, i);
-        if (string != NULL) {
-			const char *rawString = env->GetStringUTFChars(string, 0);
-			printf("-- arg #%d => %s\n", i, rawString);
-			argv[i] = strdup(rawString);
-			env->ReleaseStringUTFChars(string, rawString);
-        }
-        else {
-			printf("-- arg #%d => (empty string)\n", i);
-			argv[i] = strdup("");
-        }
-    }
-
-    is_net_merger = isNetMerger;
-    if (is_net_merger) {
-        printf("In NetMerger 'C++ main from Java Thread'\n");
-    	my_downcall_handler = reduce_downcall_handler;
-    	my_main = MergeManager_main;
-    }
-    else {
-        printf("In MOFSupplier 'C++ main from Java Thread'\n");
-    	my_downcall_handler = mof_downcall_handler;
-    	my_main = MOFSupplier_main;
-    }
-
-    int ret = my_main(argc, argv);
-    if (ret != 0) {
-        fprintf(stdout, "error in main'\n");
-        fprintf(stderr, "error in main'\n");
-    	log(lsFATAL, "error in main");
-    	exit(255); //TODO: this is too brutal
-    }
-
-	log(lsINFO, "main initialization finished ret=%d", ret);
-	if (! is_net_merger) {
-		pthread_t thr;
-		log(lsINFO, "CREATING THREAD"); pthread_create(&thr, NULL, MOFSupplierRun, NULL);  // This is actual main of MOFSupplier
-	}
-
-	for (int i=0; i < argc; i++) {
-        free (argv[i]);
-    }
-	delete [] argv;
-
-	log(lsTRACE, "<<< finished");
-	printf("<<-- Finished C++ Java_org_apache_hadoop_mapred_UdaBridge_startNative\n");
-
-
-    return ret;
 }
 
 
