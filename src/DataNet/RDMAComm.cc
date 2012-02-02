@@ -29,22 +29,19 @@
 
 int rdma_debug_flag = 0x0;
 
-
-int 
-netlev_dealloc_dev_mem(struct netlev_dev *dev, netlev_mem_t *mem)
+int
+netlev_dealloc_conn_mem(netlev_mem_t *mem)
 {
-    while(!list_empty(&dev->wqe_list)) {
-        netlev_wqe_t *wqe;
-        wqe = list_entry(dev->wqe_list.next, typeof(*wqe), list);
-        list_del(&wqe->list);
+    if (ibv_dereg_mr(mem->mr)){
+    	log(lsERROR,"ibv_dereg_mr failed (errno=%d)", errno);
+    	return -1;
     }
-
-    ibv_dereg_mr(mem->mr);
     free(mem->wqe_start);
     free(mem->wqe_buff_start);
     free(mem);
     return 0;
 }
+
 
 int
 netlev_dealloc_rdma_mem(struct netlev_dev *dev)
@@ -81,18 +78,18 @@ netlev_init_rdma_mem(void *mem, uint64_t total_size,
 
 
 int
-netlev_init_dev_mem(struct netlev_dev *dev)
+netlev_init_conn_mem(struct netlev_conn *conn)
 {
     netlev_mem_t *dev_mem;
     void         *wqe_mem;
     void         *dma_mem;
 
     int wqe_align = 64;
-    int num_wqes  = wqes_perconn  * max_hosts;
+    int num_wqes  = wqes_perconn;
     int data_size = sizeof(netlev_msg_t) * num_wqes;
     int dma_align = getpagesize();
 
-    log(lsDEBUG, "IDAN - wqes_perconn=%d max_hosts=%d", wqes_perconn  , max_hosts);
+    log(lsDEBUG, "IDAN - wqes_perconn=%d", wqes_perconn );
     log(lsDEBUG, "SIGNAL_INTERVAL=%d", SIGNAL_INTERVAL);
 
     //alloc dev_mem struct
@@ -122,23 +119,14 @@ netlev_init_dev_mem(struct netlev_dev *dev)
     }
     memset(dma_mem, 0, data_size);
 
-    dev_mem->count = num_wqes;
     dev_mem->wqe_start = (netlev_wqe_t *)wqe_mem;
     dev_mem->wqe_buff_start = dma_mem;
-    dev_mem->mr = ibv_reg_mr(dev->pd, dma_mem, data_size, NETLEV_MEM_ACCESS_PERMISSION);
+    dev_mem->mr = ibv_reg_mr(conn->dev->pd, dma_mem, data_size, NETLEV_MEM_ACCESS_PERMISSION);
     if (!dev_mem->mr) {
-        output_stderr("[%s,%d] register mem failed",
-                     __FILE__,__LINE__);
+    	log(lsFATAL, "register mem failed");
         goto error_register;
     }
-
-    //* init the free wqe list
-    for (int i = 0; i < num_wqes; i++) {
-        netlev_wqe_t *cur = dev_mem->wqe_start + i;
-        cur->data = (char *)(dma_mem) + (i * sizeof(netlev_msg_t));
-        list_add_tail(&cur->list, &dev->wqe_list);
-    }
-    dev->mem = dev_mem;
+    conn->mem = dev_mem;
     return 0;
 
 error_register:
@@ -153,15 +141,16 @@ error_dev:
 
 
 
+
+
+
 void 
 netlev_dev_release(struct netlev_dev *dev)
 {
     ibv_destroy_cq(dev->cq);
     ibv_destroy_comp_channel(dev->cq_channel);
-    netlev_dealloc_dev_mem(dev, dev->mem);
     netlev_dealloc_rdma_mem(dev);
     ibv_dealloc_pd(dev->pd);
-    pthread_mutex_destroy(&dev->lock);
 }
 
 int 
@@ -170,8 +159,6 @@ netlev_dev_init(struct netlev_dev *dev)
     struct ibv_device_attr device_attr;
     int cqe_num, max_sge;
 
-    INIT_LIST_HEAD(&dev->wqe_list);
-    pthread_mutex_init(&dev->lock, NULL);
     memset(&device_attr, 0, sizeof(struct ibv_device_attr));
 
     dev->pd = ibv_alloc_pd(dev->ibv_ctx);
@@ -181,18 +168,13 @@ netlev_dev_init(struct netlev_dev *dev)
         return -1;
     }
 
-    if (netlev_init_dev_mem(dev) != 0) {
-    	log(lsERROR, "failed to init device");
-        return -1;
-    }
-
     if (ibv_query_device(dev->ibv_ctx, &device_attr) != 0) {
         output_stderr("[%s,%d] ibv_query_device",
                      __FILE__,__LINE__);
         return -1;
     }
 
-    cqe_num = (wqes_perconn*max_hosts> device_attr.max_cqe) ? device_attr.max_cqe : wqes_perconn*max_hosts; //taking the minimum
+    cqe_num = (CQ_SIZE> device_attr.max_cqe) ? device_attr.max_cqe : CQ_SIZE; //taking the minimum
     max_sge = device_attr.max_sge;
 
     dev->cq_channel = ibv_create_comp_channel(dev->ibv_ctx);
@@ -208,7 +190,7 @@ netlev_dev_init(struct netlev_dev *dev)
                       __FILE__,__LINE__);
         return -1;
     }
-    log (lsDEBUG, "device_attr.max_cqe is %d, cqe_num is %d, actual cqe is %d, wqes_perconn*max_hosts is %d", device_attr.max_cqe, cqe_num, dev->cq->cqe, wqes_perconn*max_hosts);
+    log (lsDEBUG, "device_attr.max_cqe is %d, cqe_num is %d, actual cqe is %d, ", device_attr.max_cqe, cqe_num, dev->cq->cqe);
 
     if (ibv_req_notify_cq(dev->cq, 0) != 0) {
         output_stderr("[%s,%d] ibv_req_notify failed",
@@ -240,9 +222,6 @@ netlev_dev_find(struct rdma_cm_id *cm_id, list_head_t *head)
 void 
 netlev_conn_free(netlev_conn_t *conn)
 {
-    netlev_wqe_t *wqe;
-    /* free wqes */
-
     pthread_mutex_lock(&conn->lock);
     while (!list_empty(&conn->backlog)) {
     	netlev_msg_backlog_t *back = list_entry(conn->backlog.next, typeof(*back), list);
@@ -256,6 +235,7 @@ netlev_conn_free(netlev_conn_t *conn)
     rdma_destroy_id(conn->cm_id);
     pthread_mutex_destroy(&conn->lock);
     list_del(&conn->list); // TODO: consider lock!
+    netlev_dealloc_conn_mem(conn->mem);
     free(conn);
 };
 
@@ -267,7 +247,6 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     struct ibv_recv_wr *bad_wr;
     struct ibv_qp_init_attr qp_init_attr;
     struct ibv_qp_attr qp_attr;
-    int wqes_recv_perconn = wqes_perconn/2;
 
     conn = (netlev_conn_t*) calloc(1, sizeof(netlev_conn_t));
     if (!conn) {
@@ -283,11 +262,16 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     INIT_LIST_HEAD(&conn->backlog);
     INIT_LIST_HEAD(&conn->list);
 
+    if (netlev_init_conn_mem(conn) != 0) {
+    	log(lsERROR, "failed to init device");
+        return NULL;
+     }
+
     memset(&qp_init_attr, 0, sizeof(qp_init_attr));
     qp_init_attr.send_cq  = dev->cq;
     qp_init_attr.recv_cq  = dev->cq;
-    qp_init_attr.cap.max_send_wr  = wqes_perconn; //on server side 2 wqes are sent for each wqe received from client
-    qp_init_attr.cap.max_recv_wr  = wqes_perconn/2;
+    qp_init_attr.cap.max_send_wr  = wqes_perconn*2; //on server side 2 wqes are sent for each wqe received from client
+    qp_init_attr.cap.max_recv_wr  = wqes_perconn;
     qp_init_attr.cap.max_send_sge = 16; /* 28 is the limit */
     qp_init_attr.cap.max_recv_sge = 16; /* 28 is the limit */
     qp_init_attr.cap.max_inline_data = sizeof(netlev_msg_t);
@@ -316,19 +300,12 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     log(lsTRACE,"actual inline size is %d", qp_attr.cap.max_inline_data);
 
     memset(&conn->peerinfo, 0, sizeof(connreq_data_t));
-    log(lsDEBUG, "allocating %d wqes to be receving wqes", wqes_recv_perconn);
-    /* post as many recv wqes as possible, up to wqes_recv_perconn */
-    for (int i = 0; i < wqes_recv_perconn; ++i) {
-        netlev_wqe_t *wqe = get_netlev_wqe(&dev->wqe_list);
-        if (!wqe) {
-           output_stderr("no more wqe for receiving");
-           if (i == 0) {
-               netlev_conn_free(conn);
-               return NULL;
-           } 
-           break;
-        }
-        init_wqe_recv(wqe, sizeof(netlev_msg_t), dev->mem->mr->lkey, conn);
+    log(lsDEBUG, "allocating %d wqes to be receving wqes", wqes_perconn);
+    /* post as many recv wqes as possible, up to wqes_perconn */
+    for (int i = 0; i < wqes_perconn; ++i) {
+    	netlev_wqe_t *wqe = conn->mem->wqe_start + i;
+    	wqe->data = (char *)(conn->mem->wqe_buff_start) + (i * sizeof(netlev_msg_t));
+        init_wqe_recv(wqe, sizeof(netlev_msg_t), conn->mem->mr->lkey, conn);
         if (ibv_post_recv(conn->qp_hndl, &wqe->desc.rr, &bad_wr) != 0) {
             output_stderr("ibv_post_recv failed");
             netlev_conn_free(conn);
@@ -523,8 +500,7 @@ netlev_init_conn(struct rdma_cm_event *event,
     /* Save an extra one for credit flow */
     memset(&xdata, 0, sizeof(xdata));
     xdata.qp = conn->qp_hndl->qp_num;
-    xdata.credits = wqes_perconn/2 - 1;
-    xdata.mem_rkey = dev->mem->mr->rkey;
+    xdata.credits = wqes_perconn - 1;
     xdata.rdma_mem_rkey = dev->rdma_mem->mr->rkey;
 
     memset(&conn_param, 0, sizeof(conn_param));

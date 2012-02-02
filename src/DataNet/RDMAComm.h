@@ -24,11 +24,11 @@
 #define NETLEV_MEM_ACCESS_PERMISSION (IBV_ACCESS_LOCAL_WRITE|IBV_ACCESS_REMOTE_WRITE)
 
 #define SIGNAL_INTERVAL (wqes_perconn/10) //every (signal_interval)th message will be sent with IBV_SEND_SIGNALED
+#define CQ_SIZE (64000)
 
 typedef struct connreq_data{
     uint32_t qp;
     uint32_t credits;
-    unsigned int mem_rkey;
     unsigned int rdma_mem_rkey;
 } connreq_data_t;
 
@@ -89,8 +89,7 @@ typedef struct netlev_msg_backlog {
 typedef struct netlev_mem {
     struct ibv_mr *mr;   
     netlev_wqe_t  *wqe_start;     
-    void          *wqe_buff_start;     
-    int            count;   /* number of netlev_wqes in region  */
+    void          *wqe_buff_start;
 } netlev_mem_t;
 
 /* memory for rdma operation */
@@ -105,12 +104,9 @@ typedef struct netlev_dev {
     struct ibv_pd            *pd;
     struct ibv_cq            *cq;
     struct ibv_comp_channel  *cq_channel;
-    netlev_mem_t             *mem;
     netlev_rdma_mem_t        *rdma_mem;
 
     struct list_head          list;     /* for device list*/
-    struct list_head          wqe_list; /* wqes for this device*/
-    pthread_mutex_t           lock;
     uint32_t                  cqe_num;
     uint32_t                  max_sge;
 } netlev_dev_t;
@@ -136,7 +132,7 @@ typedef struct netlev_conn
 
     pthread_mutex_t     lock;
     connreq_data_t      peerinfo;
-
+    netlev_mem_t        *mem;
     unsigned long       peerIPAddr;
     unsigned int        state;
     uint32_t			sent_counter;
