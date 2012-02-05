@@ -51,9 +51,7 @@ typedef struct hadoop_cmd {
 
 
 typedef struct netlev_option {
-    int cmd_port;    /* port to connect to tasktracker */
     int data_port;   /* port to do rdma connection */ 
-    int svc_port;    /* port to listen to new reduce task */
     int mode;        /* standalone or integrated*/
     int online;      /* if we are using online merge*/
     //char *base_path; /* file path contains the intermediate mop*/

@@ -40,7 +40,6 @@ enum {
 };
 
 extern int netlev_dbg_flag;
-extern unsigned int max_hosts;
 extern unsigned int wqes_perconn;
 
 

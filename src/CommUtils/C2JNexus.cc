@@ -30,19 +30,14 @@
 #include "AIOHandler.h"
 
 extern char *rdmalog_dir;
-extern uint32_t max_hosts;
 extern uint32_t wqes_perconn;
 
 static void usage(const char *cmd)
 {
     printf("\nUsage: %s [<options> ... ]\n\n", cmd);
     printf("<options> are the following:\n");
-    printf("  -c | --commandport <port> "
-                   "  Port to receive commands from Hadoop \n");
     printf("  -r | --dataport    <port> "
                    "  port to do rdma connection \n");
-    printf("  -l | --service     <port> "
-                   "  Port to listen to launch of new reduce tasks\n");
     printf("  -a | --online      <online>"
                    " If it is online merge\n");
     printf("  -m | --mode        <mode>"
@@ -63,11 +58,8 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
 {
     char choice;
     struct option longopts[] = {
-        {"maxhosts",	  1, NULL, 'o'},
         {"wqesperconn",   1, NULL, 'w'},
-        {"commandport",   1, NULL, 'c'},
         {"dataport",      1, NULL, 'r'},
-        {"service",       1, NULL, 'l'},
         {"merge",         1, NULL, 'a'},
         {"mode",          1, NULL, 'm'},
         {"log",           1, NULL, 'g'},
@@ -80,33 +72,16 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
     };
     int buf_size;
 	errno = 0; // reset before we check!
-	while ((choice = getopt_long(argc, argv, "o:w:c:r:l:a:m:g:t:b:s:v:h",
+	while ((choice = getopt_long(argc, argv, "w:r:a:m:g:t:b:s:v:h",
 
                             longopts, NULL)) != -1) {
         switch (choice) {
-        case 'o':
-            max_hosts = strtol(optarg, NULL, 10);
-            if (errno) {
-                goto err_options;
-            }
-            break;
         case 'w':
             wqes_perconn = strtol(optarg, NULL, 10);
             if (errno) {
                 goto err_options;
             }
             break;
-        case 'c':
-            op->cmd_port = strtol(optarg, NULL, 10);
-            if (errno) {
-                goto err_options;
-            }
-            break;
-        case 'l':
-            op->svc_port = strtol(optarg, NULL, 10);
-            if (errno) {
-                goto err_options;
-            }
         case 'r':
             op->data_port = strtol(optarg, NULL, 10);
             if (errno) {

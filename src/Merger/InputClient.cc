@@ -15,7 +15,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "FetchManager.h"
 #include "InputClient.h"
 
 using namespace std;
@@ -55,8 +54,8 @@ int InputClient::start_fetch_req(client_part_req_t *req)
 
 void InputClient::comp_fetch_req(client_part_req_t *req)
 {
-    FetchManager *fetch_man = req->mop->task->fetch_man;
-    fetch_man->update_fetch_req(req);
+	MergeManager *merge_man = req->mop->task->merge_man;
+	merge_man->update_fetch_req(req);
 }
 
 /*

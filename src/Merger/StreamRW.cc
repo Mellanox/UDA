@@ -482,11 +482,7 @@ void Segment::send_request() {
               map_output->fetch_count,
               map_output->total_fetched); */
     pthread_mutex_unlock(&map_output->lock);
-
-    pthread_mutex_lock(&map_output->task->fetch_man->send_lock);
-    map_output->task->fetch_man->fetch_list.push_back(map_output->part_req);
-    pthread_cond_broadcast(&map_output->task->fetch_man->send_cond);
-    pthread_mutex_unlock(&map_output->task->fetch_man->send_lock);
+    map_output->task->merge_man->start_fetch_req(map_output->part_req);
 }
 
 bool BaseSegment::switch_mem() {

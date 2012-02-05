@@ -58,9 +58,7 @@ libhadoopUda_la_SOURCES = \
 					   	DataNet/RDMAClient.cc \
 					   	DataNet/RDMAServer.cc \
 					   	DataNet/RDMAComm.cc \
-                        Merger/FetchManager.h \
                         Merger/InputClient.h \
-                        Merger/FetchManager.cc \
                         Merger/InputClient.cc \
                         CommUtils/IOUtility.cc \
                         CommUtils/atomic.cc \

@@ -36,7 +36,6 @@
 using namespace std;
 
 extern merging_state_t merging_sm;
-extern void *fetch_thread_main (void *context);
 extern void *merge_thread_main (void *context);
 
 static void init_reduce_task(struct reduce_task *task);
@@ -120,11 +119,10 @@ void reduce_downcall_handler(const string & msg)
 		req->last_fetched = 0;
 		req->mop = NULL;
 
-
-		pthread_mutex_lock(&g_task->fetch_man->send_lock);
-		g_task->fetch_man->fetch_list.push_back(req);
-		pthread_cond_broadcast(&g_task->fetch_man->send_cond);
-		pthread_mutex_unlock(&g_task->fetch_man->send_lock);
+		pthread_mutex_lock(&g_task->merge_man->lock);
+		g_task->merge_man->fetch_list.push_back(req);
+		pthread_cond_broadcast(&g_task->merge_man->cond);
+		pthread_mutex_unlock(&g_task->merge_man->lock);
 
 		/* pthread_mutex_lock(&host->lock);
         list_add_tail(&req->list, &host->todo_fetch_list);
@@ -180,7 +178,7 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool)
     pool->total_size = buf_len * num;
 
     log (lsDEBUG, "logsize is %d\n", size);
-    log (lsDEBUG, "buf_len is %d\n", buf_len);
+    log (lsDEBUG, "buffer length is %d\n", buf_len);
     log (lsDEBUG, "pool->total_size is %d\n", pool->total_size);
     
     rc = posix_memalign((void**)&pool->mem,  pagesize, pool->total_size);
@@ -241,18 +239,6 @@ static void init_reduce_task(struct reduce_task *task)
     log(lsINFO, "CREATING THREAD"); pthread_create(&task->merge_thread.thread,
                    &task->merge_thread.attr, 
                    merge_thread_main, task);
-
-    /* Initialize a fetcher */
-    task->fetch_man = new FetchManager(task);
-    memset(&task->fetch_thread, 0, sizeof(netlev_thread_t));
-    task->fetch_thread.stop = 0;
-    task->fetch_thread.context = task;
-    pthread_attr_init(&task->fetch_thread.attr); 
-    pthread_attr_setdetachstate(&task->fetch_thread.attr, 
-                                PTHREAD_CREATE_JOINABLE);
-    log(lsINFO, "CREATING THREAD"); pthread_create(&task->fetch_thread.thread,
-                   &task->fetch_thread.attr, 
-                   fetch_thread_main, task);
 }
 
 void spawn_reduce_task()
@@ -328,19 +314,6 @@ void finalize_reduce_task(reduce_task_t *task)
               "Total wait  time: %d", 
               task->total_wait_mem_time);
 
-    /* stop fetch thread */ 
-    task->fetch_thread.stop = 1;
-    pthread_cond_broadcast(&task->fetch_man->send_cond); // awake fetch thread for enabling him check fetch_thread.stop
-
-    pthread_mutex_lock(&task->lock);
-    pthread_cond_broadcast(&task->cond);
-    pthread_mutex_unlock(&task->lock);
-	log(lsDEBUG, ">> before joining fetch_thread");
-    pthread_join(task->fetch_thread.thread, NULL); log(lsINFO, "THREAD JOINED");
-	log(lsINFO, "-------------->>> fetch_thread has joined <<<<------------");
-
-    delete task->fetch_man;
-    
     /* stop merge thread and upload thread - This will only happen after joining fetch_thread*/
     task->merge_thread.stop = 1;
     pthread_mutex_lock(&task->merge_man->lock);

@@ -24,7 +24,9 @@
 #include "C2JNexus.h"
 #include "UdaBridge.h"
 #include "AIOHandler.h"
+#include "InputClient.h"
 
+class InputClient;
 
 
 #ifndef PATH_MAX  // normally defined in limits.h
@@ -94,9 +96,46 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 {
     MergeManager *manager = task->merge_man;
     int target_maps_count = manager->total_count + num_maps;
+    int maps_sent_to_fetch = 0;
+    memory_pool_t *mem_pool = &(merging_sm.mop_pool);
     log(lsDEBUG, ">> function started task->num_maps=%d target_maps_count=%d", task->num_maps, target_maps_count);
 	do {
+		//sending fetch requests
+		log(lsDEBUG, "sending first chunk fetch requests");
+		while (manager->fetch_list.size() > 0) {
+			if ((mem_pool->free_descs.next != &mem_pool->free_descs) && (mem_pool->free_descs.next->next != &mem_pool->free_descs)){
+				log(lsTRACE, "there are free RDMA buffers");
+				client_part_req *fetch_req = NULL;
+				 pthread_mutex_lock(&manager->lock);
+				 fetch_req = manager->fetch_list.front();
+				 manager->fetch_list.pop_front();
+				 pthread_mutex_unlock(&manager->lock);
+				 maps_sent_to_fetch ++;
+				if (fetch_req) {
+					manager->allocate_rdma_buffers(fetch_req);
+					manager->start_fetch_req(fetch_req);
+					log(lsDEBUG, "request as received from java jobid=%s, mapid=%s, reduceid=%s, hostname=%s", fetch_req->info->params[1], fetch_req->info->params[2], fetch_req->info->params[3], fetch_req->info->params[0]);
+				}
+				else {
+					log(lsERROR, "no fetch request, although there should be");
+				}
+			}else{
+				log(lsDEBUG, "there are no free RDMA buffers");
+				if (maps_sent_to_fetch < num_maps){
+					//there are not enough maps sent to fetch to start a LPQ - can not continue and must wait for buffers
+					log(lsERROR, "there are not enough buffers to start an LPQ");
+					return NULL;
+					//in case the reducer is running several LPQs simultaneously: wait here
+				}
+				else {
+					log(lsDEBUG, "there are enough fetches sent to start an LPQ");
+					break;
+				}
+			}
+		}
+
 		while (! manager->fetched_mops.empty() ) {
+			log(lsDEBUG, "hadling fetched mops");
 			MapOutput *mop = NULL;
 
 			pthread_mutex_lock(&manager->lock);
@@ -219,6 +258,12 @@ void merge_hybrid_lpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpq
 		num_to_fetch = subsequent_fetch + task->num_maps % task->merge_man->num_lpqs; // put the extra segments in 1st lpq
 	}
 
+	int min_number_rdma_buffers = max(subsequent_fetch, num_to_fetch)*2;
+
+    if (min_number_rdma_buffers > merging_sm.mop_pool.num){
+    	log(lsFATAL, "there are not enough rdma buffers! please allocate at least %d ", min_number_rdma_buffers);
+    	exit(-1);
+    }
 
     // allocating aligned buffer for staging mem
     char* staging_row_mem;
@@ -417,28 +462,15 @@ KVOutput::KVOutput(struct reduce_task *task)
     pthread_cond_init(&this->cond, NULL);
     
     mem_pool = &(merging_sm.mop_pool);
-
-    pthread_mutex_lock(&mem_pool->lock);
-    if (list_empty(&mem_pool->free_descs)) {
-    	log(lsFATAL, "no free buffers in mem_pool");
-    	exit(-1);
-    }
-
+    /*lock of mop_pool should be done in the calling function in case the reducer is running several LPQs simultaneously  */
     mop_bufs[0] = list_entry(mem_pool->free_descs.next,
                              typeof(*mop_bufs[0]), list); 
     mop_bufs[0]->status = FETCH_READY;
     list_del(&mop_bufs[0]->list);
-
-    if (list_empty(&mem_pool->free_descs)) {
-    	log(lsFATAL, "no free buffers in mem_pool");
-    	exit(-1);
-    }
-
     mop_bufs[1] = list_entry(mem_pool->free_descs.next,
                              typeof(*mop_bufs[1]), list); 
     mop_bufs[1]->status = FETCH_READY;
     list_del(&mop_bufs[1]->list);
-    pthread_mutex_unlock(&mem_pool->lock);
 	
 }
 
@@ -459,6 +491,7 @@ KVOutput::~KVOutput()
     mop_bufs[1]->status = INIT;
     list_add_tail(&mop_bufs[0]->list, &mem_pool->free_descs);
     list_add_tail(&mop_bufs[1]->list, &mem_pool->free_descs);
+//    pthread_cond_broadcast(&mem_pool->cond);
     pthread_mutex_unlock(&mem_pool->lock);
     
     pthread_mutex_destroy(&this->lock);
@@ -508,6 +541,94 @@ MergeManager::MergeManager(int threads, int online, struct reduce_task *task, in
 //*/
     }
 }
+
+int MergeManager::update_fetch_req(client_part_req_t *req)
+{
+    /*
+     * 1. mark memory available again
+     * 2. increase MOF offset and set length
+     */
+    uint64_t recvd_data[3];
+    int i = 0;
+    bool in_queue = false;
+
+    /* format: "rawlength:partlength:recv_data" */
+    recvd_data[0] = atoll(req->recvd_msg);
+    while (req->recvd_msg[i] != ':' ) { ++i; }
+    recvd_data[1] = atoll(req->recvd_msg + (++i));
+    while (req->recvd_msg[i] != ':' ) { ++i; }
+    recvd_data[2] = atoll(req->recvd_msg + (++i));
+
+    in_queue = (req->mop->fetch_count != 0);
+        /*(merger->mops_in_queue.find(req->mop->mop_id)
+        != merger->mops_in_queue.end());*/
+    req->last_fetched = recvd_data[2];
+    req->total_len    = recvd_data[1];
+
+    pthread_mutex_lock(&req->mop->lock);
+    /* set variables in map output */
+    req->mop->last_fetched = req->last_fetched;
+    req->mop->total_len      = req->total_len;
+    req->mop->total_fetched += req->last_fetched;
+    req->mop->mop_bufs[req->mop->staging_mem_idx]->status = MERGE_READY;
+    pthread_mutex_unlock(&req->mop->lock);
+
+    if (!in_queue) {
+        // Insert into merge manager fetched_mops
+		log(lsTRACE, "Inserting into merge manager fetched_mops...");
+        pthread_mutex_lock(&this->lock);
+        this->fetched_mops.push_back(req->mop);
+        pthread_cond_broadcast(&this->cond);
+        pthread_mutex_unlock(&this->lock);
+    } else {
+        pthread_cond_broadcast(&req->mop->cond);
+    }
+
+    return 1;
+}
+
+void MergeManager::allocate_rdma_buffers(client_part_req_t *req)
+{
+    if (!req->mop) {
+    	req->mop = new MapOutput(this->task);
+        req->mop->part_req = req;
+        req->mop->fetch_count = 0;
+        task->total_first_fetch += 1;
+    }
+}
+
+
+int MergeManager::start_fetch_req(client_part_req_t *req)
+{
+    /* Update the buf status */
+    req->mop->mop_bufs[req->mop->staging_mem_idx]->status = BUSY;
+
+    int ret = merging_sm.client->start_fetch_req(req);
+    if ( ret == 0 ) {
+        if (req->mop->fetch_count == 0) {
+            write_log(task->reduce_log, DBG_CLIENT,
+                     "First time fetch: %d destination: %s",
+                      task->total_first_fetch,
+                      req->info->params[0]);
+        }
+    } else if(ret == -2) {
+        if (req->mop->fetch_count == 0) {
+            write_log(task->reduce_log, DBG_CLIENT,
+                     "First time fetch request is in backlog: %d",
+                     task->total_first_fetch);
+        }
+    } else {
+        if (req->mop->fetch_count == 0) {
+            write_log(task->reduce_log, DBG_CLIENT,
+                     "First time fetch is lost %d",
+                     task->total_first_fetch);
+        }
+    }
+
+    return 1;
+}
+
+
 
 MergeManager::~MergeManager()
 {

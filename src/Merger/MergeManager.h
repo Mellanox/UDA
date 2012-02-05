@@ -67,6 +67,7 @@ typedef struct rpq_aio_arg
 /* XXX: in the future, we should attempt to enable a buddy system */
 typedef struct memory_pool {
     pthread_mutex_t      lock;
+//    pthread_cond_t       cond; //this cond should be used in case the reducer is running several LPQs simultaneously
     struct list_head     free_descs;
     char                *mem;        
     int32_t              size;
@@ -101,7 +102,7 @@ typedef struct host_list {
     char             *hostid; 
     pthread_mutex_t   lock;
     struct list_head  list;
-    struct list_head  todo_fetch_list;  /* those that need data */
+//    struct list_head  todo_fetch_list;  /* those that need data */
 } host_list_t;
 
 class KVOutput  {
@@ -151,9 +152,14 @@ public:
 
     ~MergeManager();
   
+    int start_fetch_req(client_part_req_t *req);
+    int update_fetch_req(client_part_req_t *req);
+    void allocate_rdma_buffers(client_part_req_t *req);
+
     pthread_mutex_t      lock; 
     pthread_cond_t       cond;
     volatile MERGE_FLAG  flag;
+    std::list<client_part_req *>  fetch_list;
  
 //    list_head_t        *dir_list; /*  All end with '/' ? "YES" */
     struct reduce_task *task;

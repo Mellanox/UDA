@@ -39,7 +39,6 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
 
     netlev_msg_t  *h = (netlev_msg_t *)wqe->data;
     netlev_conn_t *conn = wqe->conn;
-    netlev_dev_t  *dev = conn->dev;
 
     /* credit flow */
     pthread_mutex_lock(&conn->lock);

@@ -26,7 +26,6 @@ using namespace std;
 
 
 int netlev_dbg_flag = 0;
-uint32_t max_hosts = 64;
 uint32_t wqes_perconn = 256;
 
 

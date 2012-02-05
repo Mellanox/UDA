@@ -25,7 +25,6 @@ using namespace std;
  - Avner: commented out to avoid duplication in lib with same var in NetMergerMain.cc
 - TODO: the last 2 may be constants
 int netlev_dbg_flag = 0;
-uint32_t max_hosts = 64;
 uint32_t wqes_perconn = 256;
 */
 supplier_state_t state_mac;

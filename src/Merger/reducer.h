@@ -26,7 +26,6 @@
 #include "C2JNexus.h"
 #include "../DataNet/RDMAComm.h"
 #include "../Merger/MergeManager.h"
-#include "../Merger/FetchManager.h"
 #include "AIOHandler.h"
 
 class InputClient;
@@ -60,8 +59,8 @@ typedef struct reduce_task {
     char              *reduce_task_id;
     int                mop_index;
 
-    FetchManager      *fetch_man;
-    netlev_thread_t    fetch_thread;
+//    FetchManager      *fetch_man;
+//    netlev_thread_t    fetch_thread;
 
     MergeManager      *merge_man;  
     netlev_thread_t    merge_thread;
