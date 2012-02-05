@@ -57,14 +57,6 @@
 	   <value>bin/MOFSupplier</value>
       </property>
 
-      <property>
-           <!-- the port number used by task tracker to launch netmerger and mofsupplier
-           C++ cmd line tag: -j
-           -->
-           <name>mapred.taskTracker.rdma.server.port</name>
-           <value>9010</value>
-      </property>
-
  <property>
            <!-- mapred.rdma.netmerger defines the location of C++ driver
            for launching the rdma reduce task side program -->
@@ -88,27 +80,10 @@
 	</property>
 
       <property>
-            <!-- the port number netmerger uses to listen to the launch
-            of number hadoop reduce task.
-            C++ cmd line tag: -l
-            -->
-            <name>mapred.netmerger.listener.port</name>
-            <value>9012</value>
-      </property>
-      <property>
             <name>mapred.netmerger.rdma.num.buffers</name>
             <value>16383</value>
       </property>
      
-
-      <property>
-            <name>mapred.rdma.max.hosts</name>
-            <description>maximum RMDA connections per host.
-            		 Must satisfy all connection from the MOFSuplier to all NetMergers
-            </description>
-            <value>100</value>
-      </property>
-
       <property>
             <name>mapred.rdma.wqe.per.conn</name>
             <description>The number of allocated WQEs (work queue element) per connection</description>
