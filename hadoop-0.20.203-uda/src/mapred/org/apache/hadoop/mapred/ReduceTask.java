@@ -3117,16 +3117,10 @@ class ReduceTask extends Task {
 				cmd.add(driver);
 
 				/* arguments */
-				cmd.add("-o");
-				cmd.add(fConf.get("mapred.rdma.max.hosts"));
 				cmd.add("-w");
 				cmd.add(fConf.get("mapred.rdma.wqe.per.conn"));
-				cmd.add("-c");
-				cmd.add(fConf.get("mapred.taskTracker.rdma.server.port"));
 				cmd.add("-r");
 				cmd.add(fConf.get("mapred.rdma.cma.port"));      
-				cmd.add("-l");     
-				cmd.add(fConf.get("mapred.netmerger.listener.port"));
 				cmd.add("-a");
 				cmd.add(fConf.get("mapred.netmerger.merge.approach"));
 				cmd.add("-m");
