@@ -36,7 +36,7 @@ enum MEM_STAT {FREE, OCCUPIED, INUSE};
 
 bool DataEngine::read_records(partition_table_t* ifile)
 {
-    size_t writtenBytes;
+    size_t writtenBytes=0;
     struct stat file_stat;
     uint8_t *byteRec;
     int fp;
@@ -57,7 +57,7 @@ bool DataEngine::read_records(partition_table_t* ifile)
     byteRec = (uint8_t *) malloc(ifile->total_size);
     writtenBytes = read(fp, byteRec, ifile->total_size);
     close(fp);
-    if (byteRec < 0) {
+    if (writtenBytes <= 0) {
     	log(lsERROR, "read idx file %s failed - %m", idx_fname.c_str());
     	free(byteRec);
         return false;
