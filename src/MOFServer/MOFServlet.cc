@@ -145,12 +145,6 @@ void OutputServer::start_outgoing_req(shuffle_req_t *req, index_record_t* record
     } */
 }
 
-void OutputServer::clean_job()
-{
-    recv_stat.erase(recv_stat.begin(), recv_stat.end());
-    out_stat.erase (out_stat.begin(),  out_stat.end());
-    output_stdout("JOB OVER *****************************");
-}
 
 
 /*

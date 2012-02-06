@@ -60,8 +60,7 @@ void mof_downcall_handler(const std::string & msg)
         if (hadoop_cmd.count>5){
             /*hadoop version >=0.2.203.
              * user name is passed and is part of path to out and index files*/
-            state_mac.data_mac->add_new_mof(comp->jobid,
-                                        comp->mapid,
+            state_mac.data_mac->add_new_mof(comp,
                                         hadoop_cmd.params[2],
                                         hadoop_cmd.params[3],
                                         hadoop_cmd.params[4]);
@@ -70,18 +69,13 @@ void mof_downcall_handler(const std::string & msg)
             /*hadoop version == 0.2.20 user name is not passed.
              * "taskTracker" is part of path to out and index files */
 
-           state_mac.data_mac->add_new_mof(comp->jobid,
-                                        comp->mapid,
+           state_mac.data_mac->add_new_mof(comp,
                                         hadoop_cmd.params[2],
                                         hadoop_cmd.params[3],
                                         "taskTracker");
 
 
         }
-        pthread_mutex_lock(&state_mac.data_mac->index_lock);
-        list_add_tail(&comp->list,
-                      &state_mac.data_mac->comp_mof_list);
-        pthread_mutex_unlock(&state_mac.data_mac->index_lock);
 
         /* XXX: Wake up DataEngine threads to do prefetchin.
          * Mutex not required but good to have for better scheduling */
@@ -99,8 +93,9 @@ void mof_downcall_handler(const std::string & msg)
     } else if (hadoop_cmd.header == JOB_OVER_MSG) {
         log(lsINFO, "======>>> we got JOB OVER COMMAND");
         string jobid = hadoop_cmd.params[0];
-        state_mac.mover->clean_job();
-        state_mac.data_mac->clean_job();
+        // TODO : clean job for RDMA client
+        state_mac.data_mac->clean_job(jobid);
+        log(lsINFO,"JOB OVER ***************************** %s", jobid.c_str());
 
     } else if (hadoop_cmd.header == EXIT_MSG) {
 

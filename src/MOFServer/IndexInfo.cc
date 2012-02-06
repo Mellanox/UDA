@@ -34,58 +34,41 @@ using namespace std;
 
 enum MEM_STAT {FREE, OCCUPIED, INUSE};
 
-int DataEngine::read_records(partition_table_t *ifile, 
-                             const string &idx_path,
-                             int start_index)
+bool DataEngine::read_records(partition_table_t* ifile)
 {
-    size_t offset, to_read, bytes;
+    size_t writtenBytes;
     struct stat file_stat;
-    uint8_t *rec;
+    uint8_t *byteRec;
     int fp;
 
-    string idx_fname = idx_path + idx_suffix; 
-    if ((fp = open(idx_fname.c_str(), O_RDONLY)) < 0) { 
-        output_stderr("[%s,%d] open idx file %s failed",
-                      __FILE__,__LINE__,
-                      idx_fname.c_str());
-        return -1;
+    string idx_fname = ifile->idx_path + idx_suffix;
+    if ((fp = open(idx_fname.c_str(), O_RDONLY)) < 0) {
+        log(lsERROR, "open idx file %s failed - %m",idx_fname.c_str());
+        return false;
     }
 
-    /* avoid repeat read */
-    if (ifile->total_size == 0) {
-        if (fstat(fp, &file_stat) < 0) {
-            output_stderr("[%s,%d] get stat failed",
-                          __FILE__,__LINE__);
-            return -1;
-        }
-        ifile->total_size = file_stat.st_size;
-    }
+    if (fstat(fp, &file_stat) < 0) {
+		log(lsERROR, "get stat failed - filename: %s - %m",idx_fname.c_str());
+        return false;
+	}
 
-    /* 
-     * XXX: get the number of partitions. 
-     * The suffix for checksum is ignored.
-     * Assumption: checksum is smaller than IndexRecord
-     */
-    offset = start_index * sizeof (index_record_t);
-    to_read = NETLEV_MIN ((ifile->total_size - offset), 
-                          (sizeof(index_record_t) * MAX_RECORDS_PER_MOF));
-
-    rec = (uint8_t *) malloc(to_read);
-    lseek(fp, offset, SEEK_SET);
-    bytes = read(fp, rec, to_read);
+    ifile->total_size = file_stat.st_size;
+    ifile->data_fd=0;
+    byteRec = (uint8_t *) malloc(ifile->total_size);
+    writtenBytes = read(fp, byteRec, ifile->total_size);
     close(fp);
-    if (bytes < 0) {
-        output_stderr("[%s,%d] read idx file failed",__FILE__,__LINE__);
-        return -1;
+    if (byteRec < 0) {
+    	log(lsERROR, "read idx file %s failed - %m", idx_fname.c_str());
+    	free(byteRec);
+        return false;
     }
-
-    ifile->first_record = start_index;
-    ifile->num_entries = bytes / sizeof (index_record_t);
+    ifile->num_entries = writtenBytes / sizeof (index_record_t);
+    ifile->records = new index_record_t[ifile->num_entries] ;
 
     for (int i = 0; i < ifile->num_entries; ++i) {
         uint8_t *cp;
 
-        cp = (uint8_t*)(rec + i * sizeof(index_record_t));
+        cp = (uint8_t*)(byteRec + i * sizeof(index_record_t));
         ifile->records[i].offset =
             OCTET_TO_LONG(cp[0], cp[1], cp[2], cp[3], 
                           cp[4], cp[5], cp[6], cp[7]);
@@ -101,8 +84,8 @@ int DataEngine::read_records(partition_table_t *ifile,
                           cp[4], cp[5], cp[6], cp[7]);
 
     }
-    free(rec);
-    return 0;
+    free(byteRec);
+    return true;
 }
 
 
@@ -131,56 +114,49 @@ DataEngine::DataEngine(void *mem, size_t total_size,
 
 }
 
-void DataEngine::clean_job()
+void DataEngine::clean_job(const string& jobid)
 {
-    pthread_mutex_lock(&index_lock);
-    path_map_iter it;
-    idx_map_iter iter = ifile_map.begin();
-    while (iter != ifile_map.end()) {
-       partition_table_t *ifile = (*iter).second;
-       memset(ifile, 0, sizeof(partition_table_t));
-       list_add_tail(&ifile->list, &free_ifiles);   
-       iter++;
-    }   
-    ifile_map.erase(ifile_map.begin(), 
-                    ifile_map.end());
-    pthread_mutex_unlock(&index_lock);
+	map<string, partition_table_t*>* jobIfiles = getJobIfiles(jobid);
 
-    /* close all files */
-    fd_map_iter fd_iter = fd_map.begin();
-    while (fd_iter != fd_map.end()) {
-        int fd = (*fd_iter).second;
-        close(fd);
-        ++fd_iter;
-    }  
-    fd_map.erase(fd_map.begin(),
-                 fd_map.end());
+	if (jobIfiles) {
+	    pthread_mutex_lock(&index_lock);
+	    ifile_map.erase(ifile_map.find(jobid));
 
-    pthread_mutex_lock(&data_lock);
-    /* clean all pathes */
+	    idx_map_iter iter = jobIfiles->begin();
+	    while (iter != jobIfiles->end()) {
+	       partition_table_t *ifile = (*iter).second;
 
-    for ( it=mof_path.begin() ; it != mof_path.end(); it++ ){
-        free (it->second.user_name);
-    }
-     
+	       if (ifile->data_fd > 0)
+	    	   close(ifile->data_fd > 0);
+
+	       delete[] ifile->records;
 
 
-    mof_path.erase(mof_path.begin(),
-                   mof_path.end());
-    pthread_mutex_unlock(&data_lock);
+
+	       delete ifile;
+	       iter++;
+	    }
+	    jobIfiles->erase(jobIfiles->begin(), jobIfiles->end());
+	    delete jobIfiles;
+	    pthread_mutex_unlock(&index_lock);
+	}
 }
 
 void 
 DataEngine::cleanup_tables()
 {
+    idx_job_map_iter iter =  ifile_map.begin();
+    while (iter != ifile_map.end()) {
+    	const string jobid(iter->first);
+    	clean_job(jobid);
+    }
 
-    pthread_mutex_lock(&this->index_lock);
-    free(this->ifiles);
-    pthread_mutex_unlock(&this->index_lock);
+    pthread_mutex_lock(&this->_chunk_mutex);
+    free(this->_chunks);
+    pthread_mutex_unlock(&this->_chunk_mutex);
 
-    pthread_mutex_destroy(&this->data_lock);
+
     pthread_mutex_destroy(&this->index_lock);
-    pthread_cond_destroy(&this->data_cond);
     pthread_mutex_destroy(&this->_chunk_mutex);
     pthread_cond_destroy(&this->_chunk_cond);
 }
@@ -194,25 +170,10 @@ DataEngine::prepare_tables(void *mem,
     char *data=(char*)mem;
 
     pthread_mutex_init(&this->index_lock, NULL);
-    pthread_mutex_init(&this->data_lock, NULL);
-    pthread_cond_init(&this->data_cond, NULL);
-    INIT_LIST_HEAD(&this->free_ifiles);
-
     pthread_mutex_init(&this->_chunk_mutex, NULL);
     pthread_cond_init(&this->_chunk_cond, NULL);
     INIT_LIST_HEAD(&this->_free_chunks_list);
 
-    pthread_mutex_lock(&this->index_lock);
-    this->ifiles = (partition_table_t*)
-        malloc(NETLEV_MAX_MOFS_INCACHE * sizeof(partition_table_t));
-    memset(this->ifiles, 0, 
-            NETLEV_MAX_MOFS_INCACHE * sizeof(partition_table_t));
-
-    for (int i = 0; i < NETLEV_MAX_MOFS_INCACHE; ++i) {
-        partition_table_t *ptr = this->ifiles + i;
-        list_add_tail(&ptr->list, &free_ifiles);
-    }
-    pthread_mutex_unlock(&this->index_lock);
 
     pthread_mutex_lock(&this->_chunk_mutex);
     this->_chunks = (chunk_t*)malloc(NETLEV_RDMA_MEM_CHUNKS_NUM * sizeof(chunk_t));
@@ -232,12 +193,6 @@ DataEngine::prepare_tables(void *mem,
 DataEngine::~DataEngine()
 {
     cleanup_tables();
-    //free(this->base_path);
-    fd_map_iter iter = fd_map.begin();
-    while (iter != fd_map.end()) {
-        close(iter->second);
-        iter++;
-    }
 }
 
 /**
@@ -271,8 +226,10 @@ DataEngine::start()
             }
 
             if(req) {
-            	output_stdout("DataEngine: received shuffle request");
-            	process_shuffle_request(req);
+            	log(lsDEBUG, "DataEngine: received shuffle request - REDUCEID=%s offset=%ll", req->m_reduceid.c_str(), req->map_offset);
+            	if (process_shuffle_request(req)) {
+            		log(lsERROR, "Fail to process shuffle request - REDUCEID=%S", req->m_reduceid.c_str());
+            	}
             }
         }
 
@@ -282,28 +239,25 @@ DataEngine::start()
         /* 2.0 Process new MOF files */
         do {
             if (!list_empty(&this->comp_mof_list)) {
-                pthread_mutex_lock(&this->index_lock);
-                /* Get the first MOF entry */
-                comp = list_entry(this->comp_mof_list.next, typeof(*comp), list);
-                list_del(&comp->list);
-                pthread_mutex_unlock(&this->index_lock);
-            } else {
-                comp = NULL;
-            }
+				pthread_mutex_lock(&this->index_lock);
+				/* Get the first MOF entry */
+				comp = NULL;
+				comp = list_entry(this->comp_mof_list.next, typeof(*comp), list);
+				list_del(&comp->list);
+				if (comp) {
+					string jobid(comp->jobid);
+					string mapid(comp->mapid);
 
-            if (comp) {
-                string idx_path, out_path;
-                string jobid(comp->jobid);
-                string mapid(comp->mapid);
-
-                rc = read_mof_index_records(jobid, mapid);
-                if (rc) {
-					log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid.c_str(), mapid.c_str());
-                }
-                free (comp->jobid);
-                free (comp->mapid);
-                free (comp);
-            }
+					rc = read_mof_index_records(jobid, mapid);
+					if (rc) {
+						log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid.c_str(), mapid.c_str());
+					}
+					free (comp->jobid);
+					free (comp->mapid);
+					free (comp);
+				}
+				pthread_mutex_unlock(&this->index_lock);
+			}
 
 		} while (!list_empty(&this->comp_mof_list));
 
@@ -326,230 +280,152 @@ DataEngine::start()
 int DataEngine::read_mof_index_records(const string &jobid, const string &mapid)
 {
     partition_table_t *ifile = NULL;
-    bool is_new = false;
-    string idx_path, out_path;
-    string key = jobid + mapid;
-    int rc=0;
 
-    if (!retrieve_path(jobid, mapid, idx_path, out_path)) {
-    	output_stderr("failed to retrieve path");
-        return -1; // TODO:  error code
-    }
+   	ifile = getIFile(jobid, mapid);
+	if (!ifile) { //index file already been read from disk
+		log(lsERROR, "Unexpectedly processing a shuffle request before a MOF completion event was notified by JAVA task: jobid=%s mapid=%s", jobid.c_str(), mapid.c_str());
+		return -1;
+	}
 
-    ifile = getIFile(key, &is_new);
+	if (ifile->total_size) { // inited to 0 , so other value indicates that this method was already called for the specific jobid&mapid
+		log(lsERROR, "unexpected call to read mof index records while it was already read");
+		return -1;
+	}
 
-    if (ifile == NULL){
-    	output_stderr("Failed to get iFile (key=%s)", key.c_str());
-        return -1; // TODO:  error code
-    }
-    
-    if (!is_new) {
-    	output_stderr("index records for MOF already loaded. idx_path=%s", idx_path.c_str());
-        //rc = -1;
-    }
-    else {
-    	rc = read_records(ifile, idx_path, 0);
-    	if (rc) {
-    		output_stderr("failed to read_records idx_path=%s  ", idx_path.c_str() );
-    	}
-    }
+	if (!read_records(ifile)) {
+		log(lsERROR, "failed to read index records for index file path %s  ", ifile->idx_path.c_str() );
+		return -1;
+	}
 
-    return rc;
+	return 0;
 }
 
-bool DataEngine::retrieve_path(const string &jobid,
-                               const string &mapid,
-                               string &idx_path,
-                               string &out_path) 
-{
-    string key(jobid);
-    key += mapid;
-
-    pthread_mutex_lock(&data_lock); 
-    path_map_iter iter = mof_path.find(key);
-    if (iter == mof_path.end()) {
-        output_stderr("%s", "retrieve path error");
-        pthread_mutex_unlock(&data_lock);
-        return false;
-    } else {
-        path_info p_i = iter->second;       
-
-        idx_path = spindles[p_i.idx_pos] + "/" + p_i.user_name + "/jobcache/";
-        idx_path += jobid;
-        idx_path += "/";
-        idx_path += mapid;
-        idx_path += "/output";
- 
-        out_path = spindles[p_i.out_pos] + "/" + p_i.user_name + "/jobcache/";
-        out_path += jobid;
-        out_path += "/";
-        out_path += mapid;
-        out_path += "/output";
-    } 
-    pthread_mutex_unlock(&data_lock);
-    return true;
-}
-
-void DataEngine::add_new_mof(const char *jobid, 
-                             const char *mapid,
+void DataEngine::add_new_mof(comp_mof_info_t* comp,
                              const char *out_bdir,
                              const char *idx_bdir,
                              const char *user_name)
 {
-    int out_pos = -1;
-    int idx_pos = -1;
-
+    string jobid(comp->jobid);
+    string mapid(comp->mapid);
     string key(jobid);
-    key += mapid;
+    key += string(mapid);
     
     string str_out(out_bdir);
     string str_idx(idx_bdir);
-       
-    pthread_mutex_lock(&data_lock);
-    
-    for (int s = 0; s < (int) spindles.size(); ++s) {
-      if (out_pos < 0 && spindles[s].compare(str_out) == 0) {
-          out_pos = s;
-      }
-      if (idx_pos < 0 && spindles[s].compare(str_idx) == 0) {
-          idx_pos = s;
-      }    
-    }
 
-    if (out_pos < 0) {
-        spindles.push_back(str_out);
-        out_pos = spindles.size()-1;
-    }
+    partition_table_t* ifile = new partition_table_t();
+    ifile->data_fd=0;
+    ifile->num_entries=0;
+    ifile->records=NULL;
+    ifile->total_size=0;
+    ifile->idx_path= str_idx + "/" + user_name + "/jobcache/";
+    ifile->idx_path += jobid;
+    ifile->idx_path += "/";
+    ifile->idx_path += mapid;
+    ifile->idx_path += "/output";
+    ifile->out_path=str_out + "/" + user_name + "/jobcache/";
+    ifile->out_path += jobid;
+    ifile->out_path += "/";
+    ifile->out_path += mapid;
+    ifile->out_path += "/output";
 
-    if (idx_pos < 0) {
-        if (spindles[spindles.size()-1].compare(str_idx) != 0) {
-            spindles.push_back(str_idx);
-        }
-        idx_pos = spindles.size()-1;
-    }
-   
-    path_info p_i;
-    p_i.idx_pos = idx_pos;
-    p_i.out_pos=out_pos;
-    p_i.user_name = strdup(user_name);
+    pthread_mutex_lock(&this->index_lock);
+    addIFile(jobid, mapid, ifile);
 
-    mof_path[key] = p_i;
+    log(lsINFO,"new [jobid:%s, mapid:%s]", jobid.c_str(), mapid.c_str());
+    log(lsINFO,"dat path: %s", out_bdir);
+    log(lsINFO,"idx path: %s", idx_bdir);
 
-
-    output_stdout("new [jobid:%s, mapid:%s]", jobid, mapid);
-    output_stdout("dat path: %s", out_bdir);
-    output_stdout("idx path: %s", idx_bdir);
-
-    pthread_mutex_unlock(&data_lock);
+    list_add_tail(&comp->list, &this->comp_mof_list);
+    pthread_mutex_unlock(&this->index_lock);
 }
 
-partition_table_t*
-DataEngine::remove_oldest()
-{
-    idx_map_iter curIter;
-    idx_map_iter minIter;
-    minIter = curIter = ifile_map.begin();
-    curIter++;
+partition_table_t* DataEngine::getIFile(const string& jobid, const string& mapid) {
+	map<string, partition_table_t*>* jobIfiles = NULL;
+	partition_table_t *ifile=NULL;
 
-    while (curIter != ifile_map.end()) {
-        if ((curIter->second)->used_times > 
-            (minIter->second)->used_times) {
-            minIter = curIter;
-        }
-        curIter++;
-    }
+	jobIfiles=getJobIfiles(jobid);
+    if (jobIfiles) {
+		idx_map_iter iter = jobIfiles->find(mapid);
+		if (iter != jobIfiles->end())
+			ifile = iter->second;
+	}
 
-    partition_table_t *ifile = minIter->second;
-    ifile_map.erase(minIter);
     return ifile;
 }
 
-partition_table_t* DataEngine::getIFile(string key, bool* is_new) {
-    partition_table_t *ifile=NULL;
-    *is_new = false;
+map<string, partition_table_t*>* DataEngine::getJobIfiles(const string& jobid) {
+	map<string, partition_table_t*>* jobIfiles = NULL;
 
+    idx_job_map_iter iter = ifile_map.find(jobid);
+    if (iter != ifile_map.end())
+    	jobIfiles = iter->second;
 
-    pthread_mutex_lock(&index_lock);
-
-    idx_map_iter iter = ifile_map.find(key);
-    if (iter != ifile_map.end()) {
-        ifile = iter->second;
-    } else {
-        if (!list_empty(&free_ifiles)) {
-            ifile = list_entry(free_ifiles.next,typeof(*ifile), list);
-            list_del(&ifile->list);
-            ifile_map[key] = ifile;
-
-            /* init index table */
-            ifile->total_size = 0;
-            ifile->first_record = 0;
-            ifile->num_entries = 0;
-            *is_new = true;
-        }
-    }
-
-    pthread_mutex_unlock(&index_lock);
-
-    if (!ifile) {
-        output_stderr("[%s,%d] no more ifiles", __FILE__,__LINE__);
-        ifile = remove_oldest();
-
-
-        /* re-init index table */
-        ifile->total_size = 0;
-        ifile->first_record = 0;
-        ifile->num_entries = 0;
-        *is_new = true;
-    }
-
-    return ifile;
-
-
+    return jobIfiles;
 }
+
+bool DataEngine::addIFile(const string &jobid, const string &mapid, partition_table_t* ifile) {
+	map<string, partition_table_t*>* jobIfiles = NULL;
+
+    if (getIFile(jobid, mapid)) // already exists
+		return false;
+
+	jobIfiles = getJobIfiles(jobid);
+	if (!jobIfiles) { // adding first ifile for jobid --> creating mapid to ifile map
+		jobIfiles = new map<string, partition_table_t*> ();
+		ifile_map[jobid] = jobIfiles;
+	}
+
+	(*jobIfiles)[mapid] = ifile;
+
+	return true;
+}
+
 
 int
 DataEngine::process_shuffle_request(shuffle_req_t* req) {
-    bool is_new = false;
     string idx_path;
     string out_path;
     string key = req->m_jobid + req->m_map;
     chunk_t* chunk;
-    partition_table_t* ifile;
+    partition_table_t* ifile=NULL;
     int rc=0;
 
-    if (!retrieve_path(req->m_jobid, req->m_map, idx_path, out_path)) {
-        log(lsERROR, "retrieve_path failed in fetch request: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
-        return -1;
+	pthread_mutex_lock(&this->index_lock);
+	ifile=getIFile(req->m_jobid, req->m_map);
+	// we expect that an ifile was allready created and records were read
+
+    if (!ifile){ // means that we didn't got MOF completions yet
+    	pthread_mutex_unlock(&this->index_lock);
+    	log(lsERROR, "got shuffle request before MOF completion event: REDUCEID=%s", req->m_reduceid.c_str());
+    	return -1;
     }
 
-    ifile=getIFile(key, &is_new);
+    if (ifile->total_size==0) { // means that DataEngine didn't process the MOF completion yet and the record weren't read to mem.
+		log(lsWARN, "process shuffle request while no records were read to mem yet by DataEngine - (suspicion for race between mof completion and shuffle request): REDUCEID=%s", req->m_reduceid.c_str());
+		if (read_mof_index_records(req->m_jobid, req->m_map)) {
+			pthread_mutex_unlock(&this->index_lock);
+			log(lsERROR,"failed to read records for MOF's index while processing first shuffle request of MOF: jobid=%s, mapid=%s", req->m_jobid.c_str(), req->m_map.c_str());
+			return -1;
+		}
+	}
+	pthread_mutex_unlock(&this->index_lock);
 
-    if (ifile==NULL){
-        log(lsERROR, "getIFile failed: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
-        return -2;
-    }
+    // in case we have no more chunks to occupy , then we should submit current aio waiting requests before WAITing for a chunk.
+	if (list_empty(&this->_free_chunks_list))
+    	_aioHandler->submit();
 
-    if (is_new) {
-    	rc=read_records(ifile, idx_path, 0);
-    	if (rc) {
-            log(lsERROR, "read_records failed: jobid=%s, map=%s, rc=%d", req->m_jobid.c_str(), req->m_map.c_str(), rc);
-            return -3;
-    	}
-    }
-
-    if (list_empty(&this->_free_chunks_list))
-    	_aioHandler->submit(); // submit current prepared ios before occupy_chunk going to WAIT for chunks
-
-    chunk = occupy_chunk();
+    // this WAITs on cond in case of no more chunks to occupy
+	chunk = occupy_chunk();
 
     if (chunk == NULL) {
         log(lsERROR, "occupy_chunk failed: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
-        return -4;
+        return -1;
     }
 
-    aio_read_chunk_data(req, &ifile->records[req->reduceID], chunk,  out_path, req->map_offset );
+    rc= aio_read_chunk_data(req, ifile, chunk,  out_path, req->map_offset);
 
-    return 0;
+    return rc;
 }
 
 chunk_t*
@@ -581,30 +457,24 @@ DataEngine::release_chunk(chunk_t* chunk) {
 
 
 
-int DataEngine::aio_read_chunk_data(shuffle_req_t* req , index_record_t *record, chunk_t* chunk,  const string &out_path, uint64_t map_offset)
+int DataEngine::aio_read_chunk_data(shuffle_req_t* req , partition_table_t *ifile, chunk_t* chunk,  const string &out_path, uint64_t map_offset)
 {
     int rc=0;
-    int fd;
 
+    index_record_t* record=&ifile->records[req->reduceID];
     int64_t offset = record->offset + map_offset;
     size_t read_length = record->partLength - map_offset;
     read_length = (read_length < (size_t)this->rdma_buf_size ) ? read_length : this->rdma_buf_size ;
     log (lsDEBUG, "this->rdma_buf_size inside aio_read_chunk_data is %d\n", this->rdma_buf_size);
 
-    // fall through to read data from file.out
-    string dat_fname = out_path + mop_suffix;
-
     // avoid frequently re-open file
-    fd_map_iter iter = fd_map.find(dat_fname);
-    if (iter != fd_map.end()) {
-    	fd = iter->second;
-    } else {
-    	fd = open(dat_fname.c_str(), O_RDONLY | O_DIRECT);
-    	if (fd < 0) {
-    		output_stderr("[%s,%d] open mof %s failed", __FILE__,__LINE__, dat_fname.c_str());
-    		return -1; // TODO: return appropriate rc
+    if (!ifile->data_fd) {
+    	string dat_fname= ifile->out_path + mop_suffix;
+    	ifile->data_fd = open(dat_fname.c_str() , O_RDONLY | O_DIRECT);
+    	if (ifile->data_fd < 0) {
+    		log(lsERROR, "open mof %s failed - errno=%m", dat_fname.c_str());;
+    		return -1;
     	}
-    	fd_map[dat_fname] = fd;
     }
 
 
@@ -618,24 +488,9 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , index_record_t *record,
     size_t length_for_aio = read_length + 2*AIO_ALIGNMENT - (read_length & _aioHandler->ALIGMENT_MASK);
 
     long new_offset=offset - cb_arg->offsetAligment;
-    rc = _aioHandler->prepare_read(fd, new_offset  ,length_for_aio   , chunk->buff, cb_arg);
-
-    // exceed maximum number of open fd,
-    // then close all previous opened fd
-    // TODO: need to provide scalable solution
-    if (fd_map.size() > MAX_OPEN_DAT_FILES) {
-    	fd_map_iter iter = fd_map.begin();
-    	while (iter != fd_map.end()) {
-    		close(iter->second);
-    		iter++;
-    	}
-    	fd_map.erase(fd_map.begin(),fd_map.end());
-    	log(lsFATAL,"maximum number of %llu file descriptors exceeded.", MAX_OPEN_DAT_FILES);
-    	exit(1);
-    }
+    rc = _aioHandler->prepare_read(ifile->data_fd, new_offset  ,length_for_aio   , chunk->buff, cb_arg);
 
     return rc;
-
 }
 
 

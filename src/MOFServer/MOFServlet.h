@@ -82,9 +82,6 @@ public:
      */
     void list_fet_req(const char *test_dir);
 
-    void clean_job();
-    map<int, int> recv_stat;
-    map<int, int> out_stat;
 };
 #endif
 

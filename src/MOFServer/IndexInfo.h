@@ -28,7 +28,6 @@ using namespace std;
 #include "AIOHandler.h"
 
 
-#define MAX_RECORDS_PER_MOF     	(2048)
 #define AIOHANDLER_MIN_NR			(1)
 #define AIOHANDLER_NR				(50)
 #define AIOHANDLER_TIMEOUT_IN_NSEC	(300000000)
@@ -83,13 +82,6 @@ typedef struct index_record
     uint64_t   partLength; /* compressed size of MOF partition */
 } index_record_t;
 
-typedef struct path_info
-{
-    int16_t out_pos;
-    int16_t idx_pos;
-    char  *user_name;
-} path_info;
-
 
 /* The wrapper of index record 
    which comes from hadoop design.
@@ -97,13 +89,12 @@ typedef struct path_info
  */
 typedef struct partition_table
 {
-    struct list_head list;
-    size_t   total_size;   /* index file size */
-    int32_t  first_record; /* the first record */
-    int32_t  num_entries;  /* number of actual records */
-    int32_t  used_times;   /* counts how many time this been used*/ 
-    /* XXX: this only favors neighboring reducers to shuffle data */
-    index_record_t records[MAX_RECORDS_PER_MOF];
+    size_t  total_size;   /* index file size */
+    int32_t num_entries;  /* number of actual records */
+    int32_t	data_fd;		/* fd for the map output data file */
+    string 	idx_path; /* path to index file */
+    string 	out_path; /* path to data file */
+    index_record_t* records;
 } partition_table_t;
 
 typedef struct chunk {
@@ -120,7 +111,6 @@ typedef struct shuffle_request_callback_arg {
 	int					offsetAligment;
 } req_callback_arg;
 
-
 int aio_completion_handler(void* data);
 
 
@@ -134,6 +124,23 @@ private:
     pthread_mutex_t		_chunk_mutex;
 
     const uint64_t		MAX_OPEN_DAT_FILES;
+
+    /* return the matching iFile for the specific jobid and mapid
+	 * or NULL if no much.
+     */
+    partition_table_t* getIFile(const string& jobid, const string& mapid);
+
+    /*
+     * add new ifile to the map of job to ifiles
+     * true on success or false if and ifile is allready exists for the specific mapid&jobid
+     */
+    bool addIFile(const string &jobid, const string &mapid, partition_table_t* ifile);
+
+    /*
+     * by a given jobid the method returns the map of mapid to ifile
+     */
+    map<string, partition_table_t*>* getJobIfiles(const string& jobid) ;
+
 
 
 public:
@@ -161,7 +168,7 @@ public:
      * 4) _aioHandler->prepare_read
      * 5) handle exceeding number of FDs (currently just exit+error log)
      */
-    int aio_read_chunk_data(shuffle_req_t* req , index_record_t *record, chunk_t* chunk,  const string &out_path, uint64_t map_offset);
+    int aio_read_chunk_data(shuffle_req_t* req , partition_table_t* ifile, chunk_t* chunk,  const string &out_path, uint64_t map_offset);
 
     // consumes chunk buffer from pool
     // WAIT on condition if no chunks available
@@ -171,16 +178,6 @@ public:
     // send condition signal if pool was empty
     void release_chunk(chunk_t* chunk);
 
-
-
-	/* return the matching iFile for the specific key(jobid+mapid) from ifiles map
-     * If no matching ifile then pull empty ifile from pool
-     * if no available ifile on pool then remove oldest from ifiles map , free  current data chunks of pulled ifile and clean it's index records.
-     * return NULL if error
-     * @param string key a key for a specific ifile is concatanation of jobid + mapid
-     * @param bool* is_new if oldest ifile was removed from ifiles map then set is_new as true otherwise set to false
-     */
-    partition_table_t* getIFile(string key, bool* is_new);
 
     /* XXX:Start the data engine thread for new requests and MOFs */
     void start();
@@ -193,13 +190,11 @@ public:
     // read MOF's full index information into the memory
     int read_mof_index_records(const string &jobid, const string &mapid);
 
-    /* read index information into the memory
-     * @param partition_table_t ifile memory presentation for the index file.
-     * @param const string parent directory for file.out.index.
-     * @param int start_index read maximum MAX_RECORDS_PER_MOF 
-     *        since this index.
+    /* reads index information into the memory , uses ifile's idx_path to open the index file
+     * @param partition_table_t* ifile - new ifile with uninitialized fields except to idx_path which must be provided correctly
+     * @return true for success or false in case of any error within opening&reading the file.
      */
-    int read_records(partition_table_t *ifile, const string &idx_path, int start_index);
+    bool read_records(partition_table_t* ifile);
 
 
 
@@ -210,69 +205,38 @@ public:
      * @param const char* out_bdir the dir store file.out
      * @param const char* idx_bdir the dir store file.out.index
      */ 
-    void add_new_mof(const char *jobid, 
-                     const char *mapid,
+    void add_new_mof(comp_mof_info_t* comp,
                      const char *out_bdir,
                      const char *idx_bdir,
                      const char *user_name);
 
-    /**
-     * get the location of file.out and
-     * file.out.index.
-     * @param string idx_path the URI of the file.out.index
-     * @param string out_path the URI of the file.out 
-     * @return bool if the pathes are constructed successfully
-     */
-    bool retrieve_path(const string &jobid,
-                       const string &mapid,
-                       string &idx_path,
-                       string &out_path);
-
-    void clean_job();
+    void clean_job(const string& jobid);
     /* XXX:
      * complete data for a shuffle request. 
      * Free and prefetch more data as needed 
      */
     void comp_shuffle_req(shuffle_req_t *sreq);
-    partition_table_t* remove_oldest();
     
+
     supplier_state_t    *state_mac;
     pthread_mutex_t      index_lock;
-    pthread_mutex_t      data_lock;
-    
-    partition_table_t   *ifiles;
-    
-    struct list_head     free_ifiles;
+
     struct list_head     comp_mof_list;
 
-    pthread_cond_t       data_cond;
+
     int                  num_chunks;
     size_t               chunk_size;
-    //char                 *base_path; 
     bool                 stop;
     int                  rdma_buf_size;
 
-    /* Map of path to the partition table */
-    map<string, partition_table_t*> ifile_map;
-
-    vector<string> spindles;
+    /* map< jobid , map< mapid , iFile > > */
+    map<string, map<string, partition_table_t*>*> ifile_map;
 
 
-    /* Map of path to the intermediate map outputs
-     * @string is the key: jobid + mapid
-     * @path_info holds  the index of directory stored 
-     *  in spindles idx_pos & out_pos and username that 
-     *  runs the job
-     */
-    map<string, path_info> mof_path;
-
-    /* Map of opened file.out files */
-    map<string, int> fd_map;
 };
 
+typedef map<string, map<string, partition_table_t*>*>::iterator idx_job_map_iter;
 typedef map<string, partition_table_t*>::iterator idx_map_iter;
-typedef map<string, int>::iterator                fd_map_iter;
-typedef map<string, path_info>::iterator            path_map_iter; 
 
 #endif
 

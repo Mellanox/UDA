@@ -24,7 +24,6 @@
 
 #define NETLEV_KV_POOL_EXPO         (20)
 
-#define NETLEV_MAX_MOFS_INCACHE     (8192)
 #define NETLEV_RDMA_MEM_CHUNKS_NUM	(1000)
 
 #define ARRAY_SIZE(array) (sizeof array / sizeof array[0])
