@@ -425,8 +425,8 @@ RdmaClient::~RdmaClient()
     pthread_mutex_destroy(&this->ctx.lock);
 }
 
-void 
-RdmaClient::disconnect(struct netlev_conn *conn) 
+void
+RdmaClient::disconnect(struct netlev_conn *conn)
 {
     rdma_disconnect(conn->cm_id);
     netlev_conn_free(conn);

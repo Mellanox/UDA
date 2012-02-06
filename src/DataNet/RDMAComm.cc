@@ -46,7 +46,10 @@ netlev_dealloc_conn_mem(netlev_mem_t *mem)
 int
 netlev_dealloc_rdma_mem(struct netlev_dev *dev)
 {
-    ibv_dereg_mr(dev->rdma_mem->mr);
+    if (ibv_dereg_mr(dev->rdma_mem->mr)){
+    	log(lsERROR,"ibv_dereg_mr failed (errno=%d)", errno);
+    	return -1;
+    }
     free(dev->rdma_mem);
     return 0;
 }
@@ -144,14 +147,29 @@ error_dev:
 
 
 
-void 
+int
 netlev_dev_release(struct netlev_dev *dev)
 {
-    ibv_destroy_cq(dev->cq);
-    ibv_destroy_comp_channel(dev->cq_channel);
-    netlev_dealloc_rdma_mem(dev);
-    ibv_dealloc_pd(dev->pd);
+    if (ibv_destroy_cq(dev->cq)){
+    	log(lsERROR,"ibv_destroy_cq failed (errno=%d)", errno);
+    	return -1;
+    }
+    if (ibv_destroy_comp_channel(dev->cq_channel)){
+		log(lsERROR,"ibv_destroy_comp_channel failed (errno=%d)", errno);
+    	return -1;
+	}
+
+    if (netlev_dealloc_rdma_mem(dev)){
+    	return -1;
+    }
+
+    if (ibv_dealloc_pd(dev->pd)){
+   		log(lsERROR,"ibv_dealloc_pd failed (errno=%d)", errno);
+    	return -1;
+   	}
+    return 0;
 }
+
 
 int 
 netlev_dev_init(struct netlev_dev *dev)
@@ -263,7 +281,7 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     INIT_LIST_HEAD(&conn->list);
 
     if (netlev_init_conn_mem(conn) != 0) {
-    	log(lsERROR, "failed to init device");
+    	log(lsERROR, "failed to init connection");
         return NULL;
      }
 

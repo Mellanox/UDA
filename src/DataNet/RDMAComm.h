@@ -142,7 +142,7 @@ int netlev_dealloc_mem(struct netlev_dev *dev, netlev_mem_t *mem);
 int netlev_dealloc_rdma_mem(struct netlev_dev *dev);
 int netlev_init_mem(struct netlev_dev *dev);
 int netlev_dev_init(struct netlev_dev *dev);
-void netlev_dev_release(struct netlev_dev *dev);
+int netlev_dev_release(struct netlev_dev *dev);
 
 struct netlev_dev *
 netlev_dev_find(struct rdma_cm_id *cm_id, struct list_head *head);
