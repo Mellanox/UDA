@@ -156,7 +156,7 @@ Runnable, TaskTrackerMXBean {
 	/**
 	 * For communication with the rdma process 
 	 */
-	private J2CNexus rdmaChannel; 
+	private UdaPluginTT rdmaChannel; 
 	/**
 	 * 0: disable rdma.
 	 * 1: use rdma with rdma-merger.
@@ -191,7 +191,7 @@ Runnable, TaskTrackerMXBean {
 
 	volatile boolean running = true;
 
-	private LocalDirAllocator localDirAllocator;
+	/*private*/ LocalDirAllocator localDirAllocator;
 	private String[] localdirs;
 	String taskTrackerName;
 	String localHostname;
@@ -281,7 +281,7 @@ Runnable, TaskTrackerMXBean {
 	static final String JOB_LOCAL_DIR = "job.local.dir";
 	static final String JOB_TOKEN_FILE="jobToken"; //localized file
 
-	private JobConf fConf;
+	/*private*/ JobConf fConf;
 	private JobConf originalConf;
 	private Localizer localizer;
 	private int maxMapSlots;
@@ -772,7 +772,7 @@ Runnable, TaskTrackerMXBean {
 		/* The followings are for rdma project */
 		this.rdmaSetting = fConf.getInt("mapred.rdma.setting", 0);
 		if (this.rdmaSetting == 1) {
-			this.rdmaChannel = new J2CNexus(); 
+			this.rdmaChannel = new UdaPluginTT(this); 
 		} 
 	}
 
@@ -4102,116 +4102,5 @@ Runnable, TaskTrackerMXBean {
 		authorizeJVM(jobId);
 		distributedCacheManager.setArchiveSizes(jobId, sizes);
 	}
-
-	/*  The following is for MOFSupplier JavaSide. */
-	private class J2CNexus {    
-
-		private Vector<String>     mParams       = new Vector<String>();
-
-		public J2CNexus() throws IOException {
-
-			// TODO: remove from conf: "mapred.tasktracker.rdma.server.port", 9010
-
-			// launch MOFSupplier
-			this.launchCppSide();
-		}
-
-		public void jobOver(String jobId) {
-			mParams.clear();
-			mParams.add(jobId);
-			String msg = RDMACmd.formCmd(RDMACmd.JOB_OVER_COMMAND, mParams);
-			LOG.info("UDA: sending JOBOVER:(" + msg + ")");
-			UdaBridge.doCommand(msg);
-		}  
-
-		public void notifyMapDone(String userName, String jobId, String mapId) {
-			try {
-				//parent path for the file.out file
-				Path fout = localDirAllocator.getLocalPathToRead(
-						TaskTracker.getIntermediateOutputDir(userName, jobId, mapId) 
-						+ "/file.out", fConf);
-
-				//parent path for the file.out.index file
-				Path fidx = localDirAllocator.getLocalPathToRead(
-						TaskTracker.getIntermediateOutputDir(userName, jobId, mapId) 
-						+ "/file.out.index", fConf);
-
-				int upper = 6;
-				for (int i = 0; i < upper; ++i) {
-					fout = fout.getParent();
-					fidx = fidx.getParent();
-				} 
-
-				//we need "jobId + mapId" to identify a maptask
-				mParams.clear();
-				mParams.add(jobId);
-				mParams.add(mapId);
-				mParams.add(fout.toString()); 
-				mParams.add(fidx.toString());
-				mParams.add(userName);
-				String msg = RDMACmd.formCmd(RDMACmd.NEW_MAP_COMMAND, mParams);
-				UdaBridge.doCommand(msg);
-
-				if (LOG.isInfoEnabled()) LOG.info("UDA: notified Finshed Map:(" + msg + ")");
-				
-			} catch (DiskChecker.DiskErrorException dee) {
-				LOG.info("UDA: DiskErrorException when handling map done - probably OK (map was not created)\n" + StringUtils.stringifyException(dee));
-			} catch (IOException ioe) {
-				LOG.error("UDA: Error when notify map done\n" + StringUtils.stringifyException(ioe));
-			}
-		}
-
-
-		private void launchCppSide() {
-
-			String driver = fConf.get("mapred.rdma.mofsupplier");
-			LOG.info("UDA: Launching " + driver + " thru JNI");
-			List<String> cmd = new ArrayList<String>();
-
-			/* cmd */
-			cmd.add(driver);
-
-			/* arguments */
-			cmd.add("-w");
-			cmd.add(fConf.get("mapred.rdma.wqe.per.conn"));
-			cmd.add("-r");
-			cmd.add(fConf.get("mapred.rdma.cma.port"));      
-			cmd.add("-a");
-			cmd.add(fConf.get("mapred.netmerger.merge.approach"));
-			cmd.add("-m");
-			cmd.add("1");
-			cmd.add("-g");
-			cmd.add(fConf.get("mapred.rdma.log.dir","default"));
-			cmd.add("-b");
-			cmd.add(fConf.get("mapred.netmerger.rdma.num.buffers"));
-			cmd.add("-s");
-			cmd.add(fConf.get("mapred.rdma.buf.size"));
-			cmd.add("-t");
-			cmd.add(fConf.get("mapred.uda.log.tracelevel"));
-
-			String[] stringarray = null;
-			int rc = 0;
-			stringarray = cmd.toArray(new String[0]);
-			LOG.info("UDA: going to execute child thru JNI: " + cmd);    	  
-			try {
-				rc = UdaBridge.start(false, stringarray, LOG, null); // false => this is MOFSupplier      
-			} catch (UnsatisfiedLinkError e) {
-				LOG.warn("UDA: Exception when launching child");    	  
-				LOG.warn("java.library.path=" + System.getProperty("java.library.path"));
-				LOG.warn(StringUtils.stringifyException(e));
-				throw (e);
-			}
-
-		}
-
-		public void close() {
-
-			mParams.clear();
-			String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
-			LOG.info("UDA: sending EXIT_COMMAND");    	  
-			UdaBridge.doCommand(msg);        
-		}
-	}
-
 
 }
