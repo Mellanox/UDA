@@ -57,7 +57,6 @@ bool DataEngine::read_records(partition_table_t* ifile)
 	}
 
     ifile->total_size = file_stat.st_size;
-    ifile->data_fd=0;
     byteRec = (uint8_t *) malloc(ifile->total_size);
     writtenBytes = read(fp, byteRec, ifile->total_size);
     close(fp);
@@ -121,29 +120,45 @@ DataEngine::DataEngine(void *mem, size_t total_size,
 
 void DataEngine::clean_job(const string& jobid)
 {
+	// clean all index files in-mem
 	map<string, partition_table_t*>* jobIfiles = getJobIfiles(jobid);
-
 	if (jobIfiles) {
-	    pthread_mutex_lock(&index_lock);
+	    pthread_mutex_lock(&_index_lock);
 	    ifile_map.erase(ifile_map.find(jobid));
 
 	    idx_map_iter iter = jobIfiles->begin();
 	    while (iter != jobIfiles->end()) {
-	       partition_table_t *ifile = (*iter).second;
-
-	       if (ifile->data_fd > 0)
-	    	   close(ifile->data_fd > 0);
-
+	       partition_table_t *ifile = iter->second;
 	       delete[] ifile->records;
-
-
-
 	       delete ifile;
 	       iter++;
 	    }
+
 	    jobIfiles->erase(jobIfiles->begin(), jobIfiles->end());
 	    delete jobIfiles;
-	    pthread_mutex_unlock(&index_lock);
+	    pthread_mutex_unlock(&_index_lock);
+	}
+
+	// clean&close all data files fd&counters, destroy locks
+	map<string, fd_counter_t*>* jobFdCounters = getJobFDCounters(jobid);
+	if (jobFdCounters) {
+		pthread_mutex_lock(&_data_lock);
+		_job_fdc_map.erase(_job_fdc_map.find(jobid));
+
+		path_fd_iter iter = jobFdCounters->begin();
+		while (iter != jobFdCounters->end()) {
+			fd_counter_t* fdc = iter->second;
+			// TODO: cancel all aio operations before surprising the kernel with closed FDs to avoid writing ERROR logs entries by AIO thread
+			if (fdc->fd)
+				close(fdc->fd);
+			pthread_mutex_destroy(&fdc->lock);
+			delete fdc;
+			iter++;
+		}
+
+		jobFdCounters->erase(jobFdCounters->begin(), jobFdCounters->end());
+		delete jobFdCounters;
+		pthread_mutex_unlock(&_data_lock);
 	}
 }
 
@@ -161,7 +176,8 @@ DataEngine::cleanup_tables()
     pthread_mutex_unlock(&this->_chunk_mutex);
 
 
-    pthread_mutex_destroy(&this->index_lock);
+    pthread_mutex_destroy(&this->_data_lock);
+    pthread_mutex_destroy(&this->_index_lock);
     pthread_mutex_destroy(&this->_chunk_mutex);
     pthread_cond_destroy(&this->_chunk_cond);
 }
@@ -174,7 +190,8 @@ DataEngine::prepare_tables(void *mem,
 {
     char *data=(char*)mem;
 
-    pthread_mutex_init(&this->index_lock, NULL);
+    pthread_mutex_init(&this->_data_lock, NULL);
+    pthread_mutex_init(&this->_index_lock, NULL);
     pthread_mutex_init(&this->_chunk_mutex, NULL);
     pthread_cond_init(&this->_chunk_cond, NULL);
     INIT_LIST_HEAD(&this->_free_chunks_list);
@@ -231,9 +248,9 @@ DataEngine::start()
             }
 
             if(req) {
-            	log(lsDEBUG, "DataEngine: received shuffle request - REDUCEID=%s offset=%ll", req->m_reduceid.c_str(), req->map_offset);
+            	log(lsDEBUG, "DataEngine: received shuffle request - JOBID=%s REDUCEID=%d offset=%lld", req->m_jobid.c_str(), req->reduceID, req->map_offset);
             	if (process_shuffle_request(req)) {
-            		log(lsERROR, "Fail to process shuffle request - REDUCEID=%S", req->m_reduceid.c_str());
+            		log(lsERROR, "Fail to process shuffle request - JOBID=%s REDUCEID=%d offset=%lld", req->m_jobid.c_str(), req->reduceID, req->map_offset);
             	}
             }
         }
@@ -244,7 +261,7 @@ DataEngine::start()
         /* 2.0 Process new MOF files */
         do {
             if (!list_empty(&this->comp_mof_list)) {
-				pthread_mutex_lock(&this->index_lock);
+				pthread_mutex_lock(&this->_index_lock);
 				/* Get the first MOF entry */
 				comp = NULL;
 				comp = list_entry(this->comp_mof_list.next, typeof(*comp), list);
@@ -261,7 +278,7 @@ DataEngine::start()
 					free (comp->mapid);
 					free (comp);
 				}
-				pthread_mutex_unlock(&this->index_lock);
+				pthread_mutex_unlock(&this->_index_lock);
 			}
 
 		} while (!list_empty(&this->comp_mof_list));
@@ -287,7 +304,7 @@ int DataEngine::read_mof_index_records(const string &jobid, const string &mapid)
     partition_table_t *ifile = NULL;
 
    	ifile = getIFile(jobid, mapid);
-	if (!ifile) { //index file already been read from disk
+	if (!ifile) { // didn't got MOF completion  yet (mof_downcall_handler wasn't called by JAVA yet for the specific mapid)
 		log(lsERROR, "Unexpectedly processing a shuffle request before a MOF completion event was notified by JAVA task: jobid=%s mapid=%s", jobid.c_str(), mapid.c_str());
 		return -1;
 	}
@@ -312,14 +329,10 @@ void DataEngine::add_new_mof(comp_mof_info_t* comp,
 {
     string jobid(comp->jobid);
     string mapid(comp->mapid);
-    string key(jobid);
-    key += string(mapid);
-    
     string str_out(out_bdir);
     string str_idx(idx_bdir);
 
     partition_table_t* ifile = new partition_table_t();
-    ifile->data_fd=0;
     ifile->num_entries=0;
     ifile->records=NULL;
     ifile->total_size=0;
@@ -334,7 +347,7 @@ void DataEngine::add_new_mof(comp_mof_info_t* comp,
     ifile->out_path += mapid;
     ifile->out_path += "/output";
 
-    pthread_mutex_lock(&this->index_lock);
+    pthread_mutex_lock(&this->_index_lock);
     addIFile(jobid, mapid, ifile);
 
     log(lsINFO,"new [jobid:%s, mapid:%s]", jobid.c_str(), mapid.c_str());
@@ -342,7 +355,7 @@ void DataEngine::add_new_mof(comp_mof_info_t* comp,
     log(lsINFO,"idx path: %s", idx_bdir);
 
     list_add_tail(&comp->list, &this->comp_mof_list);
-    pthread_mutex_unlock(&this->index_lock);
+    pthread_mutex_unlock(&this->_index_lock);
 }
 
 partition_table_t* DataEngine::getIFile(const string& jobid, const string& mapid) {
@@ -367,6 +380,42 @@ map<string, partition_table_t*>* DataEngine::getJobIfiles(const string& jobid) {
     	jobIfiles = iter->second;
 
     return jobIfiles;
+}
+
+map<string, fd_counter_t*>* DataEngine::getJobFDCounters(const string& jobid) {
+	map<string, fd_counter_t*>* jobFdCounters = NULL;
+
+    job_fdc_map_iter iter = _job_fdc_map.find(jobid);
+    if (iter != _job_fdc_map.end())
+    	jobFdCounters = iter->second;
+
+    return jobFdCounters;
+}
+
+fd_counter_t* DataEngine::getFdCounter(const string& jobid, const string& data_path) {
+	fd_counter_t* fdcPtr=NULL;
+
+	pthread_mutex_lock(&this->_data_lock);
+	map<string, fd_counter_t*>* jobFdCounters=getJobFDCounters(jobid);
+	if (!jobFdCounters) {
+		jobFdCounters=new map<string, fd_counter_t*>();
+	}
+
+	path_fd_iter iter= jobFdCounters->find(data_path);
+
+	if (iter == jobFdCounters->end()) {
+		fdcPtr = new fd_counter_t();
+		fdcPtr->fd=0;
+		fdcPtr->counter=0;
+	    pthread_mutex_init(&fdcPtr->lock, NULL);
+	    (*jobFdCounters)[data_path]= fdcPtr;
+	}
+	else {
+		fdcPtr=iter->second;
+	}
+	pthread_mutex_unlock(&this->_data_lock);
+
+	return fdcPtr;
 }
 
 bool DataEngine::addIFile(const string &jobid, const string &mapid, partition_table_t* ifile) {
@@ -396,12 +445,11 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
     partition_table_t* ifile=NULL;
     int rc=0;
 
-	pthread_mutex_lock(&this->index_lock);
+	pthread_mutex_lock(&this->_index_lock);
 	ifile=getIFile(req->m_jobid, req->m_map);
-	// we expect that an ifile was allready created and records were read
 
     if (!ifile){ // means that we didn't got MOF completions yet
-    	pthread_mutex_unlock(&this->index_lock);
+    	pthread_mutex_unlock(&this->_index_lock);
     	log(lsERROR, "got shuffle request before MOF completion event: REDUCEID=%s", req->m_reduceid.c_str());
     	return -1;
     }
@@ -409,12 +457,12 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
     if (ifile->total_size==0) { // means that DataEngine didn't process the MOF completion yet and the record weren't read to mem.
 		log(lsWARN, "process shuffle request while no records were read to mem yet by DataEngine - (suspicion for race between mof completion and shuffle request): REDUCEID=%s", req->m_reduceid.c_str());
 		if (read_mof_index_records(req->m_jobid, req->m_map)) {
-			pthread_mutex_unlock(&this->index_lock);
+			pthread_mutex_unlock(&this->_index_lock);
 			log(lsERROR,"failed to read records for MOF's index while processing first shuffle request of MOF: jobid=%s, mapid=%s", req->m_jobid.c_str(), req->m_map.c_str());
 			return -1;
 		}
 	}
-	pthread_mutex_unlock(&this->index_lock);
+	pthread_mutex_unlock(&this->_index_lock);
 
     // in case we have no more chunks to occupy , then we should submit current aio waiting requests before WAITing for a chunk.
 	if (list_empty(&this->_free_chunks_list))
@@ -472,23 +520,34 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , partition_table_t *ifil
     read_length = (read_length < (size_t)this->rdma_buf_size ) ? read_length : this->rdma_buf_size ;
     log (lsDEBUG, "this->rdma_buf_size inside aio_read_chunk_data is %d\n", this->rdma_buf_size);
 
-    // avoid frequently re-open file
-    if (!ifile->data_fd) {
-    	string dat_fname= ifile->out_path + mop_suffix;
-    	ifile->data_fd = open(dat_fname.c_str() , O_RDONLY | O_DIRECT);
-    	if (ifile->data_fd < 0) {
-    		log(lsERROR, "open mof %s failed - errno=%m", dat_fname.c_str());
-            if (_kernel_fd_rlim.rlim_max) {
-            	log(lsWARN, "Hard rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_max);
-            	log(lsWARN, "Soft rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_cur);
-            }
-    		return -1;
-    	}
+    fd_counter_t* fdc=getFdCounter(req->m_jobid, ifile->out_path);
+    if (!fdc) {
+    	log(lsERROR, "fail to get fd counter jobid=%s out_path=%s", req->m_jobid.c_str(), ifile->out_path.c_str());
+    	return -1;
     }
+    pthread_mutex_lock(&fdc->lock);
+	// avoid frequently re-open file
+	if (!fdc->fd) {
+		string dat_fname= ifile->out_path + mop_suffix;
+		fdc->fd = open(dat_fname.c_str() , O_RDONLY | O_DIRECT);
+		if (fdc->fd < 0) {
+			log(lsERROR, "open mof %s failed - errno=%m", dat_fname.c_str());
+			if (_kernel_fd_rlim.rlim_max) {
+				log(lsWARN, "Hard rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_max);
+				log(lsWARN, "Soft rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_cur);
+			}
+			pthread_mutex_unlock(&fdc->lock);
+			return -1;
+		}
+		fdc->counter=0;
+	}
 
+	fdc->counter++; // counts the num of onair aios for this data file
+	pthread_mutex_unlock(&fdc->lock);
 
-    req_callback_arg *cb_arg = new req_callback_arg(); // AIOHandler event processor will delete the allocated cb_arg
-    cb_arg->chunk=chunk;
+	req_callback_arg *cb_arg = new req_callback_arg(); // AIOHandler event processor will delete the allocated cb_arg
+    cb_arg->fdc=fdc;
+	cb_arg->chunk=chunk;
     cb_arg->shreq=req;
     cb_arg->mover=this->state_mac->mover;
     cb_arg->readLength=read_length;
@@ -497,16 +556,23 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , partition_table_t *ifil
     size_t length_for_aio = read_length + 2*AIO_ALIGNMENT - (read_length & _aioHandler->ALIGMENT_MASK);
 
     long new_offset=offset - cb_arg->offsetAligment;
-    rc = _aioHandler->prepare_read(ifile->data_fd, new_offset  ,length_for_aio   , chunk->buff, cb_arg);
+    rc = _aioHandler->prepare_read(fdc->fd, new_offset  ,length_for_aio   , chunk->buff, cb_arg);
 
     return rc;
 }
-
 
 int aio_completion_handler(void* data) {
 	req_callback_arg *req_cb_arg = (req_callback_arg*)data;
 
 	req_cb_arg->mover->start_outgoing_req(req_cb_arg->shreq, req_cb_arg->record, req_cb_arg->chunk, req_cb_arg->readLength, req_cb_arg->offsetAligment);
+
+	fd_counter_t* fdc=req_cb_arg->fdc;
+	pthread_mutex_lock(&fdc->lock);
+	fdc->counter--;
+	if (!fdc->counter) {
+		close(fdc->fd);
+	}
+	pthread_mutex_unlock(&fdc->lock);
 
 	delete req_cb_arg->shreq;
     delete req_cb_arg;
