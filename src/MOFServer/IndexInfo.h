@@ -18,6 +18,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <sys/resource.h>
 
 using namespace std;
 
@@ -122,8 +123,7 @@ private:
     chunk_t*			_chunks;
     pthread_cond_t      _chunk_cond;
     pthread_mutex_t		_chunk_mutex;
-
-    const uint64_t		MAX_OPEN_DAT_FILES;
+    struct rlimit 		_kernel_fd_rlim;
 
     /* return the matching iFile for the specific jobid and mapid
 	 * or NULL if no much.
@@ -146,7 +146,7 @@ private:
 public:
     DataEngine(void *mem, size_t total_size,
                size_t chunk_size, supplier_state_t *state,
-               const char *path, int mode, int rdma_buf_size, uint64_t max_open_files);
+               const char *path, int mode, int rdma_buf_size, struct rlimit kernel_fd_rlim);
     ~DataEngine();
 
 

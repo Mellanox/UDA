@@ -44,6 +44,10 @@ bool DataEngine::read_records(partition_table_t* ifile)
     string idx_fname = ifile->idx_path + idx_suffix;
     if ((fp = open(idx_fname.c_str(), O_RDONLY)) < 0) {
         log(lsERROR, "open idx file %s failed - %m",idx_fname.c_str());
+        if (_kernel_fd_rlim.rlim_max) {
+        	log(lsWARN, "Hard rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_max);
+        	log(lsWARN, "Soft rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_cur);
+        }
         return false;
     }
 
@@ -92,7 +96,7 @@ bool DataEngine::read_records(partition_table_t* ifile)
 DataEngine::DataEngine(void *mem, size_t total_size,
                        size_t chunk_size, 
                        supplier_state_t *state,
-                       const char *path, int mode, int rdma_buf_size, uint64_t max_open_files) : MAX_OPEN_DAT_FILES(max_open_files)
+                       const char *path, int mode, int rdma_buf_size, struct rlimit kernel_fd_rlim)
 {
 
 	prepare_tables(mem, total_size, chunk_size, rdma_buf_size);
@@ -103,6 +107,7 @@ DataEngine::DataEngine(void *mem, size_t total_size,
     this->state_mac = state;
     this->stop = false;
     this->rdma_buf_size = rdma_buf_size;
+    this->_kernel_fd_rlim=kernel_fd_rlim;
    
 
     timespec timeout;
@@ -472,7 +477,11 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , partition_table_t *ifil
     	string dat_fname= ifile->out_path + mop_suffix;
     	ifile->data_fd = open(dat_fname.c_str() , O_RDONLY | O_DIRECT);
     	if (ifile->data_fd < 0) {
-    		log(lsERROR, "open mof %s failed - errno=%m", dat_fname.c_str());;
+    		log(lsERROR, "open mof %s failed - errno=%m", dat_fname.c_str());
+            if (_kernel_fd_rlim.rlim_max) {
+            	log(lsWARN, "Hard rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_max);
+            	log(lsWARN, "Soft rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_cur);
+            }
     		return -1;
     	}
     }

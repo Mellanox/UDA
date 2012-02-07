@@ -132,18 +132,18 @@ int MOFSupplier_main(int argc, char *argv[])
     log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
 
     if (getrlimit(RLIMIT_NOFILE, &open_files_limit)) {
-    	log(lsFATAL, "failed to get max number of open files. errno=%d %m", errno);
-    	exit(-1);
+    	log(lsWARN, "failed to get rlimit for max open files. errno=%d %m", errno);
+    	open_files_limit.rlim_max=0;
+    	open_files_limit.rlim_cur=0;
     }
-
-    /*
-     * The soft limit is the value that the kernel enforces for the corresponding resource.
-     * The hard limit acts as a ceiling for the soft limit
-     */
-    log(lsINFO, "Hard limit for open files is %d", open_files_limit.rlim_max);
-    log(lsINFO, "Soft limit for open files is %d", open_files_limit.rlim_cur);
-    log(lsINFO, "Limits MOFSupplier for %d open MOFs", open_files_limit.rlim_cur);
-
+    else {
+		/*
+		 * The soft limit is the value that the kernel enforces for the corresponding resource.
+		 * The hard limit acts as a ceiling for the soft limit
+		 */
+		log(lsINFO, "Hard limit for open files is %d", open_files_limit.rlim_max);
+		log(lsINFO, "Soft limit for open files is %d", open_files_limit.rlim_cur);
+	}
 
     memset(&state_mac, 0, sizeof(supplier_state_t));
     pthread_mutex_init(&state_mac.sm_lock, NULL);
@@ -174,7 +174,7 @@ int MOFSupplier_main(int argc, char *argv[])
     state_mac.data_mac = new DataEngine(state_mac.mover->rdma->rdma_mem,
                                         state_mac.mover->rdma->rdma_total_len,
                                         state_mac.mover->rdma->rdma_chunk_len,
-                                        &state_mac, /* op.base_path */ NULL, op.mode, op.buf_size, open_files_limit.rlim_cur);
+                                        &state_mac, /* op.base_path */ NULL, op.mode, op.buf_size, open_files_limit);
 
     return 0;
 }
