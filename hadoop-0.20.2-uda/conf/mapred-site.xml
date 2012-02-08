@@ -43,19 +43,7 @@
            <name>mapred.netmerger.merge.approach</name>
            <value>1</value>
       </property>
-      <property>
-           <!-- mapred.rdma.mofsupplier defines the location of C++ driver
-           for launching the rdma map task side program -->
-           <name>mapred.rdma.mofsupplier</name>
-	   <value>bin/MOFSupplier</value>
-      </property>
-      
-      <property>
-           <!-- mapred.rdma.netmerger defines the location of C++ driver
-           for launching the rdma reduce task side program -->
-           <name>mapred.rdma.netmerger</name>
-           <value>bin/NetMerger</value>
-      </property>
+
       <property>
             <!-- defines the port number used to do the rdma connection 
             C++ cmd line tag: -r

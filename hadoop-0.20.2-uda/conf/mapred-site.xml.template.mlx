@@ -43,25 +43,7 @@
            <name>mapred.netmerger.merge.approach</name>
            <value>1</value>
       </property>
-      <property>
-           <!-- mapred.rdma.mofsupplier defines the location of C++ driver
-           for launching the rdma map task side program -->
-           <name>mapred.rdma.mofsupplier</name>
-	   <value>bin/MOFSupplier</value>
-      </property>
-      <property>
-           <!-- the port number used by task tracker to launch netmerger and mofsupplier
-           C++ cmd line tag: -j
-           -->
-           <name>mapred.taskTracker.rdma.server.port</name>
-           <value>9010</value>
-      </property>
-      <property>
-           <!-- mapred.rdma.netmerger defines the location of C++ driver
-           for launching the rdma reduce task side program -->
-           <name>mapred.rdma.netmerger</name>
-           <value>bin/NetMerger</value>
-      </property>
+
       <property>
             <!-- defines the port number used to do the rdma connection 
             C++ cmd line tag: -r
@@ -78,14 +60,6 @@
             <value>logs/</value>
       </property>
 
-      <property>
-            <!-- the port number netmerger uses to listen to the launch
-            of number hadoop reduce task.
-            C++ cmd line tag: -l
-            -->
-            <name>mapred.netmerger.listener.port</name>
-            <value>9012</value>
-      </property>
 	<property>
             <name>mapred.netmerger.rdma.num.buffers</name>
             <value>16383</value>
@@ -97,14 +71,6 @@
             <!-- the value entered should be alligned to 4 -->
 			<!-- the value entered is multiplied by K -->
             <value>128</value>
-      </property>
-
-      <property>
-            <name>mapred.rdma.max.hosts</name>
-            <description>maximum RMDA connections per host.
-            		 Must satisfy all connection from the MOFSuplier to all NetMergers
-            </description>
-            <value>100</value>
       </property>
 
       <property>
