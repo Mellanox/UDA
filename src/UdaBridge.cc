@@ -135,7 +135,7 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startN
 	printf("-- argc=%d\n", argc);
 
     for (int i=0; i<argc; i++) {
-    	printf("-- i=%d\n", i);
+    	//printf("-- i=%d\n", i);
         jstring string = (jstring) env->GetObjectArrayElement(stringArray, i);
         if (string != NULL) {
 			const char *rawString = env->GetStringUTFChars(string, 0);
