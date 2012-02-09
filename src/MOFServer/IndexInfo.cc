@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <errno.h>
 
 #include "MOFServlet.h"
 #include "IOUtility.h"
@@ -44,7 +45,7 @@ bool DataEngine::read_records(partition_table_t* ifile)
     string idx_fname = ifile->idx_path + idx_suffix;
     if ((fp = open(idx_fname.c_str(), O_RDONLY)) < 0) {
         log(lsERROR, "open idx file %s failed - %m",idx_fname.c_str());
-        if (_kernel_fd_rlim.rlim_max) {
+        if ((errno == EMFILE) && (_kernel_fd_rlim.rlim_max)) {
         	log(lsWARN, "Hard rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_max);
         	log(lsWARN, "Soft rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_cur);
         }
@@ -333,6 +334,7 @@ void DataEngine::add_new_mof(comp_mof_info_t* comp,
     string str_idx(idx_bdir);
 
     partition_table_t* ifile = new partition_table_t();
+    if (!ifile)
     ifile->num_entries=0;
     ifile->records=NULL;
     ifile->total_size=0;
@@ -532,7 +534,7 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , partition_table_t *ifil
 		fdc->fd = open(dat_fname.c_str() , O_RDONLY | O_DIRECT);
 		if (fdc->fd < 0) {
 			log(lsERROR, "open mof %s failed - errno=%m", dat_fname.c_str());
-			if (_kernel_fd_rlim.rlim_max) {
+	        if ((errno == EMFILE) && (_kernel_fd_rlim.rlim_max)) {
 				log(lsWARN, "Hard rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_max);
 				log(lsWARN, "Soft rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_cur);
 			}
