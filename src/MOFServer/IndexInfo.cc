@@ -72,7 +72,7 @@ bool DataEngine::read_records(partition_table_t* ifile)
     }
     ifile->num_entries = writtenBytes / sizeof (index_record_t);
     ifile->records = new (std::nothrow) index_record_t[ifile->num_entries] ; // std::nothrow marks 'new' to not throw exception in case of error , but to return NULL instead
-    if (ifile->records) {
+    if (!ifile->records) {
     	log(lsERROR, "failed to allocated memory for holding index recordse, file path=%s", ifile->idx_path.c_str());
     	return false;
     }
