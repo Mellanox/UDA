@@ -23,74 +23,41 @@ import org.apache.hadoop.io.WritableUtils;
 
 import org.apache.hadoop.fs.Path;
 
-/* Communicating with netlev reduce task */ 
-class UdaPluginRT<K,V> implements UdaCallable {
-	
-	private static final Log LOG = LogFactory.getLog(UdaPluginRT.class.getName());
-	final ReduceCopier reduceCopier;
-	final ReduceTask reduceTask;
+abstract class UdaPlugin {
+	static protected final Log LOG = LogFactory.getLog(UdaPlugin.class.getName());
+
+	protected void launchCppSide(boolean isNetMerger, JobConf jobConf, UdaCallable _callable, String logdirTail) {
 		
-	private JobConf           mJobConf      = null;
-	private TaskReporter      mTaskReporter = null;    
-	private Progress          mProgress     = null;
-	private Vector<String>    mParams       = new Vector<String>();
-	private int               mMapsNeed     = 0;      
-	private int               mMapsCount    = 0; // we probably can remove this var
-	private int               mReqNums      = 0;
-	private final int         mReportCount  = 20;
-	private final int         SOCKET_BUF_SIZE = 1 << 22; /* 4 MB */
-	private J2CQueue<K,V>     j2c_queue     = null;
-
-
-	/* kv buf status */
-	private final int         kv_buf_recv_ready = 1;
-	private final int         kv_buf_redc_ready = 2;
-	/* kv buf related vars */ 
-	private final int         kv_buf_size = 1 << 20;   /* 1 MB */
-	private final int         kv_buf_num = 2;
-	private KVBuf[]           kv_bufs = null;
-//	private KVBufReceiver     kv_buf_receiver = null;
-
-	private void init_kv_bufs() {
-		kv_bufs = new KVBuf[kv_buf_num];
-		for (int idx = 0; idx < kv_buf_num; ++idx) {
-			kv_bufs[idx] = new KVBuf(kv_buf_size);
-		} 
-	}
-
-	private void launchCppSide(JobConf fConf) {
-
-		String driver = fConf.get("mapred.rdma.netmerger");
-		LOG.info("UDA: Launching " + driver + " thru JNI");
+		LOG.info("UDA: Launching C++ thru JNI");
 		List<String> cmd = new ArrayList<String>();
 
-		/* cmd */
-		cmd.add(driver);
-
-		/* arguments */
+		// TODO: remove from conf: "mapred.tasktracker.rdma.server.port", 9010
+		
+		//* arguments 
 		cmd.add("-w");
-		cmd.add(fConf.get("mapred.rdma.wqe.per.conn"));
+		cmd.add(jobConf.get("mapred.rdma.wqe.per.conn"));
 		cmd.add("-r");
-		cmd.add(fConf.get("mapred.rdma.cma.port"));      
+		cmd.add(jobConf.get("mapred.rdma.cma.port"));      
 		cmd.add("-a");
-		cmd.add(fConf.get("mapred.netmerger.merge.approach"));
+		cmd.add(jobConf.get("mapred.netmerger.merge.approach"));
 		cmd.add("-m");
 		cmd.add("1");
+		
 		cmd.add("-g");
-		cmd.add( fConf.get("mapred.rdma.log.dir","default") + "/userlogs/" + reduceTask.getTaskID().getJobID().toString() + "/"  + reduceTask.getTaskID().toString() );
+		cmd.add(jobConf.get("mapred.rdma.log.dir","default") + logdirTail);
+		
 		cmd.add("-b");
-		cmd.add(fConf.get("mapred.netmerger.rdma.num.buffers"));
+		cmd.add(jobConf.get("mapred.netmerger.rdma.num.buffers"));
 		cmd.add("-s");
-		cmd.add(fConf.get("mapred.rdma.buf.size"));
+		cmd.add(jobConf.get("mapred.rdma.buf.size"));
 		cmd.add("-t");
-		cmd.add(fConf.get("mapred.uda.log.tracelevel"));
+		cmd.add(jobConf.get("mapred.uda.log.tracelevel"));
 
-		String[] stringarray = null;
-		int rc = 0;
-		stringarray = cmd.toArray(new String[0]);
-		LOG.info("UDA: going to execute child thru JNI: " + cmd);    	  
+		LOG.info("going to execute C++ thru JNI with argc=: " + cmd.size() + " cmd: " + cmd);    	  
+		String[] stringarray = cmd.toArray(new String[0]);
+
 		try {
-			rc = UdaBridge.start(true, stringarray, LOG, this); // true => this is NetMerger
+			UdaBridge.start(isNetMerger, stringarray, LOG, _callable);
 
 		} catch (UnsatisfiedLinkError e) {
 			LOG.warn("UDA: Exception when launching child");    	  
@@ -99,7 +66,39 @@ class UdaPluginRT<K,V> implements UdaCallable {
 			throw (e);
 		}
 	}
-	
+
+}
+
+class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
+
+	final ReduceCopier reduceCopier;
+	final ReduceTask reduceTask;
+
+	private TaskReporter      mTaskReporter = null;    
+	private Progress          mProgress     = null;
+	private Vector<String>    mParams       = new Vector<String>();
+	private int               mMapsNeed     = 0;      
+	private int               mMapsCount    = 0; // we probably can remove this var
+	private int               mReqNums      = 0;
+	private final int         mReportCount  = 20;
+	private J2CQueue<K,V>     j2c_queue     = null;
+
+
+	//* kv buf status 
+	private final int         kv_buf_recv_ready = 1;
+	private final int         kv_buf_redc_ready = 2;
+	//* kv buf related vars  
+	private final int         kv_buf_size = 1 << 20;   /* 1 MB */
+	private final int         kv_buf_num = 2;
+	private KVBuf[]           kv_bufs = null;
+
+	private void init_kv_bufs() {
+		kv_bufs = new KVBuf[kv_buf_num];
+		for (int idx = 0; idx < kv_buf_num; ++idx) {
+			kv_bufs[idx] = new KVBuf(kv_buf_size);
+		} 
+	}
+
 	public UdaPluginRT(ReduceCopier reduceCopier, ReduceTask reduceTask, JobConf jobConf, TaskReporter reporter,
 			int numMaps) throws IOException {
 		this.reduceTask = reduceTask;
@@ -107,10 +106,10 @@ class UdaPluginRT<K,V> implements UdaCallable {
 
 		/* init variables */
 		init_kv_bufs(); 
-		launchCppSide(jobConf);//avner1
+
+		launchCppSide(true, jobConf, this, "/userlogs/" + reduceTask.getTaskID().getJobID().toString() + "/"  + reduceTask.getTaskID().toString() ); // true: this is RT => we should execute NetMerger
 
 		this.j2c_queue = new J2CQueue<K, V>();
-		this.mJobConf = jobConf;
 		this.mTaskReporter = reporter;
 		this.mMapsNeed = numMaps;
 
@@ -124,7 +123,7 @@ class UdaPluginRT<K,V> implements UdaCallable {
 		mParams.add(reduceId.toString());
 		mParams.add(jobConf.get("mapred.netmerger.hybrid.lpq.size", "0"));
 
-		String [] dirs = this.mJobConf.getLocalDirs();
+		String [] dirs = jobConf.getLocalDirs();
 		ArrayList<String> dirsCanBeCreated = new ArrayList<String>();
 		//checking if the directories can be created
 		for (int i=0; i<dirs.length; i++ ){
@@ -148,7 +147,7 @@ class UdaPluginRT<K,V> implements UdaCallable {
 		this.mProgress.set((float)(1/2));
 	}
 
-	public void sendFetchReq (MapOutputLocation loc) throws IOException {
+	public void sendFetchReq (MapOutputLocation loc) {
 		/* "host:jobid:mapid:reduce" */
 		mParams.clear();
 		mParams.add(loc.getHost());
@@ -159,7 +158,7 @@ class UdaPluginRT<K,V> implements UdaCallable {
 		UdaBridge.doCommand(msg);
 	}
 
-	public void close() throws IOException {
+	public void close() {
 		mParams.clear();
 		LOG.info("UDA: sending EXIT_COMMAND");    	  
 		String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
@@ -168,11 +167,8 @@ class UdaPluginRT<K,V> implements UdaCallable {
 	}
 
 	public <K extends Object, V extends Object>
-	RawKeyValueIterator createKVIterator_rdma(
-			JobConf job, FileSystem fs, Reporter reporter) 
-					throws IOException {
+	RawKeyValueIterator createKVIterator_rdma(JobConf job, FileSystem fs, Reporter reporter) {
 		this.j2c_queue.initialize();
-		//avner        kv_buf_receiver.start();
 		return this.j2c_queue; 
 	}
 
@@ -193,8 +189,8 @@ class UdaPluginRT<K,V> implements UdaCallable {
 		}
 		if (LOG.isDebugEnabled()) LOG.debug("<< out fetchOverMessage"); 
 	}
-	
-	
+
+
 	// callback from C++
 	int __cur_kv_idx__ = 0;
 	public void dataFromUda(Object directBufAsObj, int len) throws Throwable {
@@ -231,7 +227,7 @@ class UdaPluginRT<K,V> implements UdaCallable {
 		}
 		if (LOG.isDebugEnabled()) LOG.debug ("<<-- dataFromUda finished callback");
 	}
-	
+
 
 	/* kv buf object, j2c_queue uses 
  the kv object inside.
@@ -305,13 +301,11 @@ class UdaPluginRT<K,V> implements UdaCallable {
 			time_count = 0;
 		} 
 
-		public DataInputBuffer getKey() 
-				throws IOException {
+		public DataInputBuffer getKey() {
 			return key;
 		}
 
-		public DataInputBuffer getValue() 
-				throws IOException {
+		public DataInputBuffer getValue() {
 			return val;
 		}
 
@@ -348,7 +342,7 @@ class UdaPluginRT<K,V> implements UdaCallable {
 					key_len);
 			cur_kv.skip(key_len);
 
-			/* get val */
+			//* get val
 			this.val.reset(cur_kv.getData(), 
 					cur_kv.getPosition(), 
 					val_len);
@@ -357,8 +351,7 @@ class UdaPluginRT<K,V> implements UdaCallable {
 			return true;
 		}
 
-		public void close() throws IOException {
-//avner					kv_buf_receiver.stop = true;
+		public void close() {
 			for (int i = 0; i < kv_buf_num; ++i) {
 				KVBuf buf = kv_bufs[i];
 				synchronized (buf) {
@@ -373,122 +366,71 @@ class UdaPluginRT<K,V> implements UdaCallable {
 
 	}
 }
-/* The above is for netlev reduce task java side */
 
 
 
+//*  The following is for MOFSupplier JavaSide. 
+class UdaPluginTT extends UdaPlugin {    
 
-//*
-	//*  The following is for MOFSupplier JavaSide. 
-	class UdaPluginTT {    
+	private final TaskTracker taskTracker;
+	private Vector<String>     mParams       = new Vector<String>();
 
-		private static final Log LOG = LogFactory.getLog(UdaPluginRT.class.getName());
-		private final TaskTracker taskTracker;
-		private Vector<String>     mParams       = new Vector<String>();
+	public UdaPluginTT(TaskTracker taskTracker) {
+		this.taskTracker = taskTracker;
+		
+		launchCppSide(false, this.taskTracker.fConf, null, ""); // false: this is TT => we should execute MOFSupplier
+	}
 
-		public UdaPluginTT(TaskTracker taskTracker) throws IOException {
+	public void jobOver(String jobId) {
+		mParams.clear();
+		mParams.add(jobId);
+		String msg = RDMACmd.formCmd(RDMACmd.JOB_OVER_COMMAND, mParams);
+		LOG.info("UDA: sending JOBOVER:(" + msg + ")");
+		UdaBridge.doCommand(msg);
+	}  
 
-			// TODO: remove from conf: "mapred.tasktracker.rdma.server.port", 9010
+	public void notifyMapDone(String userName, String jobId, String mapId) {
+		try {
+			//parent path for the file.out file
+			Path fout = this.taskTracker.localDirAllocator.getLocalPathToRead(
+					TaskTracker.getIntermediateOutputDir(userName, jobId, mapId) 
+					+ "/file.out", this.taskTracker.fConf);
 
-			this.taskTracker = taskTracker;
-			// launch MOFSupplier
-			this.launchCppSide();
-		}
+			//parent path for the file.out.index file
+			Path fidx = this.taskTracker.localDirAllocator.getLocalPathToRead(
+					TaskTracker.getIntermediateOutputDir(userName, jobId, mapId) 
+					+ "/file.out.index", this.taskTracker.fConf);
 
-		public void jobOver(String jobId) {
+			int upper = 6;
+			for (int i = 0; i < upper; ++i) {
+				fout = fout.getParent();
+				fidx = fidx.getParent();
+			} 
+
+			//we need "jobId + mapId" to identify a maptask
 			mParams.clear();
 			mParams.add(jobId);
-			String msg = RDMACmd.formCmd(RDMACmd.JOB_OVER_COMMAND, mParams);
-			LOG.info("UDA: sending JOBOVER:(" + msg + ")");
+			mParams.add(mapId);
+			mParams.add(fout.toString()); 
+			mParams.add(fidx.toString());
+			mParams.add(userName);
+			String msg = RDMACmd.formCmd(RDMACmd.NEW_MAP_COMMAND, mParams);
 			UdaBridge.doCommand(msg);
-		}  
 
-		public void notifyMapDone(String userName, String jobId, String mapId) {
-			try {
-				//parent path for the file.out file
-				Path fout = this.taskTracker.localDirAllocator.getLocalPathToRead(
-						TaskTracker.getIntermediateOutputDir(userName, jobId, mapId) 
-						+ "/file.out", this.taskTracker.fConf);
+			if (LOG.isInfoEnabled()) LOG.info("UDA: notified Finshed Map:(" + msg + ")");
 
-				//parent path for the file.out.index file
-				Path fidx = this.taskTracker.localDirAllocator.getLocalPathToRead(
-						TaskTracker.getIntermediateOutputDir(userName, jobId, mapId) 
-						+ "/file.out.index", this.taskTracker.fConf);
-
-				int upper = 6;
-				for (int i = 0; i < upper; ++i) {
-					fout = fout.getParent();
-					fidx = fidx.getParent();
-				} 
-
-				//we need "jobId + mapId" to identify a maptask
-				mParams.clear();
-				mParams.add(jobId);
-				mParams.add(mapId);
-				mParams.add(fout.toString()); 
-				mParams.add(fidx.toString());
-				mParams.add(userName);
-				String msg = RDMACmd.formCmd(RDMACmd.NEW_MAP_COMMAND, mParams);
-				UdaBridge.doCommand(msg);
-
-				if (LOG.isInfoEnabled()) LOG.info("UDA: notified Finshed Map:(" + msg + ")");
-				
-			} catch (DiskChecker.DiskErrorException dee) {
-				LOG.info("UDA: DiskErrorException when handling map done - probably OK (map was not created)\n" + StringUtils.stringifyException(dee));
-			} catch (IOException ioe) {
-				LOG.error("UDA: Error when notify map done\n" + StringUtils.stringifyException(ioe));
-			}
-		}
-
-
-		private void launchCppSide() {
-
-			String driver = this.taskTracker.fConf.get("mapred.rdma.mofsupplier");
-			LOG.info("UDA: Launching " + driver + " thru JNI");
-			List<String> cmd = new ArrayList<String>();
-
-			//* cmd 
-			cmd.add(driver);
-
-			//* arguments 
-			cmd.add("-w");
-			cmd.add(this.taskTracker.fConf.get("mapred.rdma.wqe.per.conn"));
-			cmd.add("-r");
-			cmd.add(this.taskTracker.fConf.get("mapred.rdma.cma.port"));      
-			cmd.add("-a");
-			cmd.add(this.taskTracker.fConf.get("mapred.netmerger.merge.approach"));
-			cmd.add("-m");
-			cmd.add("1");
-			cmd.add("-g");
-			cmd.add(this.taskTracker.fConf.get("mapred.rdma.log.dir","default"));
-			cmd.add("-b");
-			cmd.add(this.taskTracker.fConf.get("mapred.netmerger.rdma.num.buffers"));
-			cmd.add("-s");
-			cmd.add(this.taskTracker.fConf.get("mapred.rdma.buf.size"));
-			cmd.add("-t");
-			cmd.add(this.taskTracker.fConf.get("mapred.uda.log.tracelevel"));
-
-			String[] stringarray = null;
-			int rc = 0;
-			stringarray = cmd.toArray(new String[0]);
-			LOG.info("UDA: going to execute child thru JNI: " + cmd);    	  
-			try {
-				rc = UdaBridge.start(false, stringarray, LOG, null); // false => this is MOFSupplier      
-			} catch (UnsatisfiedLinkError e) {
-				LOG.warn("UDA: Exception when launching child");    	  
-				LOG.warn("java.library.path=" + System.getProperty("java.library.path"));
-				LOG.warn(StringUtils.stringifyException(e));
-				throw (e);
-			}
-
-		}
-
-		public void close() {
-
-			mParams.clear();
-			String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
-			LOG.info("UDA: sending EXIT_COMMAND");    	  
-			UdaBridge.doCommand(msg);        
+		} catch (DiskChecker.DiskErrorException dee) {
+			LOG.info("UDA: DiskErrorException when handling map done - probably OK (map was not created)\n" + StringUtils.stringifyException(dee));
+		} catch (IOException ioe) {
+			LOG.error("UDA: Error when notify map done\n" + StringUtils.stringifyException(ioe));
 		}
 	}
-//*/
+
+	public void close() {
+
+		mParams.clear();
+		String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
+		LOG.info("UDA: sending EXIT_COMMAND");    	  
+		UdaBridge.doCommand(msg);        
+	}
+}

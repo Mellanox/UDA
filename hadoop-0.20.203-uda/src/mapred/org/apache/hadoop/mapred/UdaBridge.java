@@ -1,5 +1,8 @@
 package org.apache.hadoop.mapred;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.util.StringUtils;
 
@@ -20,18 +23,16 @@ public class UdaBridge {
 	// Native methods and their wrappers start here
 	
 	private static native int startNative(boolean isNetMerger, String args[]);
-	public static int start(boolean isNetMerger, String args[], Log _LOG, UdaCallable _callable) {
+	static void start(boolean isNetMerger, String[] args, Log _LOG, UdaCallable _callable) {
 		LOG = _LOG;
 		callable = _callable;
 
-		LOG.debug("UdaBridge: going to execute child thread with argc=: " + args.length);    	  
 		LOG.info(" +++>>> invoking UdaBridge.startNative: isNetMerger=" + isNetMerger);
 		int ret = startNative(isNetMerger, args);
 		LOG.info(" <<<+++ after UdaBridge.startNative ret=" + ret);
-
-		return ret;
-    }
-
+	}
+	
+	
     private static native void doCommandNative(String s);
     public static void doCommand(String s) {
     	if (LOG.isDebugEnabled()) LOG.debug(" +++>>> invoking UdaBridge.doCommandNative");
