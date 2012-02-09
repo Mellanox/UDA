@@ -59,6 +59,10 @@ bool DataEngine::read_records(partition_table_t* ifile)
 
     ifile->total_size = file_stat.st_size;
     byteRec = (uint8_t *) malloc(ifile->total_size);
+    if (!byteRec) {
+    	log(lsERROR, "failed to allocated memory for reading map index file, file path=%s", ifile->idx_path.c_str());
+    	return false;
+    }
     writtenBytes = read(fp, byteRec, ifile->total_size);
     close(fp);
     if (writtenBytes <= 0) {
@@ -67,7 +71,11 @@ bool DataEngine::read_records(partition_table_t* ifile)
         return false;
     }
     ifile->num_entries = writtenBytes / sizeof (index_record_t);
-    ifile->records = new index_record_t[ifile->num_entries] ;
+    ifile->records = new (std::nothrow) index_record_t[ifile->num_entries] ; // std::nothrow marks 'new' to not throw exception in case of error , but to return NULL instead
+    if (ifile->records) {
+    	log(lsERROR, "failed to allocated memory for holding index recordse, file path=%s", ifile->idx_path.c_str());
+    	return false;
+    }
 
     for (int i = 0; i < ifile->num_entries; ++i) {
         uint8_t *cp;
