@@ -27,6 +27,7 @@ using namespace std;
 #include <vector>
 #include "LinkList.h"
 #include "AIOHandler.h"
+#include "../DataNet/RDMAComm.h"
 
 
 #define AIOHANDLER_MIN_NR			(1)
@@ -111,6 +112,7 @@ typedef struct partition_table
 } partition_table_t;
 
 typedef struct chunk {
+	uint32_t			type; //!!!!!! type must be at offset 0!!!!!! DO NOT MOVE IT!!!!
     struct list_head 	list;
     char*				buff;
 } chunk_t;

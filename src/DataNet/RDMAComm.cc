@@ -248,11 +248,11 @@ netlev_conn_free(netlev_conn_t *conn)
     	free(back);
     }
     pthread_mutex_unlock(&conn->lock);
-
     rdma_destroy_qp(conn->cm_id);
-    rdma_destroy_id(conn->cm_id);
+    if (rdma_destroy_id(conn->cm_id)){
+        	log(lsERROR, "rdma_destroy_qp failed (errno=%d)", errno);
+    }
     pthread_mutex_destroy(&conn->lock);
-    list_del(&conn->list); // TODO: consider lock!
     netlev_dealloc_conn_mem(conn->mem);
     free(conn);
 };
@@ -308,6 +308,8 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     }
 
     conn->sent_counter = 0;
+    conn->bad_conn = false;
+    conn->received_counter = 0;
     conn->qp_hndl = conn->cm_id->qp;
     if (ibv_query_qp (conn->qp_hndl, &qp_attr, 12, &qp_init_attr)){
     	output_stderr("[%s,%d] ibv query failed - %m",
@@ -419,6 +421,7 @@ init_wqe_recv (netlev_wqe_t *wqe, unsigned int len,
     wqe->sge.lkey       = lkey;
     wqe->sge.addr       = (uintptr_t)(wqe->data);
     wqe->conn           = conn;
+    wqe->type           = PTR_WQE;
 //    wqe->state          = RECV_WQE_INIT;
 }
 

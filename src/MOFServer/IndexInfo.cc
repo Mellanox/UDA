@@ -214,6 +214,7 @@ DataEngine::prepare_tables(void *mem,
     for (int i = 0; i < NETLEV_RDMA_MEM_CHUNKS_NUM; ++i) {
         chunk_t *ptr = this->_chunks + i;
         ptr->buff = data + i*(rdma_buf_size + 2*AIO_ALIGNMENT );
+        ptr->type = PTR_CHUNK;
         list_add_tail(&ptr->list, &this->_free_chunks_list);
     }
     pthread_mutex_unlock(&this->_chunk_mutex);

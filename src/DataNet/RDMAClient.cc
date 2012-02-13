@@ -400,6 +400,7 @@ RdmaClient::~RdmaClient()
     while(!list_empty(&this->ctx.hdr_conn_list)) {
         conn = list_entry(this->ctx.hdr_conn_list.next, typeof(*conn), list);
         log(lsDEBUG,"Client conn->credits is %d", conn->credits);
+        list_del(&conn->list);
         netlev_conn_free(conn);
     }
     //DBGPRINT(DBG_CLIENT, "all connections are released\n");

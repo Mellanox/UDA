@@ -40,6 +40,11 @@ typedef enum {
     MSG_DONE   = 0x08
 } msg_type_t;
 
+typedef enum {
+    PTR_WQE   = 0x0,
+    PTR_CHUNK = 0x01,
+} ptr_type_t;
+
 
 typedef enum {
     RECV_WQE_AVAIL = 0x10, /* Free */
@@ -63,6 +68,7 @@ typedef struct netlev_msg {
 
 
 typedef struct netlev_wqe {
+	uint32_t				type; //!!!!1 must be at offset 0!!!!!! DO NOT MOVE IT!!!!!!
     struct list_head         list;
     union {
         struct ibv_recv_wr   rr;
@@ -136,6 +142,9 @@ typedef struct netlev_conn
     unsigned long       peerIPAddr;
     unsigned int        state;
     uint32_t			sent_counter;
+    bool				bad_conn;
+    uint32_t			received_counter; //used by server to track requests received from this connection
+
 } netlev_conn_t;
 
 int netlev_dealloc_mem(struct netlev_dev *dev, netlev_mem_t *mem);
