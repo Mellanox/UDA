@@ -1,0 +1,9 @@
+MISSING @SINCE TAG: org.apache.hadoop.fs.FileAlreadyExistsException Class
+MISSING @SINCE TAG: org.apache.hadoop.fs.ChecksumFileSystem Method createNonRecursive(org.apache.hadoop.fs.Path, org.apache.hadoop.fs.permission.FsPermission, boolean, int, short, long, org.apache.hadoop.util.Progressable)
+MISSING @SINCE TAG: org.apache.hadoop.fs.FileSystem Method createNonRecursive(org.apache.hadoop.fs.Path, boolean, int, short, long, org.apache.hadoop.util.Progressable)
+MISSING @SINCE TAG: org.apache.hadoop.fs.FileSystem Method createNonRecursive(org.apache.hadoop.fs.Path, org.apache.hadoop.fs.permission.FsPermission, boolean, int, short, long, org.apache.hadoop.util.Progressable)
+MISSING @SINCE TAG: org.apache.hadoop.fs.RawLocalFileSystem Method createNonRecursive(org.apache.hadoop.fs.Path, org.apache.hadoop.fs.permission.FsPermission, boolean, int, short, long, org.apache.hadoop.util.Progressable)
+MISSING @SINCE TAG: org.apache.hadoop.io.SequenceFile Method createWriter(org.apache.hadoop.fs.FileSystem, org.apache.hadoop.conf.Configuration, org.apache.hadoop.fs.Path, java.lang.Class, java.lang.Class, int, short, long, boolean, org.apache.hadoop.io.SequenceFile.CompressionType, org.apache.hadoop.io.compress.CompressionCodec, org.apache.hadoop.io.SequenceFile.Metadata)
+MISSING @SINCE TAG: org.apache.hadoop.fs.FileSystem Method getCanonicalUri()
+MISSING @SINCE TAG: org.apache.hadoop.net.NetUtils Method getCanonicalUri(java.net.URI, int)
+MISSING @SINCE TAG: org.apache.hadoop.security.token.delegation.AbstractDelegationTokenSecretManager Method verifyToken(org.apache.hadoop.security.token.delegation.AbstractDelegationTokenIdentifier, byte[])
