@@ -141,7 +141,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		}
 
 		LOG.info("UDA: sending INIT_COMMAND");    	  
-		String msg = RDMACmd.formCmd(RDMACmd.INIT_COMMAND, mParams);
+		String msg = UdaCmd.formCmd(UdaCmd.INIT_COMMAND, mParams);
 		UdaBridge.doCommand(msg);
 		this.mProgress = new Progress(); 
 		this.mProgress.set((float)(1/2));
@@ -154,14 +154,14 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(loc.getTaskAttemptId().getJobID().toString());
 		mParams.add(loc.getTaskAttemptId().toString());
 		mParams.add(Integer.toString(reduceTask.getPartition()));
-		String msg = RDMACmd.formCmd(RDMACmd.FETCH_COMMAND, mParams); 
+		String msg = UdaCmd.formCmd(UdaCmd.FETCH_COMMAND, mParams); 
 		UdaBridge.doCommand(msg);
 	}
 
 	public void close() {
 		mParams.clear();
 		LOG.info("UDA: sending EXIT_COMMAND");    	  
-		String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
+		String msg = UdaCmd.formCmd(UdaCmd.EXIT_COMMAND, mParams);
 		UdaBridge.doCommand(msg);
 		this.j2c_queue.close();
 	}
@@ -384,7 +384,7 @@ class UdaPluginTT extends UdaPlugin {
 	public void jobOver(String jobId) {
 		mParams.clear();
 		mParams.add(jobId);
-		String msg = RDMACmd.formCmd(RDMACmd.JOB_OVER_COMMAND, mParams);
+		String msg = UdaCmd.formCmd(UdaCmd.JOB_OVER_COMMAND, mParams);
 		LOG.info("UDA: sending JOBOVER:(" + msg + ")");
 		UdaBridge.doCommand(msg);
 	}  
@@ -414,7 +414,7 @@ class UdaPluginTT extends UdaPlugin {
 			mParams.add(fout.toString()); 
 			mParams.add(fidx.toString());
 			mParams.add(userName);
-			String msg = RDMACmd.formCmd(RDMACmd.NEW_MAP_COMMAND, mParams);
+			String msg = UdaCmd.formCmd(UdaCmd.NEW_MAP_COMMAND, mParams);
 			UdaBridge.doCommand(msg);
 
 			if (LOG.isInfoEnabled()) LOG.info("UDA: notified Finshed Map:(" + msg + ")");
@@ -429,8 +429,36 @@ class UdaPluginTT extends UdaPlugin {
 	public void close() {
 
 		mParams.clear();
-		String msg = RDMACmd.formCmd(RDMACmd.EXIT_COMMAND, mParams);
+		String msg = UdaCmd.formCmd(UdaCmd.EXIT_COMMAND, mParams);
 		LOG.info("UDA: sending EXIT_COMMAND");    	  
 		UdaBridge.doCommand(msg);        
 	}
 }
+
+class UdaCmd {
+
+	public static final int EXIT_COMMAND        = 0; 
+	public static final int NEW_MAP_COMMAND     = 1;
+	public static final int FINAL_MERGE_COMMAND = 2;  
+	public static final int RESULT_COMMAND      = 3;
+	public static final int FETCH_COMMAND       = 4;
+	public static final int FETCH_OVER_COMMAND  = 5;
+	public static final int JOB_OVER_COMMAND    = 6;
+	public static final int INIT_COMMAND        = 7;
+	public static final int MORE_COMMAND        = 8;
+	public static final int NETLEV_REDUCE_LAUNCHED = 9;
+	private static final char SEPARATOR         = ':';
+
+	/* num:cmd:param1:param2... */
+	public static String formCmd(int cmd, List<String> params) {
+
+		int size = params.size() + 1;
+		String ret = "" + size + SEPARATOR + cmd;
+		for (int i = 0; i < params.size(); ++i) {
+			ret += SEPARATOR;
+			ret += params.get(i);
+		}
+		return ret;
+	}
+}
+
