@@ -160,6 +160,10 @@ NR==(default_row+conf_num) {
 	     if (headers[i] ~ /#samples/){
                 print currValue > conf_dir"/samplesNum.txt"
                 }
+	     if (headers[i] ~ /validate/){
+                print currValue > conf_dir"/teravalidate.txt"
+                }
+
 
 	  filename=getFilenameByHeader(headers[i],i)
 	  property=getPropertyByHeader(headers[i])
