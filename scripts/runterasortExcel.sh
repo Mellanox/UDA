@@ -40,12 +40,13 @@ fi
 cd $HADOOP_HOME
 
 
-sudo mkdir -p $SCRIPTS_DIR
-sudo cp -rf $(dirname $0)/* $SCRIPTS_DIR/
+mkdir -p $SCRIPTS_DIR
+cp -rf $(dirname $0)/* $SCRIPTS_DIR/
 
 
 #echo "$(basename $0): awk -v conf_num=0 -v conf_dir=$HADOOP_CONF_DIR -f $SCRIPTS_DIR/create_terasort_conf.awk  $HADOOP_CONF_DIR/config_file.csv"
 awk -v conf_num=0 -v conf_dir=$HADOOP_CONF_DIR -f ${SCRIPTS_DIR}/create_terasort_conf.awk $HADOOP_CONF_DIR/config_file.csv
+if (($?!=0)) ; then echo error 1; exit 2; fi
 
 export RES_SERVER=`cat $HADOOP_CONF_DIR/dataCollectorNode.txt`
 export EXCEL_LINE_NUM=`cat $HADOOP_CONF_DIR/excelLineNumber.txt`
@@ -82,7 +83,7 @@ then
 	copy_succeed=1
 	while ((copy_succeed!=0)) ; do
 		echo "$(basename $0): copy the executed script's dir to local tmp directory for each node"
-		sudo $(dirname $0)/copy_scripts_dir.sh
+		$(dirname $0)/copy_scripts_dir.sh
 		copy_succeed=$?
 		if ((copy_succeed!=0)) ; then
 			echo $(basename $0): ERROR: failed to copy scripts dir to local tmp folders..try again
@@ -94,16 +95,16 @@ fi
 
 
 
-		echo "sudo $SCRIPTS_DIR/copy_conf.sh"
-		sudo $SCRIPTS_DIR/copy_conf.sh
+		echo "$SCRIPTS_DIR/copy_conf.sh"
+		$SCRIPTS_DIR/copy_conf.sh
 
 		for line in `seq 1 $((EXCEL_LINE_NUM))` ; do
 
-			#echo " $(basename $0) sudo rm -rf $HADOOP_CONF_DIR/slaves $HADOOP_CONF_DIR/mapred-site.xml $HADOOP_CONF_DIR/hdfs-site.xml $HADOOP_CONF_DIR/core-site"
-			#sudo rm -rf $HADOOP_CONF_DIR/slaves
-			#sudo rm -rf $HADOOP_CONF_DIR/mapred-site.xml
-			#sudo rm -rf $HADOOP_CONF_DIR/hdfs-site.xml
-			#sudo rm -rf $HADOOP_CONF_DIR/core-site.xml
+			#echo " $(basename $0) rm -rf $HADOOP_CONF_DIR/slaves $HADOOP_CONF_DIR/mapred-site.xml $HADOOP_CONF_DIR/hdfs-site.xml $HADOOP_CONF_DIR/core-site"
+			#rm -rf $HADOOP_CONF_DIR/slaves
+			#rm -rf $HADOOP_CONF_DIR/mapred-site.xml
+			#rm -rf $HADOOP_CONF_DIR/hdfs-site.xml
+			#rm -rf $HADOOP_CONF_DIR/core-site.xml
 
 			echo "awk -v conf_num=$line -v conf_dir=$HADOOP_CONF_DIR -f ${SCRIPTS_DIR}/create_terasort_conf.awk $HADOOP_CONF_DIR/config_file.csv"
 			awk -v conf_num=$line -v conf_dir=$HADOOP_CONF_DIR -f ${SCRIPTS_DIR}/create_terasort_conf.awk $HADOOP_CONF_DIR/config_file.csv
@@ -159,7 +160,7 @@ fi
         			$SCRIPTS_DIR/mark_slaves.sh $node_scale
 
         			echo $(basename $0): Copy  conf dir to salves
-        			sudo ${SCRIPTS_DIR}/copy_conf.sh
+        			${SCRIPTS_DIR}/copy_conf.sh
         			echo "$(basename $0): #slaves=$CLUSTER_NODES"
         			echo "$(basename $0): #spindles=$disks"
 			        echo "$(basename $0): log_perfix=$log_prefix"
@@ -175,7 +176,7 @@ fi
 
 				for sample in `seq 0 $((NSAMPLES-1))` ; do				
 					echo $(basename $0): Copy  conf dir to salves
-					sudo ${SCRIPTS_DIR}/copy_conf.sh
+					${SCRIPTS_DIR}/copy_conf.sh
 						
 					for ds in ${DATA_SET}; do
 						if (( ${mappers} >= ${reducers})); then 
@@ -201,7 +202,7 @@ fi
 	
 	                                                echo "$(basename $0): Running test on cluster of $node_scale slaves with $mappers mapers, $reducers reducers per TT and total of $totalReducers reducers"
 	                                                echo "$(basename $0): Cleaning buffer caches" 
-	                                                sudo bin/slaves.sh ${SCRIPTS_DIR}/cache_flush.sh
+	                                                bin/slaves.sh sudo ${SCRIPTS_DIR}/cache_flush.sh
 	                                                #TODO: above will only flash OS cache; still need to flash disk cache
 	                                                sleep 3
 	

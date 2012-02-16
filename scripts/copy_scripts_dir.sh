@@ -5,18 +5,18 @@
 SCRIPTS_LOCAL_TMP_DIR=/tmp/hadoop/scripts
 
 echo "$0: rm -rf $SCRIPTS_LOCAL_TMP_DIR"
-sudo rm -rf $SCRIPTS_LOCAL_TMP_DIR
+rm -rf $SCRIPTS_LOCAL_TMP_DIR
 echo "$0: bin/slaves rm -rf $SCRIPTS_LOCAL_TMP_DIR"
-sudo bin/slaves.sh rm -rf $SCRIPTS_LOCAL_TMP_DIR
+bin/slaves.sh rm -rf $SCRIPTS_LOCAL_TMP_DIR
 
-echo "$0: sudo mkdir -p $SCRIPTS_LOCAL_TMP_DIR"
-sudo mkdir -p $SCRIPTS_LOCAL_TMP_DIR
-echo "$0: sudo in/slaves.sh sudo mkdir -p $SCRIPTS_LOCAL_TMP_DIR"
-sudo bin/slaves.sh  mkdir -p $SCRIPTS_LOCAL_TMP_DIR
-echo "$0: sudo cp -rf $(dirname $0)/* $SCRIPTS_LOCAL_TMP_DIR/"
-sudo cp -rf $(dirname $0)/* $SCRIPTS_LOCAL_TMP_DIR/
-echo "$0: sudo bin/slaves.sh cp -rf $(dirname $0)/* $SCRIPTS_LOCAL_TMP_DIR/"
-sudo bin/slaves.sh cp -rf $(dirname $0)/* $SCRIPTS_LOCAL_TMP_DIR/
+echo "$0: mkdir -p $SCRIPTS_LOCAL_TMP_DIR"
+mkdir -p $SCRIPTS_LOCAL_TMP_DIR
+echo "$0: in/slaves.sh mkdir -p $SCRIPTS_LOCAL_TMP_DIR"
+bin/slaves.sh  mkdir -p $SCRIPTS_LOCAL_TMP_DIR
+echo "$0: cp -rf $(dirname $0)/* $SCRIPTS_LOCAL_TMP_DIR/"
+cp -rf $(dirname $0)/* $SCRIPTS_LOCAL_TMP_DIR/
+echo "$0: bin/slaves.sh cp -rf $(dirname $0)/* $SCRIPTS_LOCAL_TMP_DIR/"
+bin/slaves.sh cp -rf $(dirname $0)/* $SCRIPTS_LOCAL_TMP_DIR/
 
 
 # check for success

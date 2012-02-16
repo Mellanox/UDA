@@ -18,9 +18,9 @@ fi
 #echo HADOOP_CONF_DIR=${HADOOP_CONF_DIR}
 
 for s in `cat ${HADOOP_CONF_DIR}/slaves | grep -v '#'`; do
-	#sudo bin/slaves.sh scp -r `hostname`:${HADOOP_CONF_DIR}/* ${HADOOP_CONF_DIR}/
-	echo sudo scp -r ${HADOOP_CONF_DIR} ${s}:${HADOOP_HOME}/
-	sudo scp -r ${HADOOP_CONF_DIR} ${s}:${HADOOP_HOME}/
+	#bin/slaves.sh scp -r `hostname`:${HADOOP_CONF_DIR}/* ${HADOOP_CONF_DIR}/
+	echo scp -r ${HADOOP_CONF_DIR} ${s}:${HADOOP_HOME}/
+	scp -r ${HADOOP_CONF_DIR} ${s}:${HADOOP_HOME}/
 done
 
 

@@ -38,6 +38,6 @@ BEGIN {
 	reduceTime=jobend_ts-mapend_ts
 	totalTime=jobend_ts-jobstart_ts
 	print start_time_str","getFilenameFormat(FILENAME),"Mapers:"mapTime",Redcuers:"reduceTime",Total:"totalTime
-#	system("sudo grep -ir -E \"error|fail|exception\" $(dirname "FILENAME") | wc -l"); 
+#	system("grep -ir -E \"error|fail|exception\" $(dirname "FILENAME") | wc -l"); 
 }
 

@@ -66,6 +66,7 @@ print "</configuration>\n" > conf_dir"/mapred-site.xml"
 
 
 BEGIN {
+	print "VER 2!"
 	FS=","
 	if (conf_num=="") {
 	  usage()
@@ -79,9 +80,10 @@ BEGIN {
 	default_row=-1000000000000
 	slave_master_update=0
 	interface=0
-	InterfaceFlag=0
 	counter=0
 }
+
+{print "we are in row: "  NR  ": ==>" $1 "<=="}
 
 $1=="" { 
 	#continue; 
@@ -90,16 +92,36 @@ $1=="" {
 
 $1=="master" {
 	master=$2
+	print "master is: " master 
+	next
 }
 
 $1=="slaves" {
 	slaves=$2
+	print "slaves are: " slaves 
+	next
 }
+
+$1=="data_collector" {
+	print $2 > conf_dir"/dataCollectorNode.txt"
+	print "created: " conf_dir "/dataCollectorNode.txt"
+	next
+}
+
+
+$1=="log_dir" {
+	print $2 > conf_dir"/logDir.txt"
+	print "created: " conf_dir "/logDir.txt"
+	next
+}
+
 
 $1=="headers" {
 	for (i=2; i<=NF; i++){
-	  headers[i]=$i
+		headers[i]=$i
+		printf "> debug: headers[%d]=%s\n", i, headers[i]
 	}
+	next
 }
 
 
@@ -109,27 +131,19 @@ $1=="DEFAULT" {
 	  defaults[i]=$i
         }
 	default_row=NR;
-
+	print ">> conf_num=" conf_num
+	print ">> default_row=" default_row
 }
-
-$1=="data_collector" {
-	print $2 > conf_dir"/dataCollectorNode.txt"
-}
-
-
-$1=="log_dir" {
-	print $2 > conf_dir"/logDir.txt"
-}
-
 $1=="end" {
-
-linesNum= NR-1-default_row
-print linesNum > conf_dir"/excelLineNumber.txt"
-
+	linesNum= NR-1-default_row
+	print linesNum > conf_dir"/excelLineNumber.txt"
+	next
 }
 
 NR==(default_row+conf_num) {
 
+	print ">> WE HAVE ROW: " NR
+	
 	sendHeadersToFile()
 
 	for (i=2; i<=NF-1; i++) {
@@ -138,9 +152,11 @@ NR==(default_row+conf_num) {
 	    else
 	       currValue=$i
 	    gsub(";",",",currValue)
-	   if (headers[i] ~ /interface/ && InterfaceFlag==0 ){
+		
+		print "> current key=value " headers[i] "=" currValue
+	   if (headers[i] == "interface"){
 		interface=currValue
-		InterfaceFlag=1
+		print ">> interface is: " interface
 		}
 	     if (headers[i] ~ /mapred.tasktracker.map.tasks.maximum/){
 		print currValue > conf_dir"/mappersNum.txt"
@@ -180,11 +196,13 @@ NR==(default_row+conf_num) {
 
 
 END {
-        gsub(";","-"interface"\n", slaves)
-        print slaves > conf_dir"/slaves"
-        print master"-"interface > conf_dir"/masters"
-        slave_master_update=0
-        InterfaceFlag=0
+	print ">> orig slaves is: " slaves
+	gsub(";","-" interface "\n", slaves)
+	print ">> slaves fixed to : " slaves
+
+	print slaves > conf_dir"/slaves"
+	print master"-"interface > conf_dir"/masters"
+	slave_master_update=0
 	counter=0
 	default_row=-1
 }

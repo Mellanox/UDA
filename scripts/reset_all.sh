@@ -22,8 +22,8 @@ sleep 2
 
 
 echo "$(basename $0): kill java/python/c++ process"
-sudo pkill '(java|python|NetMerger|MOFSupplier)'
-sudo bin/slaves.sh pkill \'\(java\|python\|NetMerger\|MOFSupplier\)\'
+pkill '(java|python|NetMerger|MOFSupplier)'
+bin/slaves.sh pkill \'\(java\|python\|NetMerger\|MOFSupplier\)\'
 sleep 2
 
 # check for processes that did not respond to termination signals
@@ -32,8 +32,8 @@ live_processes=$(( `bin/slaves.sh ps -e | egrep -c '(MOFSupplier|NetMerger|java)
 if [ $live_processes != 0 ]
 then
 	echo "$(basename $0): process are still alive after kill --> using kill -9"
-	sudo pkill -9 '(java|python|NetMerger|MOFSupplier)'
-	sudo bin/slaves.sh pkill -9 \'\(java\|python\|NetMerger\|MOFSupplier\)\'
+	pkill -9 '(java|python|NetMerger|MOFSupplier)'
+	bin/slaves.sh pkill -9 \'\(java\|python\|NetMerger\|MOFSupplier\)\'
 fi
 
 sleep 2
@@ -52,16 +52,14 @@ then
         echo "$(basename $0): Ignore logs (reset_all won't delete them)"
 else
         echo "$(basename $0): Clear logs dir"
-        sudo rm -rf $HADOOP_HOME/logs/*
-        sudo bin/slaves.sh rm -rf $HADOOP_HOME/logs/\*
+        rm -rf $HADOOP_HOME/logs/*
+        bin/slaves.sh rm -rf $HADOOP_HOME/logs/\*
 fi
 
 if [[  $@ = *-format* ]]
 then
 
 	#echo "$(basename $0): removing /data2 - /data5 files"
-	#sudo rm -rf /data2/* /data3/* /data4/* /data5/*
-	#sudo bin/slaves.sh rm -rf /data2/* /data3/* /data4/* /data5/*
 
 	echo "$(basename $0) formating namenode"
 	echo "going to fm_part"

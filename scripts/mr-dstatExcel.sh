@@ -54,8 +54,8 @@ log=$local_dir/log.txt
 
 export OUTDIR=$collect_dir
 
-echo "$0: sudo ssh $RES_SERVER mkdir -p $collect_dir"
-if ! sudo ssh $RES_SERVER mkdir -p $collect_dir
+echo "$0: ssh $RES_SERVER mkdir -p $collect_dir"
+if ! ssh $RES_SERVER mkdir -p $collect_dir
 then
 	echo $0: error creating $collect_dir on $RES_SERVER
 	exit 1
@@ -71,9 +71,9 @@ fi
 
 #generate statistics
 echo $0: generating statistcs
-sudo $SLAVES  pkill -f dstat
+$SLAVES  pkill -f dstat
 sleep 1
-sudo $SLAVES  if mkdir -p $local_dir\; then dstat -t -c -C total -d -D total -n -N total -m --noheaders --output $local_dir/\`hostname\`.dstat.csv \> /dev/null\; else echo error in dstat\; exit 2\; fi &
+$SLAVES  if mkdir -p $local_dir\; then dstat -t -c -C total -d -D total -n -N total -m --noheaders --output $local_dir/\`hostname\`.dstat.csv \> /dev/null\; else echo error in dstat\; exit 2\; fi &
 sleep 2
 
 #run user command
@@ -114,31 +114,31 @@ sleep 2
 kill %1 #kill above slaves for terminating all dstat commands
 sleep 1
 
-$SLAVES sudo pkill -f dstat
+$SLAVES pkill -f dstat
 #collect the generated statistcs
 echo $0: collecting statistics
 
 echo "user command ended   at: $tend" >> $log
 
 
-sudo ssh $RES_SERVER mkdir -p $collect_dir/master-`hostname`/
-sudo scp  -r $HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/
-sudo scp  -r $local_dir/* $RES_SERVER:$collect_dir/
+ssh $RES_SERVER mkdir -p $collect_dir/master-`hostname`/
+scp  -r $HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/
+scp  -r $local_dir/* $RES_SERVER:$collect_dir/
 
-sudo $SLAVES ssh $RES_SERVER mkdir -p $collect_dir/slave-\`hostname\`/
-sudo $SLAVES scp -r $HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/
-sudo $SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/
+$SLAVES ssh $RES_SERVER mkdir -p $collect_dir/slave-\`hostname\`/
+$SLAVES scp -r $HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/
+$SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/
 
 echo $0: finished collecting statistics
 
 #ls -lh --full-time $collect > /dev/null # workaround - prevent "tar: file changed as we read it"
 
 #combine all the node's dstat to one file at cluster level
-sudo ssh $RES_SERVER cat $collect_dir/\*.dstat.csv \| sort \| ${SCRIPTS_DIR}/reduce-dstat.awk \> $collect_dir/dstat-$JOB-cluster.csv
+ssh $RES_SERVER cat $collect_dir/\*.dstat.csv \| sort \| ${SCRIPTS_DIR}/reduce-dstat.awk \> $collect_dir/dstat-$JOB-cluster.csv
 
 echo collecting hadoop master conf dir
-echo sudo scp -r $HADOOP_CONF_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONF_DIR)
-sudo scp -r $HADOOP_CONF_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONF_DIR)
+echo scp -r $HADOOP_CONF_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONF_DIR)
+scp -r $HADOOP_CONF_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONF_DIR)
 
 #if ! tar zcf $collect.tgz $collect 2> /dev/null
 #then
@@ -153,7 +153,7 @@ then
 	#echo $0: SUCCESS, collected output is in $collect.tgz
 	echo $0: SUCCESS
 else
-	sudo ssh $RES_SERVER mv "$collect_dir" "ERROR_${collect_dir}"
+	ssh $RES_SERVER mv "$collect_dir" "ERROR_${collect_dir}"
 fi
 
 

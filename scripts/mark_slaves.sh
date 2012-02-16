@@ -29,7 +29,7 @@ then
 	exit 1;
 fi
 
-sudo rm -rf "$HADOOP_CONF_DIR/slaves.new"
+rm -rf "$HADOOP_CONF_DIR/slaves.new"
 
 nodes_count=0
 for sl in `grep  "." $HADOOP_CONF_DIR/slaves`
@@ -46,11 +46,11 @@ do
 done
 
 
-sudo rm -rf "$HADOOP_CONF_DIR/slaves.old"
-sudo mv  "$HADOOP_CONF_DIR/slaves" "$HADOOP_CONF_DIR/slaves.old"
+rm -rf "$HADOOP_CONF_DIR/slaves.old"
+mv  "$HADOOP_CONF_DIR/slaves" "$HADOOP_CONF_DIR/slaves.old"
 
 code=0
-code= sudo mv "$HADOOP_CONF_DIR/slaves.new" "$HADOOP_CONF_DIR/slaves"
+code= mv "$HADOOP_CONF_DIR/slaves.new" "$HADOOP_CONF_DIR/slaves"
 
 if [ ${code} != 0 ]
 then

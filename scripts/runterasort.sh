@@ -124,7 +124,7 @@ then
 	copy_succeed=1
 	while ((copy_succeed!=0)) ; do
 		echo "$(basename $0): copy the executed script's dir to local tmp directory for each node"
-		sudo $(dirname $0)/copy_scripts_dir.sh
+		$(dirname $0)/copy_scripts_dir.sh
 		copy_succeed=$?
 		if ((copy_succeed!=0)) ; then
 			echo $(basename $0): ERROR: failed to copy scripts dir to local tmp folders..try again
@@ -176,7 +176,7 @@ for node_scale in ${CLUSTER_NODES} ; do
 	$SCRIPTS_DIR/mark_slaves.sh $node_scale
 	
 	echo $(basename $0): Copy  conf dir to salves
-        sudo ${SCRIPTS_DIR}/copy_conf.sh
+        ${SCRIPTS_DIR}/copy_conf.sh
 
 	echo "$(basename $0): #slaves=$nodes"
 	echo "$(basename $0): #spindles=$disks"
@@ -197,10 +197,10 @@ for node_scale in ${CLUSTER_NODES} ; do
 			for nreds in ${NR}; do
 	
 				echo $(basename $0): Modifing mapred-site.xml for ${nmaps} mappers and ${nreds} reducers per TT
-				sudo ${SCRIPTS_DIR}/replace_conf_mapred.sh ${nmaps} ${nreds}
+				${SCRIPTS_DIR}/replace_conf_mapred.sh ${nmaps} ${nreds}
 					
 				echo $(basename $0): Copy  conf dir to salves
-				sudo ${SCRIPTS_DIR}/copy_conf.sh
+				${SCRIPTS_DIR}/copy_conf.sh
 						
 				for ds in ${DATA_SET}; do
 					if (( ${nmaps} >= ${nreds})); then 
@@ -226,7 +226,7 @@ for node_scale in ${CLUSTER_NODES} ; do
 	
 	                                                echo "$(basename $0): Running test on cluster of $node_scale slaves with $nmaps mapers, $nreds reducers per TT and total of $totalReducers reducers"
 	                                                echo "$(basename $0): Cleaning buffer caches" 
-	                                                sudo bin/slaves.sh ${SCRIPTS_DIR}/cache_flush.sh
+	                                                bin/slaves.sh sudo ${SCRIPTS_DIR}/cache_flush.sh
 	                                                #TODO: above will only flash OS cache; still need to flash disk cache
 	                                                sleep 3
 	

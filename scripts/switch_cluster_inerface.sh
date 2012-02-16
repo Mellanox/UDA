@@ -39,7 +39,7 @@ sed "s/$current_datanode/$new_datanode/" -i $HADOOP_CONF_DIR/master
 sudo ${SCRIPTS_DIR}/switch_hostname.sh ${1}
 sudo bin/slaves.sh "${SCRIPTS_DIR}/switch_hostname.sh" ${1}
 
-sudo rm -rf "$HADOOP_CONF_DIR/slaves.new"
+rm -rf "$HADOOP_CONF_DIR/slaves.new"
 
 for slave in `cat $HADOOP_CONF_DIR/slaves` ; do
 	base_h=$(echo $slave | sed 's/-.*//')
@@ -57,10 +57,10 @@ then
 	exit 1;
 fi
 
-sudo rm -rf "$HADOOP_CONF_DIR/slaves"
+rm -rf "$HADOOP_CONF_DIR/slaves"
 
 code=0
-code= sudo mv "$HADOOP_CONF_DIR/slaves.new" "$HADOOP_CONF_DIR/slaves"
+code= mv "$HADOOP_CONF_DIR/slaves.new" "$HADOOP_CONF_DIR/slaves"
 
 if [ ${code} != 0 ]
 then
