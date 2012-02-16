@@ -39,6 +39,11 @@ fi
 
 cd $HADOOP_HOME
 
+
+sudo mkdir -p $SCRIPTS_DIR
+sudo cp -rf $(dirname $0)/* $SCRIPTS_DIR/
+
+
 #echo "$(basename $0): awk -v conf_num=0 -v conf_dir=$HADOOP_CONF_DIR -f $SCRIPTS_DIR/create_terasort_conf.awk  $HADOOP_CONF_DIR/config_file.csv"
 awk -v conf_num=0 -v conf_dir=$HADOOP_CONF_DIR -f ${SCRIPTS_DIR}/create_terasort_conf.awk $HADOOP_CONF_DIR/config_file.csv
 
