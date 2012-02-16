@@ -132,6 +132,7 @@ fi
 			disks=$((`cat $HADOOP_CONF_DIR/hdfs-site.xml | grep -A 1 ">dfs.data.dir<" | grep -o "," | wc -l | sed s/\ //g` + 1))
 			export DATA_SET=`cat $HADOOP_CONF_DIR/dataSetSize.txt`
 			export NSAMPLES=`cat $HADOOP_CONF_DIR/samplesNum.txt`
+			export TERAVALIIDATE=`cat $HADOOP_CONF_DIR/teravalidate.txt`
 			
 			echo "------------------------------------------------------------"
 			echo "********** line is:  $line  *******************************"
@@ -139,7 +140,8 @@ fi
 			echo "********** CLUSTER_NODES= $CLUSTER_NODES  *****************"
                         echo "********** MAPPERS= $mappers  *****************************"
                         echo "********** REDUCERS= $reducers  ***************************"
-			echo "********** NSAMPLES= $NSAMPLES ****************************"			
+			echo "********** NSAMPLES= $NSAMPLES ****************************"
+			echo "********** TERAVALIIDATE = $TERAVALIIDATE ****************************"			
 			echo "-----------------------------------------------------------"
 
 			for node_scale in ${CLUSTER_NODES} ; do
@@ -206,11 +208,13 @@ fi
 	
 	                                                #this is the command to run
 	                                                export USER_CMD="bin/hadoop jar hadoop*examples*.jar terasort /terasort/input/${totalDataSet}G /terasort/output"
+							export INPUTDIR="/terasort/input/${totalDataSet}G"
+
 							echo "JOB=${log_prefix}.N${ds}G.N${mappers}m.N${reducers}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}"
 	                                                JOB=${log_prefix}.N${ds}G.N${mappers}m.N${reducers}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}
 	
 							echo "$(basename $0): calling mr-dstat for $USER_CMD attempt $attempt"
-							${SCRIPTS_DIR}/mr-dstat.sh "${JOB}_attempt${attempt}"
+							${SCRIPTS_DIR}/mr-dstatExcel.sh "${JOB}_attempt${attempt}"
 							attempt_code=$?
 							if ((attempt_code!=0))
 							then
