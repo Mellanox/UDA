@@ -54,6 +54,19 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+/* following is for rdma project */
+import java.net.Socket;
+import java.net.ServerSocket;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.BufferedInputStream;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.WritableUtils;
+/* above is for rdma project */
+
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -134,6 +147,17 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
 
   static final long WAIT_FOR_DONE = 3 * 1000;
   private int httpPort;
+
+	/**
+	 * For communication with the rdma process 
+	 */
+	private UdaPluginTT rdmaChannel; 
+	/**
+	 * 0: disable rdma.
+	 * 1: use rdma with rdma-merger.
+	 */ 
+	private int rdmaSetting;
+
 
   static enum State {NORMAL, STALE, INTERRUPTED, DENIED}
 
@@ -841,6 +865,11 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     oobHeartbeatDamper = 
       fConf.getInt(TT_OUTOFBAND_HEARTBEAT_DAMPER, 
           DEFAULT_OOB_HEARTBEAT_DAMPER);
+		/* The followings are for rdma project */
+		this.rdmaSetting = fConf.getInt("mapred.rdma.setting", 0);
+		if (this.rdmaSetting == 1) {
+			this.rdmaChannel = new UdaPluginTT(this); 
+		} 
   }
 
   private void createInstrumentation() {
@@ -1370,6 +1399,11 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       healthChecker.stop();
       healthChecker = null;
     }
+	/* close rdma processes */
+	if (this.rdmaSetting==1) {
+		this.rdmaChannel.close();
+	} 
+
   }
 
   /**
@@ -1460,6 +1494,11 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
         TaskLogsTruncater.DEFAULT_RETAIN_SIZE);
     reduceRetainSize = conf.getLong(TaskLogsTruncater.REDUCE_USERLOG_RETAIN_SIZE,
         TaskLogsTruncater.DEFAULT_RETAIN_SIZE);
+  }
+  
+
+  public LocalDirAllocator getLocalDirAllocator() {
+  	return this.localDirAllocator;
   }
 
   private void checkJettyPort(int port) throws IOException { 
@@ -2053,6 +2092,10 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       runningJobs.remove(jobId);
     }
     getJobTokenSecretManager().removeTokenForJob(jobId.toString());  
+		/* inform rdma processes of job over */ 
+		if (this.rdmaSetting == 1) {
+			this.rdmaChannel.jobOver(jobId.toString());
+		}
   }      
     
   /**
@@ -2751,7 +2794,18 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       runner.signalDone();
       LOG.info("Task " + task.getTaskID() + " is done.");
       LOG.info("reported output size for " + task.getTaskID() +  "  was " + taskStatus.getOutputSize());
-
+			/*      
+      //avner3 - try it later
+      // report to the rdma 
+      if (rdmaSetting==1) {
+        Task task = this.getTask();
+        if (task.isMapTask()) {
+        	String jobid = task.getJobID().toString();
+        	String tid= task.getTaskID().toString();
+        	rdmaChannel.notifyMapDone(jobid, tid);
+        }
+      }
+//*/      
     }
     
     public boolean wasKilled() {
@@ -3407,6 +3461,19 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       validateJVM(tip, jvmContext, taskid);
       commitResponses.remove(taskid);
       tip.reportDone();
+
+			//* avner3 - try it later      
+			// report to the rdma 
+			if (rdmaSetting==1) {
+				Task task = tip.getTask();
+				if (task.isMapTask()) {
+					String jobid = task.getJobID().toString();
+					String tid= task.getTaskID().toString();
+					String userName = task.getUser();
+					rdmaChannel.notifyMapDone(userName, jobid, tid);
+				}
+			} 
+			//*/
     } else {
       LOG.warn("Unknown child task done: "+taskid+". Ignored.");
     }
@@ -3861,6 +3928,8 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
         //seek to the correct offset for the reduce
         mapOutputIn.skip(info.startOffset);
         long rem = info.partLength;
+		//rdma testing
+		LOG.info("MapOutputServelet: TESTING ("+ mapId +":"+info.partLength+ ")");
         int len =
           mapOutputIn.read(buffer, 0, (int)Math.min(rem, MAX_BYTES_TO_READ));
         while (rem > 0 && len >= 0) {

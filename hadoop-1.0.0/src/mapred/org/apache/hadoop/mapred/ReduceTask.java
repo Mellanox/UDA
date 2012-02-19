@@ -45,6 +45,22 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
+/* below are added for rdma project */
+import java.net.Socket;
+import java.net.ServerSocket;
+import java.net.SocketAddress;
+import java.net.SocketTimeoutException;
+import java.net.SocketException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.BufferedInputStream;
+import java.util.Vector;
+import java.util.StringTokenizer;
+import org.apache.hadoop.io.Text;
+
+/* above are added for rdma project */
 import javax.crypto.SecretKey;
 
 import org.apache.commons.logging.Log;
@@ -347,6 +363,12 @@ class ReduceTask extends Task {
   @SuppressWarnings("unchecked")
   public void run(JobConf job, final TaskUmbilicalProtocol umbilical)
     throws IOException, InterruptedException, ClassNotFoundException {
+
+		LOG.debug("thread started"); 
+
+		/* for rdma measurement */
+		long reduce_task_start = System.currentTimeMillis();
+
     this.umbilical = umbilical;
     job.setBoolean("mapred.skip.on", isSkipping());
 
@@ -379,6 +401,9 @@ class ReduceTask extends Task {
     // Initialize the codec
     codec = initCodec();
 
+	/* for rdma measurement */
+	long shuffle_merge_start = System.currentTimeMillis();
+
     boolean isLocal = "local".equals(job.get("mapred.job.tracker", "local"));
     if (!isLocal) {
       reduceCopier = new ReduceCopier(umbilical, job, reporter);
@@ -394,6 +419,9 @@ class ReduceTask extends Task {
     setPhase(TaskStatus.Phase.SORT);
     statusUpdate(umbilical);
 
+	/* for rdma measurement */
+	long final_merge_start = System.currentTimeMillis();
+
     final FileSystem rfs = FileSystem.getLocal(job).getRaw();
     RawKeyValueIterator rIter = isLocal
       ? Merger.merge(job, rfs, job.getMapOutputKeyClass(),
@@ -407,6 +435,12 @@ class ReduceTask extends Task {
     mapOutputFilesOnDisk.clear();
     
     sortPhase.complete();                         // sort is complete
+
+	/* for rdma measurement  */
+	long final_merge_end = System.currentTimeMillis();
+	long shuffle_merge_end = System.currentTimeMillis();
+	long reduce_func_start = System.currentTimeMillis();
+
     setPhase(TaskStatus.Phase.REDUCE); 
     statusUpdate(umbilical);
     Class keyClass = job.getMapOutputKeyClass();
@@ -421,6 +455,28 @@ class ReduceTask extends Task {
                     keyClass, valueClass);
     }
     done(umbilical, reporter);
+
+	reduceCopier.close();
+
+	/* for rdma measurement */
+	long reduce_func_end = System.currentTimeMillis();
+	long reduce_task_end = System.currentTimeMillis();
+	long final_merge_time = final_merge_end - final_merge_start;
+	long reduce_task_time = reduce_task_end - reduce_task_start;
+	long reduce_func_time = reduce_func_end - reduce_func_start;
+	long shuffle_merge_time = shuffle_merge_end - shuffle_merge_start;
+	double shuffle_merge_prec = ((double)shuffle_merge_time/(double)reduce_task_time);
+	double reduce_func_prec   = ((double)reduce_func_time  /(double)reduce_task_time);
+	LOG.info("RDMA-MEASUREMENT: Reduce Task Start Time   [ " + reduce_task_start   + " ]"); 
+	LOG.info("RDMA-MEASUREMENT: Reduce Task End Time     [ " + reduce_task_end     + " ]"); 
+	LOG.info("RDMA-MEASUREMENT: Reduce Task Time         [ " + reduce_task_time    + " ]");
+	LOG.info("RDMA-MEASUREMENT: Shuffle Merge Start Time [ " + shuffle_merge_start + " ]"); 
+	LOG.info("RDMA-MEASUREMENT: Shuffle Merge End Time   [ " + shuffle_merge_end   + " ]"); 
+	LOG.info("RDMA-MEASUREMENT: Shuffle Merge Time       [ " + shuffle_merge_time  + " ]"); 
+	LOG.info("RDMA-MEASUREMENT: Reudce Func Start Time   [ " + reduce_func_start   + " ]"); 
+	LOG.info("RDMA-MEASUREMENT: Reduce Func End Time     [ " + reduce_func_end     + " ]"); 
+	LOG.info("RDMA-MEASUREMENT: Reduce Func Time         [ " + reduce_func_time    + " ]"); 
+	LOG.info("RDMA-MEASUREMENT: Final Merge Time         [ " + final_merge_time    + " ]"); 
   }
 
   private class OldTrackingRecordWriter<K, V> implements RecordWriter<K, V> {
@@ -897,6 +953,22 @@ class ReduceTask extends Task {
      */
     private final Map<String, List<MapOutputLocation>> mapLocations = 
       new ConcurrentHashMap<String, List<MapOutputLocation>>();
+
+		/**
+		 * This is the channel used to transfer the data between RDMA C++
+		 * and Hadoop ReduceTask
+		 */
+		private UdaPluginRT rdmaChannel;
+
+		/**
+		 * mapred.rdma.setting represents how users uses rdma
+		 * 0: disable rdma (everything keep original status)
+		 * 1: use rdma with rdma-merger (only at the final stage, 
+		 *    return the merged segment back to hadoop)
+		 * 2: use rdma with hadoop-merger (whenever one map is fetched
+          by rdma, return it back).
+		 */
+		private int rdmaSetting;
 
     class ShuffleClientInstrumentation implements MetricsSource {
       final MetricsRegistry registry = new MetricsRegistry("shuffleInput");
@@ -1974,14 +2046,54 @@ class ReduceTask extends Task {
       this.maxMapRuntime = 0;
       this.reportReadErrorImmediately = 
         conf.getBoolean("mapreduce.reduce.shuffle.notify.readerror", true);
+
+		//The followings are for rdma project
+		this.rdmaSetting = conf.getInt("mapred.rdma.setting", 0);
+		if (this.rdmaSetting > 0) {
+			this.rdmaChannel = new UdaPluginRT(ReduceCopier.this, reduceTask, conf, reporter, numMaps);
+		}
     }
     
     private boolean busyEnough(int numInFlight) {
       return numInFlight > maxInFlight;
     }
     
+	/* intercept original hadoop */ 
+	private boolean rdmaFetch() {
+		if (this.rdmaSetting == 1) {
+			GetMapEventsThread getMapEventsThread = null;
+			// start the map events thread
+			getMapEventsThread = new GetMapEventsThread();
+			getMapEventsThread.start();         
+			//avner        this.rdmaChannel.start();
+
+			LOG.info("ReduceCopier: Wait for fetching");
+			synchronized(ReduceCopier.this) {
+				try {
+					ReduceCopier.this.wait(); 
+				} catch (InterruptedException e) {
+				}       
+			}
+			LOG.info("ReduceCopier: Fetching is done"); 
+			// all done, inform the copiers to exit
+			exitGetMapEvents= true;
+			try {
+				//here only stop the thread, but don't close it, 
+				//because we need this channel to return the values later.
+				getMapEventsThread.join();
+				LOG.info("getMapsEventsThread joined.");
+			} catch (InterruptedException ie) {
+				LOG.info("getMapsEventsThread/rdmaChannelThread threw an exception: " +
+						StringUtils.stringifyException(ie));
+			}
+			return true;
+		}  
+		return false;
+	}   
     
     public boolean fetchOutputs() throws IOException {
+		if (rdmaFetch()) { return true; }
+
       int totalFailures = 0;
       int            numInFlight = 0, numCopied = 0;
       DecimalFormat  mbpsFormat = new DecimalFormat("0.00");
@@ -2401,6 +2513,29 @@ class ReduceTask extends Task {
       return totalSize;
     }
 
+		/**
+		 * For rdma setting
+		 */
+		@SuppressWarnings("unchecked")
+		private RawKeyValueIterator createKVIterator(
+				JobConf job, FileSystem fs, Reporter reporter) throws IOException {
+
+			//using rdma merger
+			if (this.rdmaSetting == 1) {
+				RawKeyValueIterator rIter = 
+						this.rdmaChannel.createKVIterator_rdma(job,fs,reporter);
+				return rIter;
+			} 
+			else {
+				return createKVIterator_hadoop(job, fs, reporter);        
+			}
+		}
+
+		private void close() throws IOException{
+			if (this.rdmaSetting == 1) {
+				this.rdmaChannel.close();
+			}
+		}
     /**
      * Create a RawKeyValueIterator from copied map outputs. All copying
      * threads have exited, so all of the map outputs are available either in
@@ -2418,7 +2553,7 @@ class ReduceTask extends Task {
      * first.
      */
     @SuppressWarnings("unchecked")
-    private RawKeyValueIterator createKVIterator(
+		private RawKeyValueIterator createKVIterator_hadoop(
         JobConf job, FileSystem fs, Reporter reporter) throws IOException {
 
       // merge config params
@@ -2826,6 +2961,9 @@ class ReduceTask extends Task {
             String msg = reduceTask.getTaskID()
                          + " GetMapEventsThread Ignoring exception : " 
                          + StringUtils.stringifyException(t);
+
+						LOG.info(msg); //avner2 - temp
+
             reportFatalError(getTaskID(), t, msg);
           }
         } while (!exitGetMapEvents);
@@ -2844,7 +2982,7 @@ class ReduceTask extends Task {
         int numNewMaps = 0;
         
         MapTaskCompletionEventsUpdate update = 
-          umbilical.getMapCompletionEvents(reduceTask.getJobID(), 
+						umbilical.getMapCompletionEvents(reduceTask.getJobID(), //avner2 - check this area for "lost map"
                                            fromEventId.get(), 
                                            MAX_EVENTS_TO_FETCH,
                                            reduceTask.getTaskID(), jvmContext);
@@ -2886,8 +3024,13 @@ class ReduceTask extends Task {
                   (new LinkedList<MapOutputLocation>());
                 mapLocations.put(host, loc);
                }
-              loc.add(new MapOutputLocation(taskId, host, mapOutputLocation));
-              numNewMaps ++;
+				MapOutputLocation mapOutput = new MapOutputLocation(taskId, host, mapOutputLocation);
+				if (rdmaSetting == 1) {
+					rdmaChannel.sendFetchReq(mapOutput.getHost(), mapOutput.getTaskAttemptId().getJobID().toString()  , mapOutput.getTaskAttemptId().toString());  
+				} else {
+					loc.add(mapOutput);
+				}
+				numNewMaps++;
             }
             break;
             case FAILED:
