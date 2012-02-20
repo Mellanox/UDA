@@ -1,9 +1,9 @@
 #!/bin/bash
 # Written by Idan Weinstein On 2011-7-19
 
-if [ -z "$HADOOP_HOME" ]
+if [ -z "$MY_HADOOP_HOME" ]
 then
-        echo $0: "please export HADOOP_HOME"
+        echo $0: "please export MY_HADOOP_HOME"
         exit 1
 fi
 
@@ -16,7 +16,7 @@ fi
 
 if [ -z "$HADOOP_CONF_DIR" ]
 then
-	HADOOP_CONF_DIR="$HADOOP_HOME/conf"
+	HADOOP_CONF_DIR="$MY_HADOOP_HOME/conf"
 fi
 
 #changing interface in core-site.xml and mapred-site.xml

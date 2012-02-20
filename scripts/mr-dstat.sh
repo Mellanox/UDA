@@ -5,14 +5,14 @@
 # Modified by IdanWe on 2011-06-07
 #	- collect the results by using scp and not by using NFS mounts
 
-if [ -z "$HADOOP_HOME" ]
+if [ -z "$MY_HADOOP_HOME" ]
 then
-	echo "please export HADOOP_HOME"
+	echo "please export MY_HADOOP_HOME"
 	exit 1
 fi
 
-cd $HADOOP_HOME
-SLAVES=$HADOOP_HOME/bin/slaves.sh
+cd $MY_HADOOP_HOME
+SLAVES=$MY_HADOOP_HOME/bin/slaves.sh
 
 if [ -z "$1" ]
 then
@@ -117,11 +117,11 @@ echo "user command ended   at: $tend" >> $log
 
 
 ssh $RES_SERVER mkdir -p $collect_dir/master-`hostname`/
-scp  -r $HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/
+scp  -r $MY_HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/
 scp  -r $local_dir/* $RES_SERVER:$collect_dir/
 
 $SLAVES ssh $RES_SERVER mkdir -p $collect_dir/slave-\`hostname\`/
-$SLAVES scp -r $HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/
+$SLAVES scp -r $MY_HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/
 $SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/
 
 echo $0: finished collecting statistics

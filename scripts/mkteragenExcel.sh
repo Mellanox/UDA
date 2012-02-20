@@ -3,18 +3,18 @@
 #Writen by: Idan Weinstein
 #Date: 25-5-2011 
 
-if [ -z "$HADOOP_HOME" ]
+if [ -z "$MY_HADOOP_HOME" ]
 then
-        echo "please export HADOOP_HOME"
+        echo "please export MY_HADOOP_HOME"
         exit 1
 fi
 
 if [ -z "$HADOOP_CONF_DIR" ]
 then
-        HADOOP_CONF_DIR=$HADOOP_HOME/conf
+        HADOOP_CONF_DIR=$MY_HADOOP_HOME/conf
 fi
 
-cd $HADOOP_HOME
+cd $MY_HADOOP_HOME
 
 if [ -z "$DATA_SET" ]
 then
@@ -40,13 +40,13 @@ done
 
 
 if (($nodes == 0)); then
-        echo "Failed to calculate the number of slaves (using \'$HADOOP_HOME\slaves\' file)"
+        echo "Failed to calculate the number of slaves (using \'$MY_HADOOP_HOME\slaves\' file)"
 fi
 
 disks=$((`cat $HADOOP_CONF_DIR/hdfs-site.xml | grep -A 1 ">dfs.data.dir<" | grep -o "," | wc -l | sed s/\ //g` + 1))
 
 if (($disks == 0)); then
-        echo "Failed to calculate the number of disks (using \'$HADOOP_HOME\hdfs-site.xml\' file , value of \'dfs.data.dir'\)"
+        echo "Failed to calculate the number of disks (using \'$MY_HADOOP_HOME\hdfs-site.xml\' file , value of \'dfs.data.dir'\)"
 fi
 
 nmaps=$((nodes*disks))

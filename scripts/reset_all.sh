@@ -1,18 +1,18 @@
 #!/bin/bash
 # Written by Idan Weinstein On 2011-7-19
 
-if [ -z "$HADOOP_HOME" ]
+if [ -z "$MY_HADOOP_HOME" ]
 then
-        echo $(basename $0): "please export HADOOP_HOME"
+        echo $(basename $0): "please export MY_HADOOP_HOME"
         exit 1
 fi
 
 if [ -z "$HADOOP_CONF_DIR" ]
 then 
-	HADOOP_CONF_DIR=$HADOOP_HOME/conf
+	HADOOP_CONF_DIR=$MY_HADOOP_HOME/conf
 fi
 
-cd $HADOOP_HOME
+cd $MY_HADOOP_HOME
 
 
 
@@ -52,8 +52,8 @@ then
         echo "$(basename $0): Ignore logs (reset_all won't delete them)"
 else
         echo "$(basename $0): Clear logs dir"
-        rm -rf $HADOOP_HOME/logs/*
-        bin/slaves.sh rm -rf $HADOOP_HOME/logs/\*
+        rm -rf $MY_HADOOP_HOME/logs/*
+        bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/\*
 fi
 
 if [[  $@ = *-format* ]]

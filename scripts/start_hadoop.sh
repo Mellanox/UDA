@@ -21,9 +21,9 @@
 NUMBER_OF_ATTEMPTS_LIVE_NODES=15
 export HADOOP_SLAVE_SLEEP=0.5
 
-if [ -z "$HADOOP_HOME" ]
+if [ -z "$MY_HADOOP_HOME" ]
 then
-        echo "$(basename $0): please export HADOOP_HOME"
+        echo "$(basename $0): please export MY_HADOOP_HOME"
         exit 1
 fi
 
@@ -34,7 +34,7 @@ fi
 
 if [ -z "$HADOOP_CONF_DIR" ] 
 then
-	HADOOP_CONF_DIR="$HADOOP_HOME/conf"
+	HADOOP_CONF_DIR="$MY_HADOOP_HOME/conf"
 fi
 
 if [ ! -z $1 ] && [ $1 -eq $1 2>/dev/null ] # check if $1 is a number
@@ -56,7 +56,7 @@ else
 	restart=0
 fi
 
-cd $HADOOP_HOME
+cd $MY_HADOOP_HOME
 
 hadoop_is_up=0
 curr_try=0

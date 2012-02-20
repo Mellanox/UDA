@@ -9,15 +9,15 @@ if [ $# -ne 2 ]; then
 	exit 1;
 fi
 
-if [ -z "$HADOOP_HOME" ]; then
-        HADOOP_HOME=`pwd`
+if [ -z "$MY_HADOOP_HOME" ]; then
+        MY_HADOOP_HOME=`pwd`
 fi
 
-#echo HADOOP_HOME=${HADOOP_HOME}
+#echo MY_HADOOP_HOME=${MY_HADOOP_HOME}
 
 
 if [ -z "$HADOOP_CONF_DIR" ]; then
-        HADOOP_CONF_DIR=${HADOOP_HOME}/conf
+        HADOOP_CONF_DIR=${MY_HADOOP_HOME}/conf
 fi
 
 

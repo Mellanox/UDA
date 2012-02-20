@@ -12,9 +12,9 @@ export HADOOP_SLAVE_SLEEP=1
 SCRIPTS_LOCAL_TMP_DIR=/tmp/hadoop/scripts
 MAX_ATTEMPTS=5
 
-if [ -z "$HADOOP_HOME" ]
+if [ -z "$MY_HADOOP_HOME" ]
 then
-        echo $(basename $0): "please export HADOOP_HOME"
+        echo $(basename $0): "please export MY_HADOOP_HOME"
         exit 1
 fi
 
@@ -23,7 +23,7 @@ fi
 
 if [ -z "$HADOOP_CONF_DIR" ]
 then
-	export HADOOP_CONF_DIR=$HADOOP_HOME/conf
+	export HADOOP_CONF_DIR=$MY_HADOOP_HOME/conf
 fi
 
 if [ -z "$DATA_SET_TYPE" ]
@@ -37,7 +37,7 @@ fi
 #        export EXCEL_LINE_NUM=0
 #fi
 
-cd $HADOOP_HOME
+cd $MY_HADOOP_HOME
 
 
 mkdir -p $SCRIPTS_DIR
@@ -52,11 +52,11 @@ export RES_SERVER=`cat $HADOOP_CONF_DIR/dataCollectorNode.txt`
 export EXCEL_LINE_NUM=`cat $HADOOP_CONF_DIR/excelLineNumber.txt`
 export RES_LOGDIR=`cat $HADOOP_CONF_DIR/logDir.txt`
 
-hadoop_version=`echo $(basename $HADOOP_HOME) | sed s/[.]/_/g`
+hadoop_version=`echo $(basename $MY_HADOOP_HOME) | sed s/[.]/_/g`
 
 echo "$(basename $0): Dynamic Parameters: (that can be exported by user)"
 echo "$(basename $0): ------------------------------------------"
-echo "$(basename $0): HADOOP_HOME = $HADOOP_HOME"
+echo "$(basename $0): MY_HADOOP_HOME = $MY_HADOOP_HOME"
 echo "$(basename $0): HADOOP_CONF_DIR = $HADOOP_CONF_DIR"
 echo "$(basename $0): DATA_SET_TYPE = $DATA_SET_TYPE (node=size per node , cluster=size for whole cluster)"
 #echo "$(basename $0): EXCEL_LINE_NUM=$EXCEL_LINE_NUM (number of lines in Excel configuration file we want to run) "
@@ -207,10 +207,10 @@ fi
 	                                                sleep 3
 	
 	                                                echo "$(basename $0): Cleaning logs directories (history&userlogs)"
-	                                                rm -rf $HADOOP_HOME/logs/userlogs/*
-	                                                rm -rf $HADOOP_HOME/logs/history/*
-	                                                bin/slaves.sh rm -rf $HADOOP_HOME/logs/userlogs/*
-	                                                bin/slaves.sh rm -rf $HADOOP_HOME/logs/history/*
+	                                                rm -rf $MY_HADOOP_HOME/logs/userlogs/*
+	                                                rm -rf $MY_HADOOP_HOME/logs/history/*
+	                                                bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/userlogs/*
+	                                                bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/history/*
 	
 	                                                #this is the command to run
 	                                                export USER_CMD="bin/hadoop jar hadoop*examples*.jar terasort /terasort/input/${totalDataSet}G /terasort/output"

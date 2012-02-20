@@ -12,9 +12,9 @@ export HADOOP_SLAVE_SLEEP=1
 SCRIPTS_LOCAL_TMP_DIR=/tmp/hadoop/scripts
 MAX_ATTEMPTS=5
 
-if [ -z "$HADOOP_HOME" ]
+if [ -z "$MY_HADOOP_HOME" ]
 then
-        echo $(basename $0): "please export HADOOP_HOME"
+        echo $(basename $0): "please export MY_HADOOP_HOME"
         exit 1
 fi
 
@@ -38,7 +38,7 @@ fi
 
 if [ -z "$HADOOP_CONF_DIR" ]
 then
-	export HADOOP_CONF_DIR=$HADOOP_HOME/conf
+	export HADOOP_CONF_DIR=$MY_HADOOP_HOME/conf
 fi
 
 if [ -z "$CLUSTER_NODES" ]
@@ -83,15 +83,15 @@ if (( $merge_approach==0 ))
 fi
 interface=`grep -A 1 "mapred.tasktracker.dns.interface" $HADOOP_CONF_DIR/mapred-site.xml`
 
-disks=$(cat $HADOOP_HOME/conf/mapred-site.xml | grep -A 1 ">mapred.tasktracker.dns.interface<")
+disks=$(cat $MY_HADOOP_HOME/conf/mapred-site.xml | grep -A 1 ">mapred.tasktracker.dns.interface<")
 aa=`echo $disks | awk 'BEGIN { FS = "name> <value>"} ; { print $2}'`
 bb=`echo $aa | awk 'BEGIN { FS = "<"} ; { print $1}'`
 
-hadoop_version=`echo $(basename $HADOOP_HOME) | sed s/[.]/_/g`
+hadoop_version=`echo $(basename $MY_HADOOP_HOME) | sed s/[.]/_/g`
 
 echo "$(basename $0): Dynamic Parameters: (that can be exported by user)"
 echo "$(basename $0): ------------------------------------------"
-echo "$(basename $0): HADOOP_HOME=$HADOOP_HOME"
+echo "$(basename $0): MY_HADOOP_HOME=$MY_HADOOP_HOME"
 echo "$(basename $0): HADOOP_CONF_DIR=$HADOOP_CONF_DIR"
 echo "$(basename $0): RES_SERVER=$RES_SERVER (the host which the results will collected to)"
 echo "$(basename $0): DATA_SET_TYPE=$DATA_SET_TYPE (node=size per node , cluster=size for whole cluster)" 
@@ -135,7 +135,7 @@ fi
 
 
 
-cd $HADOOP_HOME
+cd $MY_HADOOP_HOME
 
 
 # check if slave's hostname are matching the same network interface (ib, 1g, 10g)
@@ -231,10 +231,10 @@ for node_scale in ${CLUSTER_NODES} ; do
 	                                                sleep 3
 	
 	                                                echo "$(basename $0): Cleaning logs directories (history&userlogs)"
-	                                                rm -rf $HADOOP_HOME/logs/userlogs/*
-	                                                rm -rf $HADOOP_HOME/logs/history/*
-	                                                bin/slaves.sh rm -rf $HADOOP_HOME/logs/userlogs/*
-	                                                bin/slaves.sh rm -rf $HADOOP_HOME/logs/history/*
+	                                                rm -rf $MY_HADOOP_HOME/logs/userlogs/*
+	                                                rm -rf $MY_HADOOP_HOME/logs/history/*
+	                                                bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/userlogs/*
+	                                                bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/history/*
 	
 	                                                #this is the command to run
 	                                                export USER_CMD="bin/hadoop jar hadoop*examples*.jar terasort  -Dmapred.reduce.tasks=${totalReducers} /terasort/input/${totalDataSet}G /terasort/output"

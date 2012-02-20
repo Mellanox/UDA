@@ -4,13 +4,13 @@
 ##Date: 29-8-2011
 #
 
-if [ -z "$HADOOP_HOME" ]
+if [ -z "$MY_HADOOP_HOME" ]
 then
-        echo $(basename $0): "please export HADOOP_HOME"
+        echo $(basename $0): "please export MY_HADOOP_HOME"
         exit 1
 fi
 
-disks=$(cat $HADOOP_HOME/conf/core-site.xml | grep -A 1 ">hadoop.tmp.dir<")
+disks=$(cat $MY_HADOOP_HOME/conf/core-site.xml | grep -A 1 ">hadoop.tmp.dir<")
 
 aa=`echo $disks | awk 'BEGIN { FS = "name> <value>"} ; { print $2}'`
 
@@ -23,12 +23,12 @@ for ((i=0;i<=$bb;i+=1)); do
         dd=`echo $cc | awk 'BEGIN { FS = ","} ; { print $('$i') }'`
         #echo deleted $dd
 	rm -rf $dd
-	$HADOOP_HOME/bin/slaves.sh  rm -rf $dd
+	$MY_HADOOP_HOME/bin/slaves.sh  rm -rf $dd
 done
 
 
 
-disks=$(cat $HADOOP_HOME/conf/hdfs-site.xml | grep -A 1 ">dfs.data.dir<")
+disks=$(cat $MY_HADOOP_HOME/conf/hdfs-site.xml | grep -A 1 ">dfs.data.dir<")
 
 aa=`echo $disks | awk 'BEGIN { FS = "name> <value>"} ; { print $2}'`
 cc=`echo $aa | awk 'BEGIN { FS = "<"} ; { print $1}'`
@@ -40,10 +40,10 @@ for ((i=0;i<=$bb;i+=1)); do
         dd=`echo $cc | awk 'BEGIN { FS = ","} ; { print $('$i') }'`
         #echo deleted $dd
         rm -rf $dd
-	$HADOOP_HOME/bin/slaves.sh  rm -rf $dd
+	$MY_HADOOP_HOME/bin/slaves.sh  rm -rf $dd
 done
 
-disks=$(cat $HADOOP_HOME/conf/hdfs-site.xml | grep -A 1 ">dfs.name.dir<")
+disks=$(cat $MY_HADOOP_HOME/conf/hdfs-site.xml | grep -A 1 ">dfs.name.dir<")
 
 aa=`echo $disks | awk 'BEGIN { FS = "name> <value>"} ; { print $2}'`
 cc=`echo $aa | awk 'BEGIN { FS = "<"} ; { print $1}'`
@@ -55,7 +55,7 @@ for ((i=0;i<=$bb;i+=1)); do
         dd=`echo $cc | awk 'BEGIN { FS = ","} ; { print $('$i') }'`
         #echo deleted $dd
         rm -rf $dd
-	$HADOOP_HOME/bin/slaves.sh  rm -rf $dd
+	$MY_HADOOP_HOME/bin/slaves.sh  rm -rf $dd
 done
 
 
