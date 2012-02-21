@@ -410,16 +410,18 @@ fd_counter_t* DataEngine::getFdCounter(const string& jobid, const string& data_p
 	map<string, fd_counter_t*>* jobFdCounters=getJobFDCounters(jobid);
 	if (!jobFdCounters) {
 		jobFdCounters=new map<string, fd_counter_t*>();
+		_job_fdc_map[jobid]=jobFdCounters;
 	}
 
 	path_fd_iter iter= jobFdCounters->find(data_path);
 
 	if (iter == jobFdCounters->end()) {
+		log(lsDEBUG, "create new FD counter for %s", data_path.c_str());
 		fdcPtr = new fd_counter_t();
 		fdcPtr->fd=0;
 		fdcPtr->counter=0;
 	    pthread_mutex_init(&fdcPtr->lock, NULL);
-	    (*jobFdCounters)[data_path]= fdcPtr;
+	    jobFdCounters->insert(pair<string, fd_counter_t*>(data_path, fdcPtr)); // more readable
 	}
 	else {
 		fdcPtr=iter->second;
@@ -550,7 +552,7 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , partition_table_t *ifil
 			pthread_mutex_unlock(&fdc->lock);
 			return -1;
 		}
-		fdc->counter=0;
+		log(lsDEBUG, "MOF opened: %s", dat_fname.c_str());
 	}
 
 	fdc->counter++; // counts the num of onair aios for this data file
@@ -582,6 +584,8 @@ int aio_completion_handler(void* data) {
 	fdc->counter--;
 	if (!fdc->counter) {
 		close(fdc->fd);
+		fdc->fd=0;
+		log(lsDEBUG, "close MOF fd");
 	}
 	pthread_mutex_unlock(&fdc->lock);
 
