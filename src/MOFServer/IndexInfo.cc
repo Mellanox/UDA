@@ -319,9 +319,9 @@ int DataEngine::read_mof_index_records(const string &jobid, const string &mapid)
 		return -1;
 	}
 
-	if (ifile->total_size) { // inited to 0 , so other value indicates that this method was already called for the specific jobid&mapid
-		log(lsERROR, "unexpected call to read mof index records while it was already read");
-		return -1;
+	if (ifile->total_size) { // total_size is initialized to 0 , so other value indicates that records has been read already
+		log(lsWARN, "unexpected call to read mof index records while it was already read. (JOBID=%s , MAPID=%s)", jobid.c_str(), mapid.c_str());
+		return 0;
 	}
 
 	if (!read_records(ifile)) {
@@ -468,7 +468,7 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
     }
 
     if (ifile->total_size==0) { // means that DataEngine didn't process the MOF completion yet and the record weren't read to mem.
-		log(lsWARN, "process shuffle request while no records were read to mem yet by DataEngine - (suspicion for race between mof completion and shuffle request): REDUCEID=%s", req->m_reduceid.c_str());
+		log(lsWARN, "Processing the first SHREQ for a MOF while it's index records weren't read to memory yet. Going to read it now... (JOBID=%s MAPID=%s REDUCEID=%d)", req->m_jobid.c_str(), req->m_map.c_str(), req->reduceID);
 		if (read_mof_index_records(req->m_jobid, req->m_map)) {
 			pthread_mutex_unlock(&this->_index_lock);
 			log(lsERROR,"failed to read records for MOF's index while processing first shuffle request of MOF: jobid=%s, mapid=%s", req->m_jobid.c_str(), req->m_map.c_str());
