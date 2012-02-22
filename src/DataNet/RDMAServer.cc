@@ -309,6 +309,13 @@ server_cm_handler(progress_event_t *pevent, void *data)
             ret = rdma_ack_cm_event(cm_event);
             if (ret) { log(lsWARN, "ack cm event failed"); }
             conn->bad_conn = true;
+            if (!conn->received_counter){
+				log(lsINFO, "freeing connection (all related chunks are released)");
+				pthread_mutex_lock(&ctx->lock);
+				list_del(&conn->list);
+				pthread_mutex_unlock(&ctx->lock);
+				netlev_disconnect(conn);
+			}
 
 
 //*/
