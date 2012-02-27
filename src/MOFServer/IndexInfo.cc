@@ -243,10 +243,28 @@ DataEngine::start()
         shuffle_req_t *req  = NULL;
         int rc=0;
 
-		/*
-		 * 1.0 Process new shuffle requests
-         * FIXME 1.5 Start new threads if the queue is long
-         */
+        // Process new MOF files
+        while (!list_empty(&this->comp_mof_list)) {
+				pthread_mutex_lock(&this->_index_lock);
+				comp = NULL;
+				comp = list_entry(this->comp_mof_list.next, typeof(*comp), list);
+				list_del(&comp->list);
+				if (comp) {
+					string jobid(comp->jobid);
+					string mapid(comp->mapid);
+
+					rc = read_mof_index_records(jobid, mapid);
+					if (rc) {
+						log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid.c_str(), mapid.c_str());
+					}
+					free (comp->jobid);
+					free (comp->mapid);
+					free (comp);
+				}
+				pthread_mutex_unlock(&this->_index_lock);
+		}
+
+		 // Process new shuffle requests
         while (!list_empty(&state_mac->mover->incoming_req_list)) {
             if (!list_empty(&state_mac->mover->incoming_req_list)) {
                 pthread_mutex_lock(&state_mac->mover->in_lock);
@@ -267,31 +285,6 @@ DataEngine::start()
 
         _aioHandler->submit();
 
-
-        /* 2.0 Process new MOF files */
-        do {
-            if (!list_empty(&this->comp_mof_list)) {
-				pthread_mutex_lock(&this->_index_lock);
-				/* Get the first MOF entry */
-				comp = NULL;
-				comp = list_entry(this->comp_mof_list.next, typeof(*comp), list);
-				list_del(&comp->list);
-				if (comp) {
-					string jobid(comp->jobid);
-					string mapid(comp->mapid);
-
-					rc = read_mof_index_records(jobid, mapid);
-					if (rc) {
-						log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid.c_str(), mapid.c_str());
-					}
-					free (comp->jobid);
-					free (comp->mapid);
-					free (comp);
-				}
-				pthread_mutex_unlock(&this->_index_lock);
-			}
-
-		} while (!list_empty(&this->comp_mof_list));
 
         /* check if there is a new incoming shuffle req */
         pthread_mutex_lock(&state_mac->mover->in_lock);
