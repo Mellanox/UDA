@@ -2794,18 +2794,6 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       runner.signalDone();
       LOG.info("Task " + task.getTaskID() + " is done.");
       LOG.info("reported output size for " + task.getTaskID() +  "  was " + taskStatus.getOutputSize());
-			/*      
-      //avner3 - try it later
-      // report to the rdma 
-      if (rdmaSetting==1) {
-        Task task = this.getTask();
-        if (task.isMapTask()) {
-        	String jobid = task.getJobID().toString();
-        	String tid= task.getTaskID().toString();
-        	rdmaChannel.notifyMapDone(jobid, tid);
-        }
-      }
-//*/      
     }
     
     public boolean wasKilled() {
@@ -3453,32 +3441,32 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   /**
    * The task is done.
    */
-  public synchronized void done(TaskAttemptID taskid, JvmContext jvmContext) 
-  throws IOException {
-    authorizeJVM(taskid.getJobID());
-    TaskInProgress tip = tasks.get(taskid);
-    if (tip != null) {
-      validateJVM(tip, jvmContext, taskid);
-      commitResponses.remove(taskid);
-      tip.reportDone();
+	public synchronized void done(TaskAttemptID taskid, JvmContext jvmContext)
+			throws IOException {
+		authorizeJVM(taskid.getJobID());
+		TaskInProgress tip = tasks.get(taskid);
+		if (tip != null) {
+			validateJVM(tip, jvmContext, taskid);
+			commitResponses.remove(taskid);
 
-			//* avner3 - try it later      
-			// report to the rdma 
-			if (rdmaSetting==1) {
+			// * avner3 - try it later
+			// report to the rdma
+			if (rdmaSetting == 1) {
 				Task task = tip.getTask();
 				if (task.isMapTask()) {
 					String jobid = task.getJobID().toString();
-					String tid= task.getTaskID().toString();
+					String tid = task.getTaskID().toString();
 					String userName = task.getUser();
 					rdmaChannel.notifyMapDone(userName, jobid, tid);
 				}
-			} 
-			//*/
-    } else {
-      LOG.warn("Unknown child task done: "+taskid+". Ignored.");
-    }
-  }
-
+			}		
+			// */
+			
+			tip.reportDone();
+		} else {
+			LOG.warn("Unknown child task done: " + taskid + ". Ignored.");
+		}
+	}
 
   /** 
    * A reduce-task failed to shuffle the map-outputs. Kill the task.
