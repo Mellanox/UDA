@@ -330,8 +330,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
         conn->returning = 0;
         rdma_ack_cm_event(event);
     } else {
-        output_stderr("[%s,%d] client recv unknown event %d",
-                      __FILE__,__LINE__, event->event);
+        log(lsFATAL, "client recv unknown event %d", event->event);
         rdma_ack_cm_event(event);
         goto err_rdma_connect;
     }
@@ -467,7 +466,7 @@ RdmaClient::connect(const char *host, int port)
     conn = netlev_get_conn(ipaddr, port, &this->ctx, &this->register_mems_head);
 
     if (!conn) {
-        output_stderr("connection to %d failed", host);
+        log(lsERROR, "connection to %s failed", host);
     }
 
     pthread_mutex_unlock(&this->ctx.lock);
