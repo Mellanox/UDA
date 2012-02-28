@@ -8,9 +8,9 @@
 
 export HADOOP_SLAVE_SLEEP=0.1
 
-if [ -z "$MY_HADOOP_HOME" ]
+if [ -z "$HADOOP_HOME" ]
 then
-	echo "please export MY_HADOOP_HOME"
+	echo "please export HADOOP_HOME"
 	exit 1
 fi
 
@@ -21,8 +21,8 @@ then
 	exit 1
 fi
 
-cd $MY_HADOOP_HOME
-SLAVES=$MY_HADOOP_HOME/bin/slaves.sh
+cd $HADOOP_HOME
+SLAVES=$HADOOP_HOME/bin/slaves.sh
 
 if [ -z "$1" ]
 then
@@ -54,8 +54,8 @@ log=$local_dir/log.txt
 
 export OUTDIR=$collect_dir
 
-echo "$0: ssh $RES_SERVER mkdir -p $collect_dir"
-if ! ssh $RES_SERVER mkdir -p $collect_dir
+echo "$0: sudo ssh $RES_SERVER mkdir -p $collect_dir"
+if ! sudo ssh $RES_SERVER mkdir -p $collect_dir
 then
 	echo $0: error creating $collect_dir on $RES_SERVER
 	exit 1
@@ -71,9 +71,9 @@ fi
 
 #generate statistics
 echo $0: generating statistcs
-$SLAVES  pkill -f dstat
+sudo $SLAVES  pkill -f dstat
 sleep 1
-$SLAVES  if mkdir -p $local_dir\; then dstat -t -c -C total -d -D total -n -N total -m --noheaders --output $local_dir/\`hostname\`.dstat.csv \> /dev/null\; else echo error in dstat\; exit 2\; fi &
+sudo $SLAVES  if mkdir -p $local_dir\; then dstat -t -c -C total -d -D total -n -N total -m --noheaders --output $local_dir/\`hostname\`.dstat.csv \> /dev/null\; else echo error in dstat\; exit 2\; fi &
 sleep 2
 
 #run user command
@@ -100,7 +100,10 @@ if ! eval $USER_CMD 2>&1 | tee $local_dir/$JOB.txt
 then
 	echo $0: error user command "<$USER_CMD>" has failed
 	cmd_status=3
+else 
+	cmd_status=10
 fi
+
 
 if [ `cat $local_dir/$JOB.txt | egrep -ic '(error|fail|exception)'` -ne 0 ]
 then 
@@ -114,31 +117,31 @@ sleep 2
 kill %1 #kill above slaves for terminating all dstat commands
 sleep 1
 
-$SLAVES pkill -f dstat
+$SLAVES sudo pkill -f dstat
 #collect the generated statistcs
 echo $0: collecting statistics
 
 echo "user command ended   at: $tend" >> $log
 
 
-ssh $RES_SERVER mkdir -p $collect_dir/master-`hostname`/
-scp  -r $MY_HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/
-scp  -r $local_dir/* $RES_SERVER:$collect_dir/
+sudo ssh $RES_SERVER mkdir -p $collect_dir/master-`hostname`/
+sudo scp  -r $HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/
+sudo scp  -r $local_dir/* $RES_SERVER:$collect_dir/
 
-$SLAVES ssh $RES_SERVER mkdir -p $collect_dir/slave-\`hostname\`/
-$SLAVES scp -r $MY_HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/
-$SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/
+sudo $SLAVES ssh $RES_SERVER mkdir -p $collect_dir/slave-\`hostname\`/
+sudo $SLAVES scp -r $HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/
+sudo $SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/
 
 echo $0: finished collecting statistics
 
 #ls -lh --full-time $collect > /dev/null # workaround - prevent "tar: file changed as we read it"
 
 #combine all the node's dstat to one file at cluster level
-ssh $RES_SERVER cat $collect_dir/\*.dstat.csv \| sort \| ${SCRIPTS_DIR}/reduce-dstat.awk \> $collect_dir/dstat-$JOB-cluster.csv
+sudo ssh $RES_SERVER cat $collect_dir/\*.dstat.csv \| sort \| ${SCRIPTS_DIR}/reduce-dstat.awk \> $collect_dir/dstat-$JOB-cluster.csv
 
 echo collecting hadoop master conf dir
-echo scp -r $HADOOP_CONF_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONF_DIR)
-scp -r $HADOOP_CONF_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONF_DIR)
+echo sudo scp -r $HADOOP_CONF_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONF_DIR)
+sudo scp -r $HADOOP_CONF_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONF_DIR)
 
 #if ! tar zcf $collect.tgz $collect 2> /dev/null
 #then
@@ -152,93 +155,89 @@ if (( $cmd_status != 0 ))
 then
 	#echo $0: SUCCESS, collected output is in $collect.tgz
 	echo $0: SUCCESS
+	echo $0: "cmd_status is: $cmd_status"
+	echo $0: "cmd_status is: $cmd_status"
+	echo $0: "cmd_status is: $cmd_status"
+
 else
-	ssh $RES_SERVER mv "$collect_dir" "ERROR_${collect_dir}"
+	sudo ssh $RES_SERVER mv "$collect_dir" "ERROR_${collect_dir}"
 fi
 
 
-
-
-teravalidate="$MY_HADOOP_HOME/bin/hadoop jar hadoop*-examples*.jar teravalidate /terasort/output /validate/out"
-
-if (( $TERAVALIIDATE != 0 ))
+if (( $cmd_status == 10 ))
 then
-echo "Running TeraValidate!!"
-echo "Running TeraValidate!!"
-echo "$teravalidate"
+	teravalidate="$HADOOP_HOME/bin/hadoop jar hadoop*-examples*.jar teravalidate /terasort/output /validate/out"
 
+	if (( $TERAVALIIDATE != 0 ))
+	then
+		echo "Running TeraValidate!!"
+		echo "Running TeraValidate!!"
+		echo "$teravalidate"
 
-$teravalidate
+		$teravalidate
 
-valll="bin/hadoop fs -ls /validate/out"
-$valll | tee /tmp/vallFile.txt
+		valll="bin/hadoop fs -ls /validate/out"
+		$valll | tee /tmp/vallFile.txt
 
-valSum=`cat /tmp/vallFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5 }  } END {print sum}'`
+		valSum=`cat /tmp/vallFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5 }  } END {print sum}'`
 
-echo ""
-echo "val Sum is: $valSum"
+		echo ""
+		echo "val Sum is: $valSum"
 
-if (( $valSum == 0))
-then
-echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
-echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
-echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
-echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
-echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
-echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
-sleep 4
+		if (( $valSum == 0))
+		then
+			echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
+			echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
+			echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
+			echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
+			echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
+			echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
+			sleep 4
 
+			echo "Removing validate tmp files"
+			rm -rf /tmp/vallFile.txt
 
-echo "Removing validate tmp files"
-rm -rf /tmp/vallFile.txt
+			echo "Removing /validate/out"
+			echo "bin/hadoop fs -rmr /validate/out"
+			bin/hadoop fs -rmr /validate/out
+		else
+			echo "THIS IS BAD TERAVALIDATE FAILED!! "
+			exit 500 
+		fi
 
-echo "Removing /validate/out"
-echo "bin/hadoop fs -rmr /validate/out"
-bin/hadoop fs -rmr /validate/out
-else
-echo "THIS IS BAD TERAVALIDATE FAILED!! "
-exit 500 
-fi
+		inputdir="bin/hadoop fs -ls ${INPUTDIR}" 
+		$inputdir | tee /tmp/inputFile.txt
+		inputSum=`cat /tmp/inputFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5}  } END {print sum}'`
 
+		echo "inputSum is: $inputSum"
+		echo "inputSum is: $inputSum"
 
-inputdir="bin/hadoop fs -ls ${INPUTDIR}" 
-$inputdir | tee /tmp/inputFile.txt
-inputSum=`cat /tmp/inputFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5}  } END {print sum}'`
+		outputdir="bin/hadoop fs -ls /terasort/output"
+		$outputdir | tee /tmp/outputFile.txt
+		outputSum=`cat /tmp/outputFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5}  } END {print sum}'`
 
-echo "inputSum is: $inputSum"
-echo "inputSum is: $inputSum"
+		echo "outputSum is: $outputSum"
+		echo "outputSum is: $outputSum"
 
-outputdir="bin/hadoop fs -ls /terasort/output"
-$outputdir | tee /tmp/outputFile.txt
-outputSum=`cat /tmp/outputFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5}  } END {print sum}'`
-
-echo "outputSum is: $outputSum"
-echo "outputSum is: $outputSum"
-
-if (( $inputSum == $outputSum ))
-then
-echo "GOOD! TERASORT OUTPUT = TERASORT INPUT"
-echo "GOOD! TERASORT OUTPUT = TERASORT INPUT"
-echo "GOOD! TERASORT OUTPUT = TERASORT INPUT"
-echo "GOOD! TERASORT OUTPUT = TERASORT INPUT"
-sleep 3
-echo "removing /tmp/inputFile.txt and /tmp/outputFile.txt"
-rm -rf /tmp/inputFile.txt
-rm -rf /tmp/outputFile.txt
+		if (( $inputSum == $outputSum ))
+		then
+			echo "GOOD! TERASORT OUTPUT = TERASORT INPUT"
+			echo "GOOD! TERASORT OUTPUT = TERASORT INPUT"
+			echo "GOOD! TERASORT OUTPUT = TERASORT INPUT"
+			echo "GOOD! TERASORT OUTPUT = TERASORT INPUT"
+			sleep 3
+			echo "removing /tmp/inputFile.txt and /tmp/outputFile.txt"
+			rm -rf /tmp/inputFile.txt
+			rm -rf /tmp/outputFile.txt
  
-else
-echo "NOT GOOD! TERASORT OUTPUT and INPUT ARENT EQUAL, PLEASE CHECK!!"
-fi
+		else
+			echo "NOT GOOD! TERASORT OUTPUT and INPUT ARENT EQUAL, PLEASE CHECK!!"
+		fi
 
-
-exit
-
-
-
-
-
+	fi
 
 fi
-#exit $cmd_status
+
+exit $cmd_status
 
 
