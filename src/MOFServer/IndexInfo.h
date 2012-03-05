@@ -54,7 +54,7 @@ typedef struct fd_counter
 	pthread_mutex_t	lock;
 } fd_counter_t;
 
-/* Format: "jobID:mapAttempt:offset:reduce:remote_addr"; */
+/* Format: "jobid:mapid:mop_offset:reduceid:mem_addr:req_prt:chunk_size" */
 typedef struct shuffle_req
 {
     struct list_head    list;
@@ -67,6 +67,7 @@ typedef struct shuffle_req
     int64_t   map_offset;
     int64_t   remote_addr;
     uint64_t  freq; //saving pointer to client's request
+    int32_t	  chunk_size;
 } shuffle_req_t;
 
 typedef struct comp_mof_info

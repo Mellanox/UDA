@@ -20,7 +20,7 @@
 #define NETLEV 1
 
 #define NETLEV_TIMEOUT_MS        (5000)
-#define NETLEV_FETCH_REQSIZE     (128)
+#define NETLEV_FETCH_REQSIZE     (256)
 
 #define NETLEV_KV_POOL_EXPO         (20)
 

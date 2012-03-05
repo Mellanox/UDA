@@ -277,8 +277,13 @@ DataEngine::start()
 
             if(req) {
             	log(lsDEBUG, "DataEngine: received shuffle request - JOBID=%s REDUCEID=%d offset=%lld", req->m_jobid.c_str(), req->reduceID, req->map_offset);
-            	if (process_shuffle_request(req)) {
+            	if (req->chunk_size > this->rdma_buf_size) {
+            		log(lsERROR, "shuffle request chunk size is larger than rdma buffer(chunk_size=%ld rdma_buf_size=%ld)", req->chunk_size, this->rdma_buf_size);
+            		// TODO: report TT for task failure
+            	}
+            	else if (process_shuffle_request(req)) {
             		log(lsERROR, "Fail to process shuffle request - JOBID=%s REDUCEID=%d offset=%lld", req->m_jobid.c_str(), req->reduceID, req->map_offset);
+            		// TODO: report TT for task failure
             	}
             }
         }
@@ -476,7 +481,6 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
 
     // this WAITs on cond in case of no more chunks to occupy
 	chunk = occupy_chunk();
-
     if (chunk == NULL) {
         log(lsERROR, "occupy_chunk failed: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
         return -1;
@@ -523,7 +527,7 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , partition_table_t *ifil
     index_record_t* record=&ifile->records[req->reduceID];
     int64_t offset = record->offset + map_offset;
     size_t read_length = record->partLength - map_offset;
-    read_length = (read_length < (size_t)this->rdma_buf_size ) ? read_length : this->rdma_buf_size ;
+   	read_length = (read_length < (size_t)req->chunk_size ) ? read_length : req->chunk_size ;
     log (lsDEBUG, "this->rdma_buf_size inside aio_read_chunk_data is %d\n", this->rdma_buf_size);
 
     fd_counter_t* fdc=getFdCounter(req->m_jobid, ifile->out_path);
@@ -531,24 +535,27 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , partition_table_t *ifil
     	log(lsERROR, "fail to get fd counter jobid=%s out_path=%s", req->m_jobid.c_str(), ifile->out_path.c_str());
     	return -1;
     }
-    pthread_mutex_lock(&fdc->lock);
-	// avoid frequently re-open file
-	if (!fdc->fd) {
-		string dat_fname= ifile->out_path + mop_suffix;
-		fdc->fd = open(dat_fname.c_str() , O_RDONLY | O_DIRECT);
-		if (fdc->fd < 0) {
-			log(lsERROR, "open mof %s failed - errno=%m", dat_fname.c_str());
-	        if ((errno == EMFILE) && (_kernel_fd_rlim.rlim_max)) {
-				log(lsWARN, "Hard rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_max);
-				log(lsWARN, "Soft rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_cur);
+
+    if (!fdc->fd) {
+    	pthread_mutex_lock(&fdc->lock);
+		// avoid frequently re-open file
+		if (!fdc->fd) {
+			string dat_fname= ifile->out_path + mop_suffix;
+			fdc->fd = open(dat_fname.c_str() , O_RDONLY | O_DIRECT);
+			if (fdc->fd < 0) {
+				log(lsERROR, "open mof %s failed - errno=%m", dat_fname.c_str());
+				if ((errno == EMFILE) && (_kernel_fd_rlim.rlim_max)) {
+					log(lsWARN, "Hard rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_max);
+					log(lsWARN, "Soft rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_cur);
+				}
+				pthread_mutex_unlock(&fdc->lock);
+				return -1;
 			}
-			pthread_mutex_unlock(&fdc->lock);
-			return -1;
+			log(lsDEBUG, "MOF opened: %s", dat_fname.c_str());
 		}
-		log(lsDEBUG, "MOF opened: %s", dat_fname.c_str());
 	}
 
-	fdc->counter++; // counts the num of onair aios for this data file
+    fdc->counter++; // counts the num of onair aios for this data file
 	pthread_mutex_unlock(&fdc->lock);
 
 	req_callback_arg *cb_arg = new req_callback_arg(); // AIOHandler event processor will delete the allocated cb_arg

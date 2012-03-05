@@ -49,6 +49,11 @@ shuffle_req_t* get_shuffle_req(const string &param)
     start = ++end;
     end = param.find(':', start);
     sreq->freq = atoll(param.substr(start, end - start).c_str());
+
+    start = ++end;
+    end = param.find(':', start);
+    sreq->chunk_size = atoi(param.substr(start, end - start).c_str());
+
     return sreq;
 }
 

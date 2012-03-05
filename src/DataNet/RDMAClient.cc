@@ -494,13 +494,15 @@ RdmaClient::fetch(client_part_req_t *freq)
 
     netlev_msg_t h;
 
-    /* jobid:mapid:mop_offset:reduceid:mem_addr */
-    msg_len = sprintf(h.msg,"%s:%s:%ld:%s:%lu:%lu",
+    /* jobid:mapid:mop_offset:reduceid:mem_addr:req_prt:chunk_size */
+    msg_len = sprintf(h.msg,"%s:%s:%lld:%s:%llu:%llu:%ld",
                       freq->info->params[1],
                       freq->info->params[2],
                       freq->mop->total_fetched,
                       freq->info->params[3],
-                      addr,(uint64_t) freq);
+                      addr,
+                      (uint64_t) freq,
+                      freq->mop->mop_bufs[idx]->buf_len);
 
     conn = connect(freq->info->params[0], svc_port);
     if (!conn) return -1; //log was already issued inside connect
