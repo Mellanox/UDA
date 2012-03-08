@@ -186,7 +186,7 @@ void AIOHandler::processEventsCallbacks() {
 					log(lsERROR,"io_getevents error: unexpected return code -%d %m",rc);		
 			}
 			
-			exit(-1); // TODO
+			// TODO: Notify TT for error
 		}
 		else if (rc > 0) {
 
@@ -199,14 +199,14 @@ void AIOHandler::processEventsCallbacks() {
 				res=(long long)eventArr[i].res;
 				if (res < 0) {
 					log(lsFATAL,"aio event: completion with error, errno=%lld %m",res);
-					exit(-1); // ToDo: Must replace with callback to applciation!!
+					// TODO: Notify TT for error
 				}
 				else if ((uint64_t)res != cb->u.c.nbytes ) { // res is the actual read/writen bytes  , u.c.nbytes is the requested bytes to read/write
 					if ((cb->u.c.nbytes - eventArr[i].res) > 2*AIO_ALIGNMENT) {
 						// if sub is less then 2*AIO_ALIGNMENT then it is probably as a reasult of alignment and EOF
 						// else , it is unexpected.
 						log(lsFATAL, "aio event: unexpected number of bytes was read/written. requested=%lld actaul=%lld",cb->u.c.nbytes, res);
-						exit(-1); // ToDo: Must replace with callback to applciation!!
+						// TODO: Notify TT for error
 					}
 				}
 
