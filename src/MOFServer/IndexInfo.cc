@@ -536,26 +536,24 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , partition_table_t *ifil
     	return -1;
     }
 
-    if (!fdc->fd) {
-    	pthread_mutex_lock(&fdc->lock);
-		// avoid frequently re-open file
-		if (!fdc->fd) {
-			string dat_fname= ifile->out_path + mop_suffix;
-			fdc->fd = open(dat_fname.c_str() , O_RDONLY | O_DIRECT);
-			if (fdc->fd < 0) {
-				log(lsERROR, "open mof %s failed - errno=%m", dat_fname.c_str());
-				if ((errno == EMFILE) && (_kernel_fd_rlim.rlim_max)) {
-					log(lsWARN, "Hard rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_max);
-					log(lsWARN, "Soft rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_cur);
-				}
-				pthread_mutex_unlock(&fdc->lock);
-				return -1;
+	pthread_mutex_lock(&fdc->lock);
+	// avoid frequently re-open file
+	if (!fdc->fd) {
+		string dat_fname= ifile->out_path + mop_suffix;
+		fdc->fd = open(dat_fname.c_str() , O_RDONLY | O_DIRECT);
+		if (fdc->fd < 0) {
+			log(lsERROR, "open mof %s failed - errno=%m", dat_fname.c_str());
+			if ((errno == EMFILE) && (_kernel_fd_rlim.rlim_max)) {
+				log(lsWARN, "Hard rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_max);
+				log(lsWARN, "Soft rlimit for max open FDs by this process: %lu", _kernel_fd_rlim.rlim_cur);
 			}
-			log(lsDEBUG, "MOF opened: %s", dat_fname.c_str());
+			pthread_mutex_unlock(&fdc->lock);
+			return -1;
 		}
+		log(lsDEBUG, "MOF opened: %s", dat_fname.c_str());
 	}
 
-    fdc->counter++; // counts the num of onair aios for this data file
+	fdc->counter++; // counts the num of onair aios for this data file
 	pthread_mutex_unlock(&fdc->lock);
 
 	req_callback_arg *cb_arg = new req_callback_arg(); // AIOHandler event processor will delete the allocated cb_arg
