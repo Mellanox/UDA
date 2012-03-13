@@ -245,35 +245,35 @@ DataEngine::start()
 
         // Process new MOF files
         while (!list_empty(&this->comp_mof_list)) {
-				pthread_mutex_lock(&this->_index_lock);
+				pthread_mutex_lock(&state_mac->mover->in_lock);
 				comp = NULL;
 				comp = list_entry(this->comp_mof_list.next, typeof(*comp), list);
 				list_del(&comp->list);
-				if (comp) {
-					string jobid(comp->jobid);
-					string mapid(comp->mapid);
+				pthread_mutex_unlock(&this->state_mac->mover->in_lock);
 
-					rc = read_mof_index_records(jobid, mapid);
-					if (rc) {
-						log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid.c_str(), mapid.c_str());
-					}
-					free (comp->jobid);
-					free (comp->mapid);
-					free (comp);
+			if (comp) {
+				string jobid(comp->jobid);
+				string mapid(comp->mapid);
+
+				rc = read_mof_index_records(jobid, mapid);
+				if (rc) {
+					log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid.c_str(), mapid.c_str());
 				}
-				pthread_mutex_unlock(&this->_index_lock);
+				free (comp->jobid);
+				free (comp->mapid);
+				free (comp);
+			}
 		}
 
 		 // Process new shuffle requests
         while (!list_empty(&state_mac->mover->incoming_req_list)) {
-            if (!list_empty(&state_mac->mover->incoming_req_list)) {
-                pthread_mutex_lock(&state_mac->mover->in_lock);
-                req = list_entry(state_mac->mover->incoming_req_list.next, typeof(*req), list);
-                list_del(&req->list);
-                pthread_mutex_unlock(&this->state_mac->mover->in_lock);
-            } else {
-                req = NULL;
-            }
+			pthread_mutex_lock(&state_mac->mover->in_lock);
+			req = NULL;
+			if (!list_empty(&state_mac->mover->incoming_req_list)) {
+				req = list_entry(state_mac->mover->incoming_req_list.next, typeof(*req), list);
+				list_del(&req->list);
+			}
+			pthread_mutex_unlock(&this->state_mac->mover->in_lock);
 
             if(req) {
             	log(lsDEBUG, "DataEngine: received shuffle request - JOBID=%s REDUCEID=%d offset=%lld", req->m_jobid.c_str(), req->reduceID, req->map_offset);
@@ -293,7 +293,7 @@ DataEngine::start()
 
         /* check if there is a new incoming shuffle req */
         pthread_mutex_lock(&state_mac->mover->in_lock);
-        if (!list_empty(&state_mac->mover->incoming_req_list)) {
+        if (!list_empty(&state_mac->mover->incoming_req_list) || !list_empty(&this->comp_mof_list)) {
             pthread_mutex_unlock(&state_mac->mover->in_lock);
             continue;
         }
@@ -312,6 +312,7 @@ int DataEngine::read_mof_index_records(const string &jobid, const string &mapid)
     partition_table_t *ifile = NULL;
 
    	ifile = getIFile(jobid, mapid);
+
 	if (!ifile) { // didn't got MOF completion  yet (mof_downcall_handler wasn't called by JAVA yet for the specific mapid)
 		log(lsERROR, "Unexpectedly processing a shuffle request before a MOF completion event was notified by JAVA task: jobid=%s mapid=%s", jobid.c_str(), mapid.c_str());
 		return -1;
@@ -341,7 +342,6 @@ void DataEngine::add_new_mof(comp_mof_info_t* comp,
     string str_idx(idx_bdir);
 
     partition_table_t* ifile = new partition_table_t();
-    if (!ifile)
     ifile->num_entries=0;
     ifile->records=NULL;
     ifile->total_size=0;
@@ -356,27 +356,30 @@ void DataEngine::add_new_mof(comp_mof_info_t* comp,
     ifile->out_path += mapid;
     ifile->out_path += "/output";
 
-    pthread_mutex_lock(&this->_index_lock);
-    addIFile(jobid, mapid, ifile);
-
     log(lsINFO,"new [jobid:%s, mapid:%s]", jobid.c_str(), mapid.c_str());
     log(lsINFO,"dat path: %s", out_bdir);
     log(lsINFO,"idx path: %s", idx_bdir);
+    addIFile(jobid, mapid, ifile);
 
+    pthread_mutex_lock(&state_mac->mover->in_lock);
     list_add_tail(&comp->list, &this->comp_mof_list);
-    pthread_mutex_unlock(&this->_index_lock);
+    pthread_cond_broadcast(&state_mac->mover->in_cond);
+    pthread_mutex_unlock(&state_mac->mover->in_lock);
+
 }
 
 partition_table_t* DataEngine::getIFile(const string& jobid, const string& mapid) {
 	map<string, partition_table_t*>* jobIfiles = NULL;
 	partition_table_t *ifile=NULL;
 
+	pthread_mutex_lock(&this->_index_lock);
 	jobIfiles=getJobIfiles(jobid);
     if (jobIfiles) {
 		idx_map_iter iter = jobIfiles->find(mapid);
 		if (iter != jobIfiles->end())
 			ifile = iter->second;
 	}
+	pthread_mutex_unlock(&this->_index_lock);
 
     return ifile;
 }
@@ -431,19 +434,25 @@ fd_counter_t* DataEngine::getFdCounter(const string& jobid, const string& data_p
 
 bool DataEngine::addIFile(const string &jobid, const string &mapid, partition_table_t* ifile) {
 	map<string, partition_table_t*>* jobIfiles = NULL;
+	bool retval=true;
 
-    if (getIFile(jobid, mapid)) // already exists
-		return false;
-
+	pthread_mutex_lock(&this->_index_lock);
 	jobIfiles = getJobIfiles(jobid);
 	if (!jobIfiles) { // adding first ifile for jobid --> creating mapid to ifile map
 		jobIfiles = new map<string, partition_table_t*> ();
 		ifile_map[jobid] = jobIfiles;
 	}
 
-	(*jobIfiles)[mapid] = ifile;
+	if (jobIfiles->find(mapid) != jobIfiles->end()) {
+		log(lsWARN, "Ifile already exists - JOBID=%s MAPID=%s", jobid.c_str(), mapid.c_str());
+		retval = false;
+	}
+	else {
+		(*jobIfiles)[mapid] = ifile;
+	}
+	pthread_mutex_unlock(&this->_index_lock);
 
-	return true;
+	return retval;
 }
 
 
@@ -453,27 +462,12 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
     string out_path;
     string key = req->m_jobid + req->m_map;
     chunk_t* chunk;
-    partition_table_t* ifile=NULL;
     int rc=0;
 
-	pthread_mutex_lock(&this->_index_lock);
-	ifile=getIFile(req->m_jobid, req->m_map);
-
-    if (!ifile){ // means that we didn't got MOF completions yet
-    	pthread_mutex_unlock(&this->_index_lock);
-    	log(lsERROR, "got shuffle request before MOF completion event: REDUCEID=%s", req->m_reduceid.c_str());
-    	return -1;
-    }
-
-    if (ifile->total_size==0) { // means that DataEngine didn't process the MOF completion yet and the record weren't read to mem.
-		log(lsWARN, "Processing the first SHREQ for a MOF while it's index records weren't read to memory yet. Going to read it now... (JOBID=%s MAPID=%s REDUCEID=%d)", req->m_jobid.c_str(), req->m_map.c_str(), req->reduceID);
-		if (read_mof_index_records(req->m_jobid, req->m_map)) {
-			pthread_mutex_unlock(&this->_index_lock);
+	if (read_mof_index_records(req->m_jobid, req->m_map)) {
 			log(lsERROR,"failed to read records for MOF's index while processing first shuffle request of MOF: jobid=%s, mapid=%s", req->m_jobid.c_str(), req->m_map.c_str());
 			return -1;
-		}
 	}
-	pthread_mutex_unlock(&this->_index_lock);
 
     // in case we have no more chunks to occupy , then we should submit current aio waiting requests before WAITing for a chunk.
 	if (list_empty(&this->_free_chunks_list))
@@ -485,8 +479,15 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
         log(lsERROR, "occupy_chunk failed: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
         return -1;
     }
-
-    rc= aio_read_chunk_data(req, ifile, chunk,  out_path, req->map_offset);
+    partition_table_t* ifile=NULL;
+    ifile=getIFile(req->m_jobid, req->m_map);
+    if (!ifile) {
+    	log(lsERROR, "Fail to get Ifile for jobid=%s, mapid=%s", req->m_jobid.c_str(), req->m_map.c_str());
+    	rc = -1;
+    }
+    else {
+    	rc= aio_read_chunk_data(req, ifile, chunk,  out_path, req->map_offset);
+    }
 
     return rc;
 }
