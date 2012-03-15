@@ -8,7 +8,7 @@
 
 
 
-export HADOOP_SLAVE_SLEEP=1
+export HADOOP_SLAVE_SLEEP=0.1
 SCRIPTS_LOCAL_TMP_DIR=/tmp/hadoop/scripts
 MAX_ATTEMPTS=5
 
@@ -226,7 +226,7 @@ for node_scale in ${CLUSTER_NODES} ; do
 	
 	                                                echo "$(basename $0): Running test on cluster of $node_scale slaves with $nmaps mapers, $nreds reducers per TT and total of $totalReducers reducers"
 	                                                echo "$(basename $0): Cleaning buffer caches" 
-	                                                bin/slaves.sh sudo ${SCRIPTS_DIR}/cache_flush.sh
+	                                                sudo bin/slaves.sh ${SCRIPTS_DIR}/cache_flush.sh
 	                                                #TODO: above will only flash OS cache; still need to flash disk cache
 	                                                sleep 3
 	

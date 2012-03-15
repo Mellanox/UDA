@@ -202,7 +202,7 @@ fi
 	
 	                                                echo "$(basename $0): Running test on cluster of $node_scale slaves with $mappers mapers, $reducers reducers per TT and total of $totalReducers reducers"
 	                                                echo "$(basename $0): Cleaning buffer caches" 
-	                                                bin/slaves.sh sudo ${SCRIPTS_DIR}/cache_flush.sh
+	                                                sudo bin/slaves.sh  ${SCRIPTS_DIR}/cache_flush.sh
 	                                                #TODO: above will only flash OS cache; still need to flash disk cache
 	                                                sleep 3
 	
