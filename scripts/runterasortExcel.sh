@@ -99,6 +99,11 @@ fi
 		$SCRIPTS_DIR/copy_conf.sh
 
 		for line in `seq 1 $((EXCEL_LINE_NUM))` ; do
+			
+			echo "-->>>   LINE IS: $line "
+			echo "-->>>   LINE IS: $line "
+			echo "-->>>   LINE IS: $line "
+			echo "-->>>   LINE IS: $line "
 
 			#echo " $(basename $0) rm -rf $HADOOP_CONF_DIR/slaves $HADOOP_CONF_DIR/mapred-site.xml $HADOOP_CONF_DIR/hdfs-site.xml $HADOOP_CONF_DIR/core-site"
 			#rm -rf $HADOOP_CONF_DIR/slaves
@@ -108,6 +113,15 @@ fi
 
 			echo "awk -v conf_num=$line -v conf_dir=$HADOOP_CONF_DIR -f ${SCRIPTS_DIR}/create_terasort_conf.awk $HADOOP_CONF_DIR/config_file.csv"
 			awk -v conf_num=$line -v conf_dir=$HADOOP_CONF_DIR -f ${SCRIPTS_DIR}/create_terasort_conf.awk $HADOOP_CONF_DIR/config_file.csv
+			awk_answer=$?
+
+			if (( $awk_answer==50 ))
+			then 
+			echo "line #$line is marked!!!! I'm skipping it..."; echo "line #$line is marked!!!! I'm skipping it..."; echo "line #$line is marked!!!! I'm skipping it..."; echo "line #$line is marked!!!! I'm skipping it..."; echo "line #$line is marked!!!! I'm skipping it..."; echo "line #$line is marked!!!! I'm skipping it...";
+
+			continue
+			fi
+			
 			mappers=`cat $HADOOP_CONF_DIR/mappersNum.txt`
 			reducers=`cat $HADOOP_CONF_DIR/reducersNum.txt`
 				
@@ -202,7 +216,7 @@ fi
 	
 	                                                echo "$(basename $0): Running test on cluster of $node_scale slaves with $mappers mapers, $reducers reducers per TT and total of $totalReducers reducers"
 	                                                echo "$(basename $0): Cleaning buffer caches" 
-	                                                sudo bin/slaves.sh  ${SCRIPTS_DIR}/cache_flush.sh
+	                                                bin/slaves.sh sudo ${SCRIPTS_DIR}/cache_flush.sh
 	                                                #TODO: above will only flash OS cache; still need to flash disk cache
 	                                                sleep 3
 	

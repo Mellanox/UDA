@@ -8,9 +8,9 @@
 
 export HADOOP_SLAVE_SLEEP=0.1
 
-if [ -z "$HADOOP_HOME" ]
+if [ -z "$MY_HADOOP_HOME" ]
 then
-	echo "please export HADOOP_HOME"
+	echo "please export MY_HADOOP_HOME"
 	exit 1
 fi
 
@@ -21,8 +21,8 @@ then
 	exit 1
 fi
 
-cd $HADOOP_HOME
-SLAVES=$HADOOP_HOME/bin/slaves.sh
+cd $MY_HADOOP_HOME
+SLAVES=$MY_HADOOP_HOME/bin/slaves.sh
 
 if [ -z "$1" ]
 then
@@ -101,7 +101,7 @@ then
 	echo $0: error user command "<$USER_CMD>" has failed
 	cmd_status=3
 else 
-	cmd_status=10
+	passed=1
 fi
 
 
@@ -125,11 +125,11 @@ echo "user command ended   at: $tend" >> $log
 
 
 sudo ssh $RES_SERVER mkdir -p $collect_dir/master-`hostname`/
-sudo scp  -r $HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/
+sudo scp  -r $MY_HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/
 sudo scp  -r $local_dir/* $RES_SERVER:$collect_dir/
 
 sudo $SLAVES ssh $RES_SERVER mkdir -p $collect_dir/slave-\`hostname\`/
-sudo $SLAVES scp -r $HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/
+sudo $SLAVES scp -r $MY_HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/
 sudo $SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/
 
 echo $0: finished collecting statistics
@@ -155,18 +155,16 @@ if (( $cmd_status != 0 ))
 then
 	#echo $0: SUCCESS, collected output is in $collect.tgz
 	echo $0: SUCCESS
-	echo $0: "cmd_status is: $cmd_status"
-	echo $0: "cmd_status is: $cmd_status"
-	echo $0: "cmd_status is: $cmd_status"
+#	echo $0: "cmd_status is: $cmd_status"
 
 else
 	sudo ssh $RES_SERVER mv "$collect_dir" "ERROR_${collect_dir}"
 fi
 
 
-if (( $cmd_status == 10 ))
+if (( $passed == 1 ))
 then
-	teravalidate="$HADOOP_HOME/bin/hadoop jar hadoop*-examples*.jar teravalidate /terasort/output /validate/out"
+	teravalidate="$MY_HADOOP_HOME/bin/hadoop jar hadoop*-examples*.jar teravalidate /terasort/output /validate/out"
 
 	if (( $TERAVALIIDATE != 0 ))
 	then
@@ -186,8 +184,7 @@ then
 
 		if (( $valSum == 0))
 		then
-			echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
-			echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
+			echo ""; echo ""; echo ""; echo ""; echo ""; echo ""; echo "";
 			echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
 			echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
 			echo "TERAVALIDATE SUCCEEDED!! WO HU!!"
@@ -237,6 +234,8 @@ then
 	fi
 
 fi
+
+#echo "$cmd_status is cmd_status"
 
 exit $cmd_status
 

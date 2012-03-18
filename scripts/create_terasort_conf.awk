@@ -66,7 +66,7 @@ print "</configuration>\n" > conf_dir"/mapred-site.xml"
 
 
 BEGIN {
-	print "VER 2!"
+#	print "VER 2!"
 	FS=","
 	if (conf_num=="") {
 	  usage()
@@ -83,7 +83,7 @@ BEGIN {
 	counter=0
 }
 
-{print "we are in row: "  NR  ": ==>" $1 "<=="}
+#{print "we are in row: "  NR  ": ==>" $1 "<=="}
 
 $1=="" { 
 	#continue; 
@@ -119,7 +119,7 @@ $1=="log_dir" {
 $1=="headers" {
 	for (i=2; i<=NF; i++){
 		headers[i]=$i
-		printf "> debug: headers[%d]=%s\n", i, headers[i]
+	#	printf "> debug: headers[%d]=%s\n", i, headers[i]
 	}
 	next
 }
@@ -142,6 +142,14 @@ $1=="end" {
 
 NR==(default_row+conf_num) {
 
+	if ($1 == "#"){
+		print ""
+		print ""
+		print "==> creat_terasort_conf got a marked line, I'm leaving! bye <=="
+		print ""
+		print ""
+		exit 50
+	}
 	print ">> WE HAVE ROW: " NR
 	
 	sendHeadersToFile()
@@ -152,8 +160,8 @@ NR==(default_row+conf_num) {
 	    else
 	       currValue=$i
 	    gsub(";",",",currValue)
-		
-		print "> current key=value " headers[i] "=" currValue
+		#debug:
+		#print "> current key=value " headers[i] "=" currValue 
 	   if (headers[i] == "interface"){
 		interface=currValue
 		print ">> interface is: " interface
