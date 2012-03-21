@@ -8,7 +8,6 @@
 
 
 
-export HADOOP_SLAVE_SLEEP=0.1
 SCRIPTS_LOCAL_TMP_DIR=/tmp/hadoop/scripts
 MAX_ATTEMPTS=5
 
