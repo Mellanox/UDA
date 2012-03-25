@@ -200,8 +200,9 @@ for node_scale in ${CLUSTER_NODES} ; do
 					
 				echo $(basename $0): Copy  conf dir to salves
 				${SCRIPTS_DIR}/copy_conf.sh
-						
+				ds_n=-1		
 				for ds in ${DATA_SET}; do
+					ds_n=$((ds_n+1))
 					if (( ${nmaps} >= ${nreds})); then 
 						
 						attempt=0
@@ -236,8 +237,8 @@ for node_scale in ${CLUSTER_NODES} ; do
 	                                                bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/history/*
 	
 	                                                #this is the command to run
-	                                                export USER_CMD="bin/hadoop jar hadoop*examples*.jar terasort  -Dmapred.reduce.tasks=${totalReducers} /terasort/input/${totalDataSet}G /terasort/output"
-	                                                JOB=${log_prefix}.N${ds}G.N${nmaps}m.N${nreds}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}
+	                                                export USER_CMD="bin/hadoop jar hadoop*examples*.jar terasort  -Dmapred.reduce.tasks=${totalReducers} /terasort/input/${totalDataSet}G.${ds_n} /terasort/output"
+	                                                JOB=${log_prefix}.N${ds}G.${ds_n}.N${nmaps}m.N${nreds}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}
 	
 							echo "$(basename $0): calling mr-dstat for $USER_CMD attempt $attempt"
 							${SCRIPTS_DIR}/mr-dstat.sh "${JOB}_attempt${attempt}"
@@ -257,8 +258,8 @@ for node_scale in ${CLUSTER_NODES} ; do
 								                continue
 									fi
 								else
-									echo "$(basename $0): more then one attempt failed - restart hadoop AND FORCING DFS format"
-								        ${SCRIPTS_DIR}/start_hadoop.sh 4 -restart -teragen #4 retries
+									echo "$(basename $0): more then one attempt failed - restart MR"
+								        ${SCRIPTS_DIR}/restart_mr.sh 4  #4 retries
 									code=$?
 								        if ((code!=0))
 								        then

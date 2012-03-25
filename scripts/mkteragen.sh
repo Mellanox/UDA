@@ -26,6 +26,10 @@ then
         DATA_SET_TYPE=node
 fi
 
+if [ -z "$NM" ]
+then
+	NM=10
+fi
 
 nodes=`cat "$HADOOP_CONF_DIR/slaves" | grep ^[[:alnum:]] -c`
 
@@ -49,12 +53,15 @@ if (($disks == 0)); then
         echo "Failed to calculate the number of disks (using \'$MY_HADOOP_HOME\hdfs-site.xml\' file , value of \'dfs.data.dir'\)"
 fi
 
-nmaps=$((nodes*disks))
+#nmaps=$((nodes*disks))
+#nmaps=$((nodes*NM))
+nmaps=$nodes
 
 echo "$0: TeraGen - Dynamic Parameters (user can export)"
 echo "$0: TeraGen ---------------------------------------"
 echo "$0: TeraGen - DATA_SET_TYPE=$DATA_SET_TYPE (node=size per node , cluster=size for whole cluster)"
 echo "$0: TeraGen - DATA_SET=$DATA_SET"
+echo "$0: TeraGen - NM=$NM (number of maper slots per TT)"
 echo ""
 echo "$0: TeraGen - Static Parameters (user can not export)"
 echo "$0: TeraGen ---------------------------------------"
@@ -75,9 +82,11 @@ then
 	bin/hadoop fs -rmr /terasort/input
 fi
 
+n=0
 for i in ${DATA_SET_TOTAL}; do
 	size=$((i * 10000000))
-	echo bin/hadoop jar hadoop*examples*.jar teragen -Dmapred.map.tasks=${nmaps} ${size} /terasort/input/${i}G
-	bin/hadoop jar hadoop*examples*.jar teragen -Dmapred.map.tasks=${nmaps} ${size} /terasort/input/${i}G
+	echo bin/hadoop jar hadoop*examples*.jar teragen -Dmapred.map.tasks=${nmaps} ${size} /terasort/input/${i}G.${n}
+	bin/hadoop jar hadoop*examples*.jar teragen -Dmapred.map.tasks=${nmaps} ${size} /terasort/input/${i}G.${n}
+	n=$((n+1))
 done
 
