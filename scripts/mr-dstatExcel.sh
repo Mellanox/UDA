@@ -6,7 +6,6 @@
 #	- collect the results by using scp and not by using NFS mounts
 
 
-#export HADOOP_SLAVE_SLEEP=0.1
 
 if [ -z "$MY_HADOOP_HOME" ]
 then
