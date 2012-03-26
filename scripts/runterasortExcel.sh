@@ -8,6 +8,7 @@
 
 
 
+#export HADOOP_SLAVE_SLEEP=1
 SCRIPTS_LOCAL_TMP_DIR=/tmp/hadoop/scripts
 MAX_ATTEMPTS=5
 
@@ -274,6 +275,16 @@ fi
 						echo "$(basename $0): skip ${nmaps} mappers and ${nreds} reducers"
 					fi	
 				done
+				
 			done
+			
 		done
+
+                echo "";  echo ""; echo ""; echo ""; echo ""; echo ""; echo ""; echo ""; echo ""; echo "";
+                echo "finished line # $line!!!!!!!"
+		echo "Deleting all Old directories!!!"
+		echo "${SCRIPTS_DIR}/deleteOldDirectories.sh"
+		${SCRIPTS_DIR}/deleteOldDirectories.sh
+                echo ""; echo ""; echo ""; echo ""; echo ""; echo ""; echo ""; echo ""; echo ""; echo ""; echo "";
+
 	done

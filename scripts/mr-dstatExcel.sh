@@ -6,6 +6,7 @@
 #	- collect the results by using scp and not by using NFS mounts
 
 
+#export HADOOP_SLAVE_SLEEP=0.1
 
 if [ -z "$MY_HADOOP_HOME" ]
 then
@@ -99,6 +100,7 @@ if ! eval $USER_CMD 2>&1 | tee $local_dir/$JOB.txt
 then
 	echo $0: error user command "<$USER_CMD>" has failed
 	cmd_status=3
+	passed=0
 else 
 	passed=1
 fi

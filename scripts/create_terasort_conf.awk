@@ -205,11 +205,16 @@ NR==(default_row+conf_num) {
 
 END {
 	print ">> orig slaves is: " slaves
-	gsub(";","-" interface "\n", slaves)
+	if (interface == ""){
+		gsub(";",interface "\n", slaves)
+	}
+	else {
+		gsub(";","-" interface "\n", slaves)
+	}
 	print ">> slaves fixed to : " slaves
 
 	print slaves > conf_dir"/slaves"
-	print master"-"interface > conf_dir"/masters"
+	print "localhost" > conf_dir"/masters"
 	slave_master_update=0
 	counter=0
 	default_row=-1
