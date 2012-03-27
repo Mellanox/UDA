@@ -68,13 +68,6 @@
     </description>
   </property>
   <property>
-    <name>mapred.netmerger.rdma.num.buffers</name>
-    <value>2000</value>
-    <description>
-    The amount of RDMA buffers to allocate and register for each spawned NetMerger  Size of each buffer is configured by mapred.rdma.buf.size
-    </description>
-  </property>
-  <property>
     <name>mapred.rdma.wqe.per.conn</name>
     <description>The number of allocated WQEs (work queue element) per connection</description>
     <value>256</value>

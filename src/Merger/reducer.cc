@@ -35,6 +35,9 @@
 
 using namespace std;
 
+#define RDMA_BUFFERS_PER_SEGMENT (2)
+#define EXTRA_RDMA_BUFFERS (10)
+
 extern merging_state_t merging_sm;
 extern void *merge_thread_main (void *context);
 
@@ -54,14 +57,30 @@ void reduce_downcall_handler(const string & msg)
 
 	log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd->count - 1, (int)hadoop_cmd->header);
 
-	static const int DIRS_START = 4;
+	static const int DIRS_START = 5;
 	switch (hadoop_cmd->header) {
-	case INIT_MSG:
+	case INIT_MSG: {
 		assert (hadoop_cmd->count -1 > 2); // sanity under debug
 		g_task->num_maps = atoi(hadoop_cmd->params[0]);
 		g_task->job_id = strdup(hadoop_cmd->params[1]);
 		g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
 		g_task->lpq_size = atoi(hadoop_cmd->params[3]);
+		g_task->buffer_size = atoi(hadoop_cmd->params[4]) * 1024 ;//parsed in KB;
+
+		// init map output memory pool
+	    memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
+		int numBuffers = g_task->num_maps * RDMA_BUFFERS_PER_SEGMENT + EXTRA_RDMA_BUFFERS;
+		if (create_mem_pool(g_task->buffer_size,
+						numBuffers,
+						&merging_sm.mop_pool)) {
+			log(lsFATAL, "failed to create Map Output memory pool");
+			exit(-1);
+		}
+
+	    // register RDMA buffers
+		merging_sm.client->rdma->register_mem(&merging_sm.mop_pool);
+		log(lsINFO, " AFTER RDMA BUFFERS REGISTRATION (%d buffers X %d bytes = total %ll bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
+
 
 		if (hadoop_cmd->count -1  > DIRS_START) {
 			assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
@@ -83,7 +102,7 @@ void reduce_downcall_handler(const string & msg)
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
 		break;
-
+	}
 	case FETCH_MSG:
 		/*
 		 * 1. find the hostid
@@ -183,7 +202,7 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool)
     
     rc = posix_memalign((void**)&pool->mem,  pagesize, pool->total_size);
     if (rc) {
-    	output_stderr("unable to create pool. posix_memalign failed: alignment=%d , total_size=%ll --> rc=%d", pagesize, pool->total_size, rc );
+    	log(lsERROR, "Failed to memalign. aligment=%d size=%ll , rc=%d", pagesize ,pool->total_size, rc );
         return -1;
     }
 

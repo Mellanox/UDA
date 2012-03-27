@@ -78,6 +78,7 @@ typedef struct reduce_task {
     int           total_first_fetch;
     int           total_first_return;
     int			  lpq_size;
+    int			  buffer_size;
     std::vector<std::string>   local_dirs; // local dirs will serve for lpq temp files
 } reduce_task_t;
 

@@ -55,7 +55,6 @@ typedef struct netlev_option {
     int mode;        /* standalone or integrated*/
     int online;      /* if we are using online merge*/
     //char *base_path; /* file path contains the intermediate mop*/
-	int buffers;     /* total number of rdma buffers for NetMerger*/
     int buf_size;    /* size of rdma buffer*/
 } netlev_option_t;
 

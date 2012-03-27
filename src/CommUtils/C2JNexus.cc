@@ -64,7 +64,6 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         {"mode",          1, NULL, 'm'},
         {"log",           1, NULL, 'g'},
         {"trace-level",   1, NULL, 't'},
-        {"rdmabuffers",   1, NULL, 'b'},
         {"rdmabufsize",   1, NULL, 's'},
         {"version",       0, NULL, 'v'},
         {"help",          0, NULL, 'h'},
@@ -119,12 +118,6 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
 				log_set_threshold(_treshold);
 			}
             break;
-        case 'b':
-			op->buffers = strtol(optarg, NULL, 10);
-			if (errno) {
-				goto err_options;
-			}
-			break;
         case 's':
         	buf_size = strtol(optarg, NULL, 10);
         	buf_size = buf_size *1024;

@@ -30,8 +30,6 @@ abstract class UdaPlugin {
 		LOG.info("UDA: Launching C++ thru JNI");
 		List<String> cmd = new ArrayList<String>();
 
-		// TODO: remove from conf: "mapred.tasktracker.rdma.server.port", 9010
-		
 		//* arguments 
 		cmd.add("-w");
 		cmd.add(jobConf.get("mapred.rdma.wqe.per.conn"));
@@ -45,8 +43,6 @@ abstract class UdaPlugin {
 		cmd.add("-g");
 		cmd.add(jobConf.get("mapred.rdma.log.dir","default") + logdirTail);
 		
-		cmd.add("-b");
-		cmd.add(jobConf.get("mapred.netmerger.rdma.num.buffers"));
 		cmd.add("-s");
 		cmd.add(jobConf.get("mapred.rdma.buf.size"));
 		cmd.add("-t");
@@ -121,6 +117,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(reduceId.getJobID().toString());
 		mParams.add(reduceId.toString());
 		mParams.add(jobConf.get("mapred.netmerger.hybrid.lpq.size", "0"));
+		mParams.add(jobConf.get("mapred.rdma.buf.size", "128"));	
 
 		String [] dirs = jobConf.getLocalDirs();
 		ArrayList<String> dirsCanBeCreated = new ArrayList<String>();
