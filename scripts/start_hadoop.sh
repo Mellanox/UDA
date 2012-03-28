@@ -41,18 +41,16 @@ then
 	max_tries=$1
 else
 	echo "Usage: $(basename $0) <number of retries> -restart -teragen -save_logs"
-	echo "	-restart 	: force stop-all and reformat dfs"
-	echo "	-teragen 	: force restart and make teragen after all nodes are alive *** mkteragen.sh is going to be exec, please make sure that all relevant enviroment paramters are configured properly."
+	echo "	-restart 	: force stop-all befor starting"
+	echo "	-format 	: force stop-all, DFS reformatr before starting"
 	echo "	-save_logs 	: do not delete logs files"
 	exit 1;
 fi
 
-if [[ $@ = *-restart* ]] || [[ $@ = *-teragen* ]]
+if  [[ $@ = *-format* ]]
 then
-	restart=1
-	echo "$(basename $0): FORCED RESTART - reformat DFS"
-else
-	restart=0
+	format="-format"
+	echo "$(basename $0): DFS is going to reformat"
 fi
 
 cd $MY_HADOOP_HOME
@@ -67,21 +65,20 @@ else
 	ignore_logs_arg=""
 fi
 
-while (( !$hadoop_is_up )) && (( $curr_try < $max_tries ))
-do
-	if (( $curr_try > 1 )) || (( $restart ))
-	then
 
-		$SCRIPTS_DIR/reset_all.sh -format $ignore_logs_arg
-	else
-		$SCRIPTS_DIR/reset_all.sh $ignore_logs_arg
-	fi
-
+if [[ $@ = *-restart* ]] || [[ $@ = *-format* ]]
+then 
+	$SCRIPTS_DIR/reset_all.sh $format $ignore_logs_arg
 	if (($?!=0))
 	then
 		echo "$(basename $0): FATAL ERROR - reset_all returned with rc"
 		exit 1;
 	fi
+fi
+
+while (( !$hadoop_is_up )) && (( $curr_try < $max_tries ))
+do
+
 
 	echo "$(basename $0): Starting Hadoop - try $curr_try"
 
@@ -194,6 +191,11 @@ then
 	if [[  $@ = *-teragen* ]] 
 	then
 		$SCRIPTS_DIR/mkteragen.sh
+		if (($?!=0))
+	        then
+	                echo "$(basename $0): FATAL ERROR - failed to teragen"
+	                exit 1;
+        	fi
 	fi
 	exit 0;
 else

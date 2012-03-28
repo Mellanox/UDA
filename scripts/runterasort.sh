@@ -87,7 +87,12 @@ aa=`echo $disks | awk 'BEGIN { FS = "name> <value>"} ; { print $2}'`
 bb=`echo $aa | awk 'BEGIN { FS = "<"} ; { print $1}'`
 
 hadoop_version=`echo $(basename $MY_HADOOP_HOME) | sed s/[.]/_/g`
-
+echo "$(basename $0): ------------------------------------------"
+echo "$(basename $0): Usage: runterasort.sh -skip_nfs -samples_reset"
+echo "$(basename $0): ------------------------------------------"
+echo "$(basename $0): 		-skip_nfs 	: skip coping the scripts files localy to all slaves, assuming it was allready copied"
+echo "$(basename $0): 		-samples_reset 	: before every sample, kill all hadoop processes (before flush cache) and restart hadoop (after flush cache)  "
+echo "$(basename $0): ------------------------------------------"
 echo "$(basename $0): Dynamic Parameters: (that can be exported by user)"
 echo "$(basename $0): ------------------------------------------"
 echo "$(basename $0): MY_HADOOP_HOME=$MY_HADOOP_HOME"
@@ -100,7 +105,7 @@ echo "$(basename $0): NR=$NR (list of #Reduce tasks per TT)"
 echo "$(basename $0): NM=$NM (list of #Map tasks per TT"
 echo "$(basename $0): NSAMPLES=$NSAMPLES (#Samples for each job)"
 echo "$(basename $0): RES_LOGDIR=$RES_LOGDIR (the local path on '$RES_SERVER' that logs&stats will collected to'"
-echo " "
+echo "$(basename $0): ------------------------------------------"
 echo "$(basename $0): Static Parameters: (that calculated by script and cannot be exported by user)"
 echo "$(basename $0): ------------------------------------------"
 echo "$(basename $0): SCRIPTS_DIR=$SCRIPTS_DIR (scripts will be copied to this local path on each node - unless -skip_nfs arg added)"
@@ -183,13 +188,24 @@ for node_scale in ${CLUSTER_NODES} ; do
 	
 
 	echo "$(basename $0): Restarting Hadoop"
-	$SCRIPTS_DIR/start_hadoop.sh 5 -restart -teragen #5 retries
+	$SCRIPTS_DIR/start_hadoop.sh 2 -format #2 retries
 	code=$?
 	if (($code!=0)) 
 	then
-		echo "$(basename $0): ERROR - failed to restart Hadoop"
+		echo "$(basename $0): ERROR - failed to start Hadoop and format DFS"
 		continue
 	fi
+
+	echo "$(basename $0): Make TeraGen"
+        $SCRIPTS_DIR/mkteragen.sh
+        code=$?
+        if (($code!=0))
+        then
+                echo "$(basename $0): ERROR - failed to make teragen"
+                continue
+        fi
+
+	
 
 	for sample in `seq 0 $((NSAMPLES-1))` ; do
 		for nmaps in ${NM}; do
@@ -225,16 +241,28 @@ for node_scale in ${CLUSTER_NODES} ; do
 	                                                fi
 	
 	                                                echo "$(basename $0): Running test on cluster of $node_scale slaves with $nmaps mapers, $nreds reducers per TT and total of $totalReducers reducers"
+							
+							if [[  $@ != *-samples_reset* ]]
+							then
+								${SCRIPTS_DIR}/reset_all.sh
+							fi
+
 	                                                echo "$(basename $0): Cleaning buffer caches" 
 	                                                sudo bin/slaves.sh ${SCRIPTS_DIR}/cache_flush.sh
 	                                                #TODO: above will only flash OS cache; still need to flash disk cache
-	                                                sleep 3
-	
-	                                                echo "$(basename $0): Cleaning logs directories (history&userlogs)"
-	                                                rm -rf $MY_HADOOP_HOME/logs/userlogs/*
-	                                                rm -rf $MY_HADOOP_HOME/logs/history/*
-	                                                bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/userlogs/*
-	                                                bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/history/*
+	                                                sleep 1
+							
+							if [[  $@ != *-samples_reset* ]]
+                                                        then
+								${SCRIPTS_DIR}/start_hadoop.sh 4 
+							fi
+
+
+							echo "$(basename $0): Cleaning logs directories (history&userlogs)"
+                                                        rm -rf $MY_HADOOP_HOME/logs/userlogs/*
+                                                        rm -rf $MY_HADOOP_HOME/logs/history/*
+                                                        bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/userlogs/*
+                                                        bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/history/*
 	
 	                                                #this is the command to run
 	                                                export USER_CMD="bin/hadoop jar hadoop*examples*.jar terasort  -Dmapred.reduce.tasks=${totalReducers} /terasort/input/${totalDataSet}G.${ds_n} /terasort/output"
@@ -243,23 +271,15 @@ for node_scale in ${CLUSTER_NODES} ; do
 							echo "$(basename $0): calling mr-dstat for $USER_CMD attempt $attempt"
 							${SCRIPTS_DIR}/mr-dstat.sh "${JOB}_attempt${attempt}"
 							attempt_code=$?
+
+
 							if ((attempt_code!=0))
 							then
 								echo "$(basename $0): FAILED ${JOB}_attempt${attempt}"
 								if ((attempt>1))
 								then
-									echo "$(basename $0): first attempt failed - restart hadoop without forcing DFS format"
-
-								        ${SCRIPTS_DIR}/start_hadoop.sh 4 -teragen #4 retries
-								        code=$?
-								        if ((code!=0))
-								        then
-								                echo "$(basename $0): ERROR - failed to restart Hadoop"
-								                continue
-									fi
-								else
-									echo "$(basename $0): more then one attempt failed - restart MR"
-								        ${SCRIPTS_DIR}/restart_mr.sh 4  #4 retries
+									echo "$(basename $0): more then one attempt failed - restart hadoop"
+								        ${SCRIPTS_DIR}/start_hadoop.sh 4 -restart  #4 retries
 									code=$?
 								        if ((code!=0))
 								        then
