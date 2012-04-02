@@ -6,6 +6,7 @@
 #	- collect the results by using scp and not by using NFS mounts
 
 
+#export HADOOP_SLAVE_SLEEP=0.1
 
 if [ -z "$MY_HADOOP_HOME" ]
 then
@@ -122,6 +123,12 @@ $SLAVES sudo pkill -f dstat
 echo $0: collecting statistics
 
 echo "user command ended   at: $tend" >> $log
+
+
+JOB2="${JOB}_h"
+
+echo "$MY_HADOOP_HOME/bin/hadoop job -history /terasort/output | tee $local_dir/$JOB2.txt"
+$MY_HADOOP_HOME/bin/hadoop job -history /terasort/output | tee $local_dir/$JOB2.txt
 
 
 sudo ssh $RES_SERVER mkdir -p $collect_dir/master-`hostname`/

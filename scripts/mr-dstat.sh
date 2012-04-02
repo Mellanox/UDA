@@ -115,6 +115,12 @@ echo $0: collecting statistics
 
 echo "user command ended   at: $tend" >> $log
 
+JOB2="${JOB}_h"
+
+echo "$MY_HADOOP_HOME/bin/hadoop job -history /terasort/output | tee $local_dir/$JOB2.txt"
+$MY_HADOOP_HOME/bin/hadoop job -history /terasort/output | tee $local_dir/$JOB2.txt
+
+
 
 ssh $RES_SERVER mkdir -p $collect_dir/master-`hostname`/
 scp  -r $MY_HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/
