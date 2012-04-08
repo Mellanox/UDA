@@ -117,11 +117,14 @@ $1=="log_dir" {
 
 
 $1=="headers" {
+
+	print $0 > conf_dir"/lineConfig.csv"
 	for (i=2; i<=NF; i++){
 		headers[i]=$i
 	#	printf "> debug: headers[%d]=%s\n", i, headers[i]
 	}
 	next
+
 }
 
 
@@ -151,7 +154,7 @@ NR==(default_row+conf_num) {
 		exit 50
 	}
 	print ">> WE HAVE ROW: " NR
-	
+	print $0 > conf_dir"/lineConfig.csv"	
 	sendHeadersToFile()
 
 	for (i=2; i<=NF-1; i++) {
@@ -186,6 +189,9 @@ NR==(default_row+conf_num) {
                 }
 	     if (headers[i] ~ /validate/){
                 print currValue > conf_dir"/teravalidate.txt"
+                }
+            if (headers[i] ~ /mount/){
+                print currValue > conf_dir"/mount.txt"
                 }
 
 
