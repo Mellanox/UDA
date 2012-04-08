@@ -318,16 +318,12 @@ int DataEngine::read_mof_index_records(const string &jobid, const string &mapid)
 		return -1;
 	}
 
-	if (ifile->total_size) { // total_size is initialized to 0 , so other value indicates that records has been read already
-		log(lsWARN, "unexpected call to read mof index records while it was already read. (JOBID=%s , MAPID=%s)", jobid.c_str(), mapid.c_str());
-		return 0;
+	if (ifile->total_size == 0) { // total_size is initialized to 0 , so other value indicates that records has been read already
+		if (!read_records(ifile)) {
+			log(lsERROR, "failed to read index records for index file path %s  ", ifile->idx_path.c_str() );
+			return -1;
+		}
 	}
-
-	if (!read_records(ifile)) {
-		log(lsERROR, "failed to read index records for index file path %s  ", ifile->idx_path.c_str() );
-		return -1;
-	}
-
 	return 0;
 }
 
