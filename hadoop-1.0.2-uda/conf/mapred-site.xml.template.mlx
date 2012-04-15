@@ -1,0 +1,132 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!-- Put site-specific property overrides in this file. -->
+<configuration>
+
+  
+    <property>
+           <name>mapred.tasktracker.shuffle.provider.plugin</name>
+           <value></value>
+		   
+			<description>
+			represents plugin for shuffle at TaskTracker side 
+				default value is: 
+						(empty string)
+				You can also try: 
+						com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin
+			</description>
+      </property>
+	  
+    <property>
+           <name>mapred.reducetask.shuffle.consumer.plugin</name>
+           <value>org.apache.hadoop.mapred.ReduceCopier</value>
+		   
+			<description>
+			represents plugin for shuffle at ReduceTask side 
+				default value is: 
+						org.apache.hadoop.mapred.ReduceCopier
+				You can also try: 
+						com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin
+			</description>
+      </property>
+	  
+  
+  <property>
+    <name>mapred.job.tracker</name>
+    <value>eagle1-ib:9001</value>
+  </property>
+  <property>
+    <name>mapred.tasktracker.dns.interface</name>
+    <value>ib0</value>
+  </property>
+  <property>
+    <name>mapred.tasktracker.map.tasks.maximum</name>
+    <value>10</value>
+  </property>
+  <property>
+    <name>mapred.tasktracker.reduce.tasks.maximum</name>
+    <value>2</value>
+  </property>
+  <property>
+    <name>mapred.map.tasks.speculative.execution</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>mapred.reduce.tasks.speculative.execution</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>io.sort.mb</name>
+    <value>400</value>
+  </property>
+  <property>
+    <name>mapred.child.java.opts</name>
+    <value>-Xmx1000m</value>
+  </property>
+  <property>
+    <name>mapred.netmerger.merge.approach</name>
+    <value>1</value>
+    <description>
+     merging approach:
+		0: on-disk merge
+		1: online merge
+		2: hybrid merge
+    </description>
+  </property>
+  <property>
+    <name>mapred.rdma.cma.port</name>
+    <value>9011</value>
+    <description>
+    defines the port number used to do the rdma connection 
+    </description>
+  </property>
+  <property>
+    <name>mapred.rdma.log.dir</name>
+    <value>logs/</value>
+    <description>
+   the base directory for UDA logs of MOFSupplier and NetMergers
+    </description>
+  </property>
+  <property>
+    <name>mapred.rdma.wqe.per.conn</name>
+    <description>The number of allocated WQEs (work queue element) per connection</description>
+    <value>256</value>
+  </property>
+  <property>
+    <name>mapred.rdma.buf.size</name>
+    <value>128</value>
+    <description>
+    MOFSupplier's AIO buffers size
+    RDMA buffers size
+    Size in KB and must be alligned to page size.
+    </description>
+  </property>
+  <property>
+    <name>mapred.netmerger.hybrid.lpq.size</name>
+    <description>Hybrid merge LPQs size. set 0 for SQRT(number of MOFs)</description>
+    <value>0</value>
+  </property>
+  <property>
+    <name>mapred.uda.log.tracelevel</name>
+    <description>level of debug prints in uda logs:
+            	NONE	0,
+		FATAL	1,
+		ERROR	2,
+		WARN	3,
+		INFO	4,
+		DEBUG	5,
+		TRACE	6,
+		ALL	7,         
+    </description>
+    <value>4</value>
+  </property>
+  <property>
+    <name>mapred.local.dir</name>
+    <value>/hadoop1/mapred/tmp,/hadoop2/mapred/tmp</value>
+    <description>
+    The local directory where MapReduce stores intermediate data files.
+    May be a comma-separated list of directories on different devices in order to spread disk i/o.
+    Directories that do not exist are ignored.
+  </description>
+  </property>
+</configuration>
