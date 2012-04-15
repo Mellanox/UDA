@@ -42,7 +42,8 @@ public class TestReduceTaskFetchFail {
       public TestReduceCopier(TaskUmbilicalProtocol umbilical, JobConf conf,
                         TaskReporter reporter
                         )throws ClassNotFoundException, IOException {
-        super(umbilical, conf, reporter);
+        init(TestReduceTask.this, umbilical, conf, reporter);
+
       }
 
       public void checkAndInformJobTracker(int failures, TaskAttemptID mapId, boolean readError) {
@@ -70,7 +71,7 @@ public class TestReduceTaskFetchFail {
     TestReduceTask rTask = new TestReduceTask();
     rTask.setConf(conf);
 
-    ReduceTask.ReduceCopier reduceCopier = rTask.new TestReduceCopier(mockUmbilical, conf, mockTaskReporter);
+    ReduceCopier reduceCopier = rTask.new TestReduceCopier(mockUmbilical, conf, mockTaskReporter);
     reduceCopier.checkAndInformJobTracker(1, tid, false);
 
     verify(mockTaskReporter, never()).progress();
