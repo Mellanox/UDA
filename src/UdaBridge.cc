@@ -50,7 +50,7 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
         return JNI_ERR; /* JNI version not supported */
     }
 
-	jclass cls = env->FindClass("org/apache/hadoop/mapred/UdaBridge");
+	jclass cls = env->FindClass("com/mellanox/hadoop/mapred/UdaBridge");
     if (cls == NULL) {
 		printf("-->> In C++ java class was NOT found\n");
         return JNI_ERR;
@@ -124,10 +124,10 @@ void* mainThread(void* data)
 
 
 // This is the implementation of the native method
-extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jboolean isNetMerger, jobjectArray stringArray) {
+extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jboolean isNetMerger, jobjectArray stringArray) {
 
 	errno = 0; // we don't want the value from JVM
-	printf("-->> In C++ Java_org_apache_hadoop_mapred_UdaBridge_startNative\n");
+	printf("-->> In C++ Java_com_mellanox_hadoop_mapred_UdaBridge_startNative\n");
 
 	int argc = env->GetArrayLength(stringArray);
     char **argv = new char*[argc];
@@ -179,14 +179,14 @@ extern "C" JNIEXPORT jint JNICALL Java_org_apache_hadoop_mapred_UdaBridge_startN
 	delete [] argv;
 
 	log(lsTRACE, "<<< finished");
-	printf("<<-- Finished C++ Java_org_apache_hadoop_mapred_UdaBridge_startNative\n");
+	printf("<<-- Finished C++ Java_com_mellanox_hadoop_mapred_UdaBridge_startNative\n");
 
 
     return ret;
 }
 
 // This is the implementation of the native method
-extern "C" JNIEXPORT void JNICALL Java_org_apache_hadoop_mapred_UdaBridge_doCommandNative  (JNIEnv *env, jclass cls, jstring s) {
+extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCommandNative  (JNIEnv *env, jclass cls, jstring s) {
 	errno = 0; // we don't want the value from JVM
 	log(lsTRACE, ">>> started");
 

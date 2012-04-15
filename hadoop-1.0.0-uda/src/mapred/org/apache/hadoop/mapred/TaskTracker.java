@@ -54,19 +54,6 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/* following is for rdma project */
-import java.net.Socket;
-import java.net.ServerSocket;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.BufferedInputStream;
-import java.nio.ByteBuffer;
-import java.nio.CharBuffer;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.io.WritableUtils;
-/* above is for rdma project */
-
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -148,15 +135,10 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   static final long WAIT_FOR_DONE = 3 * 1000;
   private int httpPort;
 
-	/**
-	 * For communication with the rdma process 
-	 */
-	private UdaPluginTT rdmaChannel; 
-	/**
-	 * 0: disable rdma.
-	 * 1: use rdma with rdma-merger.
-	 */ 
-	private int rdmaSetting;
+  public static final String TT_SHUFFLE_PROVIDER_PLUGIN = 
+		  "mapred.tasktracker.shuffle.provider.plugin";
+
+  private ShuffleProviderPlugin shuffleProviderPlugin;
 
 
   static enum State {NORMAL, STALE, INTERRUPTED, DENIED}
@@ -865,11 +847,21 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     oobHeartbeatDamper = 
       fConf.getInt(TT_OUTOFBAND_HEARTBEAT_DAMPER, 
           DEFAULT_OOB_HEARTBEAT_DAMPER);
-		/* The followings are for rdma project */
-		this.rdmaSetting = fConf.getInt("mapred.rdma.setting", 0);
-		if (this.rdmaSetting == 1) {
-			this.rdmaChannel = new UdaPluginTT(this); 
-		} 
+
+    	// loads a configured ShuffleProviderPlugin if any
+    	// at this phase we only support at most one such plugin
+    	Class<? extends ShuffleProviderPlugin> providerClazz =
+    			fConf.getClass(TT_SHUFFLE_PROVIDER_PLUGIN,
+    					null, ShuffleProviderPlugin.class);
+    	shuffleProviderPlugin = 
+    			ShuffleProviderPlugin.getShuffleProviderPlugin(providerClazz, fConf);
+    	if (shuffleProviderPlugin != null) {
+    		LOG.info(" Using ShuffleProviderPlugin : " + shuffleProviderPlugin);
+    		shuffleProviderPlugin.initialize(this);
+    	}
+    	else {
+    		LOG.info(" NO ShuffleProviderPlugin will be used");
+    	}
   }
 
   private void createInstrumentation() {
@@ -1142,6 +1134,12 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
 
           rjob.localized = true;
         }
+        
+    	if (shuffleProviderPlugin != null) {
+    		LOG.info("notifying ShuffleProviderPlugin about jobInit: " + shuffleProviderPlugin);
+    		shuffleProviderPlugin.jobInit(rjob);
+    	}
+
       } 
     } finally {
       synchronized (rjob) {
@@ -1399,10 +1397,12 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       healthChecker.stop();
       healthChecker = null;
     }
-	/* close rdma processes */
-	if (this.rdmaSetting==1) {
-		this.rdmaChannel.close();
-	} 
+
+	if (shuffleProviderPlugin != null) {
+		LOG.info("closing ShuffleProviderPlugin : " + shuffleProviderPlugin);
+		shuffleProviderPlugin.close();
+	}
+
 
   }
 
@@ -1496,11 +1496,6 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
         TaskLogsTruncater.DEFAULT_RETAIN_SIZE);
   }
   
-
-  public LocalDirAllocator getLocalDirAllocator() {
-  	return this.localDirAllocator;
-  }
-
   private void checkJettyPort(int port) throws IOException { 
     //See HADOOP-4744
     if (port < 0) {
@@ -1575,179 +1570,179 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
    * Main service loop.  Will stay in this loop forever.
    */
   State offerService() throws Exception {
-    long lastHeartbeat = System.currentTimeMillis();
+	  long lastHeartbeat = System.currentTimeMillis();
 
-    while (running && !shuttingDown) {
-      try {
-        long now = System.currentTimeMillis();
-        
-        // accelerate to account for multiple finished tasks up-front
-        long remaining = 
-          (lastHeartbeat + getHeartbeatInterval(finishedCount.get())) - now;
-        while (remaining > 0) {
-          // sleeps for the wait time or 
-          // until there are *enough* empty slots to schedule tasks
-          synchronized (finishedCount) {
-            finishedCount.wait(remaining);
-            
-            // Recompute
-            now = System.currentTimeMillis();
-            remaining = 
-              (lastHeartbeat + getHeartbeatInterval(finishedCount.get())) - now;
-            
-            if (remaining <= 0) {
-              // Reset count 
-              finishedCount.set(0);
-              break;
-            }
-          }
-        }
+	  while (running && !shuttingDown) {
+		  try {
+			  long now = System.currentTimeMillis();
 
-        // If the TaskTracker is just starting up:
-        // 1. Verify the buildVersion
-        // 2. Get the system directory & filesystem
-        if(justInited) {
-          String jobTrackerBV = jobClient.getBuildVersion();
-          if(!VersionInfo.getBuildVersion().equals(jobTrackerBV)) {
-            String msg = "Shutting down. Incompatible buildVersion." +
-            "\nJobTracker's: " + jobTrackerBV + 
-            "\nTaskTracker's: "+ VersionInfo.getBuildVersion();
-            LOG.error(msg);
-            try {
-              jobClient.reportTaskTrackerError(taskTrackerName, null, msg);
-            } catch(Exception e ) {
-              LOG.info("Problem reporting to jobtracker: " + e);
-            }
-            return State.DENIED;
-          }
-          
-          String dir = jobClient.getSystemDir();
-          if (dir == null) {
-            throw new IOException("Failed to get system directory");
-          }
-          systemDirectory = new Path(dir);
-          systemFS = systemDirectory.getFileSystem(fConf);
-        }
+			  // accelerate to account for multiple finished tasks up-front
+			  long remaining = 
+					  (lastHeartbeat + getHeartbeatInterval(finishedCount.get())) - now;
+			  while (remaining > 0) {
+				  // sleeps for the wait time or 
+				  // until there are *enough* empty slots to schedule tasks
+				  synchronized (finishedCount) {
+					  finishedCount.wait(remaining);
 
-        now = System.currentTimeMillis();
-        if (now > (lastCheckDirsTime + diskHealthCheckInterval)) {
-          localStorage.checkDirs();
-          lastCheckDirsTime = now;
-          int numFailures = localStorage.numFailures();
-          // Re-init the task tracker if there were any new failures
-          if (numFailures > lastNumFailures) {
-            lastNumFailures = numFailures;
-            return State.STALE;
-          }
-        }
+					  // Recompute
+					  now = System.currentTimeMillis();
+					  remaining = 
+							  (lastHeartbeat + getHeartbeatInterval(finishedCount.get())) - now;
 
-        // Send the heartbeat and process the jobtracker's directives
-        HeartbeatResponse heartbeatResponse = transmitHeartBeat(now);
+					  if (remaining <= 0) {
+						  // Reset count 
+						  finishedCount.set(0);
+						  break;
+					  }
+				  }
+			  }
 
-        // Note the time when the heartbeat returned, use this to decide when to send the
-        // next heartbeat   
-        lastHeartbeat = System.currentTimeMillis();
-        
-        // Check if the map-event list needs purging
-        Set<JobID> jobs = heartbeatResponse.getRecoveredJobs();
-        if (jobs.size() > 0) {
-          synchronized (this) {
-            // purge the local map events list
-            for (JobID job : jobs) {
-              RunningJob rjob;
-              synchronized (runningJobs) {
-                rjob = runningJobs.get(job);          
-                if (rjob != null) {
-                  synchronized (rjob) {
-                    FetchStatus f = rjob.getFetchStatus();
-                    if (f != null) {
-                      f.reset();
-                    }
-                  }
-                }
-              }
-            }
+			  // If the TaskTracker is just starting up:
+			  // 1. Verify the buildVersion
+			  // 2. Get the system directory & filesystem
+			  if(justInited) {
+				  String jobTrackerBV = jobClient.getBuildVersion();
+				  if(!VersionInfo.getBuildVersion().equals(jobTrackerBV)) {
+					  String msg = "Shutting down. Incompatible buildVersion." +
+							  "\nJobTracker's: " + jobTrackerBV + 
+							  "\nTaskTracker's: "+ VersionInfo.getBuildVersion();
+					  LOG.error(msg);
+					  try {
+						  jobClient.reportTaskTrackerError(taskTrackerName, null, msg);
+					  } catch(Exception e ) {
+						  LOG.info("Problem reporting to jobtracker: " + e);
+					  }
+					  return State.DENIED;
+				  }
 
-            // Mark the reducers in shuffle for rollback
-            synchronized (shouldReset) {
-              for (Map.Entry<TaskAttemptID, TaskInProgress> entry 
-                   : runningTasks.entrySet()) {
-                if (entry.getValue().getStatus().getPhase() == Phase.SHUFFLE) {
-                  this.shouldReset.add(entry.getKey());
-                }
-              }
-            }
-          }
-        }
-        
-        TaskTrackerAction[] actions = heartbeatResponse.getActions();
-        if(LOG.isDebugEnabled()) {
-          LOG.debug("Got heartbeatResponse from JobTracker with responseId: " + 
-                    heartbeatResponse.getResponseId() + " and " + 
-                    ((actions != null) ? actions.length : 0) + " actions");
-        }
-        if (reinitTaskTracker(actions)) {
-          return State.STALE;
-        }
-            
-        // resetting heartbeat interval from the response.
-        heartbeatInterval = heartbeatResponse.getHeartbeatInterval();
-        justStarted = false;
-        justInited = false;
-        if (actions != null){ 
-          for(TaskTrackerAction action: actions) {
-            if (action instanceof LaunchTaskAction) {
-              addToTaskQueue((LaunchTaskAction)action);
-            } else if (action instanceof CommitTaskAction) {
-              CommitTaskAction commitAction = (CommitTaskAction)action;
-              if (!commitResponses.contains(commitAction.getTaskID())) {
-                LOG.info("Received commit task action for " + 
-                          commitAction.getTaskID());
-                commitResponses.add(commitAction.getTaskID());
-              }
-            } else {
-              tasksToCleanup.put(action);
-            }
-          }
-        }
-        markUnresponsiveTasks();
-        killOverflowingTasks();
-            
-        //we've cleaned up, resume normal operation
-        if (!acceptNewTasks && isIdle()) {
-          acceptNewTasks=true;
-        }
-        //The check below may not be required every iteration but we are 
-        //erring on the side of caution here. We have seen many cases where
-        //the call to jetty's getLocalPort() returns different values at 
-        //different times. Being a real paranoid here.
-        checkJettyPort(server.getPort());
-      } catch (InterruptedException ie) {
-        LOG.info("Interrupted. Closing down.");
-        return State.INTERRUPTED;
-      } catch (DiskErrorException de) {
-        String msg = "Exiting task tracker for disk error:\n" +
-          StringUtils.stringifyException(de);
-        LOG.error(msg);
-        synchronized (this) {
-          jobClient.reportTaskTrackerError(taskTrackerName, 
-                                           "DiskErrorException", msg);
-        }
-        return State.STALE;
-      } catch (RemoteException re) {
-        String reClass = re.getClassName();
-        if (DisallowedTaskTrackerException.class.getName().equals(reClass)) {
-          LOG.info("Tasktracker disallowed by JobTracker.");
-          return State.DENIED;
-        }
-      } catch (Exception except) {
-        String msg = "Caught exception: " + 
-          StringUtils.stringifyException(except);
-        LOG.error(msg);
-      }
-    }
+				  String dir = jobClient.getSystemDir();
+				  if (dir == null) {
+					  throw new IOException("Failed to get system directory");
+				  }
+				  systemDirectory = new Path(dir);
+				  systemFS = systemDirectory.getFileSystem(fConf);
+			  }
 
-    return State.NORMAL;
+			  now = System.currentTimeMillis();
+			  if (now > (lastCheckDirsTime + diskHealthCheckInterval)) {
+				  localStorage.checkDirs();
+				  lastCheckDirsTime = now;
+				  int numFailures = localStorage.numFailures();
+				  // Re-init the task tracker if there were any new failures
+				  if (numFailures > lastNumFailures) {
+					  lastNumFailures = numFailures;
+					  return State.STALE;
+				  }
+			  }
+
+			  // Send the heartbeat and process the jobtracker's directives
+			  HeartbeatResponse heartbeatResponse = transmitHeartBeat(now);
+
+			  // Note the time when the heartbeat returned, use this to decide when to send the
+			  // next heartbeat   
+			  lastHeartbeat = System.currentTimeMillis();
+
+			  // Check if the map-event list needs purging
+			  Set<JobID> jobs = heartbeatResponse.getRecoveredJobs();
+			  if (jobs.size() > 0) {
+				  synchronized (this) {
+					  // purge the local map events list
+					  for (JobID job : jobs) {
+						  RunningJob rjob;
+						  synchronized (runningJobs) {
+							  rjob = runningJobs.get(job);          
+							  if (rjob != null) {
+								  synchronized (rjob) {
+									  FetchStatus f = rjob.getFetchStatus();
+									  if (f != null) {
+										  f.reset();
+									  }
+								  }
+							  }
+						  }
+					  }
+
+					  // Mark the reducers in shuffle for rollback
+					  synchronized (shouldReset) {
+						  for (Map.Entry<TaskAttemptID, TaskInProgress> entry 
+								  : runningTasks.entrySet()) {
+							  if (entry.getValue().getStatus().getPhase() == Phase.SHUFFLE) {
+								  this.shouldReset.add(entry.getKey());
+							  }
+						  }
+					  }
+				  }
+			  }
+
+			  TaskTrackerAction[] actions = heartbeatResponse.getActions();
+			  if(LOG.isDebugEnabled()) {
+				  LOG.debug("Got heartbeatResponse from JobTracker with responseId: " + 
+						  heartbeatResponse.getResponseId() + " and " + 
+						  ((actions != null) ? actions.length : 0) + " actions");
+			  }
+			  if (reinitTaskTracker(actions)) {
+				  return State.STALE;
+			  }
+
+			  // resetting heartbeat interval from the response.
+			  heartbeatInterval = heartbeatResponse.getHeartbeatInterval();
+			  justStarted = false;
+			  justInited = false;
+			  if (actions != null){ 
+				  for(TaskTrackerAction action: actions) {
+					  if (action instanceof LaunchTaskAction) {
+						  addToTaskQueue((LaunchTaskAction)action);
+					  } else if (action instanceof CommitTaskAction) {
+						  CommitTaskAction commitAction = (CommitTaskAction)action;
+						  if (!commitResponses.contains(commitAction.getTaskID())) {
+							  LOG.info("Received commit task action for " + 
+									  commitAction.getTaskID());
+							  commitResponses.add(commitAction.getTaskID());
+						  }
+					  } else {
+						  tasksToCleanup.put(action);
+					  }
+				  }
+			  }
+			  markUnresponsiveTasks();
+			  killOverflowingTasks();
+
+			  //we've cleaned up, resume normal operation
+			  if (!acceptNewTasks && isIdle()) {
+				  acceptNewTasks=true;
+			  }
+			  //The check below may not be required every iteration but we are 
+			  //erring on the side of caution here. We have seen many cases where
+			  //the call to jetty's getLocalPort() returns different values at 
+			  //different times. Being a real paranoid here.
+			  checkJettyPort(server.getPort());
+		  } catch (InterruptedException ie) {
+			  LOG.info("Interrupted. Closing down.");
+			  return State.INTERRUPTED;
+		  } catch (DiskErrorException de) {
+			  String msg = "Exiting task tracker for disk error:\n" +
+					  StringUtils.stringifyException(de);
+			  LOG.error(msg);
+			  synchronized (this) {
+				  jobClient.reportTaskTrackerError(taskTrackerName, 
+						  "DiskErrorException", msg);
+			  }
+			  return State.STALE;
+		  } catch (RemoteException re) {
+			  String reClass = re.getClassName();
+			  if (DisallowedTaskTrackerException.class.getName().equals(reClass)) {
+				  LOG.info("Tasktracker disallowed by JobTracker.");
+				  return State.DENIED;
+			  }
+		  } catch (Exception except) {
+			  String msg = "Caught exception: " + 
+					  StringUtils.stringifyException(except);
+			  LOG.error(msg);
+		  }
+	  }
+
+	  return State.NORMAL;
   }
 
   private long previousUpdate = 0;
@@ -2091,11 +2086,13 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     synchronized(runningJobs) {
       runningJobs.remove(jobId);
     }
-    getJobTokenSecretManager().removeTokenForJob(jobId.toString());  
-		/* inform rdma processes of job over */ 
-		if (this.rdmaSetting == 1) {
-			this.rdmaChannel.jobOver(jobId.toString());
-		}
+
+	if (shuffleProviderPlugin != null) {
+		LOG.info("notifying ShuffleProviderPlugin about jobDone: " + shuffleProviderPlugin);
+		shuffleProviderPlugin.jobDone(action);
+	}
+
+	getJobTokenSecretManager().removeTokenForJob(jobId.toString());
   }      
     
   /**
@@ -2794,6 +2791,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       runner.signalDone();
       LOG.info("Task " + task.getTaskID() + " is done.");
       LOG.info("reported output size for " + task.getTaskID() +  "  was " + taskStatus.getOutputSize());
+
     }
     
     public boolean wasKilled() {
@@ -3449,24 +3447,43 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
 			validateJVM(tip, jvmContext, taskid);
 			commitResponses.remove(taskid);
 
-			// * avner3 - try it later
-			// report to the rdma
-			if (rdmaSetting == 1) {
+			if (shuffleProviderPlugin != null) {
+
 				Task task = tip.getTask();
 				if (task.isMapTask()) {
-					String jobid = task.getJobID().toString();
-					String tid = task.getTaskID().toString();
-					String userName = task.getUser();
-					rdmaChannel.notifyMapDone(userName, jobid, tid);
+					try {	
+						String jobid = task.getJobID().toString();
+						String tid = task.getTaskID().toString();
+						String userName = task.getUser();
+						String intermediateOutputDir = TaskTracker.getIntermediateOutputDir(userName, jobid, tid);
+
+						JobConf jobConf = tip.getJobConf();
+						//parent path for the file.out file
+						Path fout = this.localDirAllocator.getLocalPathToRead(
+								intermediateOutputDir + "/file.out", jobConf);
+
+						//parent path for the file.out.index file
+						Path fidx = this.localDirAllocator.getLocalPathToRead(
+								intermediateOutputDir + "/file.out.index", jobConf);
+
+						shuffleProviderPlugin.mapDone(userName, jobid, tid, fout, fidx);
+
+					} catch (DiskChecker.DiskErrorException dee) {
+						LOG.info("TT: DiskErrorException when handling map done - probably OK (map was not created)\n" + StringUtils.stringifyException(dee));
+					} catch (IOException ioe) {
+						LOG.error("TT: Error when notify map done\n" + StringUtils.stringifyException(ioe));
+					}
+
+
 				}
-			}		
-			// */
+			}
 			
 			tip.reportDone();
 		} else {
 			LOG.warn("Unknown child task done: " + taskid + ". Ignored.");
 		}
 	}
+
 
   /** 
    * A reduce-task failed to shuffle the map-outputs. Kill the task.
@@ -3599,7 +3616,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   /**
    *  The datastructure for initializing a job
    */
-  static class RunningJob{
+  public static class RunningJob{
     private JobID jobid; 
     private JobConf jobConf;
     private Path localizedJobConf;
@@ -3916,8 +3933,6 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
         //seek to the correct offset for the reduce
         mapOutputIn.skip(info.startOffset);
         long rem = info.partLength;
-		//rdma testing
-		LOG.info("MapOutputServelet: TESTING ("+ mapId +":"+info.partLength+ ")");
         int len =
           mapOutputIn.read(buffer, 0, (int)Math.min(rem, MAX_BYTES_TO_READ));
         while (rem > 0 && len >= 0) {

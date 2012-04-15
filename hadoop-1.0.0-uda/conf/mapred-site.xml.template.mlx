@@ -2,6 +2,35 @@
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <!-- Put site-specific property overrides in this file. -->
 <configuration>
+
+  
+    <property>
+           <name>mapred.tasktracker.shuffle.provider.plugin</name>
+           <value></value>
+		   
+			<description>
+			represents plugin for shuffle at TaskTracker side 
+				default value is: 
+						(empty string)
+				You can also try: 
+						com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin
+			</description>
+      </property>
+	  
+    <property>
+           <name>mapred.reducetask.shuffle.consumer.plugin</name>
+           <value>org.apache.hadoop.mapred.ReduceCopier</value>
+		   
+			<description>
+			represents plugin for shuffle at ReduceTask side 
+				default value is: 
+						org.apache.hadoop.mapred.ReduceCopier
+				You can also try: 
+						com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin
+			</description>
+      </property>
+	  
+  
   <property>
     <name>mapred.job.tracker</name>
     <value>eagle1-ib:9001</value>
@@ -33,15 +62,6 @@
   <property>
     <name>mapred.child.java.opts</name>
     <value>-Xmx1000m</value>
-  </property>
-  <property>
-    <name>mapred.rdma.setting</name>
-    <value>0</value>
-    <description>
-     mapred.rdma.setting represents how users uses rdma
-		0: disable rdma.
-		1: use rdma with rdma-merger. 
-    </description>
   </property>
   <property>
     <name>mapred.netmerger.merge.approach</name>

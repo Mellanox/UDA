@@ -29,7 +29,7 @@ import java.io.IOException;
  * a job and cleanup resources.
  * 
  */
-class KillJobAction extends TaskTrackerAction {
+public class KillJobAction extends TaskTrackerAction {
   final JobID jobId;
 
   public KillJobAction() {

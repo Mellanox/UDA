@@ -65,6 +65,7 @@
   <property name="c++.libhdfs.src" value="${c++.src}/libhdfs"/>
   <property name="librecordio.src" value="${c++.src}/librecordio"/>
   <property name="tools.src" value="${basedir}/src/tools"/>
+  <property name="mlx.src" value="${src.dir}/mlx"/> 
 
   <property name="package.prefix" value="/usr"/>
   <property name="package.conf.dir" value="/etc/hadoop"/>
@@ -76,6 +77,7 @@
   <property name="build.classes" value="${build.dir}/classes"/>
   <property name="build.src" value="${build.dir}/src"/>
   <property name="build.tools" value="${build.dir}/tools"/>
+  <property name="build.mlx" value="${build.dir}/mlx"/>
   <property name="build.webapps" value="${build.dir}/webapps"/>
   <property name="build.examples" value="${build.dir}/examples"/>
   <property name="build.anttasks" value="${build.dir}/ant"/>
@@ -366,6 +368,7 @@
     <mkdir dir="${build.dir}"/>
     <mkdir dir="${build.classes}"/>
     <mkdir dir="${build.tools}"/>
+    <mkdir dir="${build.mlx}"/>
     <mkdir dir="${build.src}"/>
     <mkdir dir="${build.webapps}/task/WEB-INF"/>
     <mkdir dir="${build.webapps}/job/WEB-INF"/>
@@ -474,6 +477,30 @@
      
   </target>
 
+  
+  <target name="compile-mellanox-classes" depends="compile-mapred-classes">
+    <javac 
+     encoding="${build.encoding}" 
+     srcdir="${mlx.src}"
+     includes="com/mellanox/hadoop/**/*.java"
+     destdir="${build.mlx}"
+     debug="${javac.debug}"
+     optimize="${javac.optimize}"
+     target="${javac.version}"
+     source="${javac.version}"
+     deprecation="${javac.deprecation}">
+      <compilerarg line="${javac.args} ${javac.args.warnings}" />
+      <classpath refid="classpath"/>
+    </javac>   
+  	
+    <copy todir="${build.mlx}">
+      <fileset 
+        dir="${mlx.src}" 
+        includes="**/*.properties"
+      />
+    </copy>
+  </target>
+  
   <target name="compile-mapred-classes" depends="compile-core-classes,compile-hdfs-classes">
     <taskdef classname="org.apache.jasper.JspC" name="jsp-compile" >
        <classpath refid="classpath"/>
@@ -657,7 +684,7 @@
   </target>
 
   <target name="compile-core"
-          depends="clover,compile-core-classes,compile-mapred-classes,
+          depends="clover,compile-core-classes,compile-mapred-classes,compile-mellanox-classes,
   	compile-hdfs-classes,compile-core-native,compile-c++" 
   	description="Compile core only">
   </target>
@@ -894,7 +921,7 @@
        as needed -->
   <!-- ================================================================== -->
   <target name="-classes-compilation" depends="compile-core-classes,
-      compile-hdfs-classes, compile-mapred-classes, compile-core-test"/>
+      compile-hdfs-classes, compile-mapred-classes, compile-mellanox-classes, compile-core-test"/>
   <target name="run-test-core-fault-inject" depends="injectfaults"
 	  description="Run full set of the unit tests with fault injection">
     <macro-run-tests-fault-inject target.name="test-core"
@@ -1480,6 +1507,10 @@
 
     <copy todir="${dist.dir}/webapps">
       <fileset dir="${build.webapps}"/>
+    </copy>
+
+    <copy todir="${dist.dir}/mlx">
+      <fileset dir="${build.mlx}"/>
     </copy>
 
     <copy todir="${dist.dir}"> 

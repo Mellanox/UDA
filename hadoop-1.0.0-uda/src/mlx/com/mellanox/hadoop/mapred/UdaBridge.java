@@ -1,4 +1,5 @@
-package org.apache.hadoop.mapred;
+package com.mellanox.hadoop.mapred;
+import org.apache.hadoop.mapred.*;
 
 import java.util.ArrayList;
 import java.util.List;
