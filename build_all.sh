@@ -3,6 +3,8 @@
 # Written by Katya Katsenelenbogen
 # Date: 2011-11-03
 
+cd `dirname $0` # allow running the script from other dirs
+
 ver=`cat release | tr -d '\n'`
 revision=`svnversion -n`
 if [  "`echo $revision | egrep ^[[:digit:]]+$`" = ""  ]; then
