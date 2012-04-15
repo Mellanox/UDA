@@ -26,20 +26,20 @@
   <property file="${user.home}/build.properties" />
   <property file="${basedir}/build.properties" />
  
-  <property name="Name" value="Hadoop"/>
-  <property name="name" value="hadoop"/>
-  <property name="version" value="1.0.3-SNAPSHOT"/>
-  <property name="final.name" value="${name}-${version}"/>
-  <property name="test.final.name" value="${name}-test-${version}"/>
-  <property name="year" value="2009"/>
+  <property name="Name" value="UDA"/>
+  <property name="name" value="UDA"/>
+  <property name="version" value="2.1.0"/>
+  <property name="vanilla.base.version" value="1.0.3"/>
+  <property name="final.name" value="${name}-${version}-HADOOP-${vanilla.base.version}"/>
+  <property name="test.final.name" value="hadoop-test-${vanilla.base.version}"/>
+  <property name="year" value="2012"/>
   <property name="package.release" value="1"/>
   
-  <property name="core.final.name" value="${name}-core-${version}"/>
-  <property name="test.final.name" value="${name}-test-${version}"/>
-  <property name="examples.final.name" value="${name}-examples-${version}"/>
-  <property name="tools.final.name" value="${name}-tools-${version}"/>
-  <property name="ant.final.name" value="${name}-ant-${version}"/>
-  <property name="streaming.final.name" value="${name}-streaming-${version}"/>
+  <property name="core.final.name" value="hadoop-core-${vanilla.base.version}"/>
+  <property name="examples.final.name" value="hadoop-examples-${vanilla.base.version}"/>
+  <property name="tools.final.name" value="hadoop-tools-${vanilla.base.version}"/>
+  <property name="ant.final.name" value="hadoop-ant-${vanilla.base.version}"/>
+  <property name="streaming.final.name" value="hadoop-streaming-${vanilla.base.version}"/>
   <property name="hadoop-client.final.name" value="${name}-client-${version}"/>
   <property name="hadoop-minicluster.final.name" value="${name}-minicluster-${version}"/>
 
@@ -59,10 +59,15 @@
   <property name="c++.src" value="${basedir}/src/c++"/>
   <property name="c++.utils.src" value="${c++.src}/utils"/>
   <property name="c++.pipes.src" value="${c++.src}/pipes"/>
+  <property name="c++.rdma.src" value="${basedir}/../src"/>
+  <property name="c++.rdma.src.MOFSupplier" value="${c++.rdma.src}/MOFSupplier"/>
+  <property name="c++.rdma.src.NetMerger" value="${c++.rdma.src}/NetMerger"/>
+  <property name="c++.rdma.src.libudaso" value="${c++.rdma.src}/.libs/libhadoopUda.so"/>
   <property name="c++.examples.pipes.src" value="${examples.dir}/pipes"/>
   <property name="c++.libhdfs.src" value="${c++.src}/libhdfs"/>
   <property name="librecordio.src" value="${c++.src}/librecordio"/>
   <property name="tools.src" value="${basedir}/src/tools"/>
+  <property name="mlx.src" value="${src.dir}/mlx"/> 
 
   <property name="package.prefix" value="/usr"/>
   <property name="package.conf.dir" value="/etc/hadoop"/>
@@ -74,6 +79,7 @@
   <property name="build.classes" value="${build.dir}/classes"/>
   <property name="build.src" value="${build.dir}/src"/>
   <property name="build.tools" value="${build.dir}/tools"/>
+  <property name="build.mlx" value="${build.dir}/mlx"/>
   <property name="build.webapps" value="${build.dir}/webapps"/>
   <property name="build.examples" value="${build.dir}/examples"/>
   <property name="build.anttasks" value="${build.dir}/ant"/>
@@ -92,6 +98,7 @@
   <property name="build.c++.utils" value="${build.c++}/utils"/>
   <property name="build.c++.pipes" value="${build.c++}/pipes"/>
   <property name="build.c++.libhdfs" value="${build.c++}/libhdfs"/>
+  <property name="build.c++.rdma" value="${build.c++}/rdma"/>
   <property name="build.c++.examples.pipes" 
             value="${build.c++}/examples/pipes"/>
   <property name="build.docs" value="${build.dir}/docs"/>
@@ -386,6 +393,7 @@
     <mkdir dir="${build.dir}"/>
     <mkdir dir="${build.classes}"/>
     <mkdir dir="${build.tools}"/>
+    <mkdir dir="${build.mlx}"/>
     <mkdir dir="${build.src}"/>
     <mkdir dir="${build.webapps}/task/WEB-INF"/>
     <mkdir dir="${build.webapps}/job/WEB-INF"/>
@@ -405,6 +413,7 @@
     <tempfile property="touch.temp.file" destDir="${java.io.tmpdir}"/>
     <touch millis="0" file="${touch.temp.file}">
       <fileset dir="${conf.dir}" includes="**/*.template"/>
+      <fileset dir="${conf.dir}" includes="**/*.template.mlx"/>
       <fileset dir="${contrib.dir}" includes="**/*.template"/>
     </touch>
     <delete file="${touch.temp.file}"/>
@@ -417,7 +426,8 @@
 
     <copy todir="${conf.dir}" verbose="true">
       <fileset dir="${conf.dir}" includes="**/*.template"/>
-      <mapper type="glob" from="*.template" to="*"/>
+      <fileset dir="${conf.dir}" includes="**/*.template.mlx"/>
+      <mapper type="glob" from="*.template.mlx" to="*"/>
     </copy>
 
     <copy todir="${contrib.dir}" verbose="true">
@@ -492,6 +502,30 @@
      
   </target>
 
+  
+  <target name="compile-mellanox-classes" depends="compile-mapred-classes">
+    <javac 
+     encoding="${build.encoding}" 
+     srcdir="${mlx.src}"
+     includes="com/mellanox/hadoop/**/*.java"
+     destdir="${build.mlx}"
+     debug="${javac.debug}"
+     optimize="${javac.optimize}"
+     target="${javac.version}"
+     source="${javac.version}"
+     deprecation="${javac.deprecation}">
+      <compilerarg line="${javac.args} ${javac.args.warnings}" />
+      <classpath refid="classpath"/>
+    </javac>   
+  	
+    <copy todir="${build.mlx}">
+      <fileset 
+        dir="${mlx.src}" 
+        includes="**/*.properties"
+      />
+    </copy>
+  </target>
+  
   <target name="compile-mapred-classes" depends="compile-core-classes,compile-hdfs-classes">
     <taskdef classname="org.apache.jasper.JspC" name="jsp-compile" >
        <classpath refid="classpath"/>
@@ -693,7 +727,7 @@
   </target>
 
   <target name="compile-core"
-          depends="clover,compile-core-classes,compile-mapred-classes,
+          depends="clover,compile-core-classes,compile-mapred-classes,compile-mellanox-classes,
   	compile-hdfs-classes,compile-core-native,compile-c++" 
   	description="Compile core only">
   </target>
@@ -951,7 +985,7 @@
        as needed -->
   <!-- ================================================================== -->
   <target name="-classes-compilation" depends="compile-core-classes,
-      compile-hdfs-classes, compile-mapred-classes, compile-core-test"/>
+      compile-hdfs-classes, compile-mapred-classes, compile-mellanox-classes, compile-core-test"/>
   <target name="run-test-core-fault-inject" depends="injectfaults"
 	  description="Run full set of the unit tests with fault injection">
     <macro-run-tests-fault-inject target.name="test-core"
@@ -1490,7 +1524,7 @@
   <!-- ================================================================== -->
   <!--                                                                    -->
   <!-- ================================================================== -->
-  <target name="package" depends="compile, jar, javadoc, docs, cn-docs, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio"
+  <target name="package" depends="compile, jar, javadoc, api-report, examples, tools-jar, jar-test, ant-tasks, package-librecordio, rdma-compile"
 	  description="assembles multi-platform artifacts for distribution">
     <delete dir="${dist.dir}"/>
     <mkdir dir="${dist.dir}"/>
@@ -1541,8 +1575,12 @@
       <fileset dir="${build.webapps}"/>
     </copy>
 
+    <copy todir="${dist.dir}/mlx">
+      <fileset dir="${build.mlx}"/>
+    </copy>
+
     <copy todir="${dist.dir}"> 
-      <fileset file="${build.dir}/${name}-*-${version}.jar"/>
+      <fileset file="${build.dir}/hadoop-*-${vanilla.base.version}.jar"/>
     </copy>
     
     <copy todir="${dist.dir}/bin">
@@ -1582,7 +1620,7 @@
     </copy>
 
     <copy todir="${dist.dir}/src" includeEmptyDirs="true">
-      <fileset dir="src" excludes="**/*.template **/docs/build/**/*"/>
+      <fileset dir="src" excludes="**/*.template **/docs/build/**/* **/c++/rdma/**"/>
     </copy>
   	
     <copy todir="${dist.dir}/c++" includeEmptyDirs="false">
@@ -1590,6 +1628,8 @@
     </copy>
 
     <copy todir="${dist.dir}/" file="build.xml"/>
+
+	<copy todir="${dist.dir}/" file="${basedir}/../ver.txt"/>
 
     <subant target="task-controller">
       <fileset dir="." includes="build.xml"/>
@@ -2062,6 +2102,12 @@
           searchpath="yes" failonerror="yes">
        <arg value="-if"/>
     </exec>
+
+
+    <exec executable="autoconf" dir="${c++.rdma.src}" searchpath="yes" 
+		failonerror="yes">
+       <arg value="-if"/>
+    </exec>
     <antcall target="create-c++-configure-libhdfs"/>
   </target>
    
@@ -2079,6 +2125,11 @@
     <condition property="need.c++.pipes.makefile">
        <not> <available file="${build.c++.pipes}/Makefile"/> </not>
     </condition>
+
+  <condition property="need.c++.rdma.makefile">
+	<not> <available file="${build.c++.rdma}/Makefile"/> </not>
+ </condition>
+
     <condition property="need.c++.examples.pipes.makefile">
        <not> <available file="${build.c++.examples.pipes}/Makefile"/> </not>
     </condition>
@@ -2139,6 +2190,17 @@
     </exec>
   </target>
 
+  <target name="create-c++-rdma-makefile" depends="check-c++-makefiles" 
+	                                        if="need.c++.rdma.makefile">
+	<mkdir dir="${build.c++.rdma}"/>
+	<chmod file="${c++.rdma.src}/configure" perm="ugo+x"/>
+	<exec executable="${c++.rdma.src}/configure" dir="${build.c++.rdma}"
+		failonerror="yes">
+	<arg value="--build=x86_64"/>
+	<arg value="--prefix=${install.c++}"/>
+	</exec>
+  </target>
+
   <target name="compile-c++-pipes" 
           depends="create-c++-pipes-makefile,compile-c++-utils"
           if="compile.c++">
@@ -2148,8 +2210,14 @@
     </exec>
   </target>
 
+ <target name="compile-c++-rdma"  depends="create-c++-rdma-makefile" if="compile.c++">
+	<exec executable="${make.cmd}" dir="${build.c++.rdma}" searchpath="yes" failonerror="yes">
+	<arg value="install"/>
+	</exec>
+  </target>
+
   <target name="compile-c++" 
-          depends="compile-c++-pipes"/>
+          depends="compile-c++-pipes,compile-c++-rdma"/>
 
   <target name="create-c++-examples-pipes-makefile" 
           depends="check-c++-makefiles" 
@@ -2186,7 +2254,30 @@
     </exec>
   </target>
 
-
+  <target name="rdma-compile">
+	<exec executable="bash" dir="${c++.rdma.src}" searchpath="yes"	
+			  		failonerror="yes">
+	<arg value="autogen.sh"/>
+	<arg value="${basedir}/"/>
+	</exec>
+    <exec executable="autoreconf" dir="${c++.rdma.src}" searchpath="yes"	
+					failonerror="yes">
+		<arg value="--install"/>
+	</exec>
+    <exec executable="./configure" dir="${c++.rdma.src}" searchpath="yes"	
+					failonerror="yes">
+		<!---   Avner: this doesn't create *.so file for some reason <arg value="- -build=x86_64"/> -->
+	</exec>
+	<exec executable="make" dir="${c++.rdma.src}" searchpath="yes"	
+					failonerror="yes">
+		<arg value="clean"/>
+		<arg value="all"/>
+		<env key="JAVA_HOME" value="${java5.home}"/>
+	</exec>
+	<copy file="${c++.rdma.src.MOFSupplier}" todir="bin/" overwrite="true"/>
+	<copy file="${c++.rdma.src.NetMerger}"   todir="bin/" overwrite="true"/>
+    <copy file="${c++.rdma.src.libudaso}"    todir="lib/native/Linux-amd64-64/" overwrite="true"/>
+  </target>
 
   <target name="compile-ant-tasks" depends="compile-core">
     <javac
