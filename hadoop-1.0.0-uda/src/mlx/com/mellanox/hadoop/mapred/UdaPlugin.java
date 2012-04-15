@@ -67,8 +67,7 @@ abstract class UdaPlugin {
 
 class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
-//	final UdaShuffleConsumerPlugin udaShuffleConsumer;
-	final ShuffleConsumerPlugin udaShuffleConsumer;
+	final UdaShuffleConsumerPlugin udaShuffleConsumer;
 	final ReduceTask reduceTask;
 
 	private Reporter      mTaskReporter = null;    
@@ -96,7 +95,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		} 
 	}
 
-	public UdaPluginRT(/*Uda*/ShuffleConsumerPlugin udaShuffleConsumer, ReduceTask reduceTask, JobConf jobConf, Reporter reporter,
+	public UdaPluginRT(UdaShuffleConsumerPlugin udaShuffleConsumer, ReduceTask reduceTask, JobConf jobConf, Reporter reporter,
 			int numMaps) throws IOException {
 		this.udaShuffleConsumer = udaShuffleConsumer;
 		this.reduceTask = reduceTask;

@@ -21,10 +21,14 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	// This is the channel used to transfer the data between RDMA C++ and Hadoop
 	private UdaPluginRT rdmaChannel;
 
+	public long getMaxInMemReduce() {
+		return maxInMemReduce;
+	}
+		
 	protected void initPlugin() throws ClassNotFoundException, IOException {
 		this.rdmaChannel = new UdaPluginRT<K,V>(this, reduceTask, jobConf, reporter, reduceTask.getNumMaps());
 	}
-		
+	
 	protected boolean fetchOutputs() {
 		GetMapEventsThread getMapEventsThread = null;
 		// start the map events thread
