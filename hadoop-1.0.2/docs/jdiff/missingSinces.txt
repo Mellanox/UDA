@@ -1,0 +1,6 @@
+MISSING @SINCE TAG: org.apache.hadoop.mapred.ShuffleExceptionTracker Class
+MISSING @SINCE TAG: org.apache.hadoop.io.compress.SnappyCodec Class
+MISSING @SINCE TAG: org.apache.hadoop.fs.CommonConfigurationKeys Field IO_COMPRESSION_CODEC_SNAPPY_BUFFERSIZE_DEFAULT
+MISSING @SINCE TAG: org.apache.hadoop.fs.CommonConfigurationKeys Field IO_COMPRESSION_CODEC_SNAPPY_BUFFERSIZE_KEY
+MISSING @SINCE TAG: org.apache.hadoop.fs.CommonConfigurationKeys Field IO_NATIVE_LIB_AVAILABLE_DEFAULT
+NO DOC BLOCK: org.apache.hadoop.fs.CommonConfigurationKeys Field IO_NATIVE_LIB_AVAILABLE_KEY
