@@ -65,8 +65,8 @@
   <property name="c++.libhdfs.src" value="${c++.src}/libhdfs"/>
   <property name="librecordio.src" value="${c++.src}/librecordio"/>
   <property name="tools.src" value="${basedir}/src/tools"/>
-  <property name="mlx.src" value="${src.dir}/mlx"/> 
-
+  <property name="mlx.src" value="${basedir}/../mlx"/> 
+  
   <property name="package.prefix" value="/usr"/>
   <property name="package.conf.dir" value="/etc/hadoop"/>
   <property name="package.log.dir" value="/var/log/hadoop"/>
