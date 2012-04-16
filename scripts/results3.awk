@@ -20,6 +20,7 @@ function init_vars(){
 	cause="";
 	date=0;
 	fileName="";
+	status=0;
 
 }
 
@@ -31,16 +32,17 @@ function getFilenameFormat(fn){
 }
 
 function print_summary(){
+#	print "status is: " status
         totalSeconds=totalSeconds","
 	fileName=getFilenameFormat(prev_filename);
         if ( error != 0 ) {
                 cause=cause","
-                printf("%s  %s +ERRORS: %s ", date, totalSeconds, cause)
+                printf("%s  %s %s +ERRORS: %s ", status, date, totalSeconds, cause)
                 system("basename "fileName)
 
         }
         else {
-             printf("%s  %s  +SUCCESS!!, ", date, totalSeconds)
+             printf("%s  %s  %s ", status , date, totalSeconds)
              system("basename "fileName)
         }
 
@@ -78,6 +80,9 @@ $1 == "Finished" {
 	totalSeconds=minutes*60+seconds;
 }
 
+$1 ~ /Status/ {
+	status=$2
+}
 
 {
 	if ( FNR == nrSave+2 && FNR != 2 ){
