@@ -25,32 +25,23 @@ import org.apache.hadoop.fs.Path;
 
 abstract class UdaPlugin {
 	static protected final Log LOG = LogFactory.getLog(UdaPlugin.class.getName());
-
-	protected void launchCppSide(boolean isNetMerger, JobConf jobConf, UdaCallable _callable, String logdirTail) {
+	protected List<String> mCmdParams = new ArrayList<String>();
+	protected JobConf mjobConf;
+	
+	public UdaPlugin(JobConf jobConf) {
+		this.mjobConf=jobConf;
+	}
+	
+	//* build arguments to lunchCppSide 
+	protected abstract void buildCmdParams();
+	
+	protected void launchCppSide(boolean isNetMerger, UdaCallable _callable) {
 		
 		LOG.info("UDA: Launching C++ thru JNI");
-		List<String> cmd = new ArrayList<String>();
+		buildCmdParams();
 
-		//* arguments 
-		cmd.add("-w");
-		cmd.add(jobConf.get("mapred.rdma.wqe.per.conn"));
-		cmd.add("-r");
-		cmd.add(jobConf.get("mapred.rdma.cma.port"));      
-		cmd.add("-a");
-		cmd.add(jobConf.get("mapred.netmerger.merge.approach"));
-		cmd.add("-m");
-		cmd.add("1");
-		
-		cmd.add("-g");
-		cmd.add(jobConf.get("mapred.rdma.log.dir","default") + logdirTail);
-		
-		cmd.add("-s");
-		cmd.add(jobConf.get("mapred.rdma.buf.size"));
-		cmd.add("-t");
-		cmd.add(jobConf.get("mapred.uda.log.tracelevel"));
-
-		LOG.info("going to execute C++ thru JNI with argc=: " + cmd.size() + " cmd: " + cmd);    	  
-		String[] stringarray = cmd.toArray(new String[0]);
+		LOG.info("going to execute C++ thru JNI with argc=: " + mCmdParams.size() + " cmd: " + mCmdParams);    	  
+		String[] stringarray = mCmdParams.toArray(new String[0]);
 
 		try {
 			UdaBridge.start(isNetMerger, stringarray, LOG, _callable);
@@ -87,6 +78,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	private final int         kv_buf_size = 1 << 20;   /* 1 MB */
 	private final int         kv_buf_num = 2;
 	private KVBuf[]           kv_bufs = null;
+	private String 			  mLogdirTail;
 
 	private void init_kv_bufs() {
 		kv_bufs = new KVBuf[kv_buf_num];
@@ -95,15 +87,40 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		} 
 	}
 
+	protected void buildCmdParams() {
+		mCmdParams.clear();
+		
+		mCmdParams.add("-w");
+		mCmdParams.add(mjobConf.get("mapred.rdma.wqe.per.conn"));
+		mCmdParams.add("-r");
+		mCmdParams.add(mjobConf.get("mapred.rdma.cma.port"));      
+		mCmdParams.add("-a");
+		mCmdParams.add(mjobConf.get("mapred.netmerger.merge.approach"));
+		mCmdParams.add("-m");
+		mCmdParams.add("1");
+		
+		mCmdParams.add("-g");
+		mCmdParams.add(mjobConf.get("mapred.rdma.log.dir","default") + mLogdirTail);
+		
+		mCmdParams.add("-s");
+		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size"));
+		mCmdParams.add("-t");
+		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel"));
+
+	}
+
 	public UdaPluginRT(UdaShuffleConsumerPlugin udaShuffleConsumer, ReduceTask reduceTask, JobConf jobConf, Reporter reporter,
 			int numMaps) throws IOException {
+		super(jobConf);
 		this.udaShuffleConsumer = udaShuffleConsumer;
 		this.reduceTask = reduceTask;
 
 		/* init variables */
 		init_kv_bufs(); 
-
-		launchCppSide(true, jobConf, this, "/userlogs/" + reduceTask.getTaskID().getJobID().toString() + "/"  + reduceTask.getTaskID().toString() ); // true: this is RT => we should execute NetMerger
+		
+		this.mLogdirTail = "/userlogs/" + reduceTask.getTaskID().getJobID().toString() + "/"  + reduceTask.getTaskID().toString();
+		
+		launchCppSide(true, this); // true: this is RT => we should execute NetMerger
 
 		this.j2c_queue = new J2CQueue<K, V>();
 		this.mTaskReporter = reporter;
@@ -374,15 +391,35 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 class UdaPluginTT extends UdaPlugin {    
 
 	private final TaskTracker taskTracker;
-	JobConf jobConf;
 	private Vector<String>     mParams       = new Vector<String>();
 
 	public UdaPluginTT(TaskTracker taskTracker, JobConf jobConf) {
+		super(jobConf);
 		this.taskTracker = taskTracker;
-		this.jobConf = jobConf;
 		
-		launchCppSide(false, this.jobConf, null, ""); // false: this is TT => we should execute MOFSupplier
+		launchCppSide(false, null); // false: this is TT => we should execute MOFSupplier
 	}
+	
+	protected void buildCmdParams() {
+		mCmdParams.clear();
+		
+		mCmdParams.add("-w");
+		mCmdParams.add(mjobConf.get("mapred.rdma.wqe.per.conn"));
+		mCmdParams.add("-r");
+		mCmdParams.add(mjobConf.get("mapred.rdma.cma.port"));      
+		mCmdParams.add("-m");
+		mCmdParams.add("1");
+		
+		mCmdParams.add("-g");
+		mCmdParams.add(mjobConf.get("mapred.rdma.log.dir","default"));
+		
+		mCmdParams.add("-s");
+		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size"));
+		mCmdParams.add("-t");
+		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel"));
+
+	}
+
 
 	public void jobOver(String jobId) {
 		mParams.clear();
