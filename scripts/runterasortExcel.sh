@@ -32,13 +32,7 @@ then
 fi
 
 
-#if [ -z "$EXCEL_LINE_NUM" ]
-#then
-#        export EXCEL_LINE_NUM=0
-#fi
-
 cd $MY_HADOOP_HOME
-
 
 mkdir -p $SCRIPTS_DIR
 cp -rf $(dirname $0)/* $SCRIPTS_DIR/
@@ -126,7 +120,14 @@ fi
 			reducers=`cat $HADOOP_CONF_DIR/reducersNum.txt`
 				
 			#change:
-			rdma=`grep -A 1 "rdma.setting" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>1</value>"`
+			shuffP=`grep -A 1 "mapred.tasktracker.shuffle.provider.plugin" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin
+</value>"`
+
+			shuffC=`grep -A 1 "mapred.reducetask.shuffle.consumer.plugin" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin<
+/value>"`
+
+			
+#rdma=`grep -A 1 "rdma.setting" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>1</value>"`
 	
 			host=`head -1 $HADOOP_CONF_DIR/slaves`
 			host_tail=`[[  $host =~ "-" ]] && echo $host | sed 's/.*-//' || echo lan`
@@ -168,7 +169,7 @@ fi
 
 			#        disks=$((`cat $HADOOP_CONF_DIR/hdfs-site.xml | grep -A 1 ">dfs.data.dir<" | grep -o "," | wc -l | sed s/\ //g` + 1))
 
-       				 log_prefix=${hadoop_version}.$line.${host_tail}.rdma${rdma}.merge_approach${merge_approach}.${node_scale}n.${disks}d.$$
+       				 log_prefix=${hadoop_version}.$line.${host_tail}.shuffP${shuffP}.shuffC${shuffC}.merge${merge_approach}.${node_scale}n.${disks}d.$$
 
         			echo "$(basename $0): Modify slaves conf file to enable $nodes_scale hostnames"
         			$SCRIPTS_DIR/mark_slaves.sh $node_scale
