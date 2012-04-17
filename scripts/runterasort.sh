@@ -73,7 +73,14 @@ fi
 rdma="UNKNOWN"
 merge_approach="UNKNOWN"
 interface="UNKNOWN"
-rdma=`grep -A 1 "rdma.setting" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>1</value>"`
+shuffC="UNKNOWN"
+shuffP="UNKNOWN"
+
+
+shuffP=`grep -A 1 "mapred.tasktracker.shuffle.provider.plugin" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin</value>"`
+
+shuffC=`grep -A 1 "mapred.reducetask.shuffle.consumer.plugin" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin</value>"`
+
 merge_approach=`grep -A 1 "merge.approach" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>1</value>"`
 
 if (( $merge_approach==0 ))
@@ -109,8 +116,9 @@ echo "$(basename $0): ------------------------------------------"
 echo "$(basename $0): Static Parameters: (that calculated by script and cannot be exported by user)"
 echo "$(basename $0): ------------------------------------------"
 echo "$(basename $0): SCRIPTS_DIR=$SCRIPTS_DIR (scripts will be copied to this local path on each node - unless -skip_nfs arg added)"
-echo "$(basename $0): rdma.setting=$rdma"
-echo "$(basename $0): merge_approach=$merge_approach"
+echo "$(basename $0): shuffP=$shuffP"
+echo "$(basename $0): shuffC=$shuffC"
+echo "$(basename $0): merge_approach=$merge_approach (will be called merge later on)"
 echo "$(basename $0): hadoop version=$hadoop_version"
 echo "$(basename $0): interface=$bb"
 
@@ -172,10 +180,14 @@ then
 fi
 
 for node_scale in ${CLUSTER_NODES} ; do
-
-	disks=$((`cat $HADOOP_CONF_DIR/hdfs-site.xml | grep -A 1 ">dfs.data.dir<" | grep -o "," | wc -l | sed s/\ //g` + 1))
-	log_prefix=${hadoop_version}.${host_tail}.rdma${rdma}.merge_approach${merge_approach}.${node_scale}n.${disks}d.$$
 	
+	echo "shuffle C is: $shuffC	"
+	echo "shuffle P is: $shuffP      "
+	echo 
+	disks=$((`cat $HADOOP_CONF_DIR/hdfs-site.xml | grep -A 1 ">dfs.data.dir<" | grep -o "," | wc -l | sed s/\ //g` + 1))
+	log_prefix=${hadoop_version}.${host_tail}.shuffP${shuffP}.shuffC${shuffC}.merge${merge_approach}.${node_scale}n.${disks}d.$$
+	 echo "log_prefix: $log_prefix"	
+
 	echo "$(basename $0): Modify slaves conf file to enable $nodes_scale hostnames"
 	$SCRIPTS_DIR/mark_slaves.sh $node_scale
 	
@@ -266,6 +278,7 @@ for node_scale in ${CLUSTER_NODES} ; do
 	
 	                                                #this is the command to run
 	                                                export USER_CMD="bin/hadoop jar hadoop*examples*.jar terasort  -Dmapred.reduce.tasks=${totalReducers} /terasort/input/${totalDataSet}G.${ds_n} /terasort/output"
+
 	                                                JOB=${log_prefix}.N${ds}G.${ds_n}.N${nmaps}m.N${nreds}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}
 	
 							echo "$(basename $0): calling mr-dstat for $USER_CMD attempt $attempt"
