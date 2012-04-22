@@ -91,5 +91,9 @@ LDADD = -lhadoopUda -lpthread -libverbs -lrdmacm -laio
 
 MOFSupplier_SOURCES = MOFSupplier.cc
 NetMerger_SOURCES = NetMerger.cc
-# vim: sw=4: ts=4: noet
 
+#support coverity
+cov:
+	PATH=/hpc/local/commercial/coverity/cov-sa/bin:$$PATH && rm -rf $(PWD)/cov-build && make clean && cov-build --dir $(PWD)/cov-build make all && cov-analyze --dir $(PWD)/cov-build && cov-format-errors --dir $(PWD)/cov-build
+
+# vim: sw=4: ts=4: noet
