@@ -60,8 +60,6 @@
   <property name="c++.utils.src" value="${c++.src}/utils"/>
   <property name="c++.pipes.src" value="${c++.src}/pipes"/>
   <property name="c++.rdma.src" value="${basedir}/../src"/>
-  <property name="c++.rdma.src.MOFSupplier" value="${c++.rdma.src}/MOFSupplier"/>
-  <property name="c++.rdma.src.NetMerger" value="${c++.rdma.src}/NetMerger"/>
   <property name="c++.rdma.src.libudaso" value="${c++.rdma.src}/.libs/libhadoopUda.so"/>
   <property name="c++.examples.pipes.src" value="${examples.dir}/pipes"/>
   <property name="c++.libhdfs.src" value="${c++.src}/libhdfs"/>
@@ -2274,8 +2272,6 @@
 		<arg value="all"/>
 		<env key="JAVA_HOME" value="${java5.home}"/>
 	</exec>
-	<copy file="${c++.rdma.src.MOFSupplier}" todir="bin/" overwrite="true"/>
-	<copy file="${c++.rdma.src.NetMerger}"   todir="bin/" overwrite="true"/>
     <copy file="${c++.rdma.src.libudaso}"    todir="lib/native/Linux-amd64-64/" overwrite="true"/>
   </target>
 
