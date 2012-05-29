@@ -137,6 +137,12 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   static final long WAIT_FOR_DONE = 3 * 1000;
   private int httpPort;
 
+  public static final String TT_SHUFFLE_PROVIDER_PLUGIN = 
+		  "mapred.tasktracker.shuffle.provider.plugin";
+
+  private ShuffleProviderPlugin shuffleProviderPlugin;
+
+
   static enum State {NORMAL, STALE, INTERRUPTED, DENIED}
 
   static{
@@ -881,6 +887,21 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     oobHeartbeatDamper = 
       fConf.getInt(TT_OUTOFBAND_HEARTBEAT_DAMPER, 
           DEFAULT_OOB_HEARTBEAT_DAMPER);
+
+    	// loads a configured ShuffleProviderPlugin if any
+    	// at this phase we only support at most one such plugin
+    	Class<? extends ShuffleProviderPlugin> providerClazz =
+    			fConf.getClass(TT_SHUFFLE_PROVIDER_PLUGIN,
+    					null, ShuffleProviderPlugin.class);
+    	shuffleProviderPlugin = 
+    			ShuffleProviderPlugin.getShuffleProviderPlugin(providerClazz, fConf);
+    	if (shuffleProviderPlugin != null) {
+    		LOG.info(" Using ShuffleProviderPlugin : " + shuffleProviderPlugin);
+    		shuffleProviderPlugin.initialize(this);
+    	}
+    	else {
+    		LOG.info(" NO ShuffleProviderPlugin will be used");
+    	}
   }
 
   private void startJettyBugMonitor() {
@@ -1162,6 +1183,12 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
 
           rjob.localized = true;
         }
+        
+    	if (shuffleProviderPlugin != null) {
+    		LOG.info("notifying ShuffleProviderPlugin about jobInit: " + shuffleProviderPlugin);
+    		shuffleProviderPlugin.jobInit(rjob);
+    	}
+
       } 
     } finally {
       synchronized (rjob) {
@@ -1423,6 +1450,13 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       jettyBugMonitor.shutdown();
       jettyBugMonitor = null;
     }
+
+    if (shuffleProviderPlugin != null) {
+      LOG.info("closing ShuffleProviderPlugin : " + shuffleProviderPlugin);
+      shuffleProviderPlugin.close();
+    }
+
+
   }
 
   /**
@@ -2163,6 +2197,12 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     synchronized(runningJobs) {
       runningJobs.remove(jobId);
     }
+
+    if (shuffleProviderPlugin != null) {
+      LOG.info("notifying ShuffleProviderPlugin about jobDone: " + shuffleProviderPlugin);
+      shuffleProviderPlugin.jobDone(action);
+    }
+
     getJobTokenSecretManager().removeTokenForJob(jobId.toString());  
     distributedCacheManager.removeTaskDistributedCacheManager(jobId);
   }
@@ -3523,6 +3563,38 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     if (tip != null) {
       validateJVM(tip, jvmContext, taskid);
       commitResponses.remove(taskid);
+
+			if (shuffleProviderPlugin != null) {
+
+				Task task = tip.getTask();
+				if (task.isMapTask()) {
+					try {	
+						String jobid = task.getJobID().toString();
+						String tid = task.getTaskID().toString();
+						String userName = task.getUser();
+						String intermediateOutputDir = TaskTracker.getIntermediateOutputDir(userName, jobid, tid);
+
+						JobConf jobConf = tip.getJobConf();
+						//parent path for the file.out file
+						Path fout = this.localDirAllocator.getLocalPathToRead(
+								intermediateOutputDir + "/file.out", jobConf);
+
+						//parent path for the file.out.index file
+						Path fidx = this.localDirAllocator.getLocalPathToRead(
+								intermediateOutputDir + "/file.out.index", jobConf);
+
+						shuffleProviderPlugin.mapDone(userName, jobid, tid, fout, fidx);
+
+					} catch (DiskChecker.DiskErrorException dee) {
+						LOG.info("TT: DiskErrorException when handling map done - probably OK (map was not created)\n" + StringUtils.stringifyException(dee));
+					} catch (IOException ioe) {
+						LOG.error("TT: Error when notify map done\n" + StringUtils.stringifyException(ioe));
+					}
+
+
+				}
+			}
+			
       tip.reportDone();
     } else {
       LOG.warn("Unknown child task done: "+taskid+". Ignored.");
@@ -3661,7 +3733,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   /**
    *  The datastructure for initializing a job
    */
-  static class RunningJob{
+  public static class RunningJob{
     private JobID jobid; 
     private JobConf jobConf;
     private Path localizedJobConf;
