@@ -13,9 +13,9 @@ usage: $0 <options>
      --distro-dir=DIR            path to distro specific files (debian/RPM)
      --build-dir=DIR             path to hive/build/dist
      --prefix=PREFIX             path to install into
-     --uda-hadoop-conf-dir=DIR   path to existing hadoop installation that will use hadoop
 
   Optional options:
+     --uda-hadoop-conf-dir=DIR   path to existing hadoop installation that will use hadoop
      --native-build-string       eg Linux-amd-64 (optional - no native installed if not set)
      ... [ see source for more similar options ]
   "
@@ -105,7 +105,7 @@ done
 
 PREFIX=${PREFIX:-"/"} #avner's temp
 
-for var in UDA_DIR UDA_HADOOP_CONF_DIR PREFIX BUILD_DIR; do
+for var in UDA_DIR PREFIX BUILD_DIR; do
   if [ -z "$(eval "echo \$$var")" ]; then
     echo Missing param: $var
     usage
@@ -134,8 +134,10 @@ BUILD_SRC_DIR=./src
 # echo " #   if [ -f ${UDA_DIR}/uda-env.sh ]; then . ${UDA_DIR}/uda-env.sh; fi" >> ${UDA_DIR}/uda-env.sh
 echo "export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:${UDA_DIR}/uda.jar" >> ${UDA_DIR}/uda-env.sh
 
+#TODO: issue warning in case file is not writeable
 # Source global definitions (unless it is already exists)
-if [ -w $UDA_HADOOP_CONF_DIR/hadoop-env.sh ] && ! grep --quiet uda-env.sh  $UDA_HADOOP_CONF_DIR/hadoop-env.sh ; then
+if [ -n "$UDA_HADOOP_CONF_DIR" ] && [ -w $UDA_HADOOP_CONF_DIR/hadoop-env.sh ] && ! grep --quiet uda-env.sh  $UDA_HADOOP_CONF_DIR/hadoop-env.sh ; then
+	#TODO: add newline before
 	echo "if [ -f ${UDA_DIR}/uda-env.sh ]; then . ${UDA_DIR}/uda-env.sh; fi" >> $UDA_HADOOP_CONF_DIR/hadoop-env.sh
 fi
 

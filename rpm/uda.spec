@@ -39,7 +39,7 @@
 
 Name:           libuda
 Version:        3.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        libuda is an RDMA plugin for Hadoop Acceleration
 Vendor:         Mellanox
 
@@ -62,7 +62,8 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 #BuildArch:      noarch
 
 #BuildRequires:  
-#Requires:       
+Requires:       librdmacm, libibverbs, hadoop
+
 
 %description
 Mellanox UDA, a software plugin, accelerates Hadoop network and improves
@@ -111,11 +112,12 @@ bash $RPM_BUILD_ROOT%{uda_dirname}/%{uda_inst} \
   --native-build-string=%{hadoop_arch} \
   --installed-lib-dir=%{lib_hadoop} \
   --uda-dir=%{uda_dirname} \
-  --uda-hadoop-conf-dir=$UDA_HADOOP_CONF_DIR \
-
-
+  
+  
+  
+#  --uda-hadoop-conf-dir=$UDA_HADOOP_CONF_DIR \
 #--uda-hadoop-conf-dir=/etc/hadoop/conf \
-#--uda-hadoop-conf-dir=$UDA_HADOOP_CONF_DIR \
+
 
 
 %postun
