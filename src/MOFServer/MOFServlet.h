@@ -73,7 +73,6 @@ public:
     pthread_mutex_t   out_lock;
     pthread_cond_t    in_cond;
     struct list_head  incoming_req_list;
-    struct list_head  outgoing_req_list;
 
     /**
      * Under standalone mode, list all the valid fetch request 

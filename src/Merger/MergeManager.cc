@@ -36,6 +36,8 @@ class InputClient;
 #define LPQ_STAGE_MEM_SIZE (1<<20)
 
 extern merging_state_t merging_sm;
+extern JNIEnv *jniEnv;
+
         
 int aio_lpq_write_completion_handler(void* data) {
 	lpq_aio_arg* arg = (lpq_aio_arg*)data;
@@ -45,6 +47,11 @@ int aio_lpq_write_completion_handler(void* data) {
 	if (arg->last_lpq_submition) { // wrting last part of lpq output with blocking write (without AIO) because AIO must write aligned size
 		close(arg->fd); // reopen file because it was opened for AIO with O_DIRECT which forbiddens calling sync lseek
 		arg->fd = open(arg->filename, O_WRONLY);
+		if (arg->fd < 0)
+		{
+			log(lsFATAL, "Could not open file %s for writing last lpq output (without AIO), Aborting Task.", arg->filename);
+			throw "UDA Could not open file for writing";
+		}
 		lseek(arg->fd, arg->aligment_carry_fileOffset, SEEK_SET);
 		write(arg->fd, arg->aligment_carry_buff, arg->aligment_carry_size);
 		close(arg->fd);
@@ -108,10 +115,16 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 				client_part_req *fetch_req = NULL;
 				 pthread_mutex_lock(&manager->lock);
 				 fetch_req = manager->fetch_list.front();
+
+				 log(lsDEBUG, "request as received from java jobid=%s, mapid=%s, reduceid=%s, hostname=%s", fetch_req->info->params[1], fetch_req->info->params[2], fetch_req->info->params[3], fetch_req->info->params[0]);
+
 				 manager->fetch_list.pop_front();
 				 pthread_mutex_unlock(&manager->lock);
 				 maps_sent_to_fetch ++;
 				if (fetch_req) {
+
+					log(lsDEBUG, "request as received from java jobid=%s, mapid=%s, reduceid=%s, hostname=%s", fetch_req->info->params[1], fetch_req->info->params[2], fetch_req->info->params[3], fetch_req->info->params[0]);
+
 					manager->allocate_rdma_buffers(fetch_req);
 					manager->start_fetch_req(fetch_req);
 					log(lsDEBUG, "request as received from java jobid=%s, mapid=%s, reduceid=%s, hostname=%s", fetch_req->info->params[1], fetch_req->info->params[2], fetch_req->info->params[3], fetch_req->info->params[0]);
@@ -163,7 +176,7 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 				if (manager->progress_count == PROGRESS_REPORT_LIMIT
 				 || manager->total_count == task->num_maps) {
 					log(lsDEBUG, "JNI sending fetchOverMessage...");
-					UdaBridge_invoke_fetchOverMessage_callback(task->merge_thread.jniEnv);
+					UdaBridge_invoke_fetchOverMessage_callback(jniEnv);
 
 					manager->progress_count = 0;
 				}
@@ -194,8 +207,6 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *merge_queue)
 {
 	/* merging phase */
-	JNIEnv *jniEnv = task->merge_thread.jniEnv;
-
 	// register our staging_buf as DirectByteBuffer for sharing with Java
 	mem_desc_t  *desc = merge_queue->staging_bufs[0];  // we only need 1 staging_bufs: TODO: remove the array
 	jobject jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
@@ -210,7 +221,7 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *mer
 		b = write_kv_to_mem(merge_queue, desc->buff, desc->buf_len, desc->act_len);
 
     	log(lsDEBUG, "MERGER: invoking java callback: desc=%p, desc->jbuf=%p, address=%p, capacity=%d act_len=%d", desc, jbuf, desc->buff, desc->buf_len, desc->act_len);
-		UdaBridge_invoke_dataFromUda_callback(task->merge_thread.jniEnv, jbuf, desc->act_len);
+		UdaBridge_invoke_dataFromUda_callback(jniEnv, jbuf, desc->act_len);
 	}
 
 	log(lsDEBUG, "invoking DeleteWeakGlobalRef: desc=%p, jbuf=%p, address=%p, capacity=%d", desc, jbuf, desc->buff, desc->buf_len);
@@ -418,8 +429,7 @@ void *merge_thread_main (void *context)
     int online = manager->online;
     log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
 
-    task->merge_thread.jniEnv = attachNativeThread();
-
+    jniEnv = attachNativeThread();
 
 	switch (online) {
 	case 0:
@@ -507,6 +517,8 @@ MergeManager::MergeManager(int threads, int online, struct reduce_task *task, in
 
     this->total_count = 0;
     this->progress_count = 0;
+
+    this->merge_queue = NULL;
 
     pthread_mutex_init(&this->lock, NULL);
     pthread_cond_init(&this->cond, NULL); 

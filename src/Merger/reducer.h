@@ -46,6 +46,7 @@ typedef struct merging_state {
 
     memory_pool_t      mop_pool;
     
+
 } merging_state_t;
 typedef struct reduce_task {
     struct list_head   list;

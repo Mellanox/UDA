@@ -176,10 +176,6 @@ void DataStream::reset(char *input, int len)
 size_t DataStream::read(void *des, const size_t len, 
                         const char *extrasrc, size_t size, int &idx)
 {
-    if (len < 0 || size < 0) { 
-        output_stderr("DataStream: len or size < 0");
-        return -1;
-    }
     if ((this->pos + len) <= this->count) {
         memcpy(des, (this->buf + this->pos), len);
         this->pos += len;
@@ -195,10 +191,6 @@ size_t DataStream::read(void *des, const size_t len,
 
 size_t DataStream::read(void *des, size_t len)
 {
-    if (len < 0) {
-        output_stderr("DataStream: len < 0");
-        return -1;
-    }
     if ((this->pos + len) > this->count) {
         log(lsERROR,"DataStream: read out of bound");
         print_backtrace("IDAN_StreamOutOfBound");
@@ -213,7 +205,7 @@ size_t DataStream::read(void *des, size_t len)
 
 size_t DataStream::rewind(size_t nbytes) 
 {
-    if (this->pos - nbytes < 0) {
+    if (this->pos < nbytes) {
         output_stderr("DataStream: rewind out of bound");
         return -1;
     }
@@ -252,11 +244,6 @@ bool DataStream::close()
 
 size_t DataStream::write(const void *buf, size_t len)
 {
-    if (len < 0) {
-        output_stderr("DataStream: len < 0");
-        return -1;
-    }
-
     if (this->pos + len > this->count) {
         output_stderr("DataStream: write out of bound");
         return -1;

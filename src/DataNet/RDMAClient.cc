@@ -339,7 +339,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
 err_rdma_connect:
     netlev_conn_free(conn);
 err_conn_alloc:
-    rdma_destroy_id(cm_id);
+//    rdma_destroy_id(cm_id); //unnecessary, since destroyed in netlev_conn_alloc and netlev_conn_free
     rdma_destroy_event_channel(ctx->cm_channel);
     output_stderr("[%s,%d] connection failed",
                  __FILE__,__LINE__);

@@ -58,7 +58,8 @@ private:
     int            m_maxSize;
 
 public:
-     void initialize(int maxSize) {
+
+    PriorityQueue<T>(int maxSize) {
         m_size = 0;
         int heapSize = maxSize + 1;
         m_maxSize = maxSize;
@@ -68,7 +69,6 @@ public:
         }
     }
     
-    PriorityQueue<T>() {}
     virtual ~PriorityQueue() {}
   
     /**
@@ -201,7 +201,8 @@ private:
     int num_of_segments;
 public:
     const std::string filename;
-
+    mem_desc_t*  staging_bufs[NUM_STAGE_MEM];
+    PriorityQueue<T> core_queue;
 public: 
     size_t getQueueSize() { return num_of_segments; }
     virtual ~MergeQueue(){}
@@ -263,21 +264,21 @@ public:
     int32_t get_key_bytes(){return this->min_segment->kbytes;}
     int32_t get_val_bytes() {return this->min_segment->vbytes;}
 
-      MergeQueue(int numMaps, mem_desc_t* staging_descs = NULL ,const char*fname = "") : filename(fname){
+      MergeQueue(int numMaps, mem_desc_t* staging_descs = NULL ,const char*fname = "") : filename(fname), core_queue(numMaps)
+{
     	this->num_of_segments=0;
         this->mSegments = NULL;
         this->min_segment = NULL;
         this->key = NULL;
         this->val = NULL;
         this->mergeq_flag = 0;
-        
+        this->staging_bufs = {};
         
         if (staging_descs) {
         	for (int i=0;i < NUM_STAGE_MEM; i++)  
 		        this->staging_bufs[i] = &staging_descs[i];
         }
         
-        core_queue.initialize(numMaps);
         core_queue.clear();
         
     }
@@ -287,8 +288,7 @@ public:
         this->min_segment = NULL;
     }
 
-    mem_desc_t*  staging_bufs[NUM_STAGE_MEM];
-    PriorityQueue<T> core_queue;
+
 
 protected:
 

@@ -268,8 +268,10 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
 
     conn = (netlev_conn_t*) calloc(1, sizeof(netlev_conn_t));
     if (!conn) {
-        output_stderr("[%s,%d] allocate conn failed",
-                      __FILE__,__LINE__);
+        log(lsERROR,"allocate conn failed");
+        if (rdma_destroy_id(cm_id)){
+        	log(lsERROR, "rdma_destroy_qp failed (errno=%d)", errno);
+        }
         return NULL;
     }
 
@@ -282,6 +284,11 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
 
     if (netlev_init_conn_mem(conn) != 0) {
     	log(lsERROR, "failed to init connection");
+        pthread_mutex_destroy(&conn->lock);
+        if (rdma_destroy_id(cm_id)){
+        	log(lsERROR, "rdma_destroy_qp failed (errno=%d)", errno);
+        }
+    	free(conn);
         return NULL;
      }
 
@@ -303,6 +310,11 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
 
     if (rdma_create_qp(conn->cm_id, dev->pd, &qp_init_attr) != 0) {
         output_stderr("Create qp failed - %m");
+        pthread_mutex_destroy(&conn->lock);
+        netlev_dealloc_conn_mem(conn->mem);
+        if (rdma_destroy_id(cm_id)){
+        	log(lsERROR, "rdma_destroy_qp failed (errno=%d)", errno);
+        }
         free(conn);
         return NULL;
     }
@@ -312,9 +324,8 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     conn->received_counter = 0;
     conn->qp_hndl = conn->cm_id->qp;
     if (ibv_query_qp (conn->qp_hndl, &qp_attr, 12, &qp_init_attr)){
-    	output_stderr("[%s,%d] ibv query failed - %m",
-    	                     __FILE__,__LINE__);
-		free(conn);
+    	log(lsERROR,"ibv query failed - %m");
+        netlev_conn_free(conn);
 		return NULL;
     }
     log(lsTRACE,"actual inline size is %d", qp_attr.cap.max_inline_data);

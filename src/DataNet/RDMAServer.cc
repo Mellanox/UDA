@@ -86,14 +86,21 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
         string param(h->msg, h->tot_len);
         /* XXX: create a free list of request to avoid malloc/free */
         data_req = get_shuffle_req(param);
-        log(lsTRACE, "request as received by server: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d, qpnum=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset, conn->qp_hndl->qp_num);
-        data_req->conn = conn;
-        conn->received_counter ++;
 
-        /* pass to parent and wake up other threads for processing */
-        log(lsTRACE, "server received RDMA fetch request: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset);
-        state_mac.mover->insert_incoming_req(data_req);
+        if(!data_req)
+            log(lsERROR, "Error in parsing request, request %s will not be processed", param.c_str());
+        else
+        {
+			log(lsTRACE, "request as received by server: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d, qpnum=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset, conn->qp_hndl->qp_num);
+			data_req->conn = conn;
+			conn->received_counter ++;
 
+			/* pass to parent and wake up other threads for processing */
+			log(lsTRACE, "server received RDMA fetch request: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset);
+			state_mac.mover->insert_incoming_req(data_req);
+        }
+		/* data_req is freed by AIOHandler (in aio_completion_handler callback) or by DataEngine
+		   (in start(), if error occurred before callback)*/
     } else{
     	log(lsDEBUG, "received a noop" );
     }
@@ -235,12 +242,12 @@ server_cm_handler(progress_event_t *pevent, void *data)
 
                 if (!dev) {
                     dev = (struct netlev_dev *) malloc(sizeof(struct netlev_dev));
-                    memset(dev, 0, sizeof(struct netlev_dev));
                     if (dev == NULL) {
                         output_stderr("[%s,%d] alloc dev failed",
                                      __FILE__,__LINE__);
                         return;
                     }
+                    memset(dev, 0, sizeof(struct netlev_dev));
                     dev->ibv_ctx = cm_event->id->verbs; 
                     if (netlev_dev_init(dev) != 0) {
                         log(lsWARN, "netlev_dev_init failed");
@@ -279,9 +286,11 @@ server_cm_handler(progress_event_t *pevent, void *data)
                 {
                     log(lsERROR, "bad private data len %d", cm_event->param.conn.private_data_len);
                 }
-
-                memcpy(&conn->peerinfo, cm_event->param.conn.private_data, 
+                else
+                {
+                	memcpy(&conn->peerinfo, cm_event->param.conn.private_data,
                         sizeof(conn->peerinfo));
+                }
                 conn->credits = conn->peerinfo.credits;
                 log(lsTRACE,"Server conn->credits in the beginning is %d", conn->credits);
                 conn->returning = 0;
@@ -374,6 +383,7 @@ RdmaServer::RdmaServer(int port, int rdma_buf_size, void *state)
     this->data_port = port;
     this->parent   = smac->mover;
     this->data_mac = smac->data_mac;
+    memset(&this->helper, 0, sizeof(this->helper));
     
     int rdma_align = getpagesize();
     this->rdma_total_len = NETLEV_RDMA_MEM_CHUNKS_NUM * (rdma_buf_size + 2*AIO_ALIGNMENT);
@@ -401,7 +411,6 @@ RdmaServer::start_server()
     }
 
     /* Start a new thread */
-    memset(&this->helper, 0, sizeof(this->helper));
     th = &this->helper;
     th->stop = 0;
     th->pollfd = this->ctx.epoll_fd;
@@ -528,7 +537,9 @@ RdmaServer::destroy_listener()
                      &this->ctx.hdr_event_list);
 
     /* XXX: closing such things from the thread */
-    rdma_destroy_id(this->ctx.cm_id);
+    if (rdma_destroy_id(this->ctx.cm_id)){
+        log(lsERROR, "rdma_destroy_id failed");
+    }
     rdma_destroy_event_channel(this->ctx.cm_channel);
     pthread_mutex_unlock(&this->ctx.lock);
     return 0;

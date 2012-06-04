@@ -120,6 +120,8 @@ void* mainThread(void* data)
     }
     delete[] pArgs->argv;
     delete pArgs;
+
+    return NULL;
 }
 
 

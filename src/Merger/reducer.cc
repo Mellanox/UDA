@@ -53,8 +53,14 @@ void reduce_downcall_handler(const string & msg)
 	hadoop_cmd = (hadoop_cmd_t*) malloc(sizeof(hadoop_cmd_t));
 	memset(hadoop_cmd, 0, sizeof(hadoop_cmd_t));
 
-	parse_hadoop_cmd(msg, *hadoop_cmd);
-
+	/* if hadoop command could not be parsed correctly */
+	if(!parse_hadoop_cmd(msg, *hadoop_cmd))
+	{
+		log(lsFATAL, "Hadoop's command  - %s could not be parsed", msg);
+		free_hadoop_cmd(*hadoop_cmd);
+		free(hadoop_cmd);
+		return;
+	}
 	log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd->count - 1, (int)hadoop_cmd->header);
 
 	static const int DIRS_START = 5;
@@ -74,6 +80,8 @@ void reduce_downcall_handler(const string & msg)
 						numBuffers,
 						&merging_sm.mop_pool)) {
 			log(lsFATAL, "failed to create Map Output memory pool");
+			free_hadoop_cmd(*hadoop_cmd);
+			free(hadoop_cmd);
 			exit(-1);
 		}
 
@@ -140,6 +148,7 @@ void reduce_downcall_handler(const string & msg)
 
 		pthread_mutex_lock(&g_task->merge_man->lock);
 		g_task->merge_man->fetch_list.push_back(req);
+
 		pthread_cond_broadcast(&g_task->merge_man->cond);
 		pthread_mutex_unlock(&g_task->merge_man->lock);
 
@@ -160,6 +169,7 @@ void reduce_downcall_handler(const string & msg)
 		write_log(g_task->reduce_log, DBG_CLIENT,
 				"Got 1 more fetch request, total is %d",
 				++g_task->total_java_reqs);
+
 		break;
 
 	case FINAL_MSG:
@@ -174,6 +184,11 @@ void reduce_downcall_handler(const string & msg)
 
 	case EXIT_MSG:
 		finalize_reduce_task(g_task);
+		free_hadoop_cmd(*hadoop_cmd);
+		free(hadoop_cmd);
+		break;
+
+	default:
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
 		break;

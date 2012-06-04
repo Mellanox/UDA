@@ -59,7 +59,7 @@ AIOHandler::~AIOHandler() {
 		io_destroy(_context);
 	}
 	pthread_mutex_destroy(&_cbRowLock);
-	free(_cbRow);
+	delete[] _cbRow;
 
 }
 
@@ -93,11 +93,6 @@ int AIOHandler::prepare_write(int fd, uint64_t fileOffset, size_t sizeToWrite, c
 }
 
 bool AIOHandler::validateAligment(long fileOffset, size_t size, char* buff) {
-	if (size < 0) {
-		log(lsERROR,"AIO parameter is not legal: size<0");
-		return false;
-	}
-
 	int mod;
 	mod = fileOffset&ALIGMENT_MASK;
 	if (mod) {

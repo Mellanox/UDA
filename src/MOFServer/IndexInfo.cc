@@ -54,6 +54,7 @@ bool DataEngine::read_records(partition_table_t* ifile)
 
     if (fstat(fp, &file_stat) < 0) {
 		log(lsERROR, "get stat failed - filename: %s - %m",idx_fname.c_str());
+		close(fp);
         return false;
 	}
 
@@ -61,6 +62,7 @@ bool DataEngine::read_records(partition_table_t* ifile)
     byteRec = (uint8_t *) malloc(ifile->total_size);
     if (!byteRec) {
     	log(lsERROR, "failed to allocated memory for reading map index file, file path=%s", ifile->idx_path.c_str());
+    	close(fp);
     	return false;
     }
     writtenBytes = read(fp, byteRec, ifile->total_size);
@@ -101,13 +103,12 @@ bool DataEngine::read_records(partition_table_t* ifile)
 }
 
 
-DataEngine::DataEngine(void *mem, size_t total_size,
-                       size_t chunk_size, 
+DataEngine::DataEngine(void *mem,
                        supplier_state_t *state,
                        const char *path, int mode, int rdma_buf_size, struct rlimit kernel_fd_rlim)
 {
 
-	prepare_tables(mem, total_size, chunk_size, rdma_buf_size);
+	prepare_tables(mem, rdma_buf_size);
 
     INIT_LIST_HEAD(&this->comp_mof_list);
 
@@ -193,8 +194,6 @@ DataEngine::cleanup_tables()
 
 void 
 DataEngine::prepare_tables(void *mem, 
-                           size_t total_size, 
-                           size_t chunk_size, 
                            int rdma_buf_size)
 {
     char *data=(char*)mem;
@@ -225,6 +224,7 @@ DataEngine::prepare_tables(void *mem,
 DataEngine::~DataEngine()
 {
     cleanup_tables();
+    delete _aioHandler;
 }
 
 /**
@@ -248,21 +248,24 @@ DataEngine::start()
 				pthread_mutex_lock(&state_mac->mover->in_lock);
 				comp = NULL;
 				comp = list_entry(this->comp_mof_list.next, typeof(*comp), list);
-				list_del(&comp->list);
-				pthread_mutex_unlock(&this->state_mac->mover->in_lock);
 
-			if (comp) {
-				string jobid(comp->jobid);
-				string mapid(comp->mapid);
+				if (comp) {
+					list_del(&comp->list);
+					pthread_mutex_unlock(&this->state_mac->mover->in_lock);
 
-				rc = read_mof_index_records(jobid, mapid);
-				if (rc) {
-					log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid.c_str(), mapid.c_str());
+					string jobid(comp->jobid);
+					string mapid(comp->mapid);
+
+					rc = read_mof_index_records(jobid, mapid);
+					if (rc) {
+						log(lsERROR,"failed to read records for MOF's index while processing MOF completion event: jobid=%s, mapid=%s", jobid.c_str(), mapid.c_str());
+					}
+					free (comp->jobid);
+					free (comp->mapid);
+					free (comp);
 				}
-				free (comp->jobid);
-				free (comp->mapid);
-				free (comp);
-			}
+				else
+					pthread_mutex_unlock(&this->state_mac->mover->in_lock);
 		}
 
 		 // Process new shuffle requests
@@ -280,10 +283,12 @@ DataEngine::start()
             	if (req->chunk_size > this->rdma_buf_size) {
             		log(lsERROR, "shuffle request chunk size is larger than rdma buffer(chunk_size=%ld rdma_buf_size=%ld)", req->chunk_size, this->rdma_buf_size);
             		// TODO: report TT for task failure
+            		delete req;
             	}
             	else if (process_shuffle_request(req)) {
             		log(lsERROR, "Fail to process shuffle request - JOBID=%s REDUCEID=%d offset=%lld", req->m_jobid.c_str(), req->reduceID, req->map_offset);
-            		// TODO: report TT for task failure
+            		// TODO: report TT for task failure & add request's retransmit mechanism.
+            		delete req;
             	}
             }
         }

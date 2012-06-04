@@ -136,13 +136,10 @@ class DataEngine
 public:
     supplier_state_t    *state_mac;
     struct list_head     comp_mof_list;
-    int                  num_chunks;
-    size_t               chunk_size;
     bool                 stop;
     int                  rdma_buf_size;
 
-    DataEngine(void *mem, size_t total_size,
-               size_t chunk_size, supplier_state_t *state,
+    DataEngine(void *mem,supplier_state_t *state,
                const char *path, int mode, int rdma_buf_size, struct rlimit kernel_fd_rlim);
     ~DataEngine();
 
@@ -241,7 +238,7 @@ private:
     chunk_t* occupy_chunk();
 
     /* Initialize the cache tables with provided memory */
-    void prepare_tables(void *mem, size_t total_size, size_t chunk_size, int rdma_buf_size);
+    void prepare_tables(void *mem, int rdma_buf_size);
 
     /*
      * 1) cleanJob for all jobs

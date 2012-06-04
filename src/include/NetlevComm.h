@@ -58,10 +58,6 @@ typedef struct netlev_thread {
     volatile int     stop;
     int	             pollfd;
     void            *context;
-    JNIEnv          *jniEnv;
-
-    netlev_thread() : jniEnv(NULL) {}
-
 } netlev_thread_t;
 
 void dprint(char *s, char *fmt, ...);

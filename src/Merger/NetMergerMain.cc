@@ -28,6 +28,8 @@ using namespace std;
 int netlev_dbg_flag = 0;
 uint32_t wqes_perconn = 256;
 
+JNIEnv *jniEnv;
+
 
 /* merger state machine */
 merging_state_t merging_sm;

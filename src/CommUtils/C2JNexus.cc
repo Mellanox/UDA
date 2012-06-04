@@ -172,14 +172,14 @@ void free_hadoop_cmd(hadoop_cmd_t &cmd_struct)
     }
 }
 
-void parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
+bool parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
 {
     /**
      * format of command from hadoop:
      * "no of (header+params):header:param1:param2:..."
      */
-    size_t start, end;
-    int i;
+    size_t start;
+    int i, end;
     
     start = end = i = 0;
     cmd_struct.params = NULL;
@@ -188,11 +188,12 @@ void parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
     if (cmd.size() == 0) {
         cmd_struct.count = 1;
         cmd_struct.header= EXIT_MSG;
-        return; 
+        return true;
     }
 
     /* num of argument */
     end = cmd.find(':');
+    if(end == cmd.npos) return false;
     int count = atoi(cmd.substr(start, end).c_str());
     cmd_struct.count = count;
 
@@ -201,24 +202,26 @@ void parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
     end = cmd.find(':', start);
     if (end == cmd.npos) {
         cmd_struct.header = (cmd_item) atoi(cmd.substr(start).c_str());
-        return;
+        return false;
     } else {
         cmd_struct.header = (cmd_item) atoi(cmd.substr(start, end-start).c_str());
     }
 
     /* the rest of arguments */
-    char **params = (char **) malloc((count - 1) * sizeof(char *));
+    cmd_struct.params = (char **) malloc((count - 1) * sizeof(char *));
 
     start = ++end;
     while (i < count - 2) {
         end = cmd.find(':', start);
+        if(end == cmd.npos) return false;
         string tmp = cmd.substr(start, end - start);
-        params[i] = strdup(tmp.c_str());
+        cmd_struct.params[i] = strdup(tmp.c_str());
         start = ++end;
         ++i;
     }
-    params[i] = strdup(cmd.substr(start).c_str());
-    cmd_struct.params = params; 
+    cmd_struct.params[i] = strdup(cmd.substr(start).c_str());
+
+    return true;
 }
 
 

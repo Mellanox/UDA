@@ -61,7 +61,7 @@ typedef struct netlev_option {
 
 int parse_options(int argc, char *argv[], netlev_option_t *op);
 void free_hadoop_cmd(hadoop_cmd_t &);
-void parse_hadoop_cmd(const string &, hadoop_cmd_t &);
+bool parse_hadoop_cmd(const string &, hadoop_cmd_t &);
 
 #endif
 

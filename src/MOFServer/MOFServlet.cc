@@ -12,7 +12,7 @@
 */
 
 #include <dirent.h>
-
+#include <memory>
 #include "IOUtility.h"
 #include "MOFServlet.h"
 
@@ -21,39 +21,48 @@ using namespace std;
 /* Parse param into a shuffle_req_t */
 shuffle_req_t* get_shuffle_req(const string &param)
 {
-    size_t start, end;
-    shuffle_req_t *sreq;
+    size_t start;
+    int end;
+    shuffle_req_t *sreq = new shuffle_req_t();
+    auto_ptr<shuffle_req_t> my_auto_ptr ( sreq );
     
-    start = end = 0;
-    sreq = new shuffle_req_t();
+    log (lsERROR, "shuffle request = %s", param.c_str());
+
 
     end = param.find(':');
+    if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
     sreq->m_jobid = param.substr(0, end);
 
     start = ++end;
     end = param.find(':', start);
+    if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
     sreq->m_map = param.substr(start, end - start);
 
     start = ++end;
     end = param.find(':', start);
+    if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
     sreq->map_offset = atoi(param.substr(start, end - start).c_str());
 
     start = ++end;
     end = param.find(':', start);
+    if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
     sreq->reduceID = atoi(param.substr(start, end - start).c_str());
 
     start = ++end;
     end = param.find(':', start);
+    if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
     sreq->remote_addr = atoll(param.substr(start, end - start).c_str());
 
     start = ++end;
     end = param.find(':', start);
+    if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
     sreq->freq = atoll(param.substr(start, end - start).c_str());
 
     start = ++end;
-    end = param.find(':', start);
-    sreq->chunk_size = atoi(param.substr(start, end - start).c_str());
+    int param_lenght = param.length();
+    sreq->chunk_size = atoi(param.substr(start, param_lenght - start).c_str());
 
+    my_auto_ptr.release();
     return sreq;
 }
 

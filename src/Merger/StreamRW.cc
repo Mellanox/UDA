@@ -381,13 +381,12 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 int BaseSegment::nextKV() {
     kbytes = vbytes = 0;
 
-	if (eof || byte_read >= this->kv_output->total_len) {
-		log(lsERROR, "Reader: End of Stream - byte_read=%ll total_len=%ll", byte_read, this->kv_output->total_len);
-        return 0;
-    }
-
     /* in mem map output */
 	if (kv_output != NULL) {
+		if (eof || byte_read >= this->kv_output->total_len) {
+			log(lsERROR, "Reader: End of Stream - byte_read=%ll total_len=%ll", byte_read, this->kv_output->total_len);
+	        return 0;
+	    }
     	return nextKVInternal(in_mem_data);
 
     } else { //on-disk map output
@@ -594,7 +593,7 @@ bool BaseSegment::join(char *src, const int32_t src_len) {
 }
 
 AioSegment::AioSegment(KVOutput* kvOutput, AIOHandler* aio,
-		const char* filename) :
+	const char* filename) :
 	BaseSegment(kvOutput) {
 	log(lsDEBUG, "IDAN AioSegment CTOR this=%llu , filename=%s", (uint64_t)this, filename);
 	this->aio = aio;
@@ -602,14 +601,15 @@ AioSegment::AioSegment(KVOutput* kvOutput, AIOHandler* aio,
 	if (this->fd < 0) {
 		log(lsERROR, "cannot open file: %s - %m", filename);
 	}
+	else
+	{
+		struct stat st;
+		fstat(fd, &st);
+		this->kv_output->total_len = st.st_size;
+		log(lsTRACE, "IDAN lpq output file %s is open - size=%lld", filename, st.st_size)
 
-	struct stat st;
-	fstat(fd, &st);
-	this->kv_output->total_len = st.st_size;
-	log(lsTRACE, "IDAN lpq output file %s is open - size=%lld", filename, st.st_size)
-
-	log(lsDEBUG, "IDAN AioSegment CTOR finish this=%llu , filename=%s", (uint64_t)this, filename);
-
+		log(lsDEBUG, "IDAN AioSegment CTOR finish this=%llu , filename=%s", (uint64_t)this, filename);
+	}
 }
 
 void AioSegment::send_request() {

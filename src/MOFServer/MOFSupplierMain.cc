@@ -35,7 +35,13 @@ void mof_downcall_handler(const std::string & msg)
 
     /* 1. Extract the command from Java */
     hadoop_cmd_t hadoop_cmd;
-    parse_hadoop_cmd(msg, hadoop_cmd);
+
+    /* if hadoop command could not be parsed correctly */
+	if(!(parse_hadoop_cmd(msg, hadoop_cmd)))
+	{
+		log(lsFATAL, "Hadoop's command  - %s could not be parsed", msg);
+		return;
+	}
 
     log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd.count - 1, (int)hadoop_cmd.header);
 
@@ -83,6 +89,8 @@ void mof_downcall_handler(const std::string & msg)
         /* pthread_mutex_lock(&state_mac.sm_lock);
         pthread_cond_broadcast(&state_mac.cond);
         pthread_mutex_unlock(&state_mac.sm_lock); */
+
+    /* 'comp' var's memory is not freed because it will be removed in Katya's next commit */
 
     } else if (hadoop_cmd.header == INIT_MSG) {
         log(lsINFO, "===>>> we got INIT COMMAND");
@@ -172,8 +180,6 @@ int MOFSupplier_main(int argc, char *argv[])
      * -- dynamically triggered by signals
      */
     state_mac.data_mac = new DataEngine(state_mac.mover->rdma->rdma_mem,
-                                        state_mac.mover->rdma->rdma_total_len,
-                                        state_mac.mover->rdma->rdma_chunk_len,
                                         &state_mac, /* op.base_path */ NULL, op.mode, op.buf_size, open_files_limit);
 
     return 0;
