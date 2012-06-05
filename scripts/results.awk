@@ -26,11 +26,16 @@ BEGIN {
 /Running job:/{ 
 	jobstart_ts= getDateValue($2)
 	start_time_str=$1","$2
+	mapFlag=0
 }
 
-/map 100% reduce 0%/ { 
+/map 100%/ { 
+	if ( mapFlag == 0 ){
 	mapend_ts=getDateValue($2);
 	mapTime=mapend_ts-jobstart_ts
+	print "aaaaaaaaaaa"
+	mapFlag=1
+	}
  }
 
 /Job complete:/ {
