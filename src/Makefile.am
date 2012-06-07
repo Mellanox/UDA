@@ -1,7 +1,7 @@
 #* 
 AUTOMAKE_OPTIONS = subdir-objects
 
-ACLOCAL_AMFLAGS = -I ../utils/m4
+ACLOCAL_AMFLAGS = -I ./build/utils/m4
 AM_LDFLAGS = -rdynamic
 JDK = $(JAVA_HOME)
 AM_CPPFLAGS = $(INCLUDE_DIR) -I$(top_srcdir) -I. -I$(top_srcdir)/include \

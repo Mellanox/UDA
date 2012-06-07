@@ -56,7 +56,7 @@ AM_INIT_AUTOMAKE(foreign no-dist)
 AC_CONFIG_FILES([Makefile])
 
 
-AC_CONFIG_MACRO_DIR([../utils/m4])
+AC_CONFIG_MACRO_DIR([./build/utils/m4])
 
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
