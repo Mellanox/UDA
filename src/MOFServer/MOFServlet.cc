@@ -25,9 +25,6 @@ shuffle_req_t* get_shuffle_req(const string &param)
     int end;
     shuffle_req_t *sreq = new shuffle_req_t();
     auto_ptr<shuffle_req_t> my_auto_ptr ( sreq );
-    
-    log (lsERROR, "shuffle request = %s", param.c_str());
-
 
     end = param.find(':');
     if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
