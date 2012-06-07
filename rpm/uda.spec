@@ -1,15 +1,12 @@
 
-%define lib_target  %{_libdir}
-%define uda_dirname  /usr/uda
+%define lib_target  %{_libdir}/uda
+#%define uda_dirname  %{lib_target}
+%define doc_dir  /usr/share/doc/%{name}-%{version}/
 
 #%define uda_lib   libuda.so
 %define uda_lib   libhadoopUda.so
 %define uda_jar   uda.jar
-%define uda_xml   mapred-site.xml
-%define uda_inst  install-uda.sh
-%define uda_env   uda-env.sh
-
-# %define uda_env_str export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:{uda_dirname}/%{uda_jar}
+%define uda_readme   README
 
 
 %define hname hadoop
@@ -39,18 +36,18 @@
 
 Name:           libuda
 Version:        3.0.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        libuda is an RDMA plugin for Hadoop Acceleration
 Vendor:         Mellanox
+Packager:       Avner BenHanoch <avnerb@mellanox.com>
 
 Group:          Acceleration
 License:        Mellanox
 URL:            http://www.mellanox.com/
 Source0:        %{uda_lib}
 Source1:        %{uda_jar}
-Source2:        %{uda_xml}
-Source3:        %{uda_inst}
-Source4:        %{uda_env}
+Source2:        %{uda_readme}
+
 #change-log
 #license/eula
 
@@ -62,7 +59,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 #BuildArch:      noarch
 
 #BuildRequires:  
-Requires:       librdmacm, libibverbs, hadoop
+Requires:       librdmacm, libibverbs
 
 
 %description
@@ -81,47 +78,20 @@ Mellanox UDA is collaboratively developed with Auburn University.
 %build
 
 %install
-#rm -rf $RPM_BUILD_ROOT
-#make install DESTDIR=$RPM_BUILD_ROOT
-
 
 rm -rf $RPM_BUILD_ROOT
 %__install -d -m 0755 $RPM_BUILD_ROOT%{lib_target}
-%__install -d -m 0755 $RPM_BUILD_ROOT%{uda_dirname}
+%__install -d -m 0755 $RPM_BUILD_ROOT%{doc_dir}
 
 install -m 0755 %{SOURCE0} $RPM_BUILD_ROOT%{lib_target}/%{uda_lib}
-install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{uda_dirname}/%{uda_jar}
-install -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{uda_dirname}/%{uda_xml}
-install -m 0755 %{SOURCE3} $RPM_BUILD_ROOT%{uda_dirname}/%{uda_inst}
-install -m 0644 %{SOURCE4} $RPM_BUILD_ROOT%{uda_dirname}/%{uda_env}
-
-# echo export HADOOP_CLASSPATH=\$HADOOP_CLASSPATH:{uda_dirname}/%{uda_jar} > $RPM_BUILD_ROOT%{uda_dirname}/%{uda_inst}
-# echo %{uda_env_str} > $RPM_BUILD_ROOT%{uda_dirname}/%{uda_inst}
+install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{lib_target}/%{uda_jar}
+install -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{doc_dir}/%{uda_readme}
 
 
 %post
-bash $RPM_BUILD_ROOT%{uda_dirname}/%{uda_inst} \
-  --distro-dir=$RPM_SOURCE_DIR \
-  --build-dir=$PWD/build/%{name}-%{version} \
-  --src-dir=$RPM_BUILD_ROOT%{src_hadoop} \
-  --lib-dir=$RPM_BUILD_ROOT%{lib_hadoop} \
-  --system-lib-dir=%{_libdir} \
-  --etc-dir=$RPM_BUILD_ROOT%{etc_hadoop} \
-  --prefix=$RPM_BUILD_ROOT \
-  --doc-dir=$RPM_BUILD_ROOT%{doc_hadoop} \
-  --native-build-string=%{hadoop_arch} \
-  --installed-lib-dir=%{lib_hadoop} \
-  --uda-dir=%{uda_dirname} \
-  
-  
-  
-#  --uda-hadoop-conf-dir=$UDA_HADOOP_CONF_DIR \
-#--uda-hadoop-conf-dir=/etc/hadoop/conf \
-
 
 
 %postun
-# rm -rf %{uda_dirname}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -131,9 +101,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 %doc
 %{lib_target}/%{uda_lib}
-%{uda_dirname}/%{uda_jar}
-%{uda_dirname}/%{uda_xml}
-%{uda_dirname}/%{uda_inst}
-%{uda_dirname}/%{uda_env}
+%{lib_target}/%{uda_jar}
+%{doc_dir}/%{uda_readme}
 
 %changelog
