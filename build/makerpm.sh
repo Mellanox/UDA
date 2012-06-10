@@ -11,5 +11,5 @@ make -C ../mlx clean all
 cp ../src/.libs/libhadoopUda.so .
 cp ../mlx/uda.jar .
 
-./rpmbuild -bb uda.spec
+rpmbuild -bb uda.spec
 cd -
