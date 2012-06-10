@@ -50,8 +50,8 @@ function build {
 
 if test -z "$1"
 then
-	# if no paramters were passed to script: build all hadoops in pwd
-	for f in hadoop-*;
+	# if no paramters were passed to script: build all uda hadoops in cwd
+	for f in hadoop-*-uda;
 	do
 		build $f
 	done
