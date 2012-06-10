@@ -1,78 +1,96 @@
-<?xml version="1.0"?>
-<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
-<configuration>
 
-    <property>
+#
+# Mellanox UDA, a software plugin, accelerates Hadoop network and improves
+# the scaling of Hadoop clusters executing data analytics intensive applications.
+# A novel data moving protocol which uses RDMA in combination with an efficient 
+# merge-sort algorithm enables Hadoop clusters based on Mellanox InfiniBand and 
+# 10GbE and 40GbE RoCE (RDMA over Converged Ethernet) adapter cards to efficiently 
+# move data between servers accelerating the Hadoop framework.
+# Mellanox UDA is collaboratively developed with Auburn University.  
+#
+
+#in order to run UDA, you'll need:
+#1. add the following two lines to the end of your hadoop-env.sh
+	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda.jar
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/uda/
+
+
+#2. merge the following lines into your mapred-site.xml
+	<?xml version="1.0"?>
+	<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+	<configuration>
+
+		<property>
 		<name>mapred.tasktracker.shuffle.provider.plugin</name>
-		<value>com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin</value>	
-		<description>
-			represents plugin for shuffle at TaskTracker side 
-			default value is: 
-			(empty string)
-			You can also try: 
-			com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin
-		</description>
-	</property>
-	
-    <property>
-		<name>mapred.reducetask.shuffle.consumer.plugin</name>
-		<value>com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin</value>
-		<description>
-			represents plugin for shuffle at ReduceTask side 
-			default value is: 
-			org.apache.hadoop.mapred.ReduceCopier
-			You can also try: 
-			com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin
-		</description>
-	</property>
+			<value>com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin</value>	
+			<description>
+				represents plugin for shuffle at TaskTracker side 
+				default value is: 
+				(empty string)
+				You can also try: 
+				com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin
+			</description>
+		</property>
 		
-	<property>
-		<name>mapred.tasktracker.dns.interface</name>
-		<value>ib0</value>
-	</property>
-	
-	<property>
-		<name>mapred.rdma.log.dir</name>
-		<value>logs/</value>
-	</property>
-	
-	<property>
-		<name>mapred.uda.log.tracelevel</name>
-            <description>level of debug prints in uda logs:
-            	NONE -> 0,
-				FATAL -> 1,
-				ERROR -> 2,
-				WARN -> 3,
-				INFO -> 4,
-				DEBUG -> 5,
-				TRACE -> 6,
-				ALL -> 7,         
-            </description>
-		<value>4</value>
-	</property>
-	
-	<property>
-		<name>mapred.rdma.buf.size</name>
-            <!-- used also by the aio operations-->
-            <!-- the value entered should be alligned to 4 -->
-			<!-- the value entered is multiplied by K -->
-		<value>128</value>
-	</property>
-	
-	<property>
-		<name>mapred.rdma.cma.port</name>
-		<value>9011</value>
-	</property>
-	
-	<property>
-		<name>mapred.rdma.wqe.per.conn</name>
-		<value>1024</value>
-	</property>
+		<property>
+			<name>mapred.reducetask.shuffle.consumer.plugin</name>
+			<value>com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin</value>
+			<description>
+				represents plugin for shuffle at ReduceTask side 
+				default value is: 
+				org.apache.hadoop.mapred.ReduceCopier
+				You can also try: 
+				com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin
+			</description>
+		</property>
+			
+		<property>
+			<name>mapred.tasktracker.dns.interface</name>
+			<value>ib0</value>
+		</property>
+		
+		<property>
+			<name>mapred.rdma.log.dir</name>
+			<value>logs/</value>
+		</property>
+		
+		<property>
+			<name>mapred.uda.log.tracelevel</name>
+				<description>level of debug prints in uda logs:
+					NONE -> 0,
+					FATAL -> 1,
+					ERROR -> 2,
+					WARN -> 3,
+					INFO -> 4,
+					DEBUG -> 5,
+					TRACE -> 6,
+					ALL -> 7,         
+				</description>
+			<value>4</value>
+		</property>
+		
+		<property>
+			<name>mapred.rdma.buf.size</name>
+				<!-- used also by the aio operations-->
+				<!-- the value entered should be alligned to 4 -->
+				<!-- the value entered is multiplied by K -->
+			<value>128</value>
+		</property>
+		
+		<property>
+			<name>mapred.rdma.cma.port</name>
+			<value>9011</value>
+		</property>
+		
+		<property>
+			<name>mapred.rdma.wqe.per.conn</name>
+			<value>1024</value>
+		</property>
 
-	<property>
-		<name>mapred.netmerger.merge.approach</name>
-		<value>1</value>
-	</property>
-	
-</configuration>
+		<property>
+			<name>mapred.netmerger.merge.approach</name>
+			<value>1</value>
+		</property>
+		
+	</configuration>
 
