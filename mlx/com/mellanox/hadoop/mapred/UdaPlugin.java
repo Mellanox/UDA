@@ -3,9 +3,12 @@ import org.apache.hadoop.mapred.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.management.MemoryType;
+import java.lang.management.MemoryUsage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
+import java.util.logging.MemoryHandler;
 
 import org.apache.hadoop.mapred.Reporter;
 
@@ -91,21 +94,21 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mCmdParams.clear();
 		
 		mCmdParams.add("-w");
-		mCmdParams.add(mjobConf.get("mapred.rdma.wqe.per.conn"));
+		mCmdParams.add(mjobConf.get("mapred.rdma.wqe.per.conn", "256"));
 		mCmdParams.add("-r");
-		mCmdParams.add(mjobConf.get("mapred.rdma.cma.port"));      
+		mCmdParams.add(mjobConf.get("mapred.rdma.cma.port", "9011"));      
 		mCmdParams.add("-a");
-		mCmdParams.add(mjobConf.get("mapred.netmerger.merge.approach"));
+		mCmdParams.add(mjobConf.get("mapred.netmerger.merge.approach", "1"));
 		mCmdParams.add("-m");
 		mCmdParams.add("1");
 		
 		mCmdParams.add("-g");
-		mCmdParams.add(mjobConf.get("mapred.rdma.log.dir","default") + mLogdirTail);
+		mCmdParams.add(mjobConf.get("mapred.rdma.log.dir","logs/") + mLogdirTail);
 		
 		mCmdParams.add("-s");
-		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size"));
+		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
 		mCmdParams.add("-t");
-		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel"));
+		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "4"));
 
 	}
 
@@ -114,7 +117,36 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		super(jobConf);
 		this.udaShuffleConsumer = udaShuffleConsumer;
 		this.reduceTask = reduceTask;
+		
+		int maxRdmaBufferSize= jobConf.getInt("mapred.rdma.buf.size", 1024);
+		int minRdmaBufferSize=jobConf.getInt("mapred.rdma.buf.size.min", 16);
+		long maxHeapSize = Runtime.getRuntime().maxMemory();
+		float shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", 0.7f);
+		long shuffleMemorySize = (long)(maxHeapSize * shuffleInputBufferPercent);
+		
+		LOG.debug("UDA: numMaps=" + numMaps + 
+				", maxRdmaBufferSize=" + maxRdmaBufferSize + "KB, " + 
+				"minRdmaBufferSize=" + minRdmaBufferSize + "KB, " +
+				"maxHeapSize=" + maxHeapSize + "B, " +
+				"shuffleInputBufferPercent=" + shuffleInputBufferPercent + 
+				"==> shuffleMemorySize=" + shuffleMemorySize + "B");
+		
+		LOG.info("UDA: user prefer rdma.buf.size=" + maxRdmaBufferSize + "KB");
+		LOG.info("UDA: minimum rdma.buf.size=" + minRdmaBufferSize + "KB");
 
+		int rdmaBufferSize=maxRdmaBufferSize * 1024; // for comparing rdmaBuffSize to shuffleMemorySize in Bytes
+		if (shuffleMemorySize < numMaps * rdmaBufferSize * 2 ) { // double buffer
+			rdmaBufferSize= (int)(shuffleMemorySize / (numMaps * 2) );
+			//*** Can't get pagesize from java, avoid using hardcoded pagesize, c will make the alignment */ 
+		
+			if (rdmaBufferSize < minRdmaBufferSize * 1024) {
+				throw new OutOfMemoryError("UDA: Not enough memory for rdma buffers: shuffleMemorySize=" + shuffleMemorySize + "B, mapred.rdma.buf.size.min=" + minRdmaBufferSize + "KB");
+			}
+			LOG.warn("UDA: Not enough memory for rdma.buf.size=" + maxRdmaBufferSize + "KB");
+		}		
+		LOG.info("UDA: number of segments to fetch: " + numMaps);
+		LOG.info("UDA: Passing to MofSupplier rdma.buf.size=" + rdmaBufferSize + "B  (not aligned to pagesize)");
+		
 		/* init variables */
 		init_kv_bufs(); 
 		
@@ -135,8 +167,9 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(reduceId.getJobID().toString());
 		mParams.add(reduceId.toString());
 		mParams.add(jobConf.get("mapred.netmerger.hybrid.lpq.size", "0"));
-		mParams.add(jobConf.get("mapred.rdma.buf.size", "128"));	
-
+		mParams.add(Integer.toString(rdmaBufferSize)); // in Bytes
+		mParams.add(Integer.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment 
+		
 		String [] dirs = jobConf.getLocalDirs();
 		ArrayList<String> dirsCanBeCreated = new ArrayList<String>();
 		//checking if the directories can be created
@@ -403,20 +436,21 @@ class UdaPluginTT extends UdaPlugin {
 	protected void buildCmdParams() {
 		mCmdParams.clear();
 		
+	
 		mCmdParams.add("-w");
-		mCmdParams.add(mjobConf.get("mapred.rdma.wqe.per.conn"));
+		mCmdParams.add(mjobConf.get("mapred.rdma.wqe.per.conn", "256"));
 		mCmdParams.add("-r");
-		mCmdParams.add(mjobConf.get("mapred.rdma.cma.port"));      
+		mCmdParams.add(mjobConf.get("mapred.rdma.cma.port", "9011"));      
 		mCmdParams.add("-m");
 		mCmdParams.add("1");
 		
 		mCmdParams.add("-g");
-		mCmdParams.add(mjobConf.get("mapred.rdma.log.dir","default"));
+		mCmdParams.add(mjobConf.get("mapred.rdma.log.dir","logs/"));
 		
 		mCmdParams.add("-s");
-		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size"));
+		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
 		mCmdParams.add("-t");
-		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel"));
+		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "4"));
 
 	}
 

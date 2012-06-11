@@ -63,7 +63,7 @@ void reduce_downcall_handler(const string & msg)
 	}
 	log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd->count - 1, (int)hadoop_cmd->header);
 
-	static const int DIRS_START = 5;
+	static const int DIRS_START = 6;
 	switch (hadoop_cmd->header) {
 	case INIT_MSG: {
 		assert (hadoop_cmd->count -1 > 2); // sanity under debug
@@ -71,11 +71,20 @@ void reduce_downcall_handler(const string & msg)
 		g_task->job_id = strdup(hadoop_cmd->params[1]);
 		g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
 		g_task->lpq_size = atoi(hadoop_cmd->params[3]);
-		g_task->buffer_size = atoi(hadoop_cmd->params[4]) * 1024 ;//parsed in KB;
+		int buffer_size_from_java = atoi(hadoop_cmd->params[4]); // unaligned to pagesize
+		g_task->buffer_size = buffer_size_from_java - buffer_size_from_java % getpagesize(); // alignment to pagesize
+		int minBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
+
+		if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minBuffer) ) {
+			log(lsFATAL, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minBuffer);
+			exit(-1);
+		}
 
 		// init map output memory pool
 	    memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
 		int numBuffers = g_task->num_maps * RDMA_BUFFERS_PER_SEGMENT + EXTRA_RDMA_BUFFERS;
+			log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
+
 		if (create_mem_pool(g_task->buffer_size,
 						numBuffers,
 						&merging_sm.mop_pool)) {
@@ -87,8 +96,7 @@ void reduce_downcall_handler(const string & msg)
 
 	    // register RDMA buffers
 		merging_sm.client->rdma->register_mem(&merging_sm.mop_pool);
-		log(lsINFO, " AFTER RDMA BUFFERS REGISTRATION (%d buffers X %d bytes = total %ll bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
-
+		log(lsINFO, " After RDMA buffers registration (%d buffers X %d bytes = total %lld bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
 
 		if (hadoop_cmd->count -1  > DIRS_START) {
 			assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
