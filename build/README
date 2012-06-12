@@ -15,7 +15,10 @@
 	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/uda/
 
 
-#2. merge the following lines into your mapred-site.xml
+#2. TaskTracker level settings:
+#   Merge the following lines into your mapred-site.xml
+#   NOTE: this must be in mapred-*.xml, because it must be considered in TaskTracker initialization
+#         hence, it can't be just given per job
 	<?xml version="1.0"?>
 	<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 	<configuration>
@@ -31,27 +34,10 @@
 				com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin
 			</description>
 		</property>
-		
-		<property>
-			<name>mapred.reducetask.shuffle.consumer.plugin</name>
-			<value>com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin</value>
-			<description>
-				represents plugin for shuffle at ReduceTask side 
-				default value is: 
-				org.apache.hadoop.mapred.ReduceCopier
-				You can also try: 
-				com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin
-			</description>
-		</property>
-			
+					
 		<property>
 			<name>mapred.tasktracker.dns.interface</name>
 			<value>ib0</value>
-		</property>
-		
-		<property>
-			<name>mapred.rdma.log.dir</name>
-			<value>logs/</value>
 		</property>
 		
 		<property>
@@ -66,17 +52,40 @@
 					TRACE -> 6,
 					ALL -> 7,         
 				</description>
-			<value>4</value>
+			<value>2</value>
 		</property>
+				
+	</configuration>
+
+
+#3. Job level settings:
+#   The following are ADDITIONAL setting that must be given to any UDA job.
+#   it can be provided either in command line or in mapred-*.xml
+	<?xml version="1.0"?>
+	<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+	<configuration>
 		
 		<property>
-			<name>mapred.rdma.buf.size</name>
-				<!-- used also by the aio operations-->
-				<!-- the value entered should be alligned to 4 -->
-				<!-- the value entered is multiplied by K -->
-			<value>128</value>
+			<name>mapred.reducetask.shuffle.consumer.plugin</name>
+			<value>com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin</value>
+			<description>
+				represents plugin for shuffle at ReduceTask side 
+				default value is: 
+				org.apache.hadoop.mapred.ReduceCopier
+				You can also try: 
+				com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin
+			</description>
 		</property>
 		
+	</configuration>
+
+#4. OPTIONAL: 
+#   The following are optional parameters for UDA with their defaults
+#   Users may decide to change defaults in their environment
+	<?xml version="1.0"?>
+	<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+	<configuration>
+				
 		<property>
 			<name>mapred.rdma.cma.port</name>
 			<value>9011</value>
@@ -84,13 +93,30 @@
 		
 		<property>
 			<name>mapred.rdma.wqe.per.conn</name>
-			<value>1024</value>
+			<value>256</value>
 		</property>
-
+		
 		<property>
-			<name>mapred.netmerger.merge.approach</name>
-			<value>1</value>
+			<name>mapred.rdma.buf.size</name>
+			<value>1024</value>
+			<description>
+				Used by both UdaShuffleProvider and UdaShuffleConsumer:
+				- UdaShuffleProvider (TaskTracker): determines the RDMA&AIO Buffers size to satify Map Output's RDMA fetch requests
+				- UdaShuffleConsumer (Reducer): user prefered RDMA buffer size for fetching  map outputs
+				Size in KB and must be alligned to page size.
+			</description>
+		</property>
+		
+		<property>
+			<name>mapred.rdma.buf.size.min</name>
+			<value>32</value>
+			<description>
+				UDA reducer allocates RDMA buffers according to 'mapred.rdma.buf.size'
+				If the buffer size is too big then a smaller buffer will be used while 'mapred.rdma.buf.size.min' is the limit.
+				Bigger RDMA buffers improves the shuffle performance. 
+				Too small buffer size can sagnificantly reduce the perfomance.
+				Task will fail in case the redcuer need to use smaller buffer size than 'mapred.rdma.buf.size.min'.
+			</description>
 		</property>
 		
 	</configuration>
-
