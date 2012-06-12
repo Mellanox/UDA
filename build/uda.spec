@@ -1,12 +1,13 @@
 
-%define lib_target  %{_libdir}/uda
-#%define uda_dirname  %{lib_target}
+%define lib_target  %{_libdir}
+%define uda_dir  %{_libdir}/uda
 %define doc_dir  /usr/share/doc/%{name}-%{version}/
 
 #%define uda_lib   libuda.so
-%define uda_lib   libhadoopUda.so
-%define uda_jar   uda.jar
-%define uda_readme   README
+%define uda_lib    libhadoopUda.so
+%define uda_jar    uda.jar
+%define uda_readme README
+%define uda_lic    LICENSE.txt
 
 
 %define hname hadoop
@@ -36,21 +37,22 @@
 
 Name:           libuda
 Version:        3.0.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        libuda is an RDMA plugin for Hadoop Acceleration
 Vendor:         Mellanox
 Packager:       Avner BenHanoch <avnerb@mellanox.com>
+License:        Apache License v2.0
 
-Group:          Acceleration
-License:        Mellanox
-URL:            http://www.mellanox.com/
-Source0:        %{uda_lib}
-Source1:        %{uda_jar}
-Source2:        %{uda_readme}
 
 #change-log
 #license/eula
 
+Group:          Acceleration
+URL:            http://www.mellanox.com/
+Source0:        %{uda_lib}
+Source1:        %{uda_jar}
+Source2:        %{uda_readme}
+Source3:        %{uda_lic}
 
 
 
@@ -71,27 +73,28 @@ merge-sort algorithm enables Hadoop clusters based on Mellanox InfiniBand and
 move data between servers accelerating the Hadoop framework.
 Mellanox UDA is collaboratively developed with Auburn University.  
 
-%prep
+#%prep
 #%setup -q
 
 
-%build
+#%build
 
 %install
 
 rm -rf $RPM_BUILD_ROOT
 %__install -d -m 0755 $RPM_BUILD_ROOT%{lib_target}
+%__install -d -m 0755 $RPM_BUILD_ROOT%{uda_dir}
 %__install -d -m 0755 $RPM_BUILD_ROOT%{doc_dir}
 
 install -m 0755 %{SOURCE0} $RPM_BUILD_ROOT%{lib_target}/%{uda_lib}
-install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{lib_target}/%{uda_jar}
+install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{uda_dir}/%{uda_jar}
 install -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{doc_dir}/%{uda_readme}
+install -m 0644 %{SOURCE3} $RPM_BUILD_ROOT%{doc_dir}/%{uda_lic}
 
 
-%post
+#%post
 
-
-%postun
+#%postun
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -101,7 +104,8 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 %doc
 %{lib_target}/%{uda_lib}
-%{lib_target}/%{uda_jar}
+%{uda_dir}/%{uda_jar}
 %{doc_dir}/%{uda_readme}
+%{doc_dir}/%{uda_lic}
 
 %changelog
