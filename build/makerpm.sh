@@ -12,5 +12,5 @@ cp ../src/.libs/libhadoopUda.so .
 cp ../mlx/uda.jar .
 
 cp uda.jar libhadoopUda.so README LICENSE.txt ~/rpmbuild/SOURCES/
-rpmbuild -bb uda.spec
+rpmbuild -ba uda.spec
 cd -

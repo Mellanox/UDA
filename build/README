@@ -10,9 +10,8 @@
 #
 
 #in order to run UDA, you'll need:
-#1. add the following two lines to the end of your hadoop-env.sh
+#1. add the following line to the end of your hadoop-env.sh
 	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda.jar
-	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64/uda/
 
 
 #2. TaskTracker level settings:
