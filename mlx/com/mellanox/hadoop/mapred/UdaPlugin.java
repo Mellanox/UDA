@@ -108,7 +108,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mCmdParams.add("-s");
 		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
 		mCmdParams.add("-t");
-		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "4"));
+		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "2"));
 
 	}
 
@@ -450,7 +450,7 @@ class UdaPluginTT extends UdaPlugin {
 		mCmdParams.add("-s");
 		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
 		mCmdParams.add("-t");
-		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "4"));
+		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "2"));
 
 	}
 
