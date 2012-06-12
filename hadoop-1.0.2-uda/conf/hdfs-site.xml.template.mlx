@@ -22,8 +22,8 @@
 
 <property>
 <name>dfs.block.size</name>
-<!-- Increase default block size to 256M -->
-<value>268435456</value>
+<!-- Increase default block size to 512M -->
+<value>536870912</value>
 </property>
 
 <property>

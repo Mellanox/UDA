@@ -45,7 +45,7 @@
   </property>
   <property>
     <name>mapred.tasktracker.reduce.tasks.maximum</name>
-    <value>2</value>
+    <value>4</value>
   </property>
   <property>
     <name>mapred.map.tasks.speculative.execution</name>
@@ -57,11 +57,19 @@
   </property>
   <property>
     <name>io.sort.mb</name>
-    <value>400</value>
+    <value>1000</value>
+  </property>
+  <property>
+    <name>io.sort.record.percent</name>
+    <value>0.2</value>
+    <description>The percentage of io.sort.mb dedicated to tracking record
+    boundaries. Let this value be r, io.sort.mb be x. The maximum number
+    of records collected before the collection thread must block is equal
+    to (r * x) / 4</description>
   </property>
   <property>
     <name>mapred.child.java.opts</name>
-    <value>-Xmx1000m</value>
+    <value>-Xmx2048M</value>
   </property>
   <property>
     <name>mapred.netmerger.merge.approach</name>
@@ -94,11 +102,23 @@
   </property>
   <property>
     <name>mapred.rdma.buf.size</name>
-    <value>128</value>
+    <value>1024</value>
     <description>
-    MOFSupplier's AIO buffers size
-    RDMA buffers size
+    Used by both UdaShuffleProvider and UdaShuffleConsumer:
+    	- UdaShuffleProvider (TaskTracker): determines the RDMA&AIO Buffers size to satify Map Output's RDMA fetch requests
+    	- UdaShuffleConsumer (Reducer): user prefered RDMA buffer size for fetching  map outputs
     Size in KB and must be alligned to page size.
+    </description>
+  </property>
+  <property>
+    <name>mapred.rdma.buf.size.min</name>
+    <value>32</value>
+    <description>
+    UDA reducer allocates RDMA buffers according to 'mapred.rdma.buf.size'
+    If the buffer size is too big then a smaller buffer will be used while 'mapred.rdma.buf.size.min' is the limit.
+    Bigger RDMA buffers improves the shuffle performance. 
+    Too small buffer size can sagnificantly reduce the perfomance.
+    Task will fail in case the redcuer need to use smaller buffer size than 'mapred.rdma.buf.size.min'.
     </description>
   </property>
   <property>
