@@ -277,7 +277,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
    * Map from taskId -> TaskInProgress.
    */
   Map<TaskAttemptID, TaskInProgress> runningTasks = null;
-  Map<JobID, RunningJob> runningJobs = new TreeMap<JobID, RunningJob>();
+  /*public*/ Map<JobID, RunningJob> runningJobs = new TreeMap<JobID, RunningJob>();
   private final JobTokenSecretManager jobTokenSecretManager
     = new JobTokenSecretManager();
 
@@ -285,7 +285,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     return jobTokenSecretManager;
   }
 
-  RunningJob getRunningJob(JobID jobId) {
+  /*public*/ RunningJob getRunningJob(JobID jobId) {
     return runningJobs.get(jobId);
   }
 
@@ -601,7 +601,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     + TaskTracker.LOCAL_SPLIT_FILE;
   }
 
-  static String getIntermediateOutputDir(String user, String jobid,
+  /*public*/ static String getIntermediateOutputDir(String user, String jobid,
       String taskid) {
     return getLocalTaskDir(user, jobid, taskid) + Path.SEPARATOR
     + TaskTracker.OUTPUT;
@@ -3704,7 +3704,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       return f;
     }
 
-    JobConf getJobConf() {
+    /*public*/ JobConf getJobConf() {
       return jobConf;
     }
 
