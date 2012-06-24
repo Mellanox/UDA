@@ -75,8 +75,8 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 	   * invoked at the end of TaskTracker.jobDone
 	   * @param action The action with the job
 	   */
-	public void jobDone(KillJobAction action) {
-		rdmaChannel.jobOver(action.getJobID().toString());
+	public void jobDone(JobID jobID) {
+		rdmaChannel.jobOver(jobID.toString());
 	}
 	
 }
