@@ -304,17 +304,6 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 						URI u = URI.create(event.getTaskTrackerHttp());
 						String host = u.getHost();
 						TaskAttemptID taskId = event.getTaskAttemptId();
-						URL mapOutputLocation = new URL(event.getTaskTrackerHttp() + 
-						"/mapOutput?job=" + taskId.getJobID() +
-						"&map=" + taskId + 
-						"&reduce=" + reduceTask.getPartition());
-						List<MapOutputLocation> loc = mapLocations.get(host);
-						if (loc == null) {
-							loc = Collections.synchronizedList
-							(new LinkedList<MapOutputLocation>());
-							mapLocations.put(host, loc);
-						}
-						loc.add(new MapOutputLocation(taskId, host, mapOutputLocation));
 						rdmaChannel.sendFetchReq(host, taskId.getJobID().toString()  , taskId.toString());  // Avner: notify RDMA
 						numNewMaps ++;
 					}
