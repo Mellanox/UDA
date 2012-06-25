@@ -103,19 +103,15 @@ public abstract class ShuffleProviderPlugin {
 		return taskTracker.getJobConf();
 	}
 	
+	protected JobConf getJobConf(JobID jobid) {
+		return taskTracker.runningJobs.get(jobid).getJobConf();
+	}
+	
 	protected JobTokenSecretManager getJobTokenSecretManager() {
 		return taskTracker.getJobTokenSecretManager();
 	}
 
 	protected static String getIntermediateOutputDir(String user, String jobid, String taskid) {
 		return TaskTracker.getIntermediateOutputDir(user, jobid, taskid);
-	}
-
-	protected Map<JobID, RunningJob> getRunningJobs() {
-		return taskTracker.runningJobs;
-	}
-
-	protected JobConf getJobConf(RunningJob runningJob) {
-		return runningJob.getJobConf();		
 	}
 }

@@ -3698,7 +3698,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   /**
    *  The datastructure for initializing a job
    */
-  public static class RunningJob{
+  static class RunningJob{
     private JobID jobid; 
     private JobConf jobConf;
     private Path localizedJobConf;
