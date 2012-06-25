@@ -18,7 +18,9 @@
 
 package org.apache.hadoop.mapred;
 
+import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.mapred.TaskTracker.RunningJob;
 import org.apache.hadoop.mapreduce.security.token.JobTokenSecretManager;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.fs.LocalDirAllocator;
@@ -93,17 +95,14 @@ public abstract class ShuffleProviderPlugin {
 	 */
 	public abstract void jobDone(JobID jobID);
 
-	/**
-	 * wraps TaskTracker.getJobConf() for serving sub-classes
-	 * @return
-	 */
+	//
+	// Utility functions for serving sub-classes that are not part of mapred package
+	//
+	
 	protected JobConf getJobConf() {
 		return taskTracker.getJobConf();
 	}
-	/**
-	 * 
-	 * @return JobTokenSecretManager from tasktracker
-	 */
+	
 	protected JobTokenSecretManager getJobTokenSecretManager() {
 		return taskTracker.getJobTokenSecretManager();
 	}
@@ -112,4 +111,11 @@ public abstract class ShuffleProviderPlugin {
 		return TaskTracker.getIntermediateOutputDir(user, jobid, taskid);
 	}
 
+	protected Map<JobID, RunningJob> getRunningJobs() {
+		return taskTracker.runningJobs;
+	}
+
+	protected JobConf getJobConf(RunningJob runningJob) {
+		return runningJob.getJobConf();		
+	}
 }
