@@ -1,6 +1,4 @@
 package com.mellanox.hadoop.mapred;
-//import KillJobAction;
-//import TaskTracker;
 
 import org.apache.hadoop.mapred.*;
 
@@ -78,8 +76,6 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 			}
 		}
 	}
-
-
 
 	  /**
 	   * The task tracker is done with this job, so we need to clean up.
