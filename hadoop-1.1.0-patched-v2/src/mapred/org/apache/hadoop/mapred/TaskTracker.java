@@ -1183,12 +1183,6 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
 
           rjob.localized = true;
         }
-        
-    	if (shuffleProviderPlugin != null) {
-    		LOG.info("notifying ShuffleProviderPlugin about jobInit: " + shuffleProviderPlugin);
-    		shuffleProviderPlugin.jobInit(rjob);
-    	}
-
       } 
     } finally {
       synchronized (rjob) {
@@ -3563,38 +3557,9 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     if (tip != null) {
       validateJVM(tip, jvmContext, taskid);
       commitResponses.remove(taskid);
-
-			if (shuffleProviderPlugin != null) {
-
-				Task task = tip.getTask();
-				if (task.isMapTask()) {
-					try {	
-						String jobid = task.getJobID().toString();
-						String tid = task.getTaskID().toString();
-						String userName = task.getUser();
-						String intermediateOutputDir = TaskTracker.getIntermediateOutputDir(userName, jobid, tid);
-
-						JobConf jobConf = tip.getJobConf();
-						//parent path for the file.out file
-						Path fout = this.localDirAllocator.getLocalPathToRead(
-								intermediateOutputDir + "/file.out", jobConf);
-
-						//parent path for the file.out.index file
-						Path fidx = this.localDirAllocator.getLocalPathToRead(
-								intermediateOutputDir + "/file.out.index", jobConf);
-
-						shuffleProviderPlugin.mapDone(userName, jobid, tid, fout, fidx);
-//*
-					} catch (DiskChecker.DiskErrorException dee) {
-						LOG.debug("TT: DiskErrorException when handling map done - probably OK (map was not created)");
-					} catch (IOException ioe) {
-						LOG.error("TT: Error when notify map done\n" + StringUtils.stringifyException(ioe));
-					}
-//*/
-
-				}
-			}
-			
+      if (shuffleProviderPlugin != null) {
+    	  shuffleProviderPlugin.taskDone(tip.getTask(), localDirAllocator);    	  
+      }			
       tip.reportDone();
     } else {
       LOG.warn("Unknown child task done: "+taskid+". Ignored.");

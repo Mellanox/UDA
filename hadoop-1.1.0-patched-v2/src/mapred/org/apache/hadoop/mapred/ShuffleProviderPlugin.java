@@ -21,6 +21,7 @@ package org.apache.hadoop.mapred;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.security.token.JobTokenSecretManager;
 import org.apache.hadoop.util.ReflectionUtils;
+import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.fs.Path;
 
 /**
@@ -77,23 +78,12 @@ public abstract class ShuffleProviderPlugin {
 	 */
 	public abstract void close();
 
-
 	/**
-	 * notification for start of a new job
-	 *  
-	 * @param rjob
-	 */
-	public abstract void jobInit(TaskTracker.RunningJob rjob);
-
-
-	/**
-	 * a map task is done.
+	 * a task is done.
+	 * invoked at the end of TaskTracker.done, sub class will check: if (task.isMapTask())
 	 * 
-	 * invoked at the end of TaskTracker.done, under: if (task.isMapTask())
-	 * 
-	 * Todo: consider class with all these fields as one argument
 	 */ 
-	public abstract void mapDone(String userName, String jobId, String taskId, Path fileOut, Path fileOutIndex);
+	public abstract void taskDone(Task task, LocalDirAllocator localDirAllocator);
 
 	/**
 	 * The task tracker is done with this job, so we need to clean up.
@@ -116,6 +106,10 @@ public abstract class ShuffleProviderPlugin {
 	 */
 	protected JobTokenSecretManager getJobTokenSecretManager() {
 		return taskTracker.getJobTokenSecretManager();
+	}
+
+	protected static String getIntermediateOutputDir(String user, String jobid, String taskid) {
+		return TaskTracker.getIntermediateOutputDir(user, jobid, taskid);
 	}
 
 }
