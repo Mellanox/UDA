@@ -16,7 +16,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TaskAttemptID;
-import org.apache.hadoop.mapreduce.security.token.JobTokenSecretManager;
 
 public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 
@@ -60,15 +59,15 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 			try {
 				String jobId = task.getJobID().toString();
 				String taskId = task.getTaskID().toString();
-				String userName = task.getUser();
-				String intermediateOutputDir = getIntermediateOutputDir(userName, jobId, taskId);
+//				String userName = task.getUser();
+				String intermediateOutputDir = getIntermediateOutputDir(jobId, taskId);
 				
 				Configuration conf = task.getConf();
 				
 				Path fout = localDirAllocator.getLocalPathToRead(intermediateOutputDir + "/file.out", conf);
 				Path fidx = localDirAllocator.getLocalPathToRead(intermediateOutputDir + "/file.out.index", conf);
 
-				rdmaChannel.notifyMapDone(userName, jobId, taskId, fout, fidx);		
+				rdmaChannel.notifyMapDone("taskTracker", jobId, taskId, fout, fidx);		
 			} catch (org.apache.hadoop.util.DiskChecker.DiskErrorException dee) {
 				LOG.debug("TT: DiskErrorException when handling map done - probably OK (map was not created)");
 			} catch (IOException ioe) {

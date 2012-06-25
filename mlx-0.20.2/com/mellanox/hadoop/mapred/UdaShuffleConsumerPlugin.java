@@ -275,9 +275,9 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 			umbilical.getMapCompletionEvents(reduceTask.getJobID(), 
 			fromEventId.get(), 
 			MAX_EVENTS_TO_FETCH,
-			reduceTask.getTaskID(), reduceTask.getJvmContext());
+			reduceTask.getTaskID());
 			TaskCompletionEvent events[] = update.getMapTaskCompletionEvents();
-			
+
 			// Check if the reset is required.
 			// Since there is no ordering of the task completion events at the 
 			// reducer, the only option to sync with the new jobtracker is to reset 

@@ -150,7 +150,8 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		/* init variables */
 		init_kv_bufs(); 
 		
-		this.mLogdirTail = "/userlogs/" + reduceTask.getTaskID().getJobID().toString() + "/"  + reduceTask.getTaskID().toString();
+		// this line should be changed for hadoop-0.20.2
+		this.mLogdirTail = "/userlogs/" + reduceTask.getTaskID().getJobID().toString() + "/"  + reduceTask.getTaskID().toString(); 
 		
 		launchCppSide(true, this); // true: this is RT => we should execute NetMerger
 
