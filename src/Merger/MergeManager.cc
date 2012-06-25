@@ -39,7 +39,7 @@ extern merging_state_t merging_sm;
 extern JNIEnv *jniEnv;
 
         
-int aio_lpq_write_completion_handler(void* data) {
+int aio_lpq_write_completion_handler(void* data, int status) {
 	lpq_aio_arg* arg = (lpq_aio_arg*)data;
 
 	pthread_mutex_lock(&arg->desc->lock);
@@ -65,7 +65,7 @@ int aio_lpq_write_completion_handler(void* data) {
 	return 0;
 }
 
-int aio_rpq_read_completion_handler(void* data) {
+int aio_rpq_read_completion_handler(void* data, int status) {
 	rpq_aio_arg* arg = (rpq_aio_arg*)data;
 	
 	pthread_mutex_lock(&arg->kv_output->lock);

@@ -35,7 +35,7 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 	 */
 	public void initialize(TaskTracker taskTracker) {
 		super.initialize(taskTracker);
-		rdmaChannel = new UdaPluginTT(taskTracker, getJobConf());
+		rdmaChannel = new UdaPluginTT(taskTracker, getJobConf(), this);
 	}
 
 	/**
@@ -86,5 +86,15 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 	public void jobDone(JobID jobID) {
 		rdmaChannel.jobOver(jobID.toString());
 	}
+	
+	JobConf getJobConfFromSuperClass(JobID jobid) {
+		return getJobConf(jobid) ;
+	}
+	
+	static String getIntermediateOutputDirFromSuperClass(String user, String jobid, String taskid) {
+ 		return ShuffleProviderPlugin.getIntermediateOutputDir(user, jobid, taskid) ;
+ 	}
+
+
 	
 }

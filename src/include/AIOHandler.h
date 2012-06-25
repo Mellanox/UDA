@@ -9,7 +9,7 @@
 #define AIO_ALIGNMENT_EXPO	(12) // alignment to 4k
 #define AIO_ALIGNMENT 		(1<<AIO_ALIGNMENT_EXPO)
 
-typedef int (*AioCallback)(void*);
+typedef int (*AioCallback)(void*, int);
 
 template<class T, void(T::*mem_fn)()>
 void* thunk(void* p)

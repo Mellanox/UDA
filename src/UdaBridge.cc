@@ -1,6 +1,7 @@
 
 #include "UdaBridge.h"
 #include "IOUtility.h"
+#include "MOFServer/IndexInfo.h"
 
 #include <errno.h>
 #include <stdlib.h>
@@ -21,6 +22,11 @@ static jweak  jweakUdaBridge; // use weak global ref for allowing GC to unload &
 static jclass jclassUdaBridge; // just casted ref to above jweakUdaBridge. Hence, has same life time
 static jmethodID jmethodID_fetchOverMessage; // handle to java cb method
 static jmethodID jmethodID_dataFromUda; // handle to java cb method
+static jmethodID jmethodID_getPathUda; // handle to java cb method
+static jfieldID fidOffset;
+static jfieldID fidRawLength;
+static jfieldID fidPartLength;
+static jfieldID fidPathMOF;
 
 
 //forward declarion until in H file...
@@ -36,6 +42,16 @@ typedef int (*main_t)(int argc, char* argv[]);
 static downcall_handler_t my_downcall_handler;
 static main_t my_main;
 static bool is_net_merger;
+
+
+
+typedef struct data_from_java
+{
+	uint64_t   offset;     /* Offset in the index file */
+	uint64_t   rawLength;  /* decompressed length of MOF */
+	uint64_t   partLength; /* compressed size of MOF partition */
+	std::string path;
+} data_from_java_t;
 
 
 //direct buffer requires java 1.4
@@ -80,6 +96,12 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
         return JNI_ERR;
     }
 
+	//dataFromUda callback
+	jmethodID_getPathUda = env->GetStaticMethodID(jclassUdaBridge, "getPathUda", "(Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/Object;");
+	if (jmethodID_getPathUda == NULL) {
+		printf("-->> In C++ java UdaBridge.jmethodID_getPathUda() callback method was NOT found\n");
+		return JNI_ERR;
+	}
 	printf("-->> In C++ java callback methods were found and cached\n");
 	return JNI_VERSION_1_4;  //direct buffer requires java 1.4
 }
@@ -242,6 +264,60 @@ extern "C" void UdaBridge_invoke_dataFromUda_callback(JNIEnv * jniEnv, jobject j
 	log(lsTRACE, "before jniEnv->CallStaticVoidMethod jniEnv=%p, jbuf=%p, len=%d", jniEnv, jbuf, len);
 	jniEnv->CallStaticVoidMethod(jclassUdaBridge, jmethodID_dataFromUda, jbuf, len);
 	log(lsTRACE, "after  jniEnv->CallStaticVoidMethod...");
+}
+
+extern "C" index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* job_id, const char* map_id, int reduceId) {
+	log(lsTRACE, "before jniEnv->CallStaticVoidMethod...");
+	jstring jstr_job, jstr_map;
+	jstr_job = jniEnv->NewStringUTF(job_id);
+	jstr_map = jniEnv->NewStringUTF(map_id); //NewStringUTF allocates a string inside the JVM which will release it
+	log(lsTRACE, "after  jniEnv->CallStaticVoidMethod...");
+	jobject jdata = jniEnv->CallStaticObjectMethod(jclassUdaBridge, jmethodID_getPathUda, jstr_job,  jstr_map, reduceId);
+	index_record *data = (index_record*) malloc(sizeof(index_record));
+
+	jclass cls_data = jniEnv->GetObjectClass(jdata);
+	if (fidOffset == NULL) {
+		fidOffset = jniEnv->GetFieldID(cls_data, "startOffset", "J");
+		 if (fidOffset == NULL) {
+			 log(lsERROR, "-->> In C++ java UdaBridge.GetFieldID() callback method for startOffset was NOT found");
+			 return NULL;
+		 }
+	 }
+
+	if (fidRawLength == NULL) {
+		fidRawLength = jniEnv->GetFieldID(cls_data, "rawLength", "J");
+		 if (fidRawLength == NULL) {
+			 log(lsERROR, "-->> In C++ java UdaBridge.GetFieldID() callback method for rawLength was NOT found");
+			 return NULL;
+		 }
+	 }
+
+
+	if (fidPartLength == NULL) {
+		fidPartLength = jniEnv->GetFieldID(cls_data, "partLength", "J");
+		 if (fidPartLength == NULL) {
+			 log(lsERROR, "-->> In C++ java UdaBridge.GetFieldID() callback method for partLength was NOT found");
+			 return NULL;
+		 }
+	 }
+
+	if (fidPathMOF == NULL) {
+		fidPathMOF = jniEnv->GetFieldID(cls_data, "pathMOF", "Ljava/lang/String;");
+		 if (fidPathMOF == NULL) {
+			 log(lsERROR, "-->> In C++ java UdaBridge.GetFieldID() callback method for pathMOF was NOT found");
+			 return NULL;
+		 }
+	 }
+
+	data->offset = (int64_t) jniEnv->GetLongField(jdata, fidOffset);
+	data->rawLength = (int64_t) jniEnv->GetLongField(jdata, fidRawLength);
+	data->partLength = (int64_t) jniEnv->GetLongField(jdata, fidPartLength);
+
+	data->path = (jstring)jniEnv->GetObjectField(jdata, fidPathMOF);
+
+
+	log(lsDEBUG, "after  jniEnv->CallStaticVoidMethod... ");
+	return data;
 }
 
 // must be called with JNIEnv that matched the caller thread - see attachNativeThread() above

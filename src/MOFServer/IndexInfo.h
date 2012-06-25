@@ -51,7 +51,7 @@ typedef struct fd_counter
 {
 	int				fd;
 	int				counter; /* for counting the current number of io operation onair*/
-	pthread_mutex_t	lock;
+//	pthread_mutex_t	lock;
 } fd_counter_t;
 
 /* Format: "jobid:mapid:mop_offset:reduceid:mem_addr:req_prt:chunk_size" */
@@ -93,9 +93,10 @@ struct partition_record;
  */
 typedef struct index_record
 {
-    uint64_t   offset;     /* Offset in the index file */
-    uint64_t   rawLength;  /* decompressed length of MOF */
-    uint64_t   partLength; /* compressed size of MOF partition */
+    int64_t   offset;     /* Offset in the index file */
+    int64_t   rawLength;  /* decompressed length of MOF */
+    int64_t   partLength; /* compressed size of MOF partition */
+    jstring   path; /* path to MOF */
 } index_record_t;
 
 
@@ -103,6 +104,9 @@ typedef struct index_record
    which comes from hadoop design.
    this is for a specific map output file
  */
+
+typedef map<string, fd_counter_t*>::iterator path_fd_iter;
+
 typedef struct partition_table
 {
     size_t  total_size;   /* index file size */
@@ -122,44 +126,33 @@ typedef struct shuffle_request_callback_arg {
 	chunk_t*			chunk;
 	uint64_t			readLength;
 	shuffle_req_t*		shreq;
-	OutputServer*		mover;
+	supplier_state_t*   state_mac;
 	index_record_t*		record;
 	int					offsetAligment;
-	fd_counter_t*		fdc; // passing the fd counter to let the completion event handler to close the fd in case counter=0
+	string	     		fdc_key; // passing key of the fd counter to let the completion event handler to close the fd in case counter=0
+	fd_counter_t*		fdc; //passing the value to avoid log(N) for each aio completion
 } req_callback_arg;
 
-int aio_completion_handler(void* data);
+
+
+
+
+int aio_completion_handler(void* data, int success);
 
 
 class DataEngine
 {
 public:
     supplier_state_t    *state_mac;
-    struct list_head     comp_mof_list;
     bool                 stop;
     int                  rdma_buf_size;
+    JNIEnv               *jniEnv;
+    pthread_mutex_t      _data_lock;
+    map<string, fd_counter_t*>* _fdc_map;
 
     DataEngine(void *mem,supplier_state_t *state,
                const char *path, int mode, int rdma_buf_size, struct rlimit kernel_fd_rlim);
     ~DataEngine();
-
-    /*
-     * clean all in-mem index files: partition_tables&index_records
-     * clean all fd_counters and close data FDs
-     */
-    void clean_job(const string& jobid);
-
-    /**
-     * when a new intermediate map output is
-     * generated, it need notify the dataengine
-     * where is it stored.
-     * @param const char* out_bdir the dir store file.out
-     * @param const char* idx_bdir the dir store file.out.index
-     */
-    void add_new_mof(comp_mof_info_t* comp,
-                     const char *out_bdir,
-                     const char *idx_bdir,
-                     const char *user_name);
 
     // produce chunk buffer to pool
     // send condition signal if pool was empty
@@ -175,44 +168,16 @@ private:
     chunk_t*			_chunks;
     pthread_cond_t      _chunk_cond;
     pthread_mutex_t		_chunk_mutex;
-    pthread_mutex_t      _data_lock;
-    pthread_mutex_t      _index_lock;
     struct rlimit 		_kernel_fd_rlim;
-    map<string, map<string, fd_counter_t*>* > _job_fdc_map; // map<jobid, map<data_path, fd_counter>>
-    map<string, map<string, partition_table_t*>*> ifile_map; // map< jobid , map< mapid , iFile > >
 
-    /* return the matching iFile for the specific jobid and mapid
-	 * or NULL if no much.
-	 * this method is not THREAD_SAFE
-     */
-    partition_table_t* getIFile(const string& jobid, const string& mapid);
+
 
     /*
-     * add new ifile to the map of job to ifiles
-     * true on success or false if and ifile is allready exists for the specific mapid&jobid
-     * this method is not THREAD_SAFE
-     */
-    bool addIFile(const string &jobid, const string &mapid, partition_table_t* ifile);
-
-    /*
-     * by a given jobid the method returns the map of mapid to ifile
-     * this method is not THREAD_SAFE
-     */
-    map<string, partition_table_t*>* getJobIfiles(const string& jobid) ;
-
-    /*
-     * get the specific fd counter structure related with data_path&jobid
+     * get the specific fd counter structure related with data_path
      * if not exists then create&initialize new one.
      * this method is not THREAD_SAFE
      */
-    fd_counter_t* getFdCounter(const string& jobid, const string& data_path);
-
-    /*
-     * get the map of data_path to fd counter related with the specific jobid
-     * return NULL if no fd counters for jobid at all
-     * this method is not THREAD_SAFE
-     */
-    map<string, fd_counter_t*>* getJobFDCounters(const string& jobid);
+    fd_counter_t* getFdCounter(const string& data_path);
 
 
     /**
@@ -231,7 +196,7 @@ private:
      * 3) prepare suitable callback argument for aio
      * 4) _aioHandler->prepare_read
      */
-    int aio_read_chunk_data(shuffle_req_t* req , partition_table_t* ifile, chunk_t* chunk,  const string &out_path, uint64_t map_offset);
+    int aio_read_chunk_data(shuffle_req_t* req , index_record_t* record, const string &out_path, chunk_t* chunk, uint64_t map_offset);
 
     // consumes chunk buffer from pool
     // WAIT on condition if no chunks available
@@ -249,21 +214,10 @@ private:
      */
     void cleanup_tables();
 
-    // read MOF's full index information into the memory
-    int read_mof_index_records(const string &jobid, const string &mapid);
-
-    /* reads index information into the memory , uses ifile's idx_path to open the index file
-     * @param partition_table_t* ifile - new ifile with uninitialized fields except to idx_path which must be provided correctly
-     * @return true for success or false in case of any error within opening&reading the file.
-     */
-    bool read_records(partition_table_t* ifile);
 
 };
 
-typedef map<string, map<string, fd_counter_t*>* >::iterator job_fdc_map_iter;
-typedef map<string, map<string, partition_table_t*>*>::iterator idx_job_map_iter;
-typedef map<string, partition_table_t*>::iterator idx_map_iter;
-typedef map<string, fd_counter_t*>::iterator path_fd_iter;
+
 
 #endif
 

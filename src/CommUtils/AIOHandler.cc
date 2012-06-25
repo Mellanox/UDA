@@ -155,6 +155,7 @@ void AIOHandler::processEventsCallbacks() {
 	iocb* cb;
 	long long res;
 	output_stdout("AIO: Events processor started");
+	int aio_status;
 
 	while(!_stopCallbackProcessor) {
 		timeout=GETEVENTS_TIMEOUT;
@@ -191,9 +192,11 @@ void AIOHandler::processEventsCallbacks() {
 
 			for (int i=0; i < rc ; i++ ) {
 				cb = (iocb*)eventArr[i].obj;
+				aio_status = 0;
 				res=(long long)eventArr[i].res;
 				if (res < 0) {
 					log(lsFATAL,"aio event: completion with error, errno=%lld %m",res);
+					aio_status = 1;
 					// TODO: Notify TT for error
 				}
 				else if ((uint64_t)res != cb->u.c.nbytes ) { // res is the actual read/writen bytes  , u.c.nbytes is the requested bytes to read/write
@@ -201,11 +204,13 @@ void AIOHandler::processEventsCallbacks() {
 						// if sub is less then 2*AIO_ALIGNMENT then it is probably as a reasult of alignment and EOF
 						// else , it is unexpected.
 						log(lsFATAL, "aio event: unexpected number of bytes was read/written. requested=%lld actaul=%lld",cb->u.c.nbytes, res);
+						aio_status = 1;
 						// TODO: Notify TT for error
 					}
 				}
 
-				if ((callback_rc = _callback(eventArr[i].data)) != 0 ){
+
+				if ((callback_rc = _callback(eventArr[i].data, aio_status)) != 0 ){
 					log(lsERROR,"aio event: callback returned with rc=%d", callback_rc);
 				}
 

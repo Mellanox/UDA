@@ -45,65 +45,12 @@ void mof_downcall_handler(const std::string & msg)
 
     log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd.count - 1, (int)hadoop_cmd.header);
 
-    if (hadoop_cmd.header == NEW_MAP_MSG) {
-        /*2. Insert the MOF */
-        comp_mof_info_t *comp = NULL;
 
-        /*
-         * 1. Create a new MOF entry
-         * 2. Insert it to the list of DataEngine
-         * hadoop_cmd.params[0]: jobid;
-         * hadoop_cmd.params[1]: mapid;
-         * hadoop_cmd.params[2]: file.out base directory
-         * hadoop_cmd.params[3]: file.idx base directory
-         */
-        comp = (comp_mof_info_t*) malloc(sizeof(comp_mof_info_t));
-        comp->jobid = strdup(hadoop_cmd.params[0]);
-        comp->mapid = strdup(hadoop_cmd.params[1]);
-
-        log(lsDEBUG, "NEW_MAP_MSG: jobid=%s, mapid=%s", comp->jobid, comp->mapid);
-
-        if (hadoop_cmd.count>5){
-            /*hadoop version >=0.2.203.
-             * user name is passed and is part of path to out and index files*/
-            state_mac.data_mac->add_new_mof(comp,
-                                        hadoop_cmd.params[2],
-                                        hadoop_cmd.params[3],
-                                        hadoop_cmd.params[4]);
-        }
-        else{
-            /*hadoop version == 0.2.20 user name is not passed.
-             * "taskTracker" is part of path to out and index files */
-
-           state_mac.data_mac->add_new_mof(comp,
-                                        hadoop_cmd.params[2],
-                                        hadoop_cmd.params[3],
-                                        "taskTracker");
-
-
-        }
-
-        /* XXX: Wake up DataEngine threads to do prefetchin.
-         * Mutex not required but good to have for better scheduling */
-        pthread_cond_broadcast(&state_mac.mover->in_cond);
-        /* pthread_mutex_lock(&state_mac.sm_lock);
-        pthread_cond_broadcast(&state_mac.cond);
-        pthread_mutex_unlock(&state_mac.sm_lock); */
-
-    /* 'comp' var's memory is not freed because it will be removed in Katya's next commit */
-
-    } else if (hadoop_cmd.header == INIT_MSG) {
+    if (hadoop_cmd.header == INIT_MSG) {
         log(lsINFO, "===>>> we got INIT COMMAND");
         /* base path of the directory containing
            the intermediate map output files
         state_mac.data_mac->base_path = strdup(hadoop_cmd.params[0]);*/
-
-    } else if (hadoop_cmd.header == JOB_OVER_MSG) {
-        log(lsINFO, "======>>> we got JOB OVER COMMAND");
-        string jobid = hadoop_cmd.params[0];
-        // TODO : clean job for RDMA client
-        state_mac.data_mac->clean_job(jobid);
-        log(lsINFO,"JOB OVER ***************************** %s", jobid.c_str());
 
     } else if (hadoop_cmd.header == EXIT_MSG) {
 

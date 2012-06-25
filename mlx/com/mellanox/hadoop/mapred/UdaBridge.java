@@ -41,7 +41,7 @@ public class UdaBridge {
     	if (LOG.isDebugEnabled()) LOG.debug(" <<<+++ after UdaBridge.doCommandNative");
     }
 
-    //NetMerger's callbacks from C++ start here	
+    //callbacks from C++ start here	
 
 	static public void fetchOverMessage() throws Throwable {
 		if (LOG.isDebugEnabled()) LOG.debug("+++>>> started  UdaBridge.fetchOverMessage");
@@ -54,4 +54,19 @@ public class UdaBridge {
 		callable.dataFromUda(directBufAsObj, len);
 		if (LOG.isDebugEnabled()) LOG.debug("<<<+++ finished UdaBridge.dataFromUda"); 
 	}	
+	
+	static public Object getPathUda(String jobId, String mapId, int reduceId)  {
+		if (LOG.isDebugEnabled()) LOG.debug("+++>>> started  UdaBridge.getPathUda");
+    	//String s = callable.getPath(jobId, mapId, reduceId);//return "katya";
+		DataPassToJni d = UdaPluginTT.getPathIndex(jobId, mapId, reduceId);//return "katya";
+		return d;
+	}	
+	
+}
+
+class DataPassToJni{
+	  long startOffset;
+	  long rawLength;
+	  long partLength;
+	  String pathMOF;
 }
