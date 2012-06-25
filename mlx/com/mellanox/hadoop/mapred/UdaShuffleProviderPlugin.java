@@ -10,13 +10,15 @@ import java.net.URL;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.util.StringUtils;
+import org.apache.hadoop.conf.Configuration;
 
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TaskAttemptID;
 import org.apache.hadoop.mapreduce.security.token.JobTokenSecretManager;
-import org.apache.hadoop.util.StringUtils;
 
 public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 
@@ -48,27 +50,37 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 	public void close() {
 		rdmaChannel.close();
 	}
-
-
-	/**
-	 * notification for start of a new job
-	 *  
-	 * @param rjob
-	 */
-	public void jobInit(TaskTracker.RunningJob rjob) {
-		// nothing to do!		
-	}
-					  
+				  
 	
 	  /**
-	   * a map task is done.
-	   * 
-	   * invoked at the end of TaskTracker.done, under: if (task.isMapTask())
+	   * a task is done.
+	   * invoked at the end of TaskTracker.done, we'll check whether task.isMapTask()
 	   */ 
-	public void mapDone(String userName, String jobId, String taskId, Path fileOut, Path fileOutIndex) {
-		rdmaChannel.notifyMapDone(userName, jobId, taskId, fileOut, fileOutIndex);
+	public void taskDone(Task task, LocalDirAllocator localDirAllocator) {
+
+		if (task.isMapTask()) {
+			try {
+				String jobId = task.getJobID().toString();
+				String taskId = task.getTaskID().toString();
+				String userName = task.getUser();
+				String intermediateOutputDir = getIntermediateOutputDir(userName, jobId, taskId);
+				
+				Configuration conf = task.getConf();
+				
+				Path fout = localDirAllocator.getLocalPathToRead(intermediateOutputDir + "/file.out", conf);
+				Path fidx = localDirAllocator.getLocalPathToRead(intermediateOutputDir + "/file.out.index", conf);
+
+				rdmaChannel.notifyMapDone(userName, jobId, taskId, fout, fidx);		
+			} catch (org.apache.hadoop.util.DiskChecker.DiskErrorException dee) {
+				LOG.debug("TT: DiskErrorException when handling map done - probably OK (map was not created)");
+			} catch (IOException ioe) {
+				LOG.error("TT: Error when notify map done\n" + StringUtils.stringifyException(ioe));
+			}
+		}
 	}
-	
+
+
+
 	  /**
 	   * The task tracker is done with this job, so we need to clean up.
 	   * 
