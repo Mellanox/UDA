@@ -225,10 +225,34 @@ public class DNS {
       } catch (Exception e) {
       }
 
-    if (hosts.size() == 0)
+    if (hosts.size() == 0) {
+
+      /**
+       * Fixed for changing the network without changing the 
+       * hostname of all the machines in the cluster.
+       * But this may not be compatible with apache patch.
+       */
+      if (ips.length > 0) {
+          /* retrieve hostname, need to consider both IPv6 and IPv4 */
+          for (int i = 0; i < ips.length; ++i) {
+            InetAddress ia = InetAddress.getByName(ips[i]);
+            String ia_hn   = ia.getHostName();
+       
+            if (!ia_hn.equals(ips[i])) {
+              hosts.add(ia_hn);
+            }
+          }
+      }
+ 
+      if (hosts.size() == 0) {
       return new String[] { InetAddress.getLocalHost().getCanonicalHostName() };
-    else
+      } else {
       return hosts.toArray(new String[] {});
+  }
+    }
+    else {
+      return hosts.toArray(new String[] {});
+    }
   }
 
   /**
