@@ -19,22 +19,21 @@
 package org.apache.hadoop.mapred;
 
 import java.util.Map;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapred.TaskTracker.RunningJob;
-import org.apache.hadoop.mapreduce.security.token.JobTokenSecretManager;
-import org.apache.hadoop.util.ReflectionUtils;
-import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.LocalDirAllocator;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.util.ReflectionUtils;
+import org.apache.hadoop.mapred.TaskTracker.RunningJob;
 
 /**
- * This interface is implemented by objects that are able to serve as Shuffle Providers
- * and satisfy shuffle requests originated by a matching Shuffle Consumer 
- * that lives in a context of a ReduceTask object 
+ * This interface is implemented by objects that are able to answer shuffle requests which are
+ * sent from a matching Shuffle Consumer that lives in a context of a ReduceTask object.
  * 
- * All ShuffleProvider objects will be notified on the following events: 
- * initialize, close, mapDone, jobDone.
- * In addition, Hadoop's default provider (either Jetty or Netty) will always 
- * be notified (and there is no need to mention it in configuration files). 
+ * ShuffleProvider object will be notified on the following events: 
+ * initialize, close, taskDone, jobDone.
+ * At this phase, at most one optional ShuffleProvider is supported 
+ * At this phase, tth optional ShuffleProvider (if any) will work in addition to Hadoop's default 
+ * shuffle provider (Jetty/Netty)
  *
  */
 public abstract class ShuffleProviderPlugin {
@@ -107,10 +106,6 @@ public abstract class ShuffleProviderPlugin {
 		return taskTracker.runningJobs.get(jobid).getJobConf();
 	}
 	
-	protected JobTokenSecretManager getJobTokenSecretManager() {
-		return taskTracker.getJobTokenSecretManager();
-	}
-
 	protected static String getIntermediateOutputDir(String user, String jobid, String taskid) {
 		return TaskTracker.getIntermediateOutputDir(user, jobid, taskid);
 	}

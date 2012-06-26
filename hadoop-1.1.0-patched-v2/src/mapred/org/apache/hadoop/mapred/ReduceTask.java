@@ -106,6 +106,9 @@ public class ReduceTask extends Task {
   
   private static final Log LOG = LogFactory.getLog(ReduceTask.class.getName());
   private int numMaps;
+  public static final String RT_SHUFFLE_CONSUMERER_PLUGIN = 
+		  "mapred.reducetask.shuffle.consumer.plugin";
+
   private ShuffleConsumerPlugin shuffleConsumerPlugin;
 
   private CompressionCodec codec;
@@ -385,7 +388,7 @@ public class ReduceTask extends Task {
     	
     	// loads the configured ShuffleConsumerPlugin, or the default one in case nothing is configured
     	Class<? extends ShuffleConsumerPlugin> clazz =
-    			job.getClass("mapred.reducetask.shuffle.consumer.plugin", null, ShuffleConsumerPlugin.class);
+    			job.getClass(RT_SHUFFLE_CONSUMERER_PLUGIN, null, ShuffleConsumerPlugin.class);
     	shuffleConsumerPlugin = ShuffleConsumerPlugin.getShuffleConsumerPlugin(clazz, this, umbilical, job, reporter);
     	LOG.info(" Using ShuffleConsumerPlugin : " + shuffleConsumerPlugin);
    	
