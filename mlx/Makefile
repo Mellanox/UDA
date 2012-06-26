@@ -1,7 +1,7 @@
 
-CPATH=hadoop-core-1.1.0-SNAPSHOT.jar:../../build/classes/org/apache/hadoop/mapred/:commons-logging-1.1.1.jar 
-#CPATH=/volt/avnerb/workspace/hadoop-1.1.0-patched-v2/build/classes/:commons-logging-1.1.1.jar 
-#CPATH=/volt/avnerb/workspace/hadoop-0.20.2-patched/build/classes/:commons-logging-1.1.1.jar
+CPATH=hadoop-core-1.1.0-SNAPSHOT.jar:commons-logging-1.1.1.jar 
+#CPATH=../../hadoop-1.1.0-patched-v2/build/classes/:commons-logging-1.1.1.jar 
+#CPATH=../../hadoop-0.20.2-patched/build/classes/:commons-logging-1.1.1.jar
 
 all:
 	rm -rf out
