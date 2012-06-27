@@ -27,12 +27,12 @@ import org.apache.hadoop.mapred.TaskTracker.RunningJob;
 
 /**
  * This interface is implemented by objects that are able to answer shuffle requests which are
- * sent from a matching Shuffle Consumer that lives in a context of a ReduceTask object.
+ * sent from a matching Shuffle Consumer that lives in the context of a ReduceTask object.
  * 
  * ShuffleProvider object will be notified on the following events: 
  * initialize, close, taskDone, jobDone.
  * At this phase, at most one optional ShuffleProvider is supported 
- * At this phase, tth optional ShuffleProvider (if any) will work in addition to Hadoop's default 
+ * At this phase, the optional ShuffleProvider (if any) will work in addition to Hadoop's default 
  * shuffle provider (Jetty/Netty)
  *
  */
@@ -81,16 +81,17 @@ public abstract class ShuffleProviderPlugin {
 
 	/**
 	 * a task is done.
-	 * invoked at the end of TaskTracker.done, sub class will check: if (task.isMapTask())
+	 * invoked at the end of TaskTracker.done, sub class can check: if (task.isMapTask())
+	 * and use localDirAllocator for finding the MOF(s) locations 
 	 * 
 	 */ 
 	public abstract void taskDone(Task task, LocalDirAllocator localDirAllocator);
 
 	/**
 	 * The task tracker is done with this job, so we need to clean up.
-	 * 
 	 * invoked at the end of TaskTracker.jobDone
-	 * @param action The action with the job
+	 * 
+	 * @param jobID
 	 */
 	public abstract void jobDone(JobID jobID);
 
