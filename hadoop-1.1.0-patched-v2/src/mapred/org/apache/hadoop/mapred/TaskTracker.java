@@ -888,20 +888,20 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       fConf.getInt(TT_OUTOFBAND_HEARTBEAT_DAMPER, 
           DEFAULT_OOB_HEARTBEAT_DAMPER);
 
-    	// loads a configured ShuffleProviderPlugin if any
-    	// at this phase we only support at most one such plugin
-    	Class<? extends ShuffleProviderPlugin> providerClazz =
-    			fConf.getClass(TT_SHUFFLE_PROVIDER_PLUGIN,
-    					null, ShuffleProviderPlugin.class);
-    	shuffleProviderPlugin = 
-    			ShuffleProviderPlugin.getShuffleProviderPlugin(providerClazz, fConf);
-    	if (shuffleProviderPlugin != null) {
-    		LOG.info(" Using ShuffleProviderPlugin : " + shuffleProviderPlugin);
-    		shuffleProviderPlugin.initialize(this);
-    	}
-    	else {
-    		LOG.info(" NO ShuffleProviderPlugin will be used");
-    	}
+    // loads a configured ShuffleProviderPlugin if any
+    // at this phase we only support at most one such plugin
+    Class<? extends ShuffleProviderPlugin> providerClazz =
+    		fConf.getClass(TT_SHUFFLE_PROVIDER_PLUGIN,
+    				null, ShuffleProviderPlugin.class);
+    shuffleProviderPlugin = 
+    		ShuffleProviderPlugin.getShuffleProviderPlugin(providerClazz, fConf);
+    if (shuffleProviderPlugin != null) {
+    	LOG.info(" Using ShuffleProviderPlugin : " + shuffleProviderPlugin);
+    	shuffleProviderPlugin.initialize(this);
+    }
+    else {
+    	LOG.info(" NO ShuffleProviderPlugin will be used");
+    }
   }
 
   private void startJettyBugMonitor() {
@@ -1446,11 +1446,8 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     }
 
     if (shuffleProviderPlugin != null) {
-      LOG.info("closing ShuffleProviderPlugin : " + shuffleProviderPlugin);
       shuffleProviderPlugin.close();
     }
-
-
   }
 
   /**
@@ -2193,7 +2190,6 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     }
 
     if (shuffleProviderPlugin != null) {
-      LOG.info("notifying ShuffleProviderPlugin about jobDone: " + shuffleProviderPlugin);
       shuffleProviderPlugin.jobDone(action.getJobID());
     }
 
