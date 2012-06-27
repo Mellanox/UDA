@@ -2189,13 +2189,12 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     synchronized(runningJobs) {
       runningJobs.remove(jobId);
     }
+    getJobTokenSecretManager().removeTokenForJob(jobId.toString());  
+    distributedCacheManager.removeTaskDistributedCacheManager(jobId);
 
     if (shuffleProviderPlugin != null) {
       shuffleProviderPlugin.jobDone(action.getJobID());
     }
-
-    getJobTokenSecretManager().removeTokenForJob(jobId.toString());  
-    distributedCacheManager.removeTaskDistributedCacheManager(jobId);
   }
 
   /**

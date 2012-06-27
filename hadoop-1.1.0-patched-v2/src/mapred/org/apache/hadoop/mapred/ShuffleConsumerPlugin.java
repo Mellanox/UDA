@@ -40,7 +40,7 @@ import org.apache.hadoop.util.StringUtils;
 
 
 /**
- * Plugin to serve Reducers who request MapOutput from TaskTrackers that use a matching ShuffleProvidePlugin
+ * ShuffleConsumerPlugin that can serve Reducers, and shuffle MOF files from TaskTrackers that use a matching ShuffleProvidePlugin
  * 
  */
 public abstract class ShuffleConsumerPlugin {
@@ -79,7 +79,7 @@ public abstract class ShuffleConsumerPlugin {
 	 * @param reporter
 	 * @throws IOException
 	 */
-	protected void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException{
+	public void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException{
 	}
 
 	/**
@@ -94,7 +94,7 @@ public abstract class ShuffleConsumerPlugin {
 	 * @throws IOException - this 'throws' is only for backward compatibility withReduceCopier.fetchOutputs() signature.
 	 * we don't really need it, since we use mergeThrowable member
 	 */
-	abstract public boolean fetchOutputs() throws IOException;
+	public abstract boolean fetchOutputs() throws IOException;
 
 	/**
 	 * Create a RawKeyValueIterator from copied map outputs. 
@@ -109,7 +109,7 @@ public abstract class ShuffleConsumerPlugin {
 	 * first merge pass. If not, then said outputs must be written to disk
 	 * first.
 	 */
-	abstract public RawKeyValueIterator createKVIterator(JobConf job, FileSystem fs, Reporter reporter) throws IOException;
+	public abstract RawKeyValueIterator createKVIterator(JobConf job, FileSystem fs, Reporter reporter) throws IOException;
 
 
 
