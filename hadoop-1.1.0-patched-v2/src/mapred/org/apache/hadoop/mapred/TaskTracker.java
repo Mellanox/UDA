@@ -1447,6 +1447,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
 
     if (shuffleProviderPlugin != null) {
       shuffleProviderPlugin.close();
+      shuffleProviderPlugin = null;
     }
   }
 
