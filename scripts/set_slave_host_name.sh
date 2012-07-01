@@ -20,7 +20,6 @@ old_property_raw=`cat $filename | grep -A 4 $element_name `
 old_property=`echo $old_property_raw | awk 'BEGIN {FS="</property>"} {print $1}'`
 old_value=`echo $old_property | awk 'BEGIN {FS="value>"} {print $2}' | cut -f1 -d "<"` 
 
-echo "the current value for the element <$element_name> is '$old_value'"
 
 if [ $1 == "ip" ]
 then
@@ -33,6 +32,9 @@ else
 		exit 1;
 fi
 
+echo "the current value for the element <$element_name> is '$old_value' and the new value is '$new_value'"
+
+
 awk -v new_value=$new_value -v key=$element_name -v old_value=$old_value '
 BEGIN {
         keyFound=0
@@ -42,10 +44,12 @@ BEGIN {
 	if (key_found==0 && value_found==0){ #searching for "slave.host.name"
 		key_found=match($0, key)
 		value_found=match($0, "value")
-		if (value_found)
+		if (key_found!=0 && value_found)
 			sub(old_value, new_value)
+		else
+			value_found=0
 	}
-	if (value_found==0) {
+	if (key_found!=0 && value_found==0) {
 		value_found=match($0, "value")
 		if (value_found)
 			sub(old_value, new_value)
