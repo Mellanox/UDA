@@ -69,7 +69,7 @@ then
 fi
 
 echo "press any to start..."
-read -n1 kbd
+#read -n1 kbd
 
 
 if [[  $@ != *-skip_nfs* ]] 
@@ -87,6 +87,7 @@ then
 fi
 
 
+				export HADOOP_VERSION=$hadoop_version
 
 
 		echo "$SCRIPTS_DIR/copy_conf.sh"
@@ -95,15 +96,7 @@ fi
 		for line in `seq 1 $((EXCEL_LINE_NUM))` ; do
 			
 			echo "-->>>   LINE IS: $line "
-			echo "-->>>   LINE IS: $line "
-			echo "-->>>   LINE IS: $line "
-			echo "-->>>   LINE IS: $line "
 
-			#echo " $(basename $0) rm -rf $HADOOP_CONF_DIR/slaves $HADOOP_CONF_DIR/mapred-site.xml $HADOOP_CONF_DIR/hdfs-site.xml $HADOOP_CONF_DIR/core-site"
-			#rm -rf $HADOOP_CONF_DIR/slaves
-			#rm -rf $HADOOP_CONF_DIR/mapred-site.xml
-			#rm -rf $HADOOP_CONF_DIR/hdfs-site.xml
-			#rm -rf $HADOOP_CONF_DIR/core-site.xml
 
 			echo "awk -v conf_num=$line -v conf_dir=$HADOOP_CONF_DIR -f ${SCRIPTS_DIR}/create_terasort_conf.awk $HADOOP_CONF_DIR/config_file.csv"
 			awk -v conf_num=$line -v conf_dir=$HADOOP_CONF_DIR -f ${SCRIPTS_DIR}/create_terasort_conf.awk $HADOOP_CONF_DIR/config_file.csv
@@ -120,15 +113,14 @@ fi
 			reducers=`cat $HADOOP_CONF_DIR/reducersNum.txt`
 				
 			#change:
-			shuffP=`grep -A 1 "mapred.tasktracker.shuffle.provider.plugin" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin
-</value>"`
+			shuffP=`grep -A 1 "mapred.tasktracker.shuffle.provider.plugin" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin"`
+			echo "shuffP $shuffP"; 
+			echo "shuffP $shuffP"; 
+			echo "shuffP $shuffP"; 
 
-			shuffC=`grep -A 1 "mapred.reducetask.shuffle.consumer.plugin" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin<
-/value>"`
-
+			shuffC=`grep -A 1 "mapred.reducetask.shuffle.consumer.plugin" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin"`
+			echo "shuffC $shuffC"; 	echo "shuffC $shuffC";	echo "shuffC $shuffC";	echo "shuffC $shuffC";
 			
-#rdma=`grep -A 1 "rdma.setting" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "<value>1</value>"`
-	
 			host=`head -1 $HADOOP_CONF_DIR/slaves`
 			host_tail=`[[  $host =~ "-" ]] && echo $host | sed 's/.*-//' || echo lan`
 			for host in `cat $HADOOP_CONF_DIR/slaves`; do
@@ -166,8 +158,28 @@ fi
 			echo "-----------------------------------------------------------"
 
 			for node_scale in ${CLUSTER_NODES} ; do
+			   #####
+				sum=0
+                                ramsize=48
+                                #DATA_SET=16
+                                DATA_SET_TMP=0
+                                if (( ${DATA_SET} <= ${ramsize} ))
+                                        then
+                                        echo "counting samples number according to ram"
+                                        DATA_SET_TMP="${DATA_SET} "
+                                        sum=$ramsize
+                                        while (($sum>0))
+                                        do
+                                                DATA_SET_TMP="${DATA_SET_TMP}${DATA_SET} "
+                                                sum=$((${sum}-${DATA_SET}))
+                                        done
+                                        echo "DATA_SET_TMP is:$DATA_SET_TMP"
 
-			#        disks=$((`cat $HADOOP_CONF_DIR/hdfs-site.xml | grep -A 1 ">dfs.data.dir<" | grep -o "," | wc -l | sed s/\ //g` + 1))
+                                fi
+
+                                echo $DATA_SET_TMP
+                                export DATA_SET=$DATA_SET_TMP
+
 
        				 log_prefix=${hadoop_version}.$line.${host_tail}.shuffP${shuffP}.shuffC${shuffC}.merge${merge_approach}.${node_scale}n.${disks}d.$$
 
@@ -179,6 +191,9 @@ fi
         			echo "$(basename $0): #slaves=$CLUSTER_NODES"
         			echo "$(basename $0): #spindles=$disks"
 			        echo "$(basename $0): log_perfix=$log_prefix"
+
+
+
 
         			echo "$(basename $0): Restarting Hadoop"
        			        $SCRIPTS_DIR/start_hadoopExcel.sh 5 -restart -teragen #5 retries
@@ -192,8 +207,9 @@ fi
 				for sample in `seq 0 $((NSAMPLES-1))` ; do				
 					echo $(basename $0): Copy  conf dir to salves
 					${SCRIPTS_DIR}/copy_conf.sh
-						
+						ds_n=-1
 					for ds in ${DATA_SET}; do
+						ds_n=$((ds_n+1));
 						if (( ${mappers} >= ${reducers})); then 
 						
 							attempt=0
@@ -227,18 +243,20 @@ fi
 	                                                bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/userlogs/*
 	                                                bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/history/*
 	
-	                                                #this is the command to run
-	                                                export USER_CMD="bin/hadoop jar hadoop*examples*.jar terasort /terasort/input/${totalDataSet}G /terasort/output"
-							export INPUTDIR="/terasort/input/${totalDataSet}G"
+							#this is the command to run
+                                                        export USER_CMD="bin/hadoop jar hadoop*examples*.jar terasort  -Dmapred.reduce.tasks=${totalReducers} /terasort/input/${totalDataSet}G.${ds_n} /terasort/output"
+
 
 							echo "JOB=${log_prefix}.N${ds}G.N${mappers}m.N${reducers}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}"
-	                                                JOB=${log_prefix}.N${ds}G.N${mappers}m.N${reducers}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}
-	
+	                                                JOB=${log_prefix}.N${ds}G.${ds_n}.N${mappers}m.N${reducers}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}
+							
+							export INPUTDIR="/terasort/input/${totalDataSet}G.${ds_n}"
 							echo "$(basename $0): calling mr-dstat for $USER_CMD attempt $attempt"
 							${SCRIPTS_DIR}/mr-dstatExcel.sh "${JOB}_attempt${attempt}"
 							attempt_code=$?
 							if ((attempt_code!=0))
 							then
+								echo "$attempt_code attempt_code"
 								echo "$(basename $0): FAILED ${JOB}_attempt${attempt}"
 								if ((attempt>1))
 								then
