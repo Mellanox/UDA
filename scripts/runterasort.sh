@@ -91,7 +91,7 @@ interface=`grep -A 1 "mapred.tasktracker.dns.interface" $HADOOP_CONF_DIR/mapred-
 
 disks=$(cat $MY_HADOOP_HOME/conf/mapred-site.xml | grep -A 1 ">mapred.tasktracker.dns.interface<")
 aa=`echo $disks | awk 'BEGIN { FS = "name> <value>"} ; { print $2}'`
-bb=`echo $aa | awk 'BEGIN { FS = "<"} ; { print $1}'`
+interface_run=`echo $aa | awk 'BEGIN { FS = "<"} ; { print $1}'`
 
 hadoop_version=`echo $(basename $MY_HADOOP_HOME) | sed s/[.]/_/g`
 echo "$(basename $0): ------------------------------------------"
@@ -120,7 +120,7 @@ echo "$(basename $0): shuffP=$shuffP"
 echo "$(basename $0): shuffC=$shuffC"
 echo "$(basename $0): merge_approach=$merge_approach (will be called merge later on)"
 echo "$(basename $0): hadoop version=$hadoop_version"
-echo "$(basename $0): interface=$bb"
+echo "$(basename $0): interface=$interface_run"
 
 if [[ $@ = *-show* ]]
 then
@@ -158,9 +158,24 @@ for host in `cat $HADOOP_CONF_DIR/slaves`; do
 	if [ $host_tail !=  `[[  $host =~ "-" ]] && echo $host | sed 's/.*-//' || echo lan` ]
 	then
 		echo $(basename $0): slave\'s hostnames are not matching for the same network interface: `cat $HADOOP_CONF_DIR/slaves`
-		exit 1;
+	#	exit 1;
 	fi
 done
+
+#for script "set_slave_host_name:
+if [ $interface_run == "ib0" ]
+then
+	ending="ib"
+	elif [ $interface_run == "eth4" ]
+	then
+		ending="10g"
+	elif [ $interface_run == "eth1" ]
+	then
+		ending="1g"
+	else
+		echo "using a new interface. please edit this script accordingly!!!"
+		exit 1;		
+fi
 
 if [ $host_tail == "lan" ]
 then
@@ -191,9 +206,12 @@ for node_scale in ${CLUSTER_NODES} ; do
 	echo "$(basename $0): Modify slaves conf file to enable $nodes_scale hostnames"
 	$SCRIPTS_DIR/mark_slaves.sh $node_scale
 	
-	echo $(basename $0): Copy  conf dir to salves
+	echo $(basename $0): Copy  conf dir to slaves
         ${SCRIPTS_DIR}/copy_conf.sh
-
+	echo $(basename $0): Set slave.host.name to slaves and master
+        ${SCRIPTS_DIR}/set_slave_host_name.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+		bin/slaves.sh ${SCRIPTS_DIR}/set_slave_host_name.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+	
 	echo "$(basename $0): #slaves=$nodes"
 	echo "$(basename $0): #spindles=$disks"
 	echo "$(basename $0): log_perfix=$log_prefix"
@@ -228,6 +246,9 @@ for node_scale in ${CLUSTER_NODES} ; do
 					
 				echo $(basename $0): Copy  conf dir to salves
 				${SCRIPTS_DIR}/copy_conf.sh
+				echo $(basename $0): Set slave.host.name to slaves and master
+				${SCRIPTS_DIR}/set_slave_host_name.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+				bin/slaves.sh ${SCRIPTS_DIR}/set_slave_host_name.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
 				ds_n=-1		
 				for ds in ${DATA_SET}; do
 					ds_n=$((ds_n+1))

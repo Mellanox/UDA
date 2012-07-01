@@ -92,7 +92,7 @@ fi
 
 		echo "$SCRIPTS_DIR/copy_conf.sh"
 		$SCRIPTS_DIR/copy_conf.sh
-
+		
 		for line in `seq 1 $((EXCEL_LINE_NUM))` ; do
 			
 			echo "-->>>   LINE IS: $line "
@@ -109,6 +109,24 @@ fi
 			continue
 			fi
 			
+			interface_property=`cat $MY_HADOOP_HOME/conf/mapred-site.xml | grep -A 1 ">mapred.tasktracker.dns.interface<" `
+			interface_value=`echo $interface_property | awk 'BEGIN { FS = "name> <value>"} ; { print $2}' | awk 'BEGIN { FS = "<"} ; { print $1}'`
+		
+			#for script "set_slave_host_name:
+			if [ $interface_value == "ib0" ]
+			then
+				ending="ib"
+				elif [ $interface_value == "eth4" ]
+				then
+					ending="10g"
+				elif [ $interface_value == "eth1" ]
+				then
+					ending="1g"
+				else
+					echo "using a new interface. please edit this script accordingly!!!"
+					exit 1;		
+			fi
+					
 			mappers=`cat $HADOOP_CONF_DIR/mappersNum.txt`
 			reducers=`cat $HADOOP_CONF_DIR/reducersNum.txt`
 				
@@ -120,7 +138,7 @@ fi
 
 			shuffC=`grep -A 1 "mapred.reducetask.shuffle.consumer.plugin" $HADOOP_CONF_DIR/mapred-site.xml | grep -c "com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin"`
 			echo "shuffC $shuffC"; 	echo "shuffC $shuffC";	echo "shuffC $shuffC";	echo "shuffC $shuffC";
-			
+	
 			host=`head -1 $HADOOP_CONF_DIR/slaves`
 			host_tail=`[[  $host =~ "-" ]] && echo $host | sed 's/.*-//' || echo lan`
 			for host in `cat $HADOOP_CONF_DIR/slaves`; do
@@ -188,12 +206,14 @@ fi
 
         			echo $(basename $0): Copy  conf dir to salves
         			${SCRIPTS_DIR}/copy_conf.sh
+					
+					echo $(basename $0): Set slave.host.name to slaves and master
+					${SCRIPTS_DIR}/set_slave_host_name.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+					bin/slaves.sh ${SCRIPTS_DIR}/set_slave_host_name.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+		
         			echo "$(basename $0): #slaves=$CLUSTER_NODES"
         			echo "$(basename $0): #spindles=$disks"
 			        echo "$(basename $0): log_perfix=$log_prefix"
-
-
-
 
         			echo "$(basename $0): Restarting Hadoop"
        			        $SCRIPTS_DIR/start_hadoopExcel.sh 5 -restart -teragen #5 retries
@@ -207,6 +227,11 @@ fi
 				for sample in `seq 0 $((NSAMPLES-1))` ; do				
 					echo $(basename $0): Copy  conf dir to salves
 					${SCRIPTS_DIR}/copy_conf.sh
+					
+					echo $(basename $0): Set slave.host.name to slaves and master
+					${SCRIPTS_DIR}/set_slave_host_name.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+					bin/slaves.sh ${SCRIPTS_DIR}/set_slave_host_name.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+						
 						ds_n=-1
 					for ds in ${DATA_SET}; do
 						ds_n=$((ds_n+1));
@@ -243,13 +268,13 @@ fi
 	                                                bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/userlogs/*
 	                                                bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/history/*
 	
-							#this is the command to run
+	                                                #this is the command to run
                                                         export USER_CMD="bin/hadoop jar hadoop*examples*.jar terasort  -Dmapred.reduce.tasks=${totalReducers} /terasort/input/${totalDataSet}G.${ds_n} /terasort/output"
 
 
 							echo "JOB=${log_prefix}.N${ds}G.N${mappers}m.N${reducers}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}"
 	                                                JOB=${log_prefix}.N${ds}G.${ds_n}.N${mappers}m.N${reducers}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}
-							
+	
 							export INPUTDIR="/terasort/input/${totalDataSet}G.${ds_n}"
 							echo "$(basename $0): calling mr-dstat for $USER_CMD attempt $attempt"
 							${SCRIPTS_DIR}/mr-dstatExcel.sh "${JOB}_attempt${attempt}"
