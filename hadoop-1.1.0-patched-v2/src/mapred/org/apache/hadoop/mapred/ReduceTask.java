@@ -433,6 +433,7 @@ public class ReduceTask extends Task {
     done(umbilical, reporter);
     if (shuffleConsumerPlugin != null) {
     	shuffleConsumerPlugin.close();
+    	shuffleConsumerPlugin = null;
     }
   }
 
