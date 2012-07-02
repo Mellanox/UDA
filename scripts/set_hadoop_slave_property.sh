@@ -13,10 +13,10 @@ usage: $0 <options>
 		2. Use ip address of the interface you wish to run hadoop on.
 	
 	Required options:
-		--uda-hadoop-conf-dir=DIR  	path to existing hadoop installation that will use hadoop
+		--hadoop-conf-dir=DIR  	path to existing hadoop installation that will use hadoop
 	AND one of the following options:
 		--interface=INTERFACE_NAME	interface name as it appears in 'ifconfig'
-		--host_suffix=HOST_SUFFIX  	suffix to be added to hostname
+		--host-suffix=HOST_SUFFIX  	suffix to be added to hostname
   "
   exit 1
 }
@@ -26,8 +26,8 @@ usage: $0 <options>
 OPTS=$(getopt \
   -n $0 \
   -o '' \
-  -l 'uda-hadoop-conf-dir:' \
-  -l 'host_suffix:' \
+  -l 'hadoop-conf-dir:' \
+  -l 'host-suffix:' \
   -l 'interface:' \
   -- "$@")
 
@@ -35,13 +35,13 @@ OPTS=$(getopt \
 eval set -- "$OPTS"
 while true ; do
     case "$1" in
-        --uda-hadoop-conf-dir)
+        --hadoop-conf-dir)
         HADOOP_CONF_DIR=$2 ; shift 2
         ;;
         --interface)
         INTERFACE_NAME=$2 ; shift 2
         ;;
-        --host_suffix)
+        --host-suffix)
         HOST_SUFFIX=$2 ; shift 2
         ;;
         --)
