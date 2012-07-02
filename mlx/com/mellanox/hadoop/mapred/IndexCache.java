@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+// COPIED with minimal changes FROM: package org.apache.hadoop.mapred; (in hadoop-1....) - KATYA: PLEASE COMPLETE!
 package com.mellanox.hadoop.mapred;
 
 import java.io.IOException;
