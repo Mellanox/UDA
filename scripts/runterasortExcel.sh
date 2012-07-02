@@ -112,7 +112,7 @@ fi
 			interface_property=`cat $MY_HADOOP_HOME/conf/mapred-site.xml | grep -A 1 ">mapred.tasktracker.dns.interface<" `
 			interface_value=`echo $interface_property | awk 'BEGIN { FS = "name> <value>"} ; { print $2}' | awk 'BEGIN { FS = "<"} ; { print $1}'`
 		
-			#for script "set_slave_host_name:
+			#for script "set_hadoop_slave_property:
 			if [ $interface_value == "ib0" ]
 			then
 				ending="ib"
@@ -208,8 +208,8 @@ fi
         			${SCRIPTS_DIR}/copy_conf.sh
 					
 					echo $(basename $0): Set slave.host.name to slaves and master
-					${SCRIPTS_DIR}/set_slave_host_name.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
-					bin/slaves.sh ${SCRIPTS_DIR}/set_slave_host_name.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+					${SCRIPTS_DIR}/set_hadoop_slave_property.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+					bin/slaves.sh ${SCRIPTS_DIR}/set_hadoop_slave_property.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
 		
         			echo "$(basename $0): #slaves=$CLUSTER_NODES"
         			echo "$(basename $0): #spindles=$disks"
@@ -229,8 +229,8 @@ fi
 					${SCRIPTS_DIR}/copy_conf.sh
 					
 					echo $(basename $0): Set slave.host.name to slaves and master
-					${SCRIPTS_DIR}/set_slave_host_name.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
-					bin/slaves.sh ${SCRIPTS_DIR}/set_slave_host_name.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+					${SCRIPTS_DIR}/set_hadoop_slave_property.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+					bin/slaves.sh ${SCRIPTS_DIR}/set_hadoop_slave_property.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
 						
 						ds_n=-1
 					for ds in ${DATA_SET}; do
