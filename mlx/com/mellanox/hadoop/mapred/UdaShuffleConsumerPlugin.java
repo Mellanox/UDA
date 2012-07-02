@@ -96,7 +96,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		* @throws ClassNotFoundException
 		* @throws IOException
 	*/
-	protected void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException {
+	public void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException {
 
 		this.reduceTask = reduceTask;
 		this.reduceId = reduceTask.getTaskID();
