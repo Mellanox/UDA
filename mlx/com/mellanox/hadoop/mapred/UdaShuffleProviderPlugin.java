@@ -16,7 +16,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TaskAttemptID;
-import org.apache.hadoop.mapreduce.security.token.JobTokenSecretManager;
 
 public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 
