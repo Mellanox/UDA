@@ -34,7 +34,7 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 	 */
 	public void initialize(TaskTracker taskTracker) {
 		super.initialize(taskTracker);
-		rdmaChannel = new UdaPluginTT(taskTracker, getJobConf());
+		rdmaChannel = new UdaPluginTT(taskTracker, getJobConf(), this);
 	}
 
 	/**
@@ -59,15 +59,16 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 			try {
 				String jobId = task.getJobID().toString();
 				String taskId = task.getTaskID().toString();
-//				String userName = task.getUser();
-				String intermediateOutputDir = getIntermediateOutputDir(jobId, taskId);
+//				String userName = task.getUser(); hadoop-1.x.y
+				String userName = "taskTracker"; //hadoop-0.20.2
+				String intermediateOutputDir = getIntermediateOutputDir(userName, jobId, taskId);
 				
 				Configuration conf = task.getConf();
 				
 				Path fout = localDirAllocator.getLocalPathToRead(intermediateOutputDir + "/file.out", conf);
 				Path fidx = localDirAllocator.getLocalPathToRead(intermediateOutputDir + "/file.out.index", conf);
 
-				rdmaChannel.notifyMapDone("taskTracker", jobId, taskId, fout, fidx);		
+				rdmaChannel.notifyMapDone(userName, jobId, taskId, fout, fidx);		
 			} catch (org.apache.hadoop.util.DiskChecker.DiskErrorException dee) {
 				LOG.debug("TT: DiskErrorException when handling map done - probably OK (map was not created)");
 			} catch (IOException ioe) {
@@ -85,5 +86,15 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 	public void jobDone(JobID jobID) {
 		rdmaChannel.jobOver(jobID.toString());
 	}
+	
+	JobConf getJobConfFromSuperClass(JobID jobid) {
+		return getJobConf(jobid) ;
+	}
+	
+	static String getIntermediateOutputDirFromSuperClass(String user, String jobid, String taskid) {
+ 		return ShuffleProviderPlugin.getIntermediateOutputDir(user, jobid, taskid) ;
+ 	}
+
+
 	
 }

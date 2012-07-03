@@ -96,7 +96,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		* @throws ClassNotFoundException
 		* @throws IOException
 	*/
-	protected void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException {
+	public void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException {
 
 		this.reduceTask = reduceTask;
 		this.reduceId = reduceTask.getTaskID();
@@ -275,9 +275,9 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 			umbilical.getMapCompletionEvents(reduceTask.getJobID(), 
 			fromEventId.get(), 
 			MAX_EVENTS_TO_FETCH,
-			reduceTask.getTaskID());
+			reduceTask.getTaskID()/*0.20.2, reduceTask.getJvmContext()*/);
 			TaskCompletionEvent events[] = update.getMapTaskCompletionEvents();
-
+			
 			// Check if the reset is required.
 			// Since there is no ordering of the task completion events at the 
 			// reducer, the only option to sync with the new jobtracker is to reset 

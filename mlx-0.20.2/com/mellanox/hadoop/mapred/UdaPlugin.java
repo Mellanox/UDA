@@ -6,14 +6,20 @@ import java.io.IOException;
 import java.lang.management.MemoryType;
 import java.lang.management.MemoryUsage;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 import java.util.logging.MemoryHandler;
+import java.util.Map.Entry;
 
 import org.apache.hadoop.mapred.Reporter;
 
 import org.apache.hadoop.util.Progress;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.io.DataInputBuffer;
 
 import org.apache.commons.logging.Log;
@@ -29,7 +35,7 @@ import org.apache.hadoop.fs.Path;
 abstract class UdaPlugin {
 	static protected final Log LOG = LogFactory.getLog(UdaPlugin.class.getName());
 	protected List<String> mCmdParams = new ArrayList<String>();
-	protected JobConf mjobConf;
+	protected static JobConf mjobConf;
 	
 	public UdaPlugin(JobConf jobConf) {
 		this.mjobConf=jobConf;
@@ -425,14 +431,25 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 //*  The following is for MOFSupplier JavaSide. 
 class UdaPluginTT extends UdaPlugin {    
 
-	private final TaskTracker taskTracker;
+	private static TaskTracker taskTracker;
 	private Vector<String>     mParams       = new Vector<String>();
+	private static LocalDirAllocator localDirAllocator = new LocalDirAllocator ("mapred.local.dir");
+	static final int FILE_CACHE_SIZE = 2000;
+	private static LRUHash<String, Path> fileCache ;//= new LRUHash<String, Path>(FILE_CACHE_SIZE);
+	private static LRUHash<String, Path> fileIndexCache ;//= new LRUHash<String, Path>(FILE_CACHE_SIZE);
+	static IndexCache indexCache;
+	static UdaShuffleProviderPlugin udaShuffleProvider;
 
-	public UdaPluginTT(TaskTracker taskTracker, JobConf jobConf) {
+	public UdaPluginTT(TaskTracker taskTracker, JobConf jobConf, UdaShuffleProviderPlugin udaShuffleProvider) {
 		super(jobConf);
 		this.taskTracker = taskTracker;
+		this.udaShuffleProvider = udaShuffleProvider;
 		
 		launchCppSide(false, null); // false: this is TT => we should execute MOFSupplier
+		fileCache = new LRUHash<String, Path>(FILE_CACHE_SIZE);
+		fileIndexCache = new LRUHash<String, Path>(FILE_CACHE_SIZE);
+
+		this.indexCache = new IndexCache(jobConf);
 	}
 	
 	protected void buildCmdParams() {
@@ -495,7 +512,61 @@ class UdaPluginTT extends UdaPlugin {
 		LOG.info("UDA: sending EXIT_COMMAND");    	  
 		UdaBridge.doCommand(msg);        
 	}
+	
+	
+	//this code is copied from TaskTracker.MapOutputServlet.doGet 
+	static DataPassToJni getPathIndex(String jobId, String mapId, int reduce){
+		 String userName = null;
+//0.20.2	     String runAsUserName = null;
+	     DataPassToJni data = null;
+	     
+	     try{
+	    	 JobConf jobConf = udaShuffleProvider.getJobConfFromSuperClass(JobID.forName(jobId)); 
+	    	 userName = jobConf.getUser();
+//0.20.2	    	 runAsUserName = taskTracker.getTaskController().getRunAsUser(jobConf);
+	    
+		    String intermediateOutputDir = UdaShuffleProviderPlugin.getIntermediateOutputDirFromSuperClass(userName, jobId, mapId);
+	    
+		    String indexKey = intermediateOutputDir + "/file.out.index";
+		    Path indexFileName = fileIndexCache.get(indexKey);
+		    if (indexFileName == null) {
+		        indexFileName = localDirAllocator.getLocalPathToRead(indexKey, mjobConf);
+		        fileIndexCache.put(indexKey, indexFileName);
+		    }
+		      // Map-output file
+		    String fileKey = intermediateOutputDir + "/file.out";
+		    Path mapOutputFileName = fileCache.get(fileKey);
+		    if (mapOutputFileName == null) {
+		        mapOutputFileName = localDirAllocator.getLocalPathToRead(fileKey, mjobConf);
+		        fileCache.put(fileKey, mapOutputFileName);
+		    }
+		        
+		    //  Read the index file to get the information about where
+		    //  the map-output for the given reducer is available. 
+		         
+//0.20.2		   IndexRecord info = indexCache.getIndexInformation(mapId, reduce,indexFileName, 
+//0.20.2		             runAsUserName);
+		   IndexRecord info = indexCache.getIndexInformation(mapId, reduce,indexFileName);
+		   
+		   data = new DataPassToJni();
+		   data.startOffset = info.startOffset;
+		   data.rawLength = info.rawLength;
+		   data.partLength = info.partLength;
+		   data.pathMOF = mapOutputFileName.toString();
+
+	    } catch (IOException e) {
+			  LOG.error("exception caught" + e.toString()); //to check how C behaves in case there is an exception
+		 }
+		return data;	
+		
+	}
+	
+	
+	
+
 }
+
+
 
 class UdaCmd {
 
