@@ -10,7 +10,8 @@ make -C ../mlx clean all
 
 cp ../src/.libs/libhadoopUda.so .
 cp ../mlx/uda.jar .
+cp ../scripts/set_hadoop_slave_property.sh .
 
-cp uda.jar libhadoopUda.so README LICENSE.txt ~/rpmbuild/SOURCES/
+cp uda.jar libhadoopUda.so README LICENSE.txt set_hadoop_slave_property.sh ~/rpmbuild/SOURCES/
 rpmbuild -ba uda.spec
 cd -

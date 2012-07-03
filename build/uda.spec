@@ -3,12 +3,12 @@
 %define uda_dir  %{_libdir}/uda
 %define doc_dir  /usr/share/doc/%{name}-%{version}/
 
-#%define uda_lib   libuda.so
-%define uda_lib    libhadoopUda.so
-%define uda_jar    uda.jar
-%define uda_readme README
-%define uda_lic    LICENSE.txt
-
+#%define uda_lib   				libuda.so
+%define uda_lib    				libhadoopUda.so
+%define uda_jar    				uda.jar
+%define uda_readme 				README
+%define uda_lic    				LICENSE.txt
+%define hadoop_prop_script    	set_hadoop_slave_property.sh
 
 %define hname hadoop
 %define hadoop_name hadoop
@@ -53,7 +53,7 @@ Source0:        %{uda_lib}
 Source1:        %{uda_jar}
 Source2:        %{uda_readme}
 Source3:        %{uda_lic}
-
+Source4:        %{hadoop_prop_script}
 
 
 
@@ -90,7 +90,7 @@ install -m 0755 %{SOURCE0} $RPM_BUILD_ROOT%{lib_target}/%{uda_lib}
 install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{uda_dir}/%{uda_jar}
 install -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{doc_dir}/%{uda_readme}
 install -m 0644 %{SOURCE3} $RPM_BUILD_ROOT%{doc_dir}/%{uda_lic}
-
+install -m 0755 %{SOURCE4} $RPM_BUILD_ROOT%{uda_dir}/%{hadoop_prop_script}
 
 #%post
 
@@ -107,5 +107,6 @@ rm -rf $RPM_BUILD_ROOT
 %{uda_dir}/%{uda_jar}
 %{doc_dir}/%{uda_readme}
 %{doc_dir}/%{uda_lic}
+%{uda_dir}/%{hadoop_prop_script}
 
 %changelog

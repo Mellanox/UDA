@@ -13,8 +13,21 @@
 #1. add the following line to the end of your hadoop-env.sh
 	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda.jar
 
-
-#2. TaskTracker level settings:
+#2. run script set_hadoop_slave_property.sh located in /usr/lib64/uda on your slave nodes and on master node.
+This script edits property "slave.host.name" located in mapred-site.xml. This property is used to represent 
+the interface you want to run hadoop on. There are two ways to configure it:
+		a. it can contain `hostname`-suffix (for example eagle1-ib). In this case in /etc/hosts should contain 
+		an entry spesifying ip for 'eagle1-ib'.
+		b. if you do not wish to edit /etc/hosts you can work with ip address of specific interface. 
+		In this case, ip should appear in conf dir in slaves file, and in all xml properties where master's name is used.
+Parameters to be passed to the script:
+Required options:
+		--hadoop-conf-dir=DIR  	path to existing hadoop installation that will use hadoop
+	AND one of the following options:
+		--interface=INTERFACE_NAME	interface name as it appears in 'ifconfig'
+		--host-suffix=HOST_SUFFIX  	suffix to be added to hostname		
+		
+#3. TaskTracker level settings:
 #   Merge the following lines into your mapred-site.xml
 #   NOTE: this must be in mapred-*.xml, because it must be considered in TaskTracker initialization
 #         hence, it can't be just given per job
@@ -57,7 +70,7 @@
 	</configuration>
 
 
-#3. Job level settings:
+#4. Job level settings:
 #   The following are ADDITIONAL setting that must be given to any UDA job.
 #   it can be provided either in command line or in mapred-*.xml
 	<?xml version="1.0"?>
@@ -78,7 +91,7 @@
 		
 	</configuration>
 
-#4. OPTIONAL: 
+#5. OPTIONAL: 
 #   The following are optional parameters for UDA with their defaults
 #   Users may decide to change defaults in their environment
 	<?xml version="1.0"?>
