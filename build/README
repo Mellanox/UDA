@@ -104,7 +104,7 @@ Required options:
 		
 	</configuration>
 
-#6. OPTIONAL: 
+#6 . OPTIONAL: 
 #   The following are optional parameters for UDA with their defaults
 #   Users may decide to change defaults in their environment
 	<?xml version="1.0"?>
@@ -113,11 +113,15 @@ Required options:
 				
 		<property>
 			<name>mapred.rdma.cma.port</name>
+			<description>Port number to be used for the RDMA connection</description>
 			<value>9011</value>
 		</property>
 		
 		<property>
 			<name>mapred.rdma.wqe.per.conn</name>
+			<description>Number of allocated Work Queue Elements (WQEs) for Receive
+					Queue per connection
+			</description>
 			<value>256</value>
 		</property>
 		
