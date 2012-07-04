@@ -22,7 +22,7 @@ the interface you want to run hadoop on. There are two ways to configure it:
 		In this case, ip should appear in conf dir in slaves file, and in all xml properties where master's name is used.
 Parameters to be passed to the script:
 Required options:
-		--hadoop-conf-dir=DIR  	path to existing hadoop installation that will use hadoop
+		--hadoop-conf-dir=DIR  	path to conf dir of existing hadoop installation
 	AND one of the following options:
 		--interface=INTERFACE_NAME	interface name as it appears in 'ifconfig'
 		--host-suffix=HOST_SUFFIX  	suffix to be added to hostname		

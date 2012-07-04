@@ -13,7 +13,7 @@ usage: $0 <options>
 		2. Use ip address of the interface you wish to run hadoop on.
 	
 	Required options:
-		--hadoop-conf-dir=DIR  	path to existing hadoop installation that will use hadoop
+		--hadoop-conf-dir=DIR  	path to conf dir of existing hadoop installation 
 	AND one of the following options:
 		--interface=INTERFACE_NAME	interface name as it appears in 'ifconfig'
 		--host-suffix=HOST_SUFFIX  	suffix to be added to hostname
