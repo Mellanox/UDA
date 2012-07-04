@@ -25,9 +25,22 @@ Required options:
 		--hadoop-conf-dir=DIR  	path to conf dir of existing hadoop installation
 	AND one of the following options:
 		--interface=INTERFACE_NAME	interface name as it appears in 'ifconfig'
-		--host-suffix=HOST_SUFFIX  	suffix to be added to hostname		
+		--host-suffix=HOST_SUFFIX  	suffix to be added to hostname	
 		
-#3. TaskTracker level settings:
+3. HDFS settings:
+#Merge the following lines into your hdfs-site.xml
+<?xml version="1.0"?>
+	<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+	<configuration>
+		<property>
+			<name>dfs.datanode.dns.interface</name>
+			<value>ib0</value>
+			<description>The name of the Network Interface from which a
+				data node should report its IP address.
+			</description>
+			</property>
+	</configuration>
+#4. TaskTracker level settings:
 #   Merge the following lines into your mapred-site.xml
 #   NOTE: this must be in mapred-*.xml, because it must be considered in TaskTracker initialization
 #         hence, it can't be just given per job
@@ -70,7 +83,7 @@ Required options:
 	</configuration>
 
 
-#4. Job level settings:
+#5. Job level settings:
 #   The following are ADDITIONAL setting that must be given to any UDA job.
 #   it can be provided either in command line or in mapred-*.xml
 	<?xml version="1.0"?>
@@ -91,7 +104,7 @@ Required options:
 		
 	</configuration>
 
-#5. OPTIONAL: 
+#6. OPTIONAL: 
 #   The following are optional parameters for UDA with their defaults
 #   Users may decide to change defaults in their environment
 	<?xml version="1.0"?>
