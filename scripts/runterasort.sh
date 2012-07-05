@@ -209,8 +209,8 @@ for node_scale in ${CLUSTER_NODES} ; do
 	echo $(basename $0): Copy  conf dir to slaves
         ${SCRIPTS_DIR}/copy_conf.sh
 	echo $(basename $0): Set slave.host.name to slaves and master
-        ${SCRIPTS_DIR}/set_hadoop_slave_property.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
-		bin/slaves.sh ${SCRIPTS_DIR}/set_hadoop_slave_property.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+        ${SCRIPTS_DIR}/set_hadoop_slave_property.sh --hadoop-conf-dir=$HADOOP_CONF_DIR --host-suffix=$ending 
+		bin/slaves.sh ${SCRIPTS_DIR}/set_hadoop_slave_property.sh --hadoop-conf-dir=$HADOOP_CONF_DIR --host-suffix=$ending 
 	
 	echo "$(basename $0): #slaves=$nodes"
 	echo "$(basename $0): #spindles=$disks"
@@ -247,8 +247,8 @@ for node_scale in ${CLUSTER_NODES} ; do
 				echo $(basename $0): Copy  conf dir to salves
 				${SCRIPTS_DIR}/copy_conf.sh
 				echo $(basename $0): Set slave.host.name to slaves and master
-				${SCRIPTS_DIR}/set_hadoop_slave_property.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
-				bin/slaves.sh ${SCRIPTS_DIR}/set_hadoop_slave_property.sh hostname $ending $HADOOP_CONF_DIR/mapred-site.xml
+				${SCRIPTS_DIR}/set_hadoop_slave_property.sh --hadoop-conf-dir=$HADOOP_CONF_DIR --host-suffix=$ending 
+				bin/slaves.sh ${SCRIPTS_DIR}/set_hadoop_slave_property.sh --hadoop-conf-dir=$HADOOP_CONF_DIR --host-suffix=$ending 
 				ds_n=-1		
 				for ds in ${DATA_SET}; do
 					ds_n=$((ds_n+1))
