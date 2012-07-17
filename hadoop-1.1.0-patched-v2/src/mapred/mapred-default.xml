@@ -200,6 +200,32 @@
 </property>
 
 <property>
+  <name>mapred.tasktracker.shuffle.provider.plugin</name>
+  <value></value>   
+   <description>Name of an optional class whose instance will be used 
+   to answer shuffle requests at the TaskTracker side.
+   Note: This instance will serve in addition to the built-in shuffle provider (MapOutputServlet).
+   
+   The class must be an instance of 
+   org.apache.hadoop.mapred.ShuffleProviderPlugin. If the value is null, the
+   tasktracker will only use the built-in shuffle provider.
+   </description>
+</property>
+  
+<property>
+ <name>mapred.reducetask.shuffle.consumer.plugin</name>
+  <value>org.apache.hadoop.mapred.ReduceCopier</value>   
+   <description>Name of the class whose instance will be used 
+   to send shuffle requests at the ReduceTask side.
+   
+   The class must be an instance of 
+   org.apache.hadoop.mapred.ShuffleConsumerPlugin. If the value is null, the
+   reducetask will use org.apache.hadoop.mapred.ReduceCopier -- the built-in
+   class in Hadoop
+   </description>
+</property>  
+
+<property>
   <name>mapred.tasktracker.taskmemorymanager.monitoring-interval</name>
   <value>5000</value>
   <description>The interval, in milliseconds, for which the tasktracker waits
@@ -1264,5 +1290,6 @@
   exceeding this limit will be truncated.
   </description>
 </property>
+
 
 </configuration>
