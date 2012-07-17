@@ -40,7 +40,7 @@ import org.apache.hadoop.util.StringUtils;
 
 
 /**
- * ShuffleConsumerPlugin that can serve Reducers, and shuffle MOF files from TaskTrackers that use a matching ShuffleProvidePlugin
+ * ShuffleConsumerPlugin that can serve Reducers, and shuffle MOF files from TaskTrackers that use a matching ShuffleProviderPlugin
  * 
  */
 public abstract class ShuffleConsumerPlugin {
