@@ -631,7 +631,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     + TaskTracker.LOCAL_SPLIT_FILE;
   }
 
-  static String getIntermediateOutputDir(String user, String jobid,
+  public static String getIntermediateOutputDir(String user, String jobid,
       String taskid) {
     return getLocalTaskDir(user, jobid, taskid) + Path.SEPARATOR
     + TaskTracker.OUTPUT;
@@ -890,11 +890,17 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
 
     // loads a configured ShuffleProviderPlugin if any
     // at this phase we only support at most one such plugin
+    //
+     
     Class<? extends ShuffleProviderPlugin> providerClazz =
     		fConf.getClass(TT_SHUFFLE_PROVIDER_PLUGIN,
     				null, ShuffleProviderPlugin.class);
-    shuffleProviderPlugin = 
-    		ShuffleProviderPlugin.getShuffleProviderPlugin(providerClazz, fConf);
+
+
+	if (providerClazz != null) {
+               shuffleProviderPlugin = ReflectionUtils.newInstance(providerClazz, fConf);
+        }
+
     if (shuffleProviderPlugin != null) {
     	LOG.info(" Using ShuffleProviderPlugin : " + shuffleProviderPlugin);
     	shuffleProviderPlugin.initialize(this);
@@ -1446,7 +1452,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     }
 
     if (shuffleProviderPlugin != null) {
-      shuffleProviderPlugin.close();
+      shuffleProviderPlugin.destroy();
       shuffleProviderPlugin = null;
     }
   }
@@ -2192,9 +2198,6 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     getJobTokenSecretManager().removeTokenForJob(jobId.toString());  
     distributedCacheManager.removeTaskDistributedCacheManager(jobId);
 
-    if (shuffleProviderPlugin != null) {
-      shuffleProviderPlugin.jobDone(action.getJobID());
-    }
   }
 
   /**
@@ -3553,9 +3556,6 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     if (tip != null) {
       validateJVM(tip, jvmContext, taskid);
       commitResponses.remove(taskid);
-      if (shuffleProviderPlugin != null) {
-    	  shuffleProviderPlugin.taskDone(tip.getTask(), localDirAllocator);    	  
-      }			
       tip.reportDone();
     } else {
       LOG.warn("Unknown child task done: "+taskid+". Ignored.");
@@ -3814,10 +3814,18 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
   /**
    * Get the default job conf for this tracker.
    */
-  JobConf getJobConf() {
+  public JobConf getJobConf() {
     return fConf;
   }
 
+  /**
+   * Get the specific job conf for a running job.
+   */
+  public JobConf getJobConf(JobID jobid) {
+    return runningJobs.get(jobid).getJobConf();
+  }
+	
+  
   /**
    * Is this task tracker idle?
    * @return has this task tracker finished all its assigned tasks?
@@ -3897,7 +3905,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
    * This class is used in TaskTracker's Jetty to serve the map outputs
    * to other nodes.
    */
-  public static class MapOutputServlet extends HttpServlet {
+  public static class MapOutputServlet extends HttpServlet implements ShuffleProviderPlugin {
     private static final long serialVersionUID = 1L;
     private static final int MAX_BYTES_TO_READ = 64 * 1024;
     
@@ -4117,6 +4125,10 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       LOG.debug("Fetcher request verfied. enc_str="+enc_str+";reply="
           +reply.substring(len-len/2, len-1));
     }
+	
+	// implementation for pure virtual method of ShuffleProviderPlugin
+	public void initialize(TaskTracker taskTracker){
+	}
   }
   
 
