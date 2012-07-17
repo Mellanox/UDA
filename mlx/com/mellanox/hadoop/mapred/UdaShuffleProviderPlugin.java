@@ -17,7 +17,9 @@ import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TaskAttemptID;
 
-public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
+public class UdaShuffleProviderPlugin implements ShuffleProviderPlugin{
+
+	protected TaskTracker taskTracker; //handle to parent object
 
 	private static final Log LOG = LogFactory.getLog(UdaShuffleProviderPlugin.class.getName());
 
@@ -33,8 +35,8 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 	 * invoked at the end of TaskTracker.initialize
 	 */
 	public void initialize(TaskTracker taskTracker) {
-		super.initialize(taskTracker);
-		rdmaChannel = new UdaPluginTT(taskTracker, getJobConf(), this);
+		this.taskTracker = taskTracker;
+		rdmaChannel = new UdaPluginTT(taskTracker, taskTracker.getJobConf(), this);
 	}
 
 	/**
@@ -44,7 +46,7 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 	 * 
 	 * invoked at the end of TaskTracker.close
 	 */
-	public void close() {
+	public void destroy() {
 		rdmaChannel.close();
 	}
 				  
@@ -60,7 +62,7 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 				String jobId = task.getJobID().toString();
 				String taskId = task.getTaskID().toString();
 				String userName = task.getUser();
-				String intermediateOutputDir = getIntermediateOutputDir(userName, jobId, taskId);
+				String intermediateOutputDir = taskTracker.getIntermediateOutputDir(userName, jobId, taskId);
 				
 				Configuration conf = task.getConf();
 				
@@ -87,11 +89,11 @@ public class UdaShuffleProviderPlugin extends ShuffleProviderPlugin{
 	}
 	
 	JobConf getJobConfFromSuperClass(JobID jobid) {
-		return getJobConf(jobid) ;
+		return taskTracker.getJobConf(jobid) ;
 	}
 	
 	static String getIntermediateOutputDirFromSuperClass(String user, String jobid, String taskid) {
- 		return ShuffleProviderPlugin.getIntermediateOutputDir(user, jobid, taskid) ;
+ 		return TaskTracker.getIntermediateOutputDir(user, jobid, taskid) ;
  	}
 
 
