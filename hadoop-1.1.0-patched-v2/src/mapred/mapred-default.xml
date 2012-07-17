@@ -214,7 +214,7 @@
   
 <property>
  <name>mapred.reducetask.shuffle.consumer.plugin</name>
-  <value>org.apache.hadoop.mapred.ReduceCopier</value>   
+  <value>org.apache.hadoop.mapred.ReduceTask.ReduceCopier</value>   
    <description>Name of the class whose instance will be used 
    to send shuffle requests at the ReduceTask side.
    
