@@ -81,8 +81,7 @@ old_property_raw=`cat $filename | grep -A 4 $element_name `
 if [ -z "$old_property_raw" ]
 then
 	echo "property does not exist: adding it!"
-	new_property="<property> \n<name>$element_name <\\\name> \n<value>$new_value<\\\value> \n<\\\property>"
-	lala="chocholate"
+	new_property="<property> \n<name>$element_name </name> \n<value>$new_value</value> \n</property>"
 	sed "/^<configuration>/a $new_property" $filename > ${filename}.new
 	mv  ${filename}.new ${filename}
 	rm -rf ${filename}.new
