@@ -275,7 +275,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 			umbilical.getMapCompletionEvents(reduceTask.getJobID(), 
 			fromEventId.get(), 
 			MAX_EVENTS_TO_FETCH,
-			reduceTask.getTaskID()/*0.20.2, reduceTask.getJvmContext()*/);
+			reduceTask.getTaskID(), reduceTask.getJvmContext());
 			TaskCompletionEvent events[] = update.getMapTaskCompletionEvents();
 			
 			// Check if the reset is required.
