@@ -44,7 +44,7 @@ import org.apache.hadoop.util.StringUtils;
  * 
  */
 public abstract class ShuffleConsumerPlugin {
-
+	
 	/**
 	 * Factory method for getting the ShuffleConsumerPlugin from the given class object and configure it. 
 	 * If clazz is null, this method will return instance of ReduceCopier since it is the default ShuffleConsumerPlugin 
@@ -60,8 +60,8 @@ public abstract class ShuffleConsumerPlugin {
 	 */
 	public static ShuffleConsumerPlugin getShuffleConsumerPlugin(Class<? extends ShuffleConsumerPlugin> clazz, ReduceTask reduceTask, 
 			TaskUmbilicalProtocol umbilical, JobConf conf, TaskReporter reporter) throws ClassNotFoundException, IOException  {
-
-		if (clazz != null && ((Class)clazz) != ReduceTask.ReduceCopier.class) {
+		
+		if (clazz != null) {
 			ShuffleConsumerPlugin plugin = ReflectionUtils.newInstance(clazz, conf);
 			plugin.init(reduceTask, umbilical, conf, reporter);
 			return plugin;

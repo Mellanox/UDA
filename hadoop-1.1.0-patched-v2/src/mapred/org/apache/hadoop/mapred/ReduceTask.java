@@ -1927,7 +1927,7 @@ public class ReduceTask extends Task {
       URLClassLoader loader = new URLClassLoader(urls, parent);
       conf.setClassLoader(loader);
     }
-    
+
     public ReduceCopier(TaskUmbilicalProtocol umbilical, JobConf conf,
                         TaskReporter reporter
                         )throws ClassNotFoundException, IOException {
