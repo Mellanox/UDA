@@ -4123,7 +4123,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     }
 	
     // implementation for ShuffleProviderPlugin method. 
-    // This method is not called at the moment, since MapOutputServlet is not loaded as plugin 
+    // This method is not called at the moment, since MapOutputServlet is not loaded as plugin.
     public void initialize(TaskTracker taskTracker){
         taskTracker.server.addInternalServlet("mapOutput", "/mapOutput", MapOutputServlet.class);
 	}

@@ -30,7 +30,7 @@ import org.apache.hadoop.fs.FileSystem;
  * ShuffleConsumerPlugin that can serve Reducers, and shuffle MOF files from tasktrackers.
  * The tasktracker may use a matching ShuffleProviderPlugin
  * 
- * NOTE: This interface is also used for loading 3rd party plugins at runtime
+ * NOTE: This interface is also used when loading 3rd party plugins at runtime
  * 
  */
 public abstract class ShuffleConsumerPlugin {

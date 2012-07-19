@@ -22,13 +22,13 @@ package org.apache.hadoop.mapred;
  * This interface is implemented by objects that are able to answer shuffle requests which are
  * sent from a matching Shuffle Consumer that lives in context of a ReduceTask object.
  * 
- * ShuffleProvider object will be notified on the following events: 
+ * ShuffleProviderPlugin object will be notified on the following events: 
  * initialize, destroy.
  * At this phase, at most one optional ShuffleProvider is supported by TaskTracker 
  * At this phase, TaskTracker will use the optional ShuffleProvider (if any) in addition to 
  * the default shuffle provider (MapOutputServlet).
  * 
- * NOTE: This interface is also used for loading 3rd party plugins at runtime
+ * NOTE: This interface is also used when loading 3rd party plugins at runtime
  *
  */
 public interface ShuffleProviderPlugin {
