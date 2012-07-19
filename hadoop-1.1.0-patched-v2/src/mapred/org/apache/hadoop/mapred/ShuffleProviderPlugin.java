@@ -17,7 +17,6 @@
  */
 
 package org.apache.hadoop.mapred;
-import org.apache.hadoop.conf.Configuration;
 
 /**
  * This interface is implemented by objects that are able to answer shuffle requests which are
@@ -25,18 +24,20 @@ import org.apache.hadoop.conf.Configuration;
  * 
  * ShuffleProvider object will be notified on the following events: 
  * initialize, destroy.
- * At this phase, at most one optional ShuffleProvider is supported 
- * At this phase, the optional ShuffleProvider (if any) will work in addition to Hadoop's default 
- * shuffle provider (MapOutputServlet)
+ * At this phase, at most one optional ShuffleProvider is supported by TaskTracker 
+ * At this phase, TaskTracker will use the optional ShuffleProvider (if any) in addition to 
+ * the default shuffle provider (MapOutputServlet).
+ * 
+ * NOTE: This interface is also used for loading 3rd party plugins at runtime
  *
  */
 public interface ShuffleProviderPlugin {
 	/**
 	 * Do the real constructor work here.  It's in a separate method
 	 * so we can call it again and "recycle" the object after calling
-	 * close().
+	 * destroy().
 	 * 
-	 * invoked at the end of TaskTracker.initialize
+	 * invoked from TaskTracker.initialize
 	 */
 	public void initialize(TaskTracker taskTracker);
 	
@@ -45,7 +46,7 @@ public interface ShuffleProviderPlugin {
 	 * A new object within the same process space might be restarted, 
 	 * so everything must be clean.
 	 * 
-	 * invoked at the end of TaskTracker.close
+	 * invoked from TaskTracker.close
 	 */
 	public void destroy();	
 }

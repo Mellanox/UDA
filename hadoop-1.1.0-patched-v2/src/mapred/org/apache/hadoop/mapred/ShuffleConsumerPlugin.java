@@ -18,29 +18,19 @@
 
 package org.apache.hadoop.mapred;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.ArrayList;
-
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Task;
 import org.apache.hadoop.mapred.Task.TaskReporter;
-import org.apache.hadoop.mapred.TaskTracker;
 import org.apache.hadoop.mapred.ReduceTask.ReduceCopier;
-
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.util.ReflectionUtils;
-import org.apache.hadoop.util.StringUtils;
-
+import org.apache.hadoop.fs.FileSystem;
 
 /**
- * ShuffleConsumerPlugin that can serve Reducers, and shuffle MOF files from TaskTrackers that use a matching ShuffleProviderPlugin
+ * ShuffleConsumerPlugin that can serve Reducers, and shuffle MOF files from tasktrackers.
+ * The tasktracker may use a matching ShuffleProviderPlugin
+ * 
+ * NOTE: This interface is also used for loading 3rd party plugins at runtime
  * 
  */
 public abstract class ShuffleConsumerPlugin {

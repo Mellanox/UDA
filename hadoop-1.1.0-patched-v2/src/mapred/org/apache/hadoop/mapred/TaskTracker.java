@@ -888,25 +888,22 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
       fConf.getInt(TT_OUTOFBAND_HEARTBEAT_DAMPER, 
           DEFAULT_OOB_HEARTBEAT_DAMPER);
 
-    // loads a configured ShuffleProviderPlugin if any
-    // at this phase we only support at most one such plugin
+    // loads a configured additional ShuffleProviderPlugin, if any.
+    // At this phase we only support at most one such plugin
+    // +++ NOTE: This code support load of 3rd party plugins at runtime +++
     //
-     
     Class<? extends ShuffleProviderPlugin> providerClazz =
     		fConf.getClass(TT_SHUFFLE_PROVIDER_PLUGIN,
     				null, ShuffleProviderPlugin.class);
-
-
-	if (providerClazz != null) {
-               shuffleProviderPlugin = ReflectionUtils.newInstance(providerClazz, fConf);
-        }
-
+    if (providerClazz != null) {
+        shuffleProviderPlugin = ReflectionUtils.newInstance(providerClazz, fConf);
+    }
     if (shuffleProviderPlugin != null) {
-    	LOG.info(" Using ShuffleProviderPlugin : " + shuffleProviderPlugin);
-    	shuffleProviderPlugin.initialize(this);
+        LOG.info(" Using ShuffleProviderPlugin: " + shuffleProviderPlugin);
+        shuffleProviderPlugin.initialize(this);
     }
     else {
-    	LOG.info(" NO ShuffleProviderPlugin will be used");
+        LOG.info(" NO ShuffleProviderPlugin will be used");
     }
   }
 
@@ -2197,7 +2194,6 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
     }
     getJobTokenSecretManager().removeTokenForJob(jobId.toString());  
     distributedCacheManager.removeTaskDistributedCacheManager(jobId);
-
   }
 
   /**
@@ -4126,8 +4122,10 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
           +reply.substring(len-len/2, len-1));
     }
 	
-	// implementation for pure virtual method of ShuffleProviderPlugin
-	public void initialize(TaskTracker taskTracker){
+    // implementation for ShuffleProviderPlugin method. 
+    // This method is not called at the moment, since MapOutputServlet is not loaded as plugin 
+    public void initialize(TaskTracker taskTracker){
+        taskTracker.server.addInternalServlet("mapOutput", "/mapOutput", MapOutputServlet.class);
 	}
   }
   

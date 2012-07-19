@@ -387,6 +387,8 @@ public class ReduceTask extends Task {
     if (!isLocal) {
     	
     	// loads the configured ShuffleConsumerPlugin, or the default one in case nothing is configured
+        // +++ NOTE: This code support load of 3rd party plugins at runtime +++
+        //
     	Class<? extends ShuffleConsumerPlugin> clazz =
     			job.getClass(RT_SHUFFLE_CONSUMERER_PLUGIN, null, ShuffleConsumerPlugin.class);
     	shuffleConsumerPlugin = ShuffleConsumerPlugin.getShuffleConsumerPlugin(clazz, this, umbilical, job, reporter);
