@@ -36,14 +36,14 @@ import org.apache.hadoop.fs.LocalFileSystem;
 
 
 /**
-	* For testing availabilty and accessability of main API that is needed for sub-classes
-	* of ShuffleProviderPlugin and of ShuffleConsumerPlugin
-*/
+  * A JUnit for testing availability and accessibility of main API that is needed for sub-classes
+  * of ShuffleProviderPlugin and ShuffleConsumerPlugin
+ */
 public class TestShufflePlugin {
 	
 	@Test
 	/**
-	 * Testing availabilty and accessability of API that is needed for sub-classes of ShuffleProviderPlugin
+	 * A method for testing availability and accessibility of API that is needed for sub-classes of ShuffleProviderPlugin
 	 */
 	public void testProvider() {
 		//mock creation
@@ -64,7 +64,7 @@ public class TestShufflePlugin {
 	
 	@Test
 	/**
-	 * Testing availabilty and accessability of API that is needed for sub-classes of ShuffleConsumerPlugin
+	 * A method for testing availability and accessibility of API that is needed for sub-classes of ShuffleConsumerPlugin
 	 */
 	public void testConsumer() {
 		//mock creation
