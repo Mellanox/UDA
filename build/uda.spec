@@ -1,10 +1,8 @@
 
-%define lib_target  %{_libdir}
 %define uda_dir  %{_libdir}/uda
 %define doc_dir  /usr/share/doc/%{name}-%{version}/
 
-#%define uda_lib   				libuda.so
-%define uda_lib    				libhadoopUda.so
+%define uda_lib   				libuda.so
 %define uda_jar    				uda.jar
 %define uda_readme 				README
 %define uda_lic    				LICENSE.txt
@@ -83,11 +81,10 @@ Mellanox UDA is collaboratively developed with Auburn University.
 %install
 
 rm -rf $RPM_BUILD_ROOT
-%__install -d -m 0755 $RPM_BUILD_ROOT%{lib_target}
 %__install -d -m 0755 $RPM_BUILD_ROOT%{uda_dir}
 %__install -d -m 0755 $RPM_BUILD_ROOT%{doc_dir}
 
-install -m 0755 %{SOURCE0} $RPM_BUILD_ROOT%{lib_target}/%{uda_lib}
+install -m 0755 %{SOURCE0} $RPM_BUILD_ROOT%{uda_dir}/%{uda_lib}
 install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{uda_dir}/%{uda_jar}
 install -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{doc_dir}/%{uda_readme}
 install -m 0644 %{SOURCE3} $RPM_BUILD_ROOT%{doc_dir}/%{uda_lic}
@@ -104,7 +101,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root,-)
 %doc
-%{lib_target}/%{uda_lib}
+%{uda_dir}/%{uda_lib}
 %{uda_dir}/%{uda_jar}
 %{doc_dir}/%{uda_readme}
 %{doc_dir}/%{uda_lic}

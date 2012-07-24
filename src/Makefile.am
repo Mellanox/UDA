@@ -11,9 +11,9 @@ AM_CPPFLAGS = $(INCLUDE_DIR) -I$(top_srcdir) -I. -I$(top_srcdir)/include \
 # Specify the source files for a library
 # Append additional directory to the end of this list
 
-lib_LTLIBRARIES = libhadoopUda.la
+lib_LTLIBRARIES = libuda.la
 
-libhadoopUda_la_SOURCES = \
+libuda_la_SOURCES = \
 						include/atomic.h         \
 						include/C2JNexus.h       \
 						include/IOUtility.h      \
@@ -49,7 +49,7 @@ libhadoopUda_la_SOURCES = \
                         Merger/NetMergerMain.cc \
                         UdaBridge.cc 
 
-libhadoopUda_la_LIBADD =  -lpthread -libverbs -lrdmacm -laio
+libuda_la_LIBADD =  -lpthread -libverbs -lrdmacm -laio
 
 #support coverity
 cov:

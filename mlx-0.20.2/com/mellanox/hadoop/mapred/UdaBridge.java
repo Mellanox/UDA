@@ -14,8 +14,10 @@ interface UdaCallable {
 
 public class UdaBridge {
 
-    static {
-        System.loadLibrary("hadoopUda"); //load libhadoopUda.so
+    static {  
+		String s1=UdaBridge.class.getProtectionDomain().getCodeSource().getLocation().getPath(); 
+		String s2=s1.substring(0, s1.lastIndexOf("/")+1); // /usr/lib64/uda/
+		Runtime.getRuntime().load(s2+"libuda.so");
     }
 	
 	static private UdaCallable callable;
