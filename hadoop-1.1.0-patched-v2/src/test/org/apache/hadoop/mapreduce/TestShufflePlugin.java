@@ -27,7 +27,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.JobID;
 import org.apache.hadoop.mapred.ShuffleProviderPlugin;
 
-public class TestShuffleProviderPlugin {
+public class TestShufflePlugin {
 	
   @Test
   /*
@@ -47,5 +47,12 @@ public class TestShuffleProviderPlugin {
 	shuffleProvider.initialize(tt);
 	shuffleProvider.destroy();
   }	
+  
+  @Test
+  /*
+	Testing availabilty and accessability of API that is needed for sub-classes of ShuffleConsumerPlugin
+  */
+  public void testConsumer() {
+  }
 
 }
