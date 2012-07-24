@@ -37,8 +37,9 @@ import org.apache.hadoop.fs.LocalFileSystem;
 
 /**
   * A JUnit for testing availability and accessibility of main API that is needed for sub-classes
-  * of ShuffleProviderPlugin and ShuffleConsumerPlugin
- */
+  * of ShuffleProviderPlugin and ShuffleConsumerPlugin.
+  * The importance of this test is for preserving API with 3rd party plugins.
+  */
 public class TestShufflePlugin {
 	
 	@Test
