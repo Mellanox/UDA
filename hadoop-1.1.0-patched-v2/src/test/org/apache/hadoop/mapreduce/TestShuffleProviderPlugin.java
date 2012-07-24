@@ -18,46 +18,34 @@
 
 package org.apache.hadoop.mapreduce;
 
-
 import static org.junit.Assert.*;
-import org.apache.hadoop.mapred.TaskTracker;
-import org.apache.hadoop.mapred.JobID;
-import org.apache.hadoop.mapred.ShuffleProviderPlugin;
 import org.junit.Test;
 import static org.mockito.Mockito.*;
+import org.apache.hadoop.mapred.TaskTracker;
+import org.apache.hadoop.mapred.TaskController;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.JobID;
+import org.apache.hadoop.mapred.ShuffleProviderPlugin;
 
-
-
-public class TestShuffleProviderPlugin implements ShuffleProviderPlugin {
-
-  public void initialize(TaskTracker tt){
-  }
-	
-  public void destroy(){
-  }
-
+public class TestShuffleProviderPlugin {
 	
   @Test
-  /*Testing that ShuffleProviderPlugin interface exists  
+  /*
+	Testing availabilty and accessability of API that is needed for sub-classes of ShuffleProviderPlugin
   */
-  public void testInterface() {
-	ShuffleProviderPlugin spp = (ShuffleProviderPlugin)this;
+  public void testProvider() {
 	TaskTracker tt = mock(TaskTracker.class);
-	spp.initialize(tt);
-	spp.destroy();
-  }	
-	
-  @Test
-  /*Testing that TaskTracker's methods which are used by ShuffleProviderPlugin
-  exist and they are public  
-  */
-  public void testAPI() {
-	TaskTracker tt = mock(TaskTracker.class);
-	JobID mockjobId = mock(JobID.class);
-	
 	tt.getJobConf();
-	tt.getJobConf(mockjobId);	
+	tt.getJobConf(mock(JobID.class));	
 	tt.getIntermediateOutputDir("","","");
-  }
+	tt.getTaskController();
+
+	TaskController tc = mock(TaskController.class);
+	tc.getRunAsUser(mock(JobConf.class));
+
+	ShuffleProviderPlugin shuffleProvider = mock(ShuffleProviderPlugin.class);
+	shuffleProvider.initialize(tt);
+	shuffleProvider.destroy();
+  }	
 
 }
