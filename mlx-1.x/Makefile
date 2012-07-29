@@ -6,8 +6,8 @@ all:
 	rm -rf out
 	mkdir -p out
 	CLASSPATH=$(CPATH) javac -d out com/mellanox/hadoop/mapred/*.java
-	jar -cvf uda.jar -C out com
+	jar -cvf uda-hadoop-1.x.jar -C out com
 	rm -rf out
 
 clean:
-	rm -rf uda.jar out
+	rm -rf uda-hadoop-1.x.jar out

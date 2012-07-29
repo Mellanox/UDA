@@ -3,7 +3,9 @@
 %define doc_dir  /usr/share/doc/%{name}-%{version}/
 
 %define uda_lib   				libuda.so
-%define uda_jar    				uda.jar
+%define uda_hadoop_1x_jar    	uda-hadoop-1.x.jar
+%define uda_CDH3u4_jar    		uda-CDH3u4.jar
+%define uda_0_20_2_jar    		uda-hadoop-0.20.2.jar
 %define uda_readme 				README
 %define uda_lic    				LICENSE.txt
 %define hadoop_prop_script    	set_hadoop_slave_property.sh
@@ -49,12 +51,12 @@ License:        Apache License v2.0
 Group:          Acceleration
 URL:            http://www.mellanox.com/
 Source0:        %{uda_lib}
-Source1:        %{uda_jar}
-Source2:        %{uda_readme}
-Source3:        %{uda_lic}
-Source4:        %{hadoop_prop_script}
-
-
+Source1:        %{uda_hadoop_1x_jar}
+Source2:        %{uda_CDH3u4_jar}
+Source3:        %{uda_0_20_2_jar}
+Source4:        %{uda_readme}
+Source5:        %{uda_lic}
+Source6:        %{hadoop_prop_script}
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 #BuildArch:      noarch
@@ -85,10 +87,12 @@ rm -rf $RPM_BUILD_ROOT
 %__install -d -m 0755 $RPM_BUILD_ROOT%{doc_dir}
 
 install -m 0755 %{SOURCE0} $RPM_BUILD_ROOT%{uda_dir}/%{uda_lib}
-install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{uda_dir}/%{uda_jar}
-install -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{doc_dir}/%{uda_readme}
-install -m 0644 %{SOURCE3} $RPM_BUILD_ROOT%{doc_dir}/%{uda_lic}
-install -m 0755 %{SOURCE4} $RPM_BUILD_ROOT%{uda_dir}/%{hadoop_prop_script}
+install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_1x_jar}
+install -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{uda_dir}/%{uda_CDH3u4_jar}
+install -m 0644 %{SOURCE3} $RPM_BUILD_ROOT%{uda_dir}/%{uda_0_20_2_jar}
+install -m 0644 %{SOURCE4} $RPM_BUILD_ROOT%{doc_dir}/%{uda_readme}
+install -m 0644 %{SOURCE5} $RPM_BUILD_ROOT%{doc_dir}/%{uda_lic}
+install -m 0755 %{SOURCE6} $RPM_BUILD_ROOT%{uda_dir}/%{hadoop_prop_script}
 
 #%post
 
@@ -102,7 +106,9 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 %doc
 %{uda_dir}/%{uda_lib}
-%{uda_dir}/%{uda_jar}
+%{uda_dir}/%{uda_CDH3u4_jar}
+%{uda_dir}/%{uda_0_20_2_jar}
+%{uda_dir}/%{uda_hadoop_1x_jar}
 %{doc_dir}/%{uda_readme}
 %{doc_dir}/%{uda_lic}
 %{uda_dir}/%{hadoop_prop_script}

@@ -10,8 +10,13 @@
 #
 
 #in order to run UDA, you'll need:
-#1. add the following line to the end of your hadoop-env.sh
-	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda.jar
+#1. add line containing jar name matching your hadoop version to the end of your hadoop-env.sh.
+	For Hadoop 1.x add:
+	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-1.x.jar
+	For CDH3u4 add:
+	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-CDH3u4.jar
+	For Hadoop 0.20.2 add:
+	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-0.20.2.jar
 
 #2. run script set_hadoop_slave_property.sh located in /usr/lib64/uda on your slave nodes and on master node.
 This script edits property "slave.host.name" located in mapred-site.xml. This property is used to represent 
