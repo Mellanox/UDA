@@ -16,6 +16,7 @@ cp ../mlx-0.20.2/uda-hadoop-0.20.2.jar .
 cp ../mlx-1.x/uda-hadoop-1.x.jar .
 cp ../scripts/set_hadoop_slave_property.sh .
 
-cp uda-CDH3u4.jar uda-hadoop-0.20.2.jar uda-hadoop-1.x.jar libuda.so README LICENSE.txt set_hadoop_slave_property.sh ~/rpmbuild/SOURCES/
+cp uda-hadoop-1.x.jar libuda.so README LICENSE.txt set_hadoop_slave_property.sh ~/rpmbuild/SOURCES/
+#cp uda-CDH3u4.jar uda-hadoop-0.20.2.jar uda-hadoop-1.x.jar ~/rpmbuild/SOURCES/ #in case you are building additional jars
 rpmbuild -ba uda.spec
 cd -
