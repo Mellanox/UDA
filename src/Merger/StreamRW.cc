@@ -12,6 +12,8 @@
  */
 
 #define EOF_MARKER (-1)
+#define __STDC_LIMIT_MACROS
+#include <stdint.h>
 
 #include <stdio.h>
 #include <map>
@@ -22,8 +24,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#define __STDC_LIMIT_MACROS
-#include <stdint.h>
+
 
 #include "MergeManager.h"
 #include "MergeQueue.h"

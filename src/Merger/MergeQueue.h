@@ -272,12 +272,15 @@ public:
         this->key = NULL;
         this->val = NULL;
         this->mergeq_flag = 0;
-        this->staging_bufs = {};
-        
+         
         if (staging_descs) {
         	for (int i=0;i < NUM_STAGE_MEM; i++)  
 		        this->staging_bufs[i] = &staging_descs[i];
         }
+		else{
+        	for (int i=0;i < NUM_STAGE_MEM; i++)  
+		        this->staging_bufs[i] = NULL;
+		}
         
         core_queue.clear();
         
