@@ -11,8 +11,8 @@ make -C ../src clean all
 make -C ../mlx-1.x clean all
 
 cp ../src/.libs/libuda.so .
-cp ../mlx-CDH3u4/uda-CDH3u4.jar .
-cp ../mlx-0.20.2/uda-hadoop-0.20.2.jar .
+#cp ../mlx-CDH3u4/uda-CDH3u4.jar .
+#cp ../mlx-0.20.2/uda-hadoop-0.20.2.jar .
 cp ../mlx-1.x/uda-hadoop-1.x.jar .
 cp ../scripts/set_hadoop_slave_property.sh .
 
