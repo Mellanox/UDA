@@ -1,0 +1,435 @@
+diff -Nuar hadoop-0.20.2-cdh3u4/src/mapred/org/apache/hadoop/mapred/ReduceTask.java hadoop-0.20.2-cdh3u4_plus_plugIn/src/mapred/org/apache/hadoop/mapred/ReduceTask.java
+--- hadoop-0.20.2-cdh3u4/src/mapred/org/apache/hadoop/mapred/ReduceTask.java	2012-05-07 23:04:04.000000000 +0300
++++ hadoop-0.20.2-cdh3u4_plus_plugIn/src/mapred/org/apache/hadoop/mapred/ReduceTask.java	2012-07-30 10:05:36.000000000 +0300
+@@ -90,7 +90,7 @@
+ import org.apache.hadoop.mapreduce.security.SecureShuffleUtils;
+ 
+ /** A Reduce task. */
+-class ReduceTask extends Task {
++public class ReduceTask extends Task {
+ 
+   static {                                        // register a ctor
+     WritableFactories.setFactory
+@@ -102,7 +102,10 @@
+   
+   private static final Log LOG = LogFactory.getLog(ReduceTask.class.getName());
+   private int numMaps;
+-  private ReduceCopier reduceCopier;
++  public static final String RT_SHUFFLE_CONSUMERER_PLUGIN = 
++		  "mapred.reducetask.shuffle.consumer.plugin";
++
++  private ShuffleConsumerPlugin shuffleConsumerPlugin;
+ 
+   private CompressionCodec codec;
+ 
+@@ -378,13 +381,19 @@
+ 
+     boolean isLocal = "local".equals(job.get("mapred.job.tracker", "local"));
+     if (!isLocal) {
+-      reduceCopier = new ReduceCopier(umbilical, job, reporter);
+-      if (!reduceCopier.fetchOutputs()) {
+-        if(reduceCopier.mergeThrowable instanceof FSError) {
+-          throw (FSError)reduceCopier.mergeThrowable;
++    	
++    	// loads the configured ShuffleConsumerPlugin, or the default one in case nothing is configured
++    	Class<? extends ShuffleConsumerPlugin> clazz =
++    			job.getClass(RT_SHUFFLE_CONSUMERER_PLUGIN, null, ShuffleConsumerPlugin.class);
++    	shuffleConsumerPlugin = ShuffleConsumerPlugin.getShuffleConsumerPlugin(clazz, this, umbilical, job, reporter);
++    	LOG.info(" Using ShuffleConsumerPlugin : " + shuffleConsumerPlugin);
++   	
++      if (!shuffleConsumerPlugin.fetchOutputs()) {
++        if(shuffleConsumerPlugin.mergeThrowable instanceof FSError) {
++          throw (FSError)shuffleConsumerPlugin.mergeThrowable;
+         }
+         throw new IOException("Task: " + getTaskID() + 
+-            " - The reduce copier failed", reduceCopier.mergeThrowable);
++            " - The reduce copier failed", shuffleConsumerPlugin.mergeThrowable);
+       }
+     }
+     copyPhase.complete();                         // copy is already complete
+@@ -398,7 +407,7 @@
+           !conf.getKeepFailedTaskFiles(), job.getInt("io.sort.factor", 100),
+           new Path(getTaskID().toString()), job.getOutputKeyComparator(),
+           reporter, spilledRecordsCounter, null)
+-      : reduceCopier.createKVIterator(job, rfs, reporter);
++      : shuffleConsumerPlugin.createKVIterator(job, rfs, reporter);
+         
+     // free up the data structures
+     mapOutputFilesOnDisk.clear();
+@@ -418,6 +427,10 @@
+                     keyClass, valueClass);
+     }
+     done(umbilical, reporter);
++    if (shuffleConsumerPlugin != null) {
++    	shuffleConsumerPlugin.close();
++    	shuffleConsumerPlugin = null;
++    }
+   }
+ 
+   @SuppressWarnings("unchecked")
+@@ -579,7 +592,7 @@
+     OTHER_ERROR
+   };
+ 
+-  class ReduceCopier<K, V> implements MRConstants {
++  class ReduceCopier<K, V> extends ShuffleConsumerPlugin implements MRConstants {
+ 
+     /** Reference to the umbilical object */
+     private TaskUmbilicalProtocol umbilical;
+@@ -653,11 +666,6 @@
+     private int ioSortFactor;
+     
+     /**
+-     * A reference to the throwable object (if merge throws an exception)
+-     */
+-    private volatile Throwable mergeThrowable;
+-    
+-    /** 
+      * A flag to indicate when to exit localFS merge
+      */
+     private volatile boolean exitLocalFSMerge = false;
+@@ -2349,7 +2357,7 @@
+      * first.
+      */
+     @SuppressWarnings("unchecked")
+-    private RawKeyValueIterator createKVIterator(
++    public RawKeyValueIterator createKVIterator(
+         JobConf job, FileSystem fs, Reporter reporter) throws IOException {
+ 
+       // merge config params
+diff -Nuar hadoop-0.20.2-cdh3u4/src/mapred/org/apache/hadoop/mapred/ShuffleConsumerPlugin.java hadoop-0.20.2-cdh3u4_plus_plugIn/src/mapred/org/apache/hadoop/mapred/ShuffleConsumerPlugin.java
+--- hadoop-0.20.2-cdh3u4/src/mapred/org/apache/hadoop/mapred/ShuffleConsumerPlugin.java	1970-01-01 02:00:00.000000000 +0200
++++ hadoop-0.20.2-cdh3u4_plus_plugIn/src/mapred/org/apache/hadoop/mapred/ShuffleConsumerPlugin.java	2012-07-30 10:05:36.000000000 +0300
+@@ -0,0 +1,133 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapred;
++
++import java.io.File;
++import java.io.IOException;
++import java.io.InputStream;
++import java.net.URL;
++import java.net.URLClassLoader;
++import java.util.ArrayList;
++
++import org.apache.hadoop.mapred.JobConf;
++import org.apache.hadoop.mapred.Task;
++import org.apache.hadoop.mapred.Task.TaskReporter;
++import org.apache.hadoop.mapred.TaskTracker;
++import org.apache.hadoop.mapred.ReduceTask.ReduceCopier;
++
++import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.fs.FileSystem;
++import org.apache.hadoop.fs.Path;
++import org.apache.hadoop.io.IntWritable;
++import org.apache.hadoop.util.ReflectionUtils;
++import org.apache.hadoop.util.StringUtils;
++
++
++/**
++ * ShuffleConsumerPlugin that can serve Reducers, and shuffle MOF files from TaskTrackers that use a matching ShuffleProvidePlugin
++ * 
++ */
++public abstract class ShuffleConsumerPlugin {
++
++	/**
++	 * Factory method for getting the ShuffleConsumerPlugin from the given class object and configure it. 
++	 * If clazz is null, this method will return instance of ReduceCopier since it is the default ShuffleConsumerPlugin 
++	 * 
++	 * @param clazz
++	 * @param reduceTask
++	 * @param umbilical
++	 * @param conf configure the plugin with this
++	 * @param reporter
++	 * @return
++	 * @throws ClassNotFoundException
++	 * @throws IOException
++	 */
++	public static ShuffleConsumerPlugin getShuffleConsumerPlugin(Class<? extends ShuffleConsumerPlugin> clazz, ReduceTask reduceTask, 
++			TaskUmbilicalProtocol umbilical, JobConf conf, TaskReporter reporter) throws ClassNotFoundException, IOException  {
++
++		if (clazz != null && ((Class)clazz) != ReduceTask.ReduceCopier.class) {
++			ShuffleConsumerPlugin plugin = ReflectionUtils.newInstance(clazz, conf);
++			plugin.init(reduceTask, umbilical, conf, reporter);
++			return plugin;
++		}
++
++		return reduceTask.new ReduceCopier(umbilical, conf, reporter); // default plugin is an inner class of ReduceTask
++	}
++	
++	/**
++	 * initialize this instance after it was created by factory using empty CTOR. @see getShuffleConsumerPlugin
++	 * 
++	 * @param reduceTask
++	 * @param umbilical
++	 * @param conf
++	 * @param reporter
++	 * @throws IOException
++	 */
++	public void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException{
++	}
++
++	/**
++	 * close and clean any resource associated with this object
++	 */
++	public void close(){
++	}
++
++	/**
++	 * fetch output of mappers from TaskTrackers
++	 * @return true iff success.  In case of failure an appropriate value may be set in mergeThrowable member
++	 * @throws IOException - this 'throws' is only for backward compatibility withReduceCopier.fetchOutputs() signature.
++	 * we don't really need it, since we use mergeThrowable member
++	 */
++	public abstract boolean fetchOutputs() throws IOException;
++
++	/**
++	 * Create a RawKeyValueIterator from copied map outputs. 
++	 * 
++	 * The iterator returned must satisfy the following constraints:
++	 *   1. Fewer than io.sort.factor files may be sources
++	 *   2. No more than maxInMemReduce bytes of map outputs may be resident
++	 *      in memory when the reduce begins
++	 *
++	 * If we must perform an intermediate merge to satisfy (1), then we can
++	 * keep the excluded outputs from (2) in memory and include them in the
++	 * first merge pass. If not, then said outputs must be written to disk
++	 * first.
++	 */
++	public abstract RawKeyValueIterator createKVIterator(JobConf job, FileSystem fs, Reporter reporter) throws IOException;
++
++
++
++	/**
++	 * A reference to the throwable object (if merge throws an exception)
++	 */
++	protected volatile Throwable mergeThrowable;
++
++	/**
++	 * a utility function that wraps Task.reportFatalError for serving sub classes that are not part of this package
++	 *    
++	 * @param reduceTask
++	 * @param id
++	 * @param throwable
++	 * @param logMsg
++	 */
++	protected void pluginReportFatalError(ReduceTask reduceTask, TaskAttemptID id, Throwable throwable, String logMsg) {	   
++		reduceTask.reportFatalError(id, throwable, logMsg);
++	}
++
++}
+diff -Nuar hadoop-0.20.2-cdh3u4/src/mapred/org/apache/hadoop/mapred/ShuffleProviderPlugin.java hadoop-0.20.2-cdh3u4_plus_plugIn/src/mapred/org/apache/hadoop/mapred/ShuffleProviderPlugin.java
+--- hadoop-0.20.2-cdh3u4/src/mapred/org/apache/hadoop/mapred/ShuffleProviderPlugin.java	1970-01-01 02:00:00.000000000 +0200
++++ hadoop-0.20.2-cdh3u4_plus_plugIn/src/mapred/org/apache/hadoop/mapred/ShuffleProviderPlugin.java	2012-07-30 10:05:36.000000000 +0300
+@@ -0,0 +1,114 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapred;
++
++import java.util.Map;
++import org.apache.hadoop.fs.Path;
++import org.apache.hadoop.fs.LocalDirAllocator;
++import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.util.ReflectionUtils;
++import org.apache.hadoop.mapred.TaskTracker.RunningJob;
++
++/**
++ * This interface is implemented by objects that are able to answer shuffle requests which are
++ * sent from a matching Shuffle Consumer that lives in context of a ReduceTask object.
++ * 
++ * ShuffleProvider object will be notified on the following events: 
++ * initialize, close, taskDone, jobDone.
++ * At this phase, at most one optional ShuffleProvider is supported 
++ * At this phase, the optional ShuffleProvider (if any) will work in addition to Hadoop's default 
++ * shuffle provider (Jetty/Netty)
++ *
++ */
++public abstract class ShuffleProviderPlugin {
++
++
++	/**
++	 * Factory method for getting the ShuffleProviderPlugin from the given class object and configure it. 
++	 * If clazz is null, this method will return null
++	 * 
++	 * @param clazz class
++	 * @param conf configure the plugin with this.
++	 * @return ShuffleProviderPlugin
++	 */
++	public static ShuffleProviderPlugin getShuffleProviderPlugin(Class<? extends ShuffleProviderPlugin> clazz, Configuration conf) {
++		if (clazz != null) {
++			return ReflectionUtils.newInstance(clazz, conf);
++		}
++		else {
++			return null; // no extra ShuffleProvider
++		}
++
++	}
++
++	protected TaskTracker taskTracker; //handle to parent object
++
++	/**
++	 * Do the real constructor work here.  It's in a separate method
++	 * so we can call it again and "recycle" the object after calling
++	 * close().
++	 * 
++	 * invoked at the end of TaskTracker.initialize
++	 */
++	public void initialize(TaskTracker taskTracker) {
++		this.taskTracker = taskTracker;
++	}
++
++	/**
++	 * close and cleanup any resource, including threads and disk space.  
++	 * A new object within the same process space might be restarted, 
++	 * so everything must be clean.
++	 * 
++	 * invoked at the end of TaskTracker.close
++	 */
++	public abstract void close();
++
++	/**
++	 * a task is done.
++	 * invoked at the end of TaskTracker.done, sub class can check: if (task.isMapTask())
++	 * and use localDirAllocator for finding MOF(s) locations 
++	 * 
++	 */ 
++	public abstract void taskDone(Task task, LocalDirAllocator localDirAllocator);
++
++	/**
++	 * The task tracker is done with this job, so we need to clean up.
++	 * invoked at the end of TaskTracker.jobDone
++	 * 
++	 * @param jobID
++	 */
++	public abstract void jobDone(JobID jobID);
++
++	//
++	// Utility functions for serving sub-classes that are not part of mapred package
++	//
++	
++	protected JobConf getJobConf() {
++		return taskTracker.getJobConf();
++	}
++	
++	protected JobConf getJobConf(JobID jobid) {
++		return taskTracker.runningJobs.get(jobid).getJobConf();
++	}
++	
++	protected static String getIntermediateOutputDir(String user, String jobid, String taskid) {
++		return TaskTracker.getIntermediateOutputDir(user, jobid, taskid); //- for hadoop-1.1
++//		return TaskTracker.getIntermediateOutputDir(jobid, taskid); // for hadoop-0.20.2
++	}
++}
+diff -Nuar hadoop-0.20.2-cdh3u4/src/mapred/org/apache/hadoop/mapred/TaskTracker.java hadoop-0.20.2-cdh3u4_plus_plugIn/src/mapred/org/apache/hadoop/mapred/TaskTracker.java
+--- hadoop-0.20.2-cdh3u4/src/mapred/org/apache/hadoop/mapred/TaskTracker.java	2012-05-07 23:04:04.000000000 +0300
++++ hadoop-0.20.2-cdh3u4_plus_plugIn/src/mapred/org/apache/hadoop/mapred/TaskTracker.java	2012-07-30 10:05:36.000000000 +0300
+@@ -149,6 +149,12 @@
+   static final long WAIT_FOR_DONE = 3 * 1000;
+   private int httpPort;
+ 
++  public static final String TT_SHUFFLE_PROVIDER_PLUGIN = 
++		  "mapred.tasktracker.shuffle.provider.plugin";
++
++  private ShuffleProviderPlugin shuffleProviderPlugin;
++
++
+   static enum State {NORMAL, STALE, INTERRUPTED, DENIED}
+ 
+   static final FsPermission LOCAL_DIR_PERMISSION =
+@@ -863,7 +869,7 @@
+     this.fConf = new JobConf(originalConf);
+ 
+     LOG.info("Starting tasktracker with owner as "
+-        + getMROwner().getShortUserName());
++        + getMROwner().getShortUserName()+ "I'm here!!!! I made it!!!!!!!!!!!!!!! wo hu!!!");
+ 
+     if (fConf.get("slave.host.name") != null) {
+       this.localHostname = fConf.get("slave.host.name");
+@@ -1014,6 +1020,21 @@
+     readaheadLength = fConf.getInt(
+         "mapred.tasktracker.shuffle.readahead.bytes",
+         4 * 1024 * 1024);
++
++    // loads a configured ShuffleProviderPlugin if any
++    // at this phase we only support at most one such plugin
++    Class<? extends ShuffleProviderPlugin> providerClazz =
++    		fConf.getClass(TT_SHUFFLE_PROVIDER_PLUGIN,
++    				null, ShuffleProviderPlugin.class);
++    shuffleProviderPlugin = 
++    		ShuffleProviderPlugin.getShuffleProviderPlugin(providerClazz, fConf);
++    if (shuffleProviderPlugin != null) {
++    	LOG.info(" Using ShuffleProviderPlugin : " + shuffleProviderPlugin);
++    	shuffleProviderPlugin.initialize(this);
++    }
++    else {
++    	LOG.info(" NO ShuffleProviderPlugin will be used");
++    }
+   }
+ 
+   private void startJettyBugMonitor() {
+@@ -1556,6 +1577,11 @@
+       jettyBugMonitor.shutdown();
+       jettyBugMonitor = null;
+     }
++
++    if (shuffleProviderPlugin != null) {
++      shuffleProviderPlugin.close();
++      shuffleProviderPlugin = null;
++    }
+   }
+ 
+   /**
+@@ -2277,6 +2303,11 @@
+     }
+     getJobTokenSecretManager().removeTokenForJob(jobId.toString());  
+     distributedCacheManager.removeTaskDistributedCacheManager(jobId);
++
++    if (shuffleProviderPlugin != null) {
++      shuffleProviderPlugin.jobDone(action.getJobID());
++    }
++
+   }
+ 
+   /**
+@@ -3647,6 +3678,9 @@
+     ensureAuthorizedJVM(taskid.getJobID());
+     TaskInProgress tip = tasks.get(taskid);
+     if (tip != null) {
++      if (shuffleProviderPlugin != null) {
++    	  shuffleProviderPlugin.taskDone(tip.getTask(), localDirAllocator);    	  
++      }			
+       validateJVM(tip, jvmContext, taskid);
+       commitResponses.remove(taskid);
+       tip.reportDone();
