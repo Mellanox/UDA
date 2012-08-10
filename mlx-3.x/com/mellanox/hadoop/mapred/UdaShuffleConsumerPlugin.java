@@ -1,6 +1,8 @@
 package com.mellanox.hadoop.mapred;
 
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.JobID;
+
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.ShuffleConsumerPlugin;
@@ -18,7 +20,6 @@ import org.apache.commons.logging.LogFactory;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.io.IntWritable;
 
@@ -34,6 +35,25 @@ import java.util.LinkedList;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;  // TODO: probably concurrency is not needed 
+
+import java.io.IOException;
+import org.apache.hadoop.mapred.Task;
+//import org.apache.hadoop.mapred.Task.TaskReporter;
+import org.apache.hadoop.util.ReflectionUtils;
+import org.apache.hadoop.fs.FileSystem;
+
+import org.apache.hadoop.mapred.Reducer;
+import org.apache.hadoop.mapreduce.task.reduce.Shuffle;
+import org.apache.hadoop.fs.LocalDirAllocator;
+import org.apache.hadoop.io.compress.CompressionCodec;
+import org.apache.hadoop.mapred.Task.CombineOutputCollector;
+//import org.apache.hadoop.mapreduce.TaskAttemptID;
+import org.apache.hadoop.util.Progress;
+//import org.apache.hadoop.mapred.TaskAttemptID;
+
+import org.apache.hadoop.mapred.Counters;
+import org.apache.hadoop.mapred.TaskStatus;
+import org.apache.hadoop.mapred.MapOutputFile;
 
 //import org.apache.hadoop.mapred.ReduceTask.ReduceCopier.MapOutputLocation;
 /**
@@ -78,6 +98,8 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	protected TaskAttemptID reduceId;
 	protected TaskUmbilicalProtocol umbilical; // Reference to the umbilical object
 	protected JobConf jobConf;
+	protected FileSystem localFS;
+
 	protected Reporter reporter;
 	
 	private static final Log LOG = LogFactory.getLog(UdaShuffleConsumerPlugin.class.getName());
@@ -86,37 +108,56 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	private UdaPluginRT rdmaChannel;
 	
 	/**
-		* initialize this ShuffleConsumer instance.  The base class implementation will initialize its members and 
-		* then invoke init for plugin specific initiaiztion
-		* 
-		* @param reduceTask
-		* @param umbilical
-		* @param jobConf
-		* @param reporter
-		* @throws ClassNotFoundException
-		* @throws IOException
+		* initialize this ShuffleConsumer instance.  
 	*/
-	public void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException {
+  public void init( org.apache.hadoop.mapreduce.TaskAttemptID reduceId, JobConf jobConf, FileSystem localFS,
+                 TaskUmbilicalProtocol umbilical,
+                 LocalDirAllocator localDirAllocator,  
+                 Reporter reporter,
+                 CompressionCodec codec,
+//                 Class<? extends org.apache.hadoop.mapred.Reducer> combinerClass,
+                java.lang.Class combinerClass,
+//                 CombineOutputCollector<K,V> combineCollector,
+                 CombineOutputCollector combineCollector,
+                 Counters.Counter spilledRecordsCounter,
+                 Counters.Counter reduceCombineInputCounter,
+                 Counters.Counter shuffledMapsCounter,
+                 Counters.Counter reduceShuffleBytes,
+                 Counters.Counter failedShuffleCounter,
+                 Counters.Counter mergedMapOutputsCounter,
+                 TaskStatus status,
+                 Progress copyPhase,
+                 Progress mergePhase,
+                 Task reduceTask,
+                 MapOutputFile mapOutputFile) {
 
-		this.reduceTask = reduceTask;
+		this.reduceTask = (ReduceTask)reduceTask;
 		this.reduceId = reduceTask.getTaskID();
 		
 		this.umbilical = umbilical;
-		this.jobConf = conf;
+		this.jobConf = jobConf;
+		this.localFS = localFS;
 		this.reporter = reporter;
 
-		configureClasspath(jobConf);
-		this.rdmaChannel = new UdaPluginRT<K,V>(this, reduceTask, jobConf, reporter, reduceTask.getNumMaps());
+		try {
+			configureClasspath(jobConf);
+			this.rdmaChannel = new UdaPluginRT<K,V>(this, this.reduceTask, jobConf, reporter, this.reduceTask.getNumMaps());
+		} catch (java.io.IOException e) {
+			LOG.error("UdaShuffleConsumerPlugin: init got exception");
+		}
+		
 	}
 	
-    
-	
-	/*
-		public long getMaxInMemReduce() {
-		return maxInMemReduce;
-		}
-	//*/		
-	
+
+
+	public RawKeyValueIterator run() throws IOException, InterruptedException{
+		if (fetchOutputs())
+			return createKVIterator(jobConf, localFS, reporter);
+		else 
+			return null;
+	}
+
+
 	/** 
 		* A flag to indicate when to exit getMapEvents thread 
 	*/
@@ -244,7 +285,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 					String msg = reduceTask.getTaskID()
 					+ " GetMapEventsThread Ignoring exception : " 
 					+ StringUtils.stringifyException(t);
-					pluginReportFatalError(reduceTask, reduceTask.getTaskID(), t, msg);
+					// pluginReportFatalError(reduceTask, reduceTask.getTaskID(), t, msg); - AVNER TODO !!!
 				}
 			} while (!exitGetMapEvents);
 			
@@ -270,12 +311,14 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		private int getMapCompletionEvents() throws IOException {
 			
 			int numNewMaps = 0;
-			
 			MapTaskCompletionEventsUpdate update = 
 			umbilical.getMapCompletionEvents(reduceTask.getJobID(), 
 			fromEventId.get(), 
 			MAX_EVENTS_TO_FETCH,
-			reduceTask.getTaskID(), reduceTask.getJvmContext());
+			reduceTask.getTaskID()
+			/*, reduceTask.getJvmContext() - this was for hadoop-1.x*/
+			);
+			
 			TaskCompletionEvent events[] = update.getMapTaskCompletionEvents();
 			
 			// Check if the reset is required.

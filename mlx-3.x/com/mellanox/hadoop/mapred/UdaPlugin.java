@@ -424,7 +424,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	}
 }
 
-
+/*
 
 //*  The following is for MOFSupplier JavaSide. 
 class UdaPluginTT extends UdaPlugin {    
@@ -564,7 +564,7 @@ class UdaPluginTT extends UdaPlugin {
 }
 
 
-
+*/
 class UdaCmd {
 
 	public static final int EXIT_COMMAND        = 0; 
