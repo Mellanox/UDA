@@ -4,6 +4,7 @@
 
 %define uda_lib   				libuda.so
 %define uda_hadoop_1x_jar    	uda-hadoop-1.x.jar
+%define uda_hadoop_3x_jar    	uda-hadoop-3.x.jar
 %define uda_CDH3u4_jar    		uda-CDH3u4.jar
 %define uda_0_20_2_jar    		uda-hadoop-0.20.2.jar
 %define uda_readme 				README
@@ -36,9 +37,9 @@
 
 
 Name:           libuda
-#3.0.1 for patch v2 after comuunity (Arun) comments
-Version:        3.0.1
-Release:        4453%{?dist}
+#3.0.2 for patch with hadoop-3.x suppoort
+Version:        3.0.2
+Release:        4473%{?dist}
 Summary:        libuda is an RDMA plugin for Hadoop Acceleration
 Vendor:         Mellanox
 Packager:       Avner BenHanoch <avnerb@mellanox.com>
@@ -57,6 +58,7 @@ Source3:        %{uda_lic}
 Source4:        %{hadoop_prop_script}
 Source5:        %{uda_CDH3u4_jar}
 Source6:        %{uda_0_20_2_jar}
+Source7:        %{uda_hadoop_3x_jar}
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 #BuildArch:      noarch
@@ -93,6 +95,7 @@ install -m 0644 %{SOURCE3} $RPM_BUILD_ROOT%{doc_dir}/%{uda_lic}
 install -m 0755 %{SOURCE4} $RPM_BUILD_ROOT%{uda_dir}/%{hadoop_prop_script}
 install -m 0644 %{SOURCE5} $RPM_BUILD_ROOT%{uda_dir}/%{uda_CDH3u4_jar}
 install -m 0644 %{SOURCE6} $RPM_BUILD_ROOT%{uda_dir}/%{uda_0_20_2_jar}
+install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_3x_jar}
 
 #%post
 
@@ -112,5 +115,6 @@ rm -rf $RPM_BUILD_ROOT
 %{doc_dir}/%{uda_readme}
 %{doc_dir}/%{uda_lic}
 %{uda_dir}/%{hadoop_prop_script}
+%{uda_dir}/%{uda_hadoop_3x_jar}
 
 %changelog
