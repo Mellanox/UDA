@@ -95,7 +95,7 @@ install -m 0644 %{SOURCE3} $RPM_BUILD_ROOT%{doc_dir}/%{uda_lic}
 install -m 0755 %{SOURCE4} $RPM_BUILD_ROOT%{uda_dir}/%{hadoop_prop_script}
 install -m 0644 %{SOURCE5} $RPM_BUILD_ROOT%{uda_dir}/%{uda_CDH3u4_jar}
 install -m 0644 %{SOURCE6} $RPM_BUILD_ROOT%{uda_dir}/%{uda_0_20_2_jar}
-install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_3x_jar}
+install -m 0644 %{SOURCE7} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_3x_jar}
 
 #%post
 
