@@ -5,7 +5,7 @@ set -ex
 cd `dirname $0`
 
 export JAVA_HOME=/usr/lib64/java/jdk1.6.0_25 
-make -C ../src clean all
+make -C ../src 
 make -C ../mlx-CDH3u4 clean all 
 make -C ../mlx-0.20.2 clean all 
 make -C ../mlx-1.x clean all
