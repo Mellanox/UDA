@@ -15,27 +15,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// COPIED with minimal changes FROM: package org.apache.hadoop.mapred; (in hadoop-1....) - KATYA: PLEASE COMPLETE!
+
+//package com.mellanox.hadoop.mapred;
+
 package com.mellanox.hadoop.mapred;
 
-import java.io.DataInputStream;
-import java.io.File;
+import org.apache.hadoop.mapred.JobConf;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
-import java.util.zip.CRC32;
 import java.util.zip.CheckedInputStream;
 import java.util.zip.CheckedOutputStream;
 import java.util.zip.Checksum;
 
 import org.apache.hadoop.fs.ChecksumException;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.io.SecureIOUtils;
-import org.apache.hadoop.mapred.JobConf;
-
+import org.apache.hadoop.util.PureJavaCrc32;
 
 class SpillRecord {
 
@@ -50,18 +50,21 @@ class SpillRecord {
     entries = buf.asLongBuffer();
   }
 
-  public SpillRecord(Path indexFileName, JobConf job, String expectedIndexOwner)
-  throws IOException {
-    this(indexFileName, job, new CRC32(), expectedIndexOwner);
+  public SpillRecord(Path indexFileName, JobConf job) throws IOException {
+    this(indexFileName, job, null);
   }
 
-  public SpillRecord(Path indexFileName, JobConf job, Checksum crc, 
-      String expectedIndexOwner) throws IOException {
-	 
+  public SpillRecord(Path indexFileName, JobConf job, String expectedIndexOwner)
+    throws IOException {
+    this(indexFileName, job, new PureJavaCrc32(), expectedIndexOwner);
+  }
+
+  public SpillRecord(Path indexFileName, JobConf job, Checksum crc,
+                     String expectedIndexOwner)
+      throws IOException {
+
     final FileSystem rfs = FileSystem.getLocal(job).getRaw();
-    final DataInputStream in =
-      new DataInputStream(SecureIOUtils.openForRead(
-         new File(indexFileName.toUri().getPath()), expectedIndexOwner));
+    final FSDataInputStream in = rfs.open(indexFileName);
     try {
       final long length = rfs.getFileStatus(indexFileName).getLen();
       final int partitions = (int) length / IndexCache.MAP_OUTPUT_INDEX_RECORD_LENGTH;
@@ -116,7 +119,7 @@ class SpillRecord {
    */
   public void writeToFile(Path loc, JobConf job)
       throws IOException {
-    writeToFile(loc, job, new CRC32());
+    writeToFile(loc, job, new PureJavaCrc32());
   }
 
   public void writeToFile(Path loc, JobConf job, Checksum crc)

@@ -15,9 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// COPIED with minimal changes FROM: package org.apache.hadoop.mapred; (in hadoop-1....) - KATYA: PLEASE COMPLETE!
-package com.mellanox.hadoop.mapred;
 
+package com.mellanox.hadoop.mapred;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -26,16 +25,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapreduce.server.tasktracker.TTConfig;
 import org.apache.hadoop.mapred.JobConf;
 
+
 class IndexCache {
-	
 	
 	/**
 	   * The size of each record in the index file for the map-outputs.
 	   * Copied from MapTask.java
 	*/	  
   public static final int MAP_OUTPUT_INDEX_RECORD_LENGTH = 24;
+
 
   private final JobConf conf;
   private final int totalMemoryAllowed;
@@ -51,7 +52,7 @@ class IndexCache {
   public IndexCache(JobConf conf) {
     this.conf = conf;
     totalMemoryAllowed =
-      conf.getInt("mapred.tasktracker.indexcache.mb", 10) * 1024 * 1024;
+      conf.getInt(TTConfig.TT_INDEX_CACHE, 10) * 1024 * 1024;
     LOG.info("IndexCache created with max memory = " + totalMemoryAllowed);
   }
 
@@ -67,7 +68,8 @@ class IndexCache {
    * @throws IOException
    */
   public IndexRecord getIndexInformation(String mapId, int reduce,
-      Path fileName, String expectedIndexOwner) throws IOException {
+                                         Path fileName, String expectedIndexOwner)
+    throws IOException {
 
     IndexInformation info = cache.get(mapId);
 
@@ -87,7 +89,7 @@ class IndexCache {
     }
 
     if (info.mapSpillRecord.size() == 0 ||
-        info.mapSpillRecord.size() < reduce) {
+        info.mapSpillRecord.size() <= reduce) {
       throw new IOException("Invalid request " +
         " Map Id = " + mapId + " Reducer = " + reduce +
         " Index Info Length = " + info.mapSpillRecord.size());
@@ -96,7 +98,9 @@ class IndexCache {
   }
 
   private IndexInformation readIndexFileToCache(Path indexFileName,
-      String mapId, String expectedIndexOwner) throws IOException {
+                                                String mapId,
+                                                String expectedIndexOwner)
+    throws IOException {
     IndexInformation info;
     IndexInformation newInd = new IndexInformation();
     if ((info = cache.putIfAbsent(mapId, newInd)) != null) {
@@ -120,7 +124,6 @@ class IndexCache {
       tmp = new SpillRecord(0);
       cache.remove(mapId);
       throw new IOException("Error Reading IndexFile", e);
-
     } finally { 
       synchronized (newInd) { 
         newInd.mapSpillRecord = tmp;
@@ -136,12 +139,19 @@ class IndexCache {
   }
 
   /**
-   * This method removes the map from the cache. It should be called when
-   * a map output on this tracker is discarded.
+   * This method removes the map from the cache if index information for this
+   * map is loaded(size>0), index information entry in cache will not be 
+   * removed if it is in the loading phrase(size=0), this prevents corruption  
+   * of totalMemoryUsed. It should be called when a map output on this tracker 
+   * is discarded.
    * @param mapId The taskID of this map.
    */
   public void removeMap(String mapId) {
-    IndexInformation info = cache.remove(mapId);
+    IndexInformation info = cache.get(mapId);
+    if ((info != null) && (info.getSize() == 0)) {
+      return;
+    }
+    info = cache.remove(mapId);
     if (info != null) {
       totalMemoryUsed.addAndGet(-info.getSize());
       if (!queue.remove(mapId)) {
@@ -150,6 +160,19 @@ class IndexCache {
     } else {
       LOG.info("Map ID " + mapId + " not found in cache");
     }
+  }
+
+  /**
+   * This method checks if cache and totolMemoryUsed is consistent.
+   * It is only used for unit test.
+   * @return True if cache and totolMemoryUsed is consistent
+   */
+  boolean checkTotalMemoryUsed() {
+    int totalSize = 0;
+    for (IndexInformation info : cache.values()) {
+      totalSize += info.getSize();
+    }
+    return totalSize == totalMemoryUsed.get();
   }
 
   /**

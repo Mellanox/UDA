@@ -9,7 +9,7 @@ all:
 	rm -rf out
 	mkdir -p out
 #	CLASSPATH=$(CPATH) javac -d out com/mellanox/hadoop/mapred/*.java
-	CLASSPATH=$(CPATH) javac -d out com/mellanox/hadoop/mapred/UdaPlugin.java com/mellanox/hadoop/mapred/UdaBridge.java com/mellanox/hadoop/mapred/UdaShuffleConsumerPlugin.java
+	CLASSPATH=$(CPATH) javac -d out com/mellanox/hadoop/mapred/SpillRecord.java  com/mellanox/hadoop/mapred/IndexCache.java com/mellanox/hadoop/mapred/UdaPlugin.java com/mellanox/hadoop/mapred/UdaBridge.java com/mellanox/hadoop/mapred/UdaShuffleConsumerPlugin.java
 	jar -cvf uda-hadoop-3.x.jar -C out com
 	rm -rf out
 

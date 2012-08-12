@@ -31,6 +31,13 @@ import org.apache.hadoop.util.DiskChecker.DiskErrorException;
 import org.apache.hadoop.io.WritableUtils;
 
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.yarn.api.records.ApplicationId;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.server.nodemanager.containermanager.localizer.ContainerLocalizer;
+import org.apache.hadoop.yarn.util.ConverterUtils;
+import org.apache.hadoop.yarn.util.Records;
+import org.apache.hadoop.conf.Configuration;
+
 
 abstract class UdaPlugin {
 	static protected final Log LOG = LogFactory.getLog(UdaPlugin.class.getName());
@@ -424,84 +431,49 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	}
 }
 
-/*
 
-//*  The following is for MOFSupplier JavaSide. 
-class UdaPluginTT extends UdaPlugin {    
+class UdaPluginSH extends UdaPlugin {    
+	static protected final Log LOG = LogFactory.getLog(UdaPluginSH.class.getName());
 
-	private static TaskTracker taskTracker;
 	private Vector<String>     mParams       = new Vector<String>();
 	private static LocalDirAllocator localDirAllocator = new LocalDirAllocator ("mapred.local.dir");
-	static final int FILE_CACHE_SIZE = 2000;
-	private static LRUHash<String, Path> fileCache ;//= new LRUHash<String, Path>(FILE_CACHE_SIZE);
-	private static LRUHash<String, Path> fileIndexCache ;//= new LRUHash<String, Path>(FILE_CACHE_SIZE);
+	List<String> mCmdParams = new ArrayList<String>();
+	Configuration conf;
+	static JobConf jobConf;
 	static IndexCache indexCache;
-	static UdaShuffleProviderPlugin udaShuffleProvider;
-
-	public UdaPluginTT(TaskTracker taskTracker, JobConf jobConf, UdaShuffleProviderPlugin udaShuffleProvider) {
+    private static LocalDirAllocator lDirAlloc =
+        new LocalDirAllocator(YarnConfiguration.NM_LOCAL_DIRS);
+	
+	public UdaPluginSH(Configuration conf) {
 		super(jobConf);
-		this.taskTracker = taskTracker;
-		this.udaShuffleProvider = udaShuffleProvider;
-		
+		jobConf = new JobConf(conf);
+		LOG.info("initApp of UdaPluginSH");	
+		indexCache = new IndexCache(jobConf);
 		launchCppSide(false, null); // false: this is TT => we should execute MOFSupplier
-		fileCache = new LRUHash<String, Path>(FILE_CACHE_SIZE);
-		fileIndexCache = new LRUHash<String, Path>(FILE_CACHE_SIZE);
 
-		this.indexCache = new IndexCache(jobConf);
 	}
 	
 	protected void buildCmdParams() {
+
 		mCmdParams.clear();
 		
-	
 		mCmdParams.add("-w");
-		mCmdParams.add(mjobConf.get("mapred.rdma.wqe.per.conn", "256"));
+		mCmdParams.add(jobConf.get("mapred.rdma.wqe.per.conn"));
 		mCmdParams.add("-r");
-		mCmdParams.add(mjobConf.get("mapred.rdma.cma.port", "9011"));      
+		mCmdParams.add(jobConf.get("mapred.rdma.cma.port"));      
 		mCmdParams.add("-m");
 		mCmdParams.add("1");
 		
 		mCmdParams.add("-g");
-		mCmdParams.add(mjobConf.get("mapred.rdma.log.dir","logs/"));
+		mCmdParams.add(jobConf.get("mapred.rdma.log.dir","default"));
 		
 		mCmdParams.add("-s");
-		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
+		mCmdParams.add(jobConf.get("mapred.rdma.buf.size"));
 		mCmdParams.add("-t");
-		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "2"));
+		mCmdParams.add(jobConf.get("mapred.uda.log.tracelevel"));
 
 	}
 
-
-	public void jobOver(String jobId) {
-		mParams.clear();
-		mParams.add(jobId);
-		String msg = UdaCmd.formCmd(UdaCmd.JOB_OVER_COMMAND, mParams);
-		LOG.info("UDA: sending JOBOVER:(" + msg + ")");
-		UdaBridge.doCommand(msg);
-	}  
-	
-	public void notifyMapDone(String userName, String jobId, String mapId, Path fileOut, Path fileOutIndex) {
-			Path fout = fileOut;
-			Path fidx = fileOutIndex;
-			
-			int upper = 6;
-			for (int i = 0; i < upper; ++i) {
-				fout = fout.getParent();
-				fidx = fidx.getParent();
-			} 
-
-			//we need "jobId + mapId" to identify a maptask
-			mParams.clear();
-			mParams.add(jobId);
-			mParams.add(mapId);
-			mParams.add(fout.toString()); 
-			mParams.add(fidx.toString());
-			mParams.add(userName);
-			String msg = UdaCmd.formCmd(UdaCmd.NEW_MAP_COMMAND, mParams);
-			UdaBridge.doCommand(msg);
-
-			if (LOG.isInfoEnabled()) LOG.info("UDA: notified Finshed Map:(" + msg + ")");
-	}
 
 	public void close() {
 
@@ -512,59 +484,48 @@ class UdaPluginTT extends UdaPlugin {
 	}
 	
 	
-	//this code is copied from TaskTracker.MapOutputServlet.doGet 
-	static DataPassToJni getPathIndex(String jobId, String mapId, int reduce){
-		 String userName = null;
-	     String runAsUserName = null;
+	//this code is copied from ShuffleHandler.sendMapOutput
+	static DataPassToJni getPathIndex(String jobIDStr, String mapId, int reduce){
+		 String user = "";
 	     DataPassToJni data = null;
-	     
+	        
+	     JobID jobID = JobID.forName(jobIDStr);
+	     ApplicationId appID = Records.newRecord(ApplicationId.class);
+	     appID.setClusterTimestamp(Long.parseLong(jobID.getJtIdentifier()));
+	     appID.setId(jobID.getId());
+  
+	     final String base =
+	         ContainerLocalizer.USERCACHE + "/" + user + "/"
+	            + ContainerLocalizer.APPCACHE + "/"
+	            + ConverterUtils.toString(appID) + "/output" + "/" + mapId;
+	     LOG.debug("DEBUG0 " + base);
+	     // Index file
 	     try{
-	    	 JobConf jobConf = udaShuffleProvider.getJobConfFromSuperClass(JobID.forName(jobId)); 
-	    	 userName = jobConf.getUser();
-	    	 runAsUserName = taskTracker.getTaskController().getRunAsUser(jobConf);
-	    
-		    String intermediateOutputDir = UdaShuffleProviderPlugin.getIntermediateOutputDirFromSuperClass(userName, jobId, mapId);
-	    
-		    String indexKey = intermediateOutputDir + "/file.out.index";
-		    Path indexFileName = fileIndexCache.get(indexKey);
-		    if (indexFileName == null) {
-		        indexFileName = localDirAllocator.getLocalPathToRead(indexKey, mjobConf);
-		        fileIndexCache.put(indexKey, indexFileName);
-		    }
-		      // Map-output file
-		    String fileKey = intermediateOutputDir + "/file.out";
-		    Path mapOutputFileName = fileCache.get(fileKey);
-		    if (mapOutputFileName == null) {
-		        mapOutputFileName = localDirAllocator.getLocalPathToRead(fileKey, mjobConf);
-		        fileCache.put(fileKey, mapOutputFileName);
-		    }
-		        
-		    //  Read the index file to get the information about where
-		    //  the map-output for the given reducer is available. 
-		         
-		   IndexRecord info = indexCache.getIndexInformation(mapId, reduce,indexFileName, 
-		             runAsUserName);
-		   
-		   data = new DataPassToJni();
+	        Path indexFileName = lDirAlloc.getLocalPathToRead(
+	            base + "/file.out.index", jobConf);
+	        // Map-output file
+	        Path mapOutputFileName = lDirAlloc.getLocalPathToRead(
+	            base + "/file.out", jobConf);
+	        LOG.debug("DEBUG1 " + base + " : " + mapOutputFileName + " : " +
+	            indexFileName);
+	        IndexRecord info = 
+	          indexCache.getIndexInformation(mapId, reduce, indexFileName, user);
+	   
 		   data.startOffset = info.startOffset;
 		   data.rawLength = info.rawLength;
 		   data.partLength = info.partLength;
 		   data.pathMOF = mapOutputFileName.toString();
-
-	    } catch (IOException e) {
-			  LOG.error("exception caught" + e.toString()); //to check how C behaves in case there is an exception
-		 }
+	     }catch (IOException e){
+	        	LOG.error("got an exception while retrieving the Index Info");}
+	    
 		return data;	
 		
 	}
-	
-	
-	
 
 }
 
 
-*/
+
 class UdaCmd {
 
 	public static final int EXIT_COMMAND        = 0; 
