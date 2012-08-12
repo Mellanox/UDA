@@ -437,41 +437,36 @@ class UdaPluginSH extends UdaPlugin {
 
 	private Vector<String>     mParams       = new Vector<String>();
 	private static LocalDirAllocator localDirAllocator = new LocalDirAllocator ("mapred.local.dir");
-	List<String> mCmdParams = new ArrayList<String>();
 	Configuration conf;
-	static JobConf jobConf;
 	static IndexCache indexCache;
     private static LocalDirAllocator lDirAlloc =
         new LocalDirAllocator(YarnConfiguration.NM_LOCAL_DIRS);
 	
 	public UdaPluginSH(Configuration conf) {
-		super(jobConf);
-		jobConf = new JobConf(conf);
+		super(new JobConf(conf));
 		LOG.info("initApp of UdaPluginSH");	
-		indexCache = new IndexCache(jobConf);
+		indexCache = new IndexCache(mjobConf);
 		launchCppSide(false, null); // false: this is TT => we should execute MOFSupplier
 
 	}
 	
 	protected void buildCmdParams() {
-
 		mCmdParams.clear();
 		
 		mCmdParams.add("-w");
-		mCmdParams.add(jobConf.get("mapred.rdma.wqe.per.conn"));
+		mCmdParams.add(mjobConf.get("mapred.rdma.wqe.per.conn"));
 		mCmdParams.add("-r");
-		mCmdParams.add(jobConf.get("mapred.rdma.cma.port"));      
+		mCmdParams.add(mjobConf.get("mapred.rdma.cma.port"));      
 		mCmdParams.add("-m");
 		mCmdParams.add("1");
 		
 		mCmdParams.add("-g");
-		mCmdParams.add(jobConf.get("mapred.rdma.log.dir","default"));
+		mCmdParams.add(mjobConf.get("mapred.rdma.log.dir","default"));
 		
 		mCmdParams.add("-s");
-		mCmdParams.add(jobConf.get("mapred.rdma.buf.size"));
+		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size"));
 		mCmdParams.add("-t");
-		mCmdParams.add(jobConf.get("mapred.uda.log.tracelevel"));
-
+		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel"));
 	}
 
 
@@ -502,10 +497,10 @@ class UdaPluginSH extends UdaPlugin {
 	     // Index file
 	     try{
 	        Path indexFileName = lDirAlloc.getLocalPathToRead(
-	            base + "/file.out.index", jobConf);
+	            base + "/file.out.index", mjobConf);
 	        // Map-output file
 	        Path mapOutputFileName = lDirAlloc.getLocalPathToRead(
-	            base + "/file.out", jobConf);
+	            base + "/file.out", mjobConf);
 	        LOG.debug("DEBUG1 " + base + " : " + mapOutputFileName + " : " +
 	            indexFileName);
 	        IndexRecord info = 
