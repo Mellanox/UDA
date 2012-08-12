@@ -78,16 +78,23 @@ public class UdaShuffleHandler extends AbstractService implements AuxServices.Au
 
   @Override
   public void initApp(String user, ApplicationId appId, ByteBuffer secret) {
+	 LOG.info("initApp of UdaShuffleHandler");
+	  JobID jobId = new JobID(Long.toString(appId.getClusterTimestamp()), appId.getId());
 	  Configuration conf = getConfig();
 	  LOG.info("initApp of UdaShuffleHandler");
-	  rdmaChannel = new UdaPluginSH(conf);	  
+//	  rdmaChannel = new UdaPluginSH(conf, user, jobId);	  
+	  rdmaChannel.addJob(user, jobId);
+	  LOG.info("initApp of UdaShuffleHandler is done");
   }
 
   @Override
   public void stopApp(ApplicationId appId) {
-	rdmaChannel.close();
-    JobID jobId = new JobID(Long.toString(appId.getClusterTimestamp()), appId.getId());
-    userRsrc.remove(jobId.toString());
+//	rdmaChannel.close();
+    LOG.info("stopApp of UdaShuffleHandler");
+   JobID jobId = new JobID(Long.toString(appId.getClusterTimestamp()), appId.getId());
+   rdmaChannel.removeJob(jobId);
+   LOG.info("stopApp of UdaShuffleHandler is done");
+   
   }
 
  //method of AbstractService
@@ -103,6 +110,7 @@ public class UdaShuffleHandler extends AbstractService implements AuxServices.Au
     super.start();
     LOG.info("start of UdaShuffleHandler");
     rdmaChannel = new UdaPluginSH(config);	  
+	LOG.info("start of UdaShuffleHandler is done");
   }
   
   
@@ -111,6 +119,7 @@ public class UdaShuffleHandler extends AbstractService implements AuxServices.Au
   public synchronized void stop() {
 	  LOG.info("stop of UdaShuffleHandler");
 	  rdmaChannel.close();
+	   LOG.info("stop of UdaShuffleHandler is done");
   }
   
   

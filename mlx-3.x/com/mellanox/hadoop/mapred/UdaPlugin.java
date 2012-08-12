@@ -16,7 +16,7 @@ import java.util.logging.MemoryHandler;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.mapred.Reporter;
-
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.hadoop.util.Progress;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocalDirAllocator;
@@ -441,6 +441,7 @@ class UdaPluginSH extends UdaPlugin {
 	static IndexCache indexCache;
     private static LocalDirAllocator lDirAlloc =
         new LocalDirAllocator(YarnConfiguration.NM_LOCAL_DIRS);
+	private static final Map<String,String> userRsrc = new ConcurrentHashMap<String,String>();
 	
 	public UdaPluginSH(Configuration conf) {
 		super(new JobConf(conf));
@@ -449,6 +450,15 @@ class UdaPluginSH extends UdaPlugin {
 		launchCppSide(false, null); // false: this is TT => we should execute MOFSupplier
 
 	}
+	
+	public void addJob (String user, JobID jobId){
+		userRsrc.put(jobId.toString(), user);
+	}
+	
+	public void removeJob( JobID jobId){
+		userRsrc.remove(jobId.toString());
+	}
+	
 	
 	protected void buildCmdParams() {
 		mCmdParams.clear();
@@ -481,7 +491,7 @@ class UdaPluginSH extends UdaPlugin {
 	
 	//this code is copied from ShuffleHandler.sendMapOutput
 	static DataPassToJni getPathIndex(String jobIDStr, String mapId, int reduce){
-		 String user = "";
+		 String user = userRsrc.get(jobIDStr);
 	     DataPassToJni data = null;
 	        
 	     JobID jobID = JobID.forName(jobIDStr);
