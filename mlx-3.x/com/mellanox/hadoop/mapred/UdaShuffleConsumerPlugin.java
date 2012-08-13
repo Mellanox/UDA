@@ -140,7 +140,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		this.reporter = reporter;
 
 		try {
-			configureClasspath(jobConf);
+//			configureClasspath(jobConf);
 			this.rdmaChannel = new UdaPluginRT<K,V>(this, this.reduceTask, jobConf, reporter, this.reduceTask.getNumMaps());
 		} catch (java.io.IOException e) {
 			LOG.error("UdaShuffleConsumerPlugin: init got exception");
@@ -202,7 +202,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	
 	
 	
-	//*	
+/*	
 	protected void configureClasspath(JobConf conf)
 	throws IOException {
 		
@@ -238,7 +238,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		URLClassLoader loader = new URLClassLoader(urls, parent);
 		conf.setClassLoader(loader);
 	}
-	//*/
+//*/
 	
     private class GetMapEventsThread extends Thread {
 		
