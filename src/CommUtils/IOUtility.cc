@@ -478,7 +478,8 @@ void startLogNetMerger()
 
     const char * const hadoop_home = getenv("HADOOP_HOME");
     if (hadoop_home) {
-    	sprintf(full_path, "%s/%s/udaNetMerger.log", hadoop_home, rdmalog_dir);
+//    	sprintf(full_path, "%s/%s/udaNetMerger.log", hadoop_home, rdmalog_dir);
+    	sprintf(full_path, "%s/%s-udaNetMerger.log", hadoop_home, rdmalog_dir);//temp workaround for hadoop-3.x
         printf("log will go to: %s\n", full_path);
     	log_file = fopen (full_path,"a");
     }
