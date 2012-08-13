@@ -163,7 +163,8 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		/* init variables */
 		init_kv_bufs(); 
 		
-		this.mLogdirTail = "/userlogs/" + reduceTask.getTaskID().getJobID().toString() + "/"  + reduceTask.getTaskID().toString();
+//		this.mLogdirTail = "/userlogs/" + reduceTask.getTaskID().getJobID().toString() + "/"  + reduceTask.getTaskID().toString();
+		this.mLogdirTail = "-userlogs-" + reduceTask.getTaskID().getJobID().toString() + "-"  + reduceTask.getTaskID().toString(); // temp for hadoop-3.x
 		
 		launchCppSide(true, this); // true: this is RT => we should execute NetMerger
 
