@@ -493,6 +493,7 @@ class UdaPluginSH extends UdaPlugin {
 	//this code is copied from ShuffleHandler.sendMapOutput
 	static DataPassToJni getPathIndex(String jobIDStr, String mapId, int reduce){
 		 String user = userRsrc.get(jobIDStr);
+//		String user = "katyak";
 	     DataPassToJni data = null;
 	        
 	     JobID jobID = JobID.forName(jobIDStr);
@@ -516,7 +517,8 @@ class UdaPluginSH extends UdaPlugin {
 	            indexFileName);
 	        IndexRecord info = 
 	          indexCache.getIndexInformation(mapId, reduce, indexFileName, user);
-	   
+				
+		   data = new DataPassToJni();
 		   data.startOffset = info.startOffset;
 		   data.rawLength = info.rawLength;
 		   data.partLength = info.partLength;
