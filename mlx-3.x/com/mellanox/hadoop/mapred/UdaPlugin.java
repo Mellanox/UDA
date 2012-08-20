@@ -465,21 +465,21 @@ class UdaPluginSH extends UdaPlugin {
 		mCmdParams.clear();
 		
 		mCmdParams.add("-w");
-		mCmdParams.add(mjobConf.get("mapred.rdma.wqe.per.conn"));
+		mCmdParams.add(mjobConf.get("mapred.rdma.wqe.per.conn", "256"));
 		mCmdParams.add("-r");
-		mCmdParams.add(mjobConf.get("mapred.rdma.cma.port"));      
+		mCmdParams.add(mjobConf.get("mapred.rdma.cma.port", "9011"));      
 		mCmdParams.add("-m");
 		mCmdParams.add("1");
 		
 		mCmdParams.add("-g");
-		mCmdParams.add(mjobConf.get("mapred.rdma.log.dir","default"));
+		mCmdParams.add(mjobConf.get("mapred.rdma.log.dir","logs/"));
 		
 		mCmdParams.add("-s");
-		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size"));
+		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
 		mCmdParams.add("-t");
-		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel"));
+		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "2"));
 	}
-
+	
 
 	public void close() {
 
