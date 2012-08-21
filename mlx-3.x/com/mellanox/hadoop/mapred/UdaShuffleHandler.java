@@ -49,39 +49,37 @@ import org.apache.hadoop.yarn.service.AbstractService;
 import org.apache.hadoop.yarn.service.Service.STATE;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
-
 import org.apache.hadoop.mapred.JobID;
-
+import org.apache.hadoop.mapreduce.security.token.JobTokenIdentifier;
 
 public class UdaShuffleHandler extends AbstractService implements AuxServices.AuxiliaryService {
 	
 
   private static final Log LOG = LogFactory.getLog(UdaShuffleHandler.class);
 
-  private int port;
+ 
 
   private UdaPluginSH rdmaChannel;
 
  private Configuration config;
+
   
-  public static final String MAPREDUCE_SHUFFLE_SERVICEID =
-      "mapreduce.shuffle";
+  public static final String MAPREDUCE_RDMA_SHUFFLE_SERVICEID =
+      "uda.shuffle";
 
   private static final Map<String,String> userRsrc =
     new ConcurrentHashMap<String,String>();
 
   public UdaShuffleHandler() {
-	  super("httpshuffle");
+	  super("rdmashuffle");
 	  LOG.info("c-tor of UdaShuffleHandler");
   }
 
 
   @Override
   public void initApp(String user, ApplicationId appId, ByteBuffer secret) {
-	 LOG.info("initApp of UdaShuffleHandler");
+	  LOG.info("initApp of UdaShuffleHandler lalala");
 	  JobID jobId = new JobID(Long.toString(appId.getClusterTimestamp()), appId.getId());
-	  Configuration conf = getConfig();
-	  LOG.info("initApp of UdaShuffleHandler");
 //	  rdmaChannel = new UdaPluginSH(conf, user, jobId);	  
 	  rdmaChannel.addJob(user, jobId);
 	  LOG.info("initApp of UdaShuffleHandler is done");
@@ -100,16 +98,18 @@ public class UdaShuffleHandler extends AbstractService implements AuxServices.Au
  //method of AbstractService
   @Override
   public synchronized void init(Configuration conf) {
+  LOG.info("init of UdaShuffleHandler");
 	 this.config = conf;
-    super.init(conf);
+    super.init(new Configuration(conf));
+
   }
 
   //method of AbstractService
   @Override
   public synchronized void start() {
-    super.start();
     LOG.info("start of UdaShuffleHandler");
     rdmaChannel = new UdaPluginSH(config);	  
+	super.start();
 	LOG.info("start of UdaShuffleHandler is done");
   }
   
@@ -119,10 +119,16 @@ public class UdaShuffleHandler extends AbstractService implements AuxServices.Au
   public synchronized void stop() {
 	  LOG.info("stop of UdaShuffleHandler");
 	  rdmaChannel.close();
-	   LOG.info("stop of UdaShuffleHandler is done");
+	  super.stop();
+	  LOG.info("stop of UdaShuffleHandler is done");
   }
   
-  
+  public static ByteBuffer serializeServiceData(Token<JobTokenIdentifier> jobToken) throws IOException {
+    //TODO these bytes should be versioned
+    DataOutputBuffer jobToken_dob = new DataOutputBuffer();
+    jobToken.write(jobToken_dob);
+    return ByteBuffer.wrap(jobToken_dob.getData(), 0, jobToken_dob.getLength());
+  }
  
   @Override
   public synchronized ByteBuffer getMeta() {
