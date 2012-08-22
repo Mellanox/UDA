@@ -56,7 +56,7 @@ void reduce_downcall_handler(const string & msg)
 	/* if hadoop command could not be parsed correctly */
 	if(!parse_hadoop_cmd(msg, *hadoop_cmd))
 	{
-		log(lsFATAL, "Hadoop's command  - %s could not be parsed", msg);
+		log(lsWARN, "Hadoop's command  - %s could not be parsed", msg.c_str());
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
 		return;

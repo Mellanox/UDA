@@ -180,7 +180,7 @@ bool parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
      */
     size_t start;
     int i, end;
-    
+
     start = end = i = 0;
     cmd_struct.params = NULL;
 
@@ -200,9 +200,9 @@ bool parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
     /* header info, the first argument */
     start = ++end;    
     end = cmd.find(':', start);
-    if (end == cmd.npos) {
+    if (end == cmd.npos) {		
         cmd_struct.header = (cmd_item) atoi(cmd.substr(start).c_str());
-        return false;
+        return true;
     } else {
         cmd_struct.header = (cmd_item) atoi(cmd.substr(start, end-start).c_str());
     }
