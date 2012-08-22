@@ -39,7 +39,7 @@ void mof_downcall_handler(const std::string & msg)
     /* if hadoop command could not be parsed correctly */
 	if(!(parse_hadoop_cmd(msg, hadoop_cmd)))
 	{
-		log(lsFATAL, "Hadoop's command  - %s could not be parsed", msg);
+		log(lsWARN, "Hadoop's command  - %s could not be parsed", msg.c_str());
 		return;
 	}
 
