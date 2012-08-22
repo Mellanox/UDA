@@ -373,7 +373,7 @@ diff -Nuar hadoop-0.20.2-cdh3u4/src/mapred/org/apache/hadoop/mapred/TaskTracker.
  
      LOG.info("Starting tasktracker with owner as "
 -        + getMROwner().getShortUserName());
-+        + getMROwner().getShortUserName()+ "I'm here!!!! I made it!!!!!!!!!!!!!!! wo hu!!!");
++        + getMROwner().getShortUserName()+ " ");
  
      if (fConf.get("slave.host.name") != null) {
        this.localHostname = fConf.get("slave.host.name");
