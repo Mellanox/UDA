@@ -37,8 +37,8 @@
 
 
 Name:           libuda
-#3.0.2 for patch with hadoop-3.x suppoort
-Version:        3.0.2
+#3.0.3 structure change
+Version:        3.0.3
 Release:        4473%{?dist}
 Summary:        libuda is an RDMA plugin for Hadoop Acceleration
 Vendor:         Mellanox
