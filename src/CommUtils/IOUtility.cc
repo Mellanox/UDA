@@ -476,13 +476,9 @@ void startLogNetMerger()
     if (g_log_threshold <= lsNONE)
         return;
 
-    const char * const hadoop_home = getenv("HADOOP_HOME");
-    if (hadoop_home) {
-//    	sprintf(full_path, "%s/%s/udaNetMerger.log", hadoop_home, rdmalog_dir);
-    	sprintf(full_path, "%s/%s-udaNetMerger.log", hadoop_home, rdmalog_dir);//temp workaround for hadoop-3.x
-        printf("log will go to: %s\n", full_path);
-    	log_file = fopen (full_path,"a");
-    }
+	sprintf(full_path, "%sudaNetMerger.log", rdmalog_dir);
+	printf("log will go to: %s\n", full_path);
+	log_file = fopen (full_path,"a");
 
     if (!log_file) {
         printf("log will go to stderr\n");
@@ -505,12 +501,10 @@ void startLogMOFSupplier()
     int rc = gethostname(host, 99);
     if (rc) fprintf(stderr, "gethostname failed: %m(%d)", errno);
 
-    const char * const hadoop_home = getenv("HADOOP_HOME");
-    if (hadoop_home) {
-    	sprintf(full_path, "%s/%s/hadoop-%s-udaMOFSupplier-%s.log", hadoop_home, rdmalog_dir, getlogin(), host);
-        printf("log will go to: %s\n", full_path);
-    	log_file = fopen (full_path,"a");
-    }
+	sprintf(full_path, "%s/hadoop-%s-udaMOFSupplier-%s.log", rdmalog_dir, getlogin(), host);
+	printf("log will go to: %s\n", full_path);
+	log_file = fopen (full_path,"a");
+
 
     if (!log_file) {
         printf("log will go to stderr\n");

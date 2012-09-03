@@ -94,7 +94,6 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	private final int         kv_buf_size = 1 << 20;   /* 1 MB */
 	private final int         kv_buf_num = 2;
 	private KVBuf[]           kv_bufs = null;
-	private String 			  mLogdirTail;
 
 	private void init_kv_bufs() {
 		kv_bufs = new KVBuf[kv_buf_num];
@@ -116,7 +115,8 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mCmdParams.add("1");
 		
 		mCmdParams.add("-g");
-		mCmdParams.add(mjobConf.get("mapred.rdma.log.dir","logs/") + mLogdirTail);
+		mCmdParams.add(TaskLog.getMRv2LogDir() + "/" + reduceTask.getTaskID().toString()+"-");
+		//log will be located in applicationXXX/containerYYY/attemptZZZ-udaNetMerger.log
 		
 		mCmdParams.add("-s");
 		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
@@ -162,9 +162,6 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		
 		/* init variables */
 		init_kv_bufs(); 
-		
-//		this.mLogdirTail = "/userlogs/" + reduceTask.getTaskID().getJobID().toString() + "/"  + reduceTask.getTaskID().toString();
-		this.mLogdirTail = "-userlogs-" + reduceTask.getTaskID().getJobID().toString() + "-"  + reduceTask.getTaskID().toString(); // temp for hadoop-3.x
 		
 		launchCppSide(true, this); // true: this is RT => we should execute NetMerger
 
@@ -472,7 +469,7 @@ class UdaPluginSH extends UdaPlugin {
 		mCmdParams.add("1");
 		
 		mCmdParams.add("-g");
-		mCmdParams.add(mjobConf.get("mapred.rdma.log.dir","logs/"));
+		mCmdParams.add(System.getProperty("hadoop.log.dir"));
 		
 		mCmdParams.add("-s");
 		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
