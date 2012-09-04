@@ -16,7 +16,6 @@
  * limitations under the License.
  */
 
-//package com.mellanox.hadoop.mapred;
 
 package com.mellanox.hadoop.mapred;
 

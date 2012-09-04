@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 // COPIED with minimal changes FROM: package org.apache.hadoop.mapred; (in hadoop-0.20.2)
 package com.mellanox.hadoop.mapred;
 import org.apache.hadoop.mapred.JobConf; //UDA
