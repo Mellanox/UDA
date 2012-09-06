@@ -3,9 +3,14 @@
 set -ex
 cd `dirname $0`
 
-#one time setup per user's home
+#one time setup per user
 if [ ! -f ~/.rpmmacros ] ; then
 	rpmdev-setuptree
+fi
+
+#one time setup per uda checkout
+if [ ! -f ./svnversion.txt ] ; then
+	echo `svnversion -n` > ./svnversion.txt
 fi
 
 #prepare C++
