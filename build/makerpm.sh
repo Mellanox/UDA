@@ -20,4 +20,5 @@ cp ../scripts/set_hadoop_slave_property.sh .
 
 cp uda-hadoop-1.x.jar uda-hadoop-3.x.jar uda-CDH3u4.jar uda-hadoop-0.20.2.jar libuda.so README LICENSE.txt set_hadoop_slave_property.sh ~/rpmbuild/SOURCES/
 rpmbuild -ba uda.spec
+echo ======= SUCCESS: Your RPM is under: ~/rpmbuild/RPMS/
 cd -
