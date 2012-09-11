@@ -5,13 +5,15 @@ Building
 *** pre-build ***
 
 In order to create the rpm you should:
-1) Update the version number in the build/uda.spec file.
-	The version number is combined on 5 fields, for example 3.0.2-0.4279
+1) Update the version number in the './release' file.
+	The version number is combined on 4 fields, for example 3.0.2-0
 	* the first 2 fields are owned by marketing (major.minor)
-	* the  last 3 fields are owned by RND (release.fix-svnrevision)
+	* the  last 2 fields are owned by RND (release.fix)
 RND can change 'release' from time to time (usually after doing something "meaningful")
-You should increment 'fix' by 1 any time you ship fix that is based on an existing version
-and you should specify the svnrevision with any rpm!  // TODO: automate it!
+You must increment 'fix' by 1 any time you ship fix that is based on an existing version (same major.minor.release)
+NOTE: the build process will:
+	a. parse the version in this format and,
+	b. will automatically add it the proper svnversion!
 
 
 2) Update README.txt and journal.txt with all the major version changes
