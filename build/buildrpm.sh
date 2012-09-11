@@ -8,21 +8,19 @@ if [ ! -f ~/.rpmmacros ] ; then
 	rpmdev-setuptree
 fi
 
-#one time setup per uda checkout
-if [ ! -f ./svnversion.txt ] ; then
-	echo `svnversion -n` > ./svnversion.txt
-fi
+echo `svnversion -n` > ./svnversion.txt
 
 #prepare C++
-echo ===== preparing C++ make ...
+echo ======== preparing and making C++ ...
 ./../src/premake.sh
 
 # export UDA into source dir, remove plugins/*/*.jar, and create tarball
-echo ===== Creating source.tgz ...
+echo ======== Creating source.tgz ...
 rm -rf source.tgz source
-svn export .. source && rm source/plugins/*/*.jar && tar cfz source.tgz source
+svn export .. source && rm source/plugins/*/*.jar && tar cfz source.tgz source/src source/plugins
+rm -rf source
 
 #build C++ and JAVA, and then create RPM
-echo ===== making RPM ...
+echo ======== making RPM ...
 ./makerpm.sh 
 cd -

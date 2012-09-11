@@ -19,7 +19,8 @@ cp ../plugins/mlx-0.20.2/uda-hadoop-0.20.2.jar .
 cp ../scripts/set_hadoop_slave_property.sh .
 
 cp uda-hadoop-1.x.jar uda-hadoop-3.x.jar uda-CDH3u4.jar uda-hadoop-0.20.2.jar libuda.so README LICENSE.txt set_hadoop_slave_property.sh source.tgz ~/rpmbuild/SOURCES/
-export revision=`cat ./svnversion.txt`
-rpmbuild -ba uda.spec
-echo ======= SUCCESS: Your RPM is under: ~/rpmbuild/RPMS/
+revision=`sed 's/:.*//' svnversion.txt` # remove ':' (in case user's dir is dirty), since it is illegal in spec file
+echo ========== creating RPM...
+rpmbuild -ba uda.spec --define "_revision $revision"
 cd -
+echo ========== SUCCESS: Your RPM is under: ~/rpmbuild/RPMS/

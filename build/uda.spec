@@ -41,7 +41,8 @@
 Name:           libuda
 #3.0.3 structure change
 Version:        3.0.3
-Release:        4473%{?dist}
+Release:        %{_revision}%{?dist}
+
 Summary:        libuda is an RDMA plugin for Hadoop Acceleration
 Vendor:         Mellanox
 Packager:       Avner BenHanoch <avnerb@mellanox.com>
