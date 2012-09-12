@@ -5,7 +5,9 @@ Building
 *** pre-build ***
 
 In order to create the rpm you should:
-1) Update the version number in the './release' file.
+1) Update README and journal.txt with all the major version changes
+
+2) Update the version number in the './release' file.
 	The version number is combined on 4 fields, for example 3.0.2-0
 	* the first 2 fields are owned by marketing (major.minor)
 	* the  last 2 fields are owned by RND (release-fix)
@@ -17,8 +19,7 @@ NOTE: In addition, the build process will:
 	(Hence, the resulted version will be: X.Y.Z-W.<svnversion>)
 
 
-2) Update README.txt and journal.txt with all the major version changes
-3) Check in ./release, ./README.txt and ./journal.txt
+3) Check in ./release, ./README and ./journal.txt
 	- In this check-in use "highlighting" comment, something like:
 	************* Closing release X.Y.Z-W *******************
 	
@@ -52,6 +53,7 @@ The rpm contains the following files:
 	[avnerb@r-zorro015-ib src]$ rpm -ql libuda
 	/usr/lib64/uda/LICENSE.txt
 	/usr/lib64/uda/README
+	/usr/lib64/uda/journal.txt
 	/usr/lib64/uda/libuda.so
 	/usr/lib64/uda/set_hadoop_slave_property.sh
 	/usr/lib64/uda/source.tgz

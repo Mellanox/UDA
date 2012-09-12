@@ -29,6 +29,7 @@
 %define uda_lic    				LICENSE.txt
 %define hadoop_prop_script    	set_hadoop_slave_property.sh
 %define uda_source		    	source.tgz
+%define uda_journal		    	journal.txt
 
 %define hname hadoop
 %define hadoop_name hadoop
@@ -80,6 +81,7 @@ Source5:        %{uda_CDH3u4_jar}
 Source6:        %{uda_0_20_2_jar}
 Source7:        %{uda_hadoop_3x_jar}
 Source8:        %{uda_source}
+Source9:        %{uda_journal}
 
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
@@ -119,6 +121,7 @@ install -m 0644 %{SOURCE5} $RPM_BUILD_ROOT%{uda_dir}/%{uda_CDH3u4_jar}
 install -m 0644 %{SOURCE6} $RPM_BUILD_ROOT%{uda_dir}/%{uda_0_20_2_jar}
 install -m 0644 %{SOURCE7} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_3x_jar}
 install -m 0644 %{SOURCE8} $RPM_BUILD_ROOT%{doc_dir}/%{uda_source}
+install -m 0644 %{SOURCE9} $RPM_BUILD_ROOT%{doc_dir}/%{uda_journal}
 
 #%post
 
@@ -140,5 +143,6 @@ rm -rf $RPM_BUILD_ROOT
 %{uda_dir}/%{hadoop_prop_script}
 %{uda_dir}/%{uda_hadoop_3x_jar}
 %{doc_dir}/%{uda_source}
+%{doc_dir}/%{uda_journal}
 
 %changelog
