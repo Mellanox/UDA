@@ -8,23 +8,28 @@ In order to create the rpm you should:
 1) Update the version number in the './release' file.
 	The version number is combined on 4 fields, for example 3.0.2-0
 	* the first 2 fields are owned by marketing (major.minor)
-	* the  last 2 fields are owned by RND (release.fix)
+	* the  last 2 fields are owned by RND (release-fix)
 RND can change 'release' from time to time (usually after doing something "meaningful")
-You must increment 'fix' by 1 any time you ship fix that is based on an existing version (same major.minor.release)
-NOTE: the build process will:
-	a. parse the version in this format and,
-	b. will automatically add it the proper svnversion!
+RND must increment 'fix' by 1 any time we ship fix that is based on an existing version (same major.minor.release)
+NOTE: In addition, the build process will:
+	a. parse ./release file and read the version you wrote in the X.Y.Z-W format
+	b. and, will automatically add it the proper svnversion!
+	(Hence, the resulted version will be: X.Y.Z-W.<svnversion>)
 
 
 2) Update README.txt and journal.txt with all the major version changes
-3) Check in build/uda.spec, README.txt and journal.txt
+3) Check in ./release, ./README.txt and ./journal.txt
+	- In this check-in use "highlighting" comment, something like:
+	************* Closing release X.Y.Z-W *******************
+	
 4) Create TAG:
 	svn cp https://sirius.voltaire.com/repos/enterprise/uda/trunk https://sirius.voltaire.com/repos/enterprise/uda/tags/UDA_3.0.2-0.r4279_from_20120930
+	(in case you build non-trunk branch, copy the TAG from your branch)
 
 *** the build ***
-5) after all files are checked-in
+5) after all files are checked-in, perform a clean check-out:
    svn co https://sirius.voltaire.com/repos/enterprise/uda/trunk uda
-6) perform ./uda/build/buildrpm.sh
+6) do build, using: ./uda/build/buildrpm.sh
    - the resulted rpm will be under your home in ~/rpmbuild/Rpms/x86_64/
    - the name of the rpm will be: libuda-<version>.<distribution>.x86_64.rpm
 
@@ -35,12 +40,23 @@ NOTE: the build process will:
 
 ========================================
 In order to install the rpm:
-rpm -ivh <your-rpm>  
+	(you may need to issue rpm -e libuda in order to remove previous RPM)
+	rpm -ivh <your-rpm>  
 
 The name of your-rpm is in the form:  libuda-<version>.<distribution>.x86_64.rpm
-
 The 64-bit libuda.so and *.jar files will be installed in /usr/lib64/uda
 
 
 *************************************************************************************************************
 The rpm contains the following files:
+	[avnerb@r-zorro015-ib src]$ rpm -ql libuda
+	/usr/lib64/uda/LICENSE.txt
+	/usr/lib64/uda/README
+	/usr/lib64/uda/libuda.so
+	/usr/lib64/uda/set_hadoop_slave_property.sh
+	/usr/lib64/uda/source.tgz
+	/usr/lib64/uda/uda-CDH3u4.jar
+	/usr/lib64/uda/uda-hadoop-0.20.2.jar
+	/usr/lib64/uda/uda-hadoop-1.x.jar
+	/usr/lib64/uda/uda-hadoop-3.x.jar
+
