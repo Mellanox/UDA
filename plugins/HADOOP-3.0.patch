@@ -1,0 +1,424 @@
+Index: hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/test/java/org/apache/hadoop/mapreduce/TestShufflePlugin.java
+===================================================================
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/test/java/org/apache/hadoop/mapreduce/TestShufflePlugin.java	(revision 0)
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/test/java/org/apache/hadoop/mapreduce/TestShufflePlugin.java	(revision 0)
+@@ -0,0 +1,185 @@
++/**
++	* Licensed to the Apache Software Foundation (ASF) under one
++	* or more contributor license agreements.  See the NOTICE file
++	* distributed with this work for additional information
++	* regarding copyright ownership.  The ASF licenses this file
++	* to you under the Apache License, Version 2.0 (the
++	* "License"); you may not use this file except in compliance
++	* with the License.  You may obtain a copy of the License at
++	*
++	*     http://www.apache.org/licenses/LICENSE-2.0
++	*
++	* Unless required by applicable law or agreed to in writing, software
++	* distributed under the License is distributed on an "AS IS" BASIS,
++	* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++	* See the License for the specific language governing permissions and
++	* limitations under the License.
++*/
++
++package org.apache.hadoop.mapreduce;
++
++import org.junit.Test;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++import org.apache.hadoop.yarn.api.records.ApplicationId;
++import org.apache.hadoop.fs.LocalDirAllocator;
++import org.apache.hadoop.fs.FileSystem;
++import org.apache.hadoop.mapred.Task.CombineOutputCollector;
++import org.apache.hadoop.io.compress.CompressionCodec;
++import org.apache.hadoop.util.Progress;
++
++import org.apache.hadoop.mapred.Reporter;
++import org.apache.hadoop.util.ReflectionUtils;
++import org.apache.hadoop.mapreduce.task.reduce.Shuffle;
++
++import org.apache.hadoop.mapred.Counters;
++import org.apache.hadoop.mapred.Counters.Counter;
++
++import org.apache.hadoop.mapred.MapOutputFile;
++import org.apache.hadoop.mapred.JobConf;
++import org.apache.hadoop.mapred.Task;
++import org.apache.hadoop.mapred.ReduceTask;
++import org.apache.hadoop.mapred.TaskStatus;
++import org.apache.hadoop.mapred.TaskUmbilicalProtocol;
++import org.apache.hadoop.mapred.ShuffleConsumerPlugin;
++import org.apache.hadoop.mapred.RawKeyValueIterator;
++import org.apache.hadoop.mapred.Reducer;
++
++/**
++  * A JUnit for testing availability and accessibility of shuffle related API.
++  * It is needed for maintaining comptability with external sub-classes of
++  * ShuffleConsumerPlugin and AuxiliaryService(s) like ShuffleHandler.
++  *
++  * The importance of this test is for preserving API with 3rd party plugins.
++  */
++public class TestShufflePlugin<K, V> {
++
++	static class TestShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin<K, V> {
++
++		public void init(org.apache.hadoop.mapreduce.TaskAttemptID reduceId, JobConf jobConf, FileSystem localFS,
++                 TaskUmbilicalProtocol umbilical,
++                 LocalDirAllocator localDirAllocator,  
++                 Reporter reporter,
++                 CompressionCodec codec,
++                 Class<? extends org.apache.hadoop.mapred.Reducer> combinerClass,
++                 CombineOutputCollector<K,V> combineCollector,
++                 org.apache.hadoop.mapred.Counters.Counter spilledRecordsCounter,
++                 org.apache.hadoop.mapred.Counters.Counter reduceCombineInputCounter,
++                 org.apache.hadoop.mapred.Counters.Counter shuffledMapsCounter,
++                 org.apache.hadoop.mapred.Counters.Counter reduceShuffleBytes,
++                 org.apache.hadoop.mapred.Counters.Counter failedShuffleCounter,
++                 org.apache.hadoop.mapred.Counters.Counter mergedMapOutputsCounter,
++                 TaskStatus status,
++                 Progress copyPhase,
++                 Progress mergePhase,
++                 Task reduceTask,
++                 MapOutputFile mapOutputFile){
++		}
++
++		public void close(){
++		}
++
++		public RawKeyValueIterator run() throws java.io.IOException, java.lang.InterruptedException{
++			return null;
++		}
++	  }
++
++
++
++	@Test
++	/**
++	 * A testing method instructing core hadoop to load an external ShuffleConsumerPlugin 
++	 * as if it came from a 3rd party.
++	 */
++	public void testPluginAbility() {
++
++		try{
++			// create JobConf with mapreduce.job.shuffle.consumer.plugin=TestShuffleConsumerPlugin
++			JobConf jobConf = new JobConf();
++			jobConf.setClass(MRConfig.SHUFFLE_CONSUMER_PLUGIN, TestShufflePlugin.TestShuffleConsumerPlugin.class, ShuffleConsumerPlugin.class);
++
++			ShuffleConsumerPlugin shuffleConsumerPlugin = null;
++			Class<? extends ShuffleConsumerPlugin> clazz = jobConf.getClass(MRConfig.SHUFFLE_CONSUMER_PLUGIN, null, ShuffleConsumerPlugin.class);
++			assertNotNull("Unable to get " + MRConfig.SHUFFLE_CONSUMER_PLUGIN, clazz);
++			
++			// load 3rd party plugin through core's factory method
++			shuffleConsumerPlugin = ShuffleConsumerPlugin.getShuffleConsumerPlugin(clazz, jobConf);
++			assertNotNull("Unable to load " + MRConfig.SHUFFLE_CONSUMER_PLUGIN, shuffleConsumerPlugin);
++		}		
++		catch (Exception e) {
++			assertTrue("Threw exception:" + e, false);
++		}
++	}
++
++	@Test
++	/**
++	 * A testing method verifying availability and accessibility of API that is needed
++	 * for sub-classes of ShuffleConsumerPlugin
++	 */
++	public void testConsumerApi() {
++
++		JobConf jobConf = new JobConf();
++		ShuffleConsumerPlugin<K, V> shuffleConsumerPlugin = new TestShuffleConsumerPlugin<K, V>();
++
++		//mock creation
++		ReduceTask mockReduceTask = mock(ReduceTask.class);
++		TaskUmbilicalProtocol mockUmbilical = mock(TaskUmbilicalProtocol.class);
++		Reporter mockReporter = mock(Reporter.class);
++		FileSystem mockFileSystem = mock(FileSystem.class);
++		Class<? extends org.apache.hadoop.mapred.Reducer>  combinerClass = jobConf.getCombinerClass();
++		@SuppressWarnings("unchecked")  // needed for mock with generic
++		CombineOutputCollector<K, V>  mockCombineOutputCollector = (CombineOutputCollector<K, V>) mock(CombineOutputCollector.class);
++		org.apache.hadoop.mapreduce.TaskAttemptID mockTaskAttemptID = mock(org.apache.hadoop.mapreduce.TaskAttemptID.class);
++		LocalDirAllocator mockLocalDirAllocator = mock(LocalDirAllocator.class);
++		CompressionCodec mockCompressionCodec = mock(CompressionCodec.class);
++		Counter mockCounter = mock(Counter.class);
++		TaskStatus mockTaskStatus = mock(TaskStatus.class);
++		Progress mockProgress = mock(Progress.class);
++		MapOutputFile mockMapOutputFile = mock(MapOutputFile.class);
++		Task mockTask = mock(Task.class);
++
++		try {
++			String [] dirs = jobConf.getLocalDirs();
++			// verify that these APIs are available through super class handler
++			shuffleConsumerPlugin.init(mockTaskAttemptID, jobConf, mockFileSystem, 
++				mockUmbilical, mockLocalDirAllocator, mockReporter,
++				mockCompressionCodec, combinerClass, mockCombineOutputCollector, mockCounter, 
++				mockCounter, mockCounter, mockCounter, mockCounter, mockCounter,
++				mockTaskStatus, mockProgress, mockProgress, mockTask, mockMapOutputFile);
++			shuffleConsumerPlugin.run();
++			shuffleConsumerPlugin.close();
++		}
++		catch (Exception e) {
++			assertTrue("Threw exception:" + e, false);
++		}
++
++		// verify that these APIs are available for 3rd party plugins
++		mockReduceTask.getTaskID();
++		mockReduceTask.getJobID();
++		mockReduceTask.getNumMaps();
++		mockReduceTask.getPartition();
++		mockReporter.progress();
++	}
++
++	@Test
++	/**
++	 * A testing method verifying availability and accessibility of API needed for
++	 * AuxiliaryService(s) which are "Shuffle-Providers" (ShuffleHandler and 3rd party plugins)
++	 */
++	public void testProviderApi() {
++
++		ApplicationId mockApplicationId = mock(ApplicationId.class);
++		mockApplicationId.setClusterTimestamp(new Long(10));
++		mockApplicationId.setId(mock(JobID.class).getId());
++		LocalDirAllocator mockLocalDirAllocator = mock(LocalDirAllocator.class);
++		JobConf mockJobConf = mock(JobConf.class);
++		try {
++			mockLocalDirAllocator.getLocalPathToRead("", mockJobConf);
++		}
++		catch (Exception e) {
++			assertTrue("Threw exception:" + e, false);
++		}
++	}
++
++}
+Index: hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/MRConfig.java
+===================================================================
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/MRConfig.java	(revision 1378523)
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/MRConfig.java	(working copy)
+@@ -83,6 +83,9 @@
+   public static final String SHUFFLE_SSL_ENABLED_KEY =
+     "mapreduce.shuffle.ssl.enabled";
+ 
++  public static final String SHUFFLE_CONSUMER_PLUGIN =
++    "mapreduce.shuffle.consumer.plugin";
++
+   public static final boolean SHUFFLE_SSL_ENABLED_DEFAULT = false;
+ 
+   /**
+Index: hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/task/reduce/Shuffle.java
+===================================================================
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/task/reduce/Shuffle.java	(revision 1378523)
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapreduce/task/reduce/Shuffle.java	(working copy)
+@@ -34,6 +34,7 @@
+ import org.apache.hadoop.mapred.Task.CombineOutputCollector;
+ import org.apache.hadoop.mapred.TaskStatus;
+ import org.apache.hadoop.mapred.TaskUmbilicalProtocol;
++import org.apache.hadoop.mapred.ShuffleConsumerPlugin;
+ import org.apache.hadoop.mapreduce.MRJobConfig;
+ import org.apache.hadoop.mapreduce.TaskAttemptID;
+ import org.apache.hadoop.util.Progress;
+@@ -41,24 +42,25 @@
+ @InterfaceAudience.Private
+ @InterfaceStability.Unstable
+ @SuppressWarnings({"deprecation", "unchecked", "rawtypes"})
+-public class Shuffle<K, V> implements ExceptionReporter {
++public class Shuffle<K, V> extends ShuffleConsumerPlugin<K, V> implements ExceptionReporter {
+   private static final int PROGRESS_FREQUENCY = 2000;
+   
+-  private final TaskAttemptID reduceId;
+-  private final JobConf jobConf;
+-  private final Reporter reporter;
+-  private final ShuffleClientMetrics metrics;
+-  private final TaskUmbilicalProtocol umbilical;
++  private TaskAttemptID reduceId;
++  private JobConf jobConf;
++  private Reporter reporter;
++  private ShuffleClientMetrics metrics;
++  private TaskUmbilicalProtocol umbilical;
+   
+-  private final ShuffleScheduler<K,V> scheduler;
+-  private final MergeManager<K, V> merger;
++  private ShuffleScheduler<K,V> scheduler;
++  private MergeManager<K, V> merger;
+   private Throwable throwable = null;
+   private String throwingThreadName = null;
+-  private final Progress copyPhase;
+-  private final TaskStatus taskStatus;
+-  private final Task reduceTask; //Used for status updates
++  private Progress copyPhase;
++  private TaskStatus taskStatus;
++  private Task reduceTask; //Used for status updates
+   
+-  public Shuffle(TaskAttemptID reduceId, JobConf jobConf, FileSystem localFS,
++  @Override
++  public void init(TaskAttemptID reduceId, JobConf jobConf, FileSystem localFS,
+                  TaskUmbilicalProtocol umbilical,
+                  LocalDirAllocator localDirAllocator,  
+                  Reporter reporter,
+@@ -98,6 +100,7 @@
+                                     this, mergePhase, mapOutputFile);
+   }
+ 
++  @Override
+   public RawKeyValueIterator run() throws IOException, InterruptedException {
+     // Start the map-completion events fetcher thread
+     final EventFetcher<K,V> eventFetcher = 
+Index: hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/ReduceTask.java
+===================================================================
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/ReduceTask.java	(revision 1378523)
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/ReduceTask.java	(working copy)
+@@ -340,6 +340,7 @@
+     // Initialize the codec
+     codec = initCodec();
+     RawKeyValueIterator rIter = null;
++    ShuffleConsumerPlugin shuffleConsumerPlugin = null; 
+     
+     boolean isLocal = false; 
+     // local if
+@@ -358,8 +359,12 @@
+         (null != combinerClass) ? 
+  	     new CombineOutputCollector(reduceCombineOutputCounter, reporter, conf) : null;
+ 
+-      Shuffle shuffle = 
+-        new Shuffle(getTaskID(), job, FileSystem.getLocal(job), umbilical, 
++      Class<? extends ShuffleConsumerPlugin> clazz =
++            job.getClass(MRConfig.SHUFFLE_CONSUMER_PLUGIN, null, ShuffleConsumerPlugin.class);
++      shuffleConsumerPlugin = ShuffleConsumerPlugin.getShuffleConsumerPlugin(clazz, job);
++      LOG.info("Using ShuffleConsumerPlugin: " + shuffleConsumerPlugin);
++
++      shuffleConsumerPlugin.init(getTaskID(), job, FileSystem.getLocal(job), umbilical, 
+                     super.lDirAlloc, reporter, codec, 
+                     combinerClass, combineCollector, 
+                     spilledRecordsCounter, reduceCombineInputCounter,
+@@ -368,7 +373,7 @@
+                     mergedMapOutputsCounter,
+                     taskStatus, copyPhase, sortPhase, this,
+                     mapOutputFile);
+-      rIter = shuffle.run();
++      rIter = shuffleConsumerPlugin.run();
+     } else {
+       // local job runner doesn't have a copy phase
+       copyPhase.complete();
+@@ -399,6 +404,10 @@
+       runOldReducer(job, umbilical, reporter, rIter, comparator, 
+                     keyClass, valueClass);
+     }
++
++    if (shuffleConsumerPlugin != null) {
++      shuffleConsumerPlugin.close();
++    }
+     done(umbilical, reporter);
+   }
+ 
+Index: hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/ShuffleConsumerPlugin.java
+===================================================================
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/ShuffleConsumerPlugin.java	(revision 0)
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/java/org/apache/hadoop/mapred/ShuffleConsumerPlugin.java	(revision 0)
+@@ -0,0 +1,85 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapred;
++
++import java.io.IOException;
++import org.apache.hadoop.mapred.Task.TaskReporter;
++import org.apache.hadoop.util.ReflectionUtils;
++import org.apache.hadoop.fs.FileSystem;
++
++import org.apache.hadoop.mapreduce.task.reduce.Shuffle;
++import org.apache.hadoop.fs.LocalDirAllocator;
++import org.apache.hadoop.io.compress.CompressionCodec;
++import org.apache.hadoop.mapred.Task.CombineOutputCollector;
++import org.apache.hadoop.util.Progress;
++
++
++/**
++ * ShuffleConsumerPlugin for serving Reducers.  
++ * ShuffleConsumerPlugin may choose to shuffle MOF files from ShuffleHandler, or from 3rd party AuxiliaryServices
++ * 
++*/
++public abstract class ShuffleConsumerPlugin<K, V> {
++	
++	/**
++	 * Factory method for getting the ShuffleConsumerPlugin from the given class object and configuring it. 
++	 * If clazz is null, this method will return instance of Shuffle class since it is the default ShuffleConsumerPlugin 
++	 * 
++	 * @param clazz
++	 * @param conf configure the plugin with this
++	 * @return an instanse of ShuffleConsumerPlugin
++	*/
++	public static ShuffleConsumerPlugin getShuffleConsumerPlugin(Class<? extends ShuffleConsumerPlugin> clazz, 
++		JobConf conf) throws ClassNotFoundException, IOException  {
++		
++		if (clazz != null) 
++			return ReflectionUtils.newInstance(clazz, conf);
++		else
++			return new Shuffle();
++	}
++	
++	
++  public abstract void init(org.apache.hadoop.mapreduce.TaskAttemptID reduceId, JobConf jobConf, FileSystem localFS,
++                 TaskUmbilicalProtocol umbilical,
++                 LocalDirAllocator localDirAllocator,  
++                 Reporter reporter,
++                 CompressionCodec codec,
++                 Class<? extends Reducer> combinerClass,
++                 CombineOutputCollector<K,V> combineCollector,
++                 Counters.Counter spilledRecordsCounter,
++                 Counters.Counter reduceCombineInputCounter,
++                 Counters.Counter shuffledMapsCounter,
++                 Counters.Counter reduceShuffleBytes,
++                 Counters.Counter failedShuffleCounter,
++                 Counters.Counter mergedMapOutputsCounter,
++                 TaskStatus status,
++                 Progress copyPhase,
++                 Progress mergePhase,
++                 Task reduceTask,
++                 MapOutputFile mapOutputFile);				
++	
++	/**
++	 * close and clean any resource associated with this object
++	 */
++	public void close(){
++	}
++
++	public abstract RawKeyValueIterator run() throws IOException, InterruptedException;
++
++}
+Index: hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/resources/mapred-default.xml
+===================================================================
+--- hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/resources/mapred-default.xml	(revision 1378523)
++++ hadoop-mapreduce-project/hadoop-mapreduce-client/hadoop-mapreduce-client-core/src/main/resources/mapred-default.xml	(working copy)
+@@ -1164,6 +1164,20 @@
+   </description>
+ </property>
+ 
++<property>
++  <name>mapreduce.shuffle.consumer.plugin</name>
++  <value></value>
++  <description> 
++  Name of the class whose instance will be used 
++  to send shuffle requests by reducetasks of this job.
++
++  The class must be an instance of org.apache.hadoop.mapred.ShuffleConsumerPlugin.
++  If the value is null, reducetasks use 
++  org.apache.hadoop.mapreduce.task.reduce.Shuffle -- the built-in
++  shuffle consumer of Hadoop
++  </description>
++</property>
++
+ <!--  Node health script variables -->
+ 
+ <property>
