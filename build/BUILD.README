@@ -42,6 +42,7 @@ for example:
 
 *** publish ***
 8) Create directory under /.autodirect/mswg/release/uda/  with name uda-X.Y.Z-W.r<revision from svn> 
+( you can access it from Windows, using \\labfs01\MSWG\release\uda )
 9) copy the resulted rpm to the new directory you created
 
 
