@@ -289,15 +289,20 @@ extern "C" index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, c
 	jstring jstr_job, jstr_map;
 	jstr_job = jniEnv->NewStringUTF(job_id);
 	jstr_map = jniEnv->NewStringUTF(map_id); //NewStringUTF allocates a string inside the JVM which will release it
-	log(lsTRACE, "after  jniEnv->CallStaticVoidMethod...");
+
 	jobject jdata = jniEnv->CallStaticObjectMethod(jclassUdaBridge, jmethodID_getPathUda, jstr_job,  jstr_map, reduceId);
+	log(lsTRACE, "after  jniEnv->CallStaticVoidMethod...");
+
+	jniEnv->DeleteLocalRef(jstr_job);
+	jniEnv->DeleteLocalRef(jstr_map);
+
 	if (jdata==NULL){
 		log(lsERROR, "-->> In C++ java UdaBridge.getPathUda returned null!");
 		return NULL;
 	}
 	
-	index_record *data = (index_record*) malloc(sizeof(index_record));
 	jclass cls_data = jniEnv->GetObjectClass(jdata);
+
 	if (fidOffset == NULL) {
 		fidOffset = jniEnv->GetFieldID(cls_data, "startOffset", "J");
 		 if (fidOffset == NULL) {
@@ -331,12 +336,11 @@ extern "C" index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, c
 		 }
 	 }
 
+	index_record *data = (index_record*) malloc(sizeof(index_record));
 	data->offset = (int64_t) jniEnv->GetLongField(jdata, fidOffset);
 	data->rawLength = (int64_t) jniEnv->GetLongField(jdata, fidRawLength);
 	data->partLength = (int64_t) jniEnv->GetLongField(jdata, fidPartLength);
-
 	data->path = (jstring)jniEnv->GetObjectField(jdata, fidPathMOF);
-
 
 	log(lsDEBUG, "after  jniEnv->CallStaticVoidMethod... ");
 	return data;

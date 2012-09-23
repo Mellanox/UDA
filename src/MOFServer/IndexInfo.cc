@@ -294,7 +294,12 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , index_record_t* record,
 
     fd_counter_t* fdc=getFdCounter(outPath);
     if (!fdc) {
-    	log(lsERROR, "fail to get fd counter jobid=%s out_path=%s", req->m_jobid.c_str(), record->path);
+    	const char *path_for_error = jniEnv->GetStringUTFChars(record->path, NULL);
+    	if (!path_for_error){
+    	   return -1;
+    	}
+    	log(lsERROR, "fail to get fd counter jobid=%s out_path=%s", req->m_jobid.c_str(), path_for_error);
+    	jniEnv->ReleaseStringUTFChars(record->path, path_for_error);
     	return -1;
     }
 
