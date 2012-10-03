@@ -34,117 +34,10 @@
 using namespace std;
 
 
-/* FileStream class */
-NetStream::NetStream(int socket)
-{
-    this->socket = socket;
-}
-
-size_t NetStream::read(void *buf, size_t len)
-{ 
-    size_t result = recv(socket, buf, len, 0); 
-    if (result == (size_t)(-1)) {
-        output_stderr("NetStream: recv error, %s",
-                      strerror(errno));
-    }
-    return result;
-}
 
 
-size_t NetStream::write(const void *buf, size_t len)
-{
-	if (len == 0) {
-		log(lsERROR, "write with len=0");
-		return 0;
-	}
-
-    size_t result = send(socket, buf, len, 0);
-    if (result == (size_t)(-1)) {
-        output_stderr("NetStream: send error, %s",
-                      strerror(errno));
-        return 0;
-    }
-    return result;
-}
-
-/******************************************************************
- * The following is for FileStream
- * Imported by Avner from Auburn debug branch
-*******************************************************************/
-FileStream::FileStream(FILE *file)
-{
-  this->mFile = file;
-}
 
 
-size_t FileStream::read(void *des, const size_t len,
-                        const char *extrasrc, size_t size,
-                        int &idx)
-{
-  fprintf(stderr, "FileStream: read from two srcs not supported\n");
-  return -1;
-}
-
-
-bool FileStream::hasMore(size_t nbytes)
-{
-  fprintf(stderr, "FileStream: hasMore not supported\n");
-  return false;
-}
-
-
-size_t FileStream::rewind(size_t nbytes)
-{
-  fprintf(stderr, "FileStream: rewind not supported\n");
-  return -1;
-}
-
-
-size_t FileStream::read(void *buf, size_t len)
-{
-  size_t result = fread(buf, len, 1, this->mFile);
-  if (result == 0) {
-    if (feof(mFile)) {
-      output_stderr("FileStream: read EOF on file");
-     } else {
-         output_stderr("FileStream: read ERROR on file");
-     }
-  }
-  return result;
-}
-
-
-size_t FileStream::skip(size_t nbytes)
-{
-  bool b = 0==fseek(this->mFile, nbytes, SEEK_CUR);
-  return b ? nbytes : -1;
-}
-
-
-bool FileStream::close()
-{
-  return true;
-}
-
-
-size_t FileStream::write(const void *buf, size_t len)
-{
-  size_t result = fwrite(buf, len, 1, this->mFile);
-  if (result != 1) {
-    fprintf(stderr,"FileOutStream: write error\n");
-    return 0;
-  }
-  return result;
-}
-
-void FileStream::flush()
-{
-  fflush(this->mFile);
-}
-
-FileStream::~FileStream()
-{
-}
 
 
 /* DataStream class */
@@ -592,6 +485,124 @@ void log_func(const char * func, const char * file, int line, log_severity_t sev
 		  s1);
     fflush(log_file);
 }
+
+#if LCOV_AUBURN_DEAD_CODE
+/* FileStream class */
+NetStream::NetStream(int socket)
+{
+    this->socket = socket;
+}
+
+size_t NetStream::read(void *buf, size_t len)
+{
+    size_t result = recv(socket, buf, len, 0);
+    if (result == (size_t)(-1)) {
+        output_stderr("NetStream: recv error, %s",
+                      strerror(errno));
+    }
+    return result;
+}
+
+
+size_t NetStream::write(const void *buf, size_t len)
+{
+	if (len == 0) {
+		log(lsERROR, "write with len=0");
+		return 0;
+	}
+
+    size_t result = send(socket, buf, len, 0);
+    if (result == (size_t)(-1)) {
+        output_stderr("NetStream: send error, %s",
+                      strerror(errno));
+        return 0;
+    }
+    return result;
+}
+
+/******************************************************************
+ * The following is for FileStream
+ * Imported by Avner from Auburn debug branch
+*******************************************************************/
+FileStream::FileStream(FILE *file)
+{
+  this->mFile = file;
+}
+
+
+size_t FileStream::read(void *des, const size_t len,
+                        const char *extrasrc, size_t size,
+                        int &idx)
+{
+  fprintf(stderr, "FileStream: read from two srcs not supported\n");
+  return -1;
+}
+
+
+bool FileStream::hasMore(size_t nbytes)
+{
+  fprintf(stderr, "FileStream: hasMore not supported\n");
+  return false;
+}
+
+
+size_t FileStream::rewind(size_t nbytes)
+{
+  fprintf(stderr, "FileStream: rewind not supported\n");
+  return -1;
+}
+
+
+size_t FileStream::read(void *buf, size_t len)
+{
+  size_t result = fread(buf, len, 1, this->mFile);
+  if (result == 0) {
+    if (feof(mFile)) {
+      output_stderr("FileStream: read EOF on file");
+     } else {
+         output_stderr("FileStream: read ERROR on file");
+     }
+  }
+  return result;
+}
+
+
+size_t FileStream::skip(size_t nbytes)
+{
+  bool b = 0==fseek(this->mFile, nbytes, SEEK_CUR);
+  return b ? nbytes : -1;
+}
+
+
+bool FileStream::close()
+{
+  return true;
+}
+
+
+size_t FileStream::write(const void *buf, size_t len)
+{
+  size_t result = fwrite(buf, len, 1, this->mFile);
+  if (result != 1) {
+    fprintf(stderr,"FileOutStream: write error\n");
+    return 0;
+  }
+  return result;
+}
+
+void FileStream::flush()
+{
+  fflush(this->mFile);
+}
+
+FileStream::~FileStream()
+{
+}
+
+
+
+#endif
+
 
 
 /*

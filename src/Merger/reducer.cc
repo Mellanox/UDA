@@ -38,7 +38,9 @@
 #include "InputClient.h"
 #include "IOUtility.h"
 #include "C2JNexus.h"
-
+#ifdef __cplusplus
+        extern "C" void __gcov_flush();
+#endif
 using namespace std;
 
 #define RDMA_BUFFERS_PER_SEGMENT (2)
@@ -200,6 +202,7 @@ void reduce_downcall_handler(const string & msg)
 		finalize_reduce_task(g_task);
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
+		__gcov_flush();
 		break;
 
 	default:

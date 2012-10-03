@@ -90,19 +90,7 @@ int AIOHandler::prepare_read(int fd, uint64_t fileOffset, size_t sizeToRead, cha
 	return 0;
 }
 
-int AIOHandler::prepare_write(int fd, uint64_t fileOffset, size_t sizeToWrite, char* srcBuffer, void* callback_arg) {
-	if (!validateAligment(fileOffset, sizeToWrite, srcBuffer))
-		return -1;
 
-	pthread_mutex_lock(&_cbRowLock);
-	_cbRow[_cbRowIndex]=new iocb();
-	io_prep_pwrite(_cbRow[_cbRowIndex] ,fd, srcBuffer,  sizeToWrite, fileOffset);
-	_cbRow[_cbRowIndex]->data = callback_arg;
-	_cbRowIndex++;
-	pthread_mutex_unlock(&_cbRowLock);
-
-	return 0;
-}
 
 bool AIOHandler::validateAligment(long fileOffset, size_t size, char* buff) {
 	int mod;
@@ -245,12 +233,27 @@ void AIOHandler::processEventsCallbacks() {
 	log(lsINFO, "AIO: Events processor stopped");
 }
 
+#if LCOV_HYBRID_MERGE_DEAD_CODE
 void AIOHandler::setCompletionCallback(AioCallback callback) {
 	pthread_mutex_lock(&_cbRowLock);
 	_callback=callback;
 	pthread_mutex_unlock(&_cbRowLock);
 }
 
+int AIOHandler::prepare_write(int fd, uint64_t fileOffset, size_t sizeToWrite, char* srcBuffer, void* callback_arg) {
+	if (!validateAligment(fileOffset, sizeToWrite, srcBuffer))
+		return -1;
+
+	pthread_mutex_lock(&_cbRowLock);
+	_cbRow[_cbRowIndex]=new iocb();
+	io_prep_pwrite(_cbRow[_cbRowIndex] ,fd, srcBuffer,  sizeToWrite, fileOffset);
+	_cbRow[_cbRowIndex]->data = callback_arg;
+	_cbRowIndex++;
+	pthread_mutex_unlock(&_cbRowLock);
+
+	return 0;
+}
+#endif
 
 
 

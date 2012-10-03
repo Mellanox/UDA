@@ -107,106 +107,8 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     return true;
 }
 
-bool write_kv_to_file(MergeQueue<BaseSegment*> *records, FILE *f,
-		int32_t &total_write) {
-    FileStream *stream = new FileStream(f);
-    int32_t len = INT32_MAX; //1<<30; //TODO: consider 64 bit - AVNER
 
-    bool ret = write_kv_to_stream(records, len, stream, total_write);
 
-    stream->flush();
-    delete stream;
-    return ret;
-}
-
-bool write_kv_to_file(MergeQueue<BaseSegment*> *records, const char *file_name,
-		int32_t &total_write) {
-    FILE *file = fopen(file_name, "wb");
-    if (!file) {
-    	log(lsFATAL, "[pid=%d] fail to open file(errno=%d: %m)\n", getpid(), errno);
-    	exit(-1); //temp TODO
-    }
-
-    bool ret = write_kv_to_file(records, file, total_write);
-
-    fclose(file);
-    return ret;
-}
-
-void merge_lpq_to_aio_file(reduce_task* task, MergeQueue<BaseSegment*> *records,
-		const char *file_name, AIOHandler* aio, int32_t &total_write,
-		int32_t& mem_desc_idx) {
-
-	int fd = open(file_name, O_DIRECT | O_RDWR | O_TRUNC | O_CREAT);
-	if (fd < 0) {
-		log(lsFATAL, "Fail to open file %s\t(errno=%m)",file_name);
-		exit(-1); //TODO
-	}
-
-	bool finish = false;
-	uint64_t fileOffset=0;
-	int prevAlignment = 0;
-	int currAlignment = 0;
-	int sizeToWrite = 0;
-	char *aligmentTmpBuff = new char[AIO_ALIGNMENT];
-
-	while (!finish) {
-		mem_desc_t *desc = records->staging_bufs[mem_desc_idx];
-
-		pthread_mutex_lock(&desc->lock);
-		while ((desc->status != FETCH_READY) && (desc->status != INIT))
-		pthread_cond_wait(&desc->cond, &desc->lock);
-		pthread_mutex_unlock(&desc->lock);
-
-		// copy previous alignment carry data from tmp buffer to the begining of current staging buffer
-		if (prevAlignment) {
-			memcpy((void*)desc->buff, (void*)aligmentTmpBuff, prevAlignment);
-		}
-
-		log(lsDEBUG, "calling write_kv_to_mem desc->buf_len=%d", desc->buf_len);
-		finish = write_kv_to_mem(records,
-				desc->buff + prevAlignment,
-				desc->buf_len - prevAlignment,
-				desc->act_len);
-
-		desc->status = MERGE_READY;
-		currAlignment = (desc->act_len + prevAlignment) % AIO_ALIGNMENT;
-		sizeToWrite = (desc->act_len + prevAlignment) - currAlignment;
-		// copy new alignment carry data to tmp buffer for next time to be written
-		if (currAlignment)
-		memcpy((void*)aligmentTmpBuff, (void*)(desc->buff + sizeToWrite), currAlignment);
-
-		// fileOffset, size and buffPTR must be aligned for AIO
-		lpq_aio_arg_t* arg = new lpq_aio_arg_t();
-		arg->desc=desc;
-		arg->fd = fd;
-		arg->filename=file_name; // reopening the file without O_DIRECT to enabling lseak on fd in order to write the last unaligned curry blocking.
-		if (finish) {
-			// callback for the last aio write will write the last alignment carry ,close the fd and delete aligment_buff
-			arg->last_lpq_submition=true;
-			arg->aligment_carry_size=currAlignment;
-			arg->aligment_carry_buff=aligmentTmpBuff;
-			arg->aligment_carry_fileOffset=fileOffset+sizeToWrite;
-		}
-		else {
-			arg->last_lpq_submition=false;
-			arg->aligment_carry_size=0;
-			arg->aligment_carry_buff=NULL;
-			arg->aligment_carry_fileOffset=0;
-		}
-		log(lsTRACE, "IDAN_LPQ_AIO prepeare_write:  fd=%d fileOffset=%llu act_len=%d prevAlignment=%d currAlignment=%d sizeToWrite=%d", fd, fileOffset, desc->act_len, prevAlignment, currAlignment, sizeToWrite );
-		aio->prepare_write(fd, fileOffset, sizeToWrite , desc->buff, arg );
-		aio->submit(); //TODO : batch
-		fileOffset += sizeToWrite;
-		prevAlignment=currAlignment;
-
-		++mem_desc_idx;
-		if (mem_desc_idx >= NUM_STAGE_MEM) {
-			mem_desc_idx = 0;
-		}
-
-	}
-}
 
 bool write_kv_to_mem(MergeQueue<BaseSegment*> *records, char *src, int32_t len,
 		int32_t &total_write) {
@@ -253,16 +155,7 @@ BaseSegment::BaseSegment(KVOutput *kvOutput) {
 	log(lsDEBUG, "IDAN BaseSegment CTOR finished this=%llu", (uint64_t)this);
 }
 
-SuperSegment::SuperSegment(reduce_task *_task, const std::string &_path) :
-	Segment(NULL), task(_task), path(_path) {
-    this->file = fopen(path.c_str(), "rb");
-    if (this->file == NULL) {
-		output_stderr("Reader:cannot open file: %s", path.c_str())
-;		this->file_stream = NULL;
-        return;
-    }
-    this->file_stream = new FileStream(this->file);
-}
+
 
 #if 0
 Segment::Segment(const string &path)
@@ -314,13 +207,7 @@ Segment::~Segment() {
 
 }
 
-SuperSegment::~SuperSegment() {
-    if (this->file_stream != NULL) {
-        delete this->file_stream;
-        fclose(this->file);
-        remove(this->path.c_str());
-    }
-}
+
 
 int BaseSegment::nextKVInternal(InStream *stream) {
 	//TODO: this can only work with ((DataStream*)stream)
@@ -430,35 +317,6 @@ int BaseSegment::nextKV() {
     return 0;
 }
 
-int SuperSegment::nextKV() {
-	int dummy;
-    StreamUtility::deserializeInt(*file_stream, cur_key_len, &dummy);//AVNER: TODO
-    StreamUtility::deserializeInt(*file_stream, cur_val_len, &dummy);
-    kbytes = StreamUtility::getVIntSize(cur_key_len);
-    vbytes = StreamUtility::getVIntSize(cur_val_len);
-
-	if (cur_key_len == EOF_MARKER && cur_val_len == EOF_MARKER) {
-        eof = true;
-        return 0;
-    }
-    int32_t total = cur_key_len + cur_val_len;
-
-    if (temp_kv == NULL) {
-       /* Allocating enough memory to avoid repeated use of malloc */
-       temp_kv_len = total << 1;
-       temp_kv = (char *) malloc(temp_kv_len * sizeof(char));
-    } else {
-        if (temp_kv_len < total) {
-            free(temp_kv);
-            temp_kv_len = total << 1;
-			temp_kv = (char *) malloc(temp_kv_len * sizeof(char));
-        }
-    }
-    file_stream->read(temp_kv, total);
-    key.reset(temp_kv, cur_key_len);
-    val.reset(temp_kv + cur_key_len, cur_val_len);
-    return 1;
-}
 
 void BaseSegment::close() {
     if (this->in_mem_data != NULL) {
@@ -599,6 +457,84 @@ bool BaseSegment::join(char *src, const int32_t src_len) {
     return false;
 }
 
+
+#if LCOV_HYBRID_MERGE_DEAD_CODE
+
+void merge_lpq_to_aio_file(reduce_task* task, MergeQueue<BaseSegment*> *records,
+		const char *file_name, AIOHandler* aio, int32_t &total_write,
+		int32_t& mem_desc_idx) {
+
+	int fd = open(file_name, O_DIRECT | O_RDWR | O_TRUNC | O_CREAT);
+	if (fd < 0) {
+		log(lsFATAL, "Fail to open file %s\t(errno=%m)",file_name);
+		exit(-1); //TODO
+	}
+
+	bool finish = false;
+	uint64_t fileOffset=0;
+	int prevAlignment = 0;
+	int currAlignment = 0;
+	int sizeToWrite = 0;
+	char *aligmentTmpBuff = new char[AIO_ALIGNMENT];
+
+	while (!finish) {
+		mem_desc_t *desc = records->staging_bufs[mem_desc_idx];
+
+		pthread_mutex_lock(&desc->lock);
+		while ((desc->status != FETCH_READY) && (desc->status != INIT))
+		pthread_cond_wait(&desc->cond, &desc->lock);
+		pthread_mutex_unlock(&desc->lock);
+
+		// copy previous alignment carry data from tmp buffer to the begining of current staging buffer
+		if (prevAlignment) {
+			memcpy((void*)desc->buff, (void*)aligmentTmpBuff, prevAlignment);
+		}
+
+		log(lsDEBUG, "calling write_kv_to_mem desc->buf_len=%d", desc->buf_len);
+		finish = write_kv_to_mem(records,
+				desc->buff + prevAlignment,
+				desc->buf_len - prevAlignment,
+				desc->act_len);
+
+		desc->status = MERGE_READY;
+		currAlignment = (desc->act_len + prevAlignment) % AIO_ALIGNMENT;
+		sizeToWrite = (desc->act_len + prevAlignment) - currAlignment;
+		// copy new alignment carry data to tmp buffer for next time to be written
+		if (currAlignment)
+		memcpy((void*)aligmentTmpBuff, (void*)(desc->buff + sizeToWrite), currAlignment);
+
+		// fileOffset, size and buffPTR must be aligned for AIO
+		lpq_aio_arg_t* arg = new lpq_aio_arg_t();
+		arg->desc=desc;
+		arg->fd = fd;
+		arg->filename=file_name; // reopening the file without O_DIRECT to enabling lseak on fd in order to write the last unaligned curry blocking.
+		if (finish) {
+			// callback for the last aio write will write the last alignment carry ,close the fd and delete aligment_buff
+			arg->last_lpq_submition=true;
+			arg->aligment_carry_size=currAlignment;
+			arg->aligment_carry_buff=aligmentTmpBuff;
+			arg->aligment_carry_fileOffset=fileOffset+sizeToWrite;
+		}
+		else {
+			arg->last_lpq_submition=false;
+			arg->aligment_carry_size=0;
+			arg->aligment_carry_buff=NULL;
+			arg->aligment_carry_fileOffset=0;
+		}
+		log(lsTRACE, "IDAN_LPQ_AIO prepeare_write:  fd=%d fileOffset=%llu act_len=%d prevAlignment=%d currAlignment=%d sizeToWrite=%d", fd, fileOffset, desc->act_len, prevAlignment, currAlignment, sizeToWrite );
+		aio->prepare_write(fd, fileOffset, sizeToWrite , desc->buff, arg );
+		aio->submit(); //TODO : batch
+		fileOffset += sizeToWrite;
+		prevAlignment=currAlignment;
+
+		++mem_desc_idx;
+		if (mem_desc_idx >= NUM_STAGE_MEM) {
+			mem_desc_idx = 0;
+		}
+
+	}
+}
+
 AioSegment::AioSegment(KVOutput* kvOutput, AIOHandler* aio,
 	const char* filename) :
 	BaseSegment(kvOutput) {
@@ -668,6 +604,90 @@ AioSegment::~AioSegment() {
 	::close(this->fd);
 	log(lsDEBUG, "IDAN AioSegment DTOR this=%llu", (uint64_t)this)
 ;}
+
+SuperSegment::SuperSegment(reduce_task *_task, const std::string &_path) :
+	Segment(NULL), task(_task), path(_path) {
+    this->file = fopen(path.c_str(), "rb");
+    if (this->file == NULL) {
+		output_stderr("Reader:cannot open file: %s", path.c_str())
+;		this->file_stream = NULL;
+        return;
+    }
+    this->file_stream = new FileStream(this->file);
+}
+
+SuperSegment::~SuperSegment() {
+    if (this->file_stream != NULL) {
+        delete this->file_stream;
+        fclose(this->file);
+        remove(this->path.c_str());
+    }
+}
+
+
+int SuperSegment::nextKV() {
+	int dummy;
+    StreamUtility::deserializeInt(*file_stream, cur_key_len, &dummy);//AVNER: TODO
+    StreamUtility::deserializeInt(*file_stream, cur_val_len, &dummy);
+    kbytes = StreamUtility::getVIntSize(cur_key_len);
+    vbytes = StreamUtility::getVIntSize(cur_val_len);
+
+	if (cur_key_len == EOF_MARKER && cur_val_len == EOF_MARKER) {
+        eof = true;
+        return 0;
+    }
+    int32_t total = cur_key_len + cur_val_len;
+
+    if (temp_kv == NULL) {
+       /* Allocating enough memory to avoid repeated use of malloc */
+       temp_kv_len = total << 1;
+       temp_kv = (char *) malloc(temp_kv_len * sizeof(char));
+    } else {
+        if (temp_kv_len < total) {
+            free(temp_kv);
+            temp_kv_len = total << 1;
+			temp_kv = (char *) malloc(temp_kv_len * sizeof(char));
+        }
+    }
+    file_stream->read(temp_kv, total);
+    key.reset(temp_kv, cur_key_len);
+    val.reset(temp_kv + cur_key_len, cur_val_len);
+    return 1;
+}
+
+#endif
+
+#if LCOV_AUBURN_DEAD_CODE
+bool write_kv_to_file(MergeQueue<BaseSegment*> *records, FILE *f,
+		int32_t &total_write) {
+    FileStream *stream = new FileStream(f);
+    int32_t len = INT32_MAX; //1<<30; //TODO: consider 64 bit - AVNER
+
+    bool ret = write_kv_to_stream(records, len, stream, total_write);
+
+    stream->flush();
+    delete stream;
+    return ret;
+}
+
+bool write_kv_to_file(MergeQueue<BaseSegment*> *records, const char *file_name,
+		int32_t &total_write) {
+    FILE *file = fopen(file_name, "wb");
+    if (!file) {
+    	log(lsFATAL, "[pid=%d] fail to open file(errno=%d: %m)\n", getpid(), errno);
+    	exit(-1); //temp TODO
+    }
+
+    bool ret = write_kv_to_file(records, file, total_write);
+
+    fclose(file);
+    return ret;
+}
+#endif
+
+
+
+
 
 /*
  * Local variables:

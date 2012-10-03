@@ -94,6 +94,23 @@ protected:
 #endif
 };
 
+
+
+
+
+bool write_kv_to_mem (MergeQueue<BaseSegment*> *records, char *src,
+                      int32_t len, int32_t &total_write);
+
+bool write_kv_to_file(MergeQueue<BaseSegment*> *records, const char *file_name, int32_t &total_write);
+
+void write_kv_to_disk(RawKeyValueIterator *records, const char *file_name);
+
+void merge_lpq_to_aio_file(reduce_task* task, MergeQueue<BaseSegment*> *records, const char *file_name, AIOHandler* aio, int32_t &total_write, int32_t& mem_desc_idx);
+
+
+#endif
+
+#if LCOV_HYBRID_MERGE_DEAD_CODE
 /* The following is for class SuperSegment */
 //
 // SuperSegment is built of several Segments that were all merged into one
@@ -142,18 +159,8 @@ public:
 	~AioSegment();
 	virtual void send_request();
 };
-
-bool write_kv_to_mem (MergeQueue<BaseSegment*> *records, char *src,
-                      int32_t len, int32_t &total_write);
-
-bool write_kv_to_file(MergeQueue<BaseSegment*> *records, const char *file_name, int32_t &total_write);
-
-void write_kv_to_disk(RawKeyValueIterator *records, const char *file_name);
-
-void merge_lpq_to_aio_file(reduce_task* task, MergeQueue<BaseSegment*> *records, const char *file_name, AIOHandler* aio, int32_t &total_write, int32_t& mem_desc_idx);
-
-
 #endif
+
 
 /*
  * Local variables:

@@ -1,3 +1,4 @@
+
 /*
 ** Copyright (C) 2012 Auburn University
 ** Copyright (C) 2012 Mellanox Technologies
@@ -431,12 +432,7 @@ RdmaClient::~RdmaClient()
     pthread_mutex_destroy(&this->ctx.lock);
 }
 
-void
-RdmaClient::disconnect(struct netlev_conn *conn)
-{
-    rdma_disconnect(conn->cm_id);
-    netlev_conn_free(conn);
-}
+
 
 void 
 RdmaClient::register_mem(struct memory_pool *mem_pool)
@@ -551,6 +547,17 @@ RdmaClient::get_hostip (const char *host)
     local_dns[id] = ip;
     return ip;
 }
+
+#if LCOV_AUBURN_DEAD_CODE
+void
+RdmaClient::disconnect(struct netlev_conn *conn)
+{
+    rdma_disconnect(conn->cm_id);
+    netlev_conn_free(conn);
+}
+#endif
+
+
 /*
  * Local variables:
  *  c-indent-level: 4

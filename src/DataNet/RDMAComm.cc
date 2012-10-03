@@ -352,17 +352,7 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     return conn;
 };
 
-struct netlev_conn* 
-netlev_find_conn_by_qp (uint32_t qp_num, struct list_head *q)
-{
-    struct netlev_conn *conn = NULL;
-    list_for_each_entry(conn, q, list) {
-        if (conn->qp_hndl->qp_num == qp_num) {
-            return conn;
-        }
-    }
-    return NULL;
-}
+
 
 struct netlev_conn* 
 netlev_find_conn_by_ip (unsigned long ipaddr, struct list_head *q)
@@ -375,19 +365,6 @@ netlev_find_conn_by_ip (unsigned long ipaddr, struct list_head *q)
     }
     return NULL;
 }
-
-void 
-dprint(char *s, char *fmt, ...)
-{
-    char s1[256];
-    va_list ap;
-    va_start(ap, fmt);
-    vsprintf(s1, fmt, ap);
-    va_end(ap);
-    fprintf(stderr, "%s %s", s, s1);
-}
-
-
 
 
 void
@@ -442,17 +419,6 @@ init_wqe_recv (netlev_wqe_t *wqe, unsigned int len,
 //    wqe->state          = RECV_WQE_INIT;
 }
 
-netlev_wqe_t* 
-get_netlev_wqe (struct list_head *head)
-{
-    netlev_wqe_t *wqe = NULL;
-
-    if (list_empty(head)) return NULL;
-        
-    wqe = list_entry(head->next, typeof(*wqe), list);
-    list_del(&wqe->list);
-    return (wqe);
-}
 
 
 void
@@ -680,6 +646,43 @@ const char* netlev_stropcode(int opcode)
     }
     return "NULL";
 }
+
+#if LCOV_AUBURN_DEAD_CODE
+netlev_wqe_t*
+get_netlev_wqe (struct list_head *head)
+{
+    netlev_wqe_t *wqe = NULL;
+
+    if (list_empty(head)) return NULL;
+
+    wqe = list_entry(head->next, typeof(*wqe), list);
+    list_del(&wqe->list);
+    return (wqe);
+}
+void
+dprint(char *s, char *fmt, ...)
+{
+    char s1[256];
+    va_list ap;
+    va_start(ap, fmt);
+    vsprintf(s1, fmt, ap);
+    va_end(ap);
+    fprintf(stderr, "%s %s", s, s1);
+}
+struct netlev_conn*
+netlev_find_conn_by_qp (uint32_t qp_num, struct list_head *q)
+{
+    struct netlev_conn *conn = NULL;
+    list_for_each_entry(conn, q, list) {
+        if (conn->qp_hndl->qp_num == qp_num) {
+            return conn;
+        }
+    }
+    return NULL;
+}
+#endif
+
+
 
 /*
  * Local variables:

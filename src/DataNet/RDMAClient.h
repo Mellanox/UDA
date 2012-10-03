@@ -31,7 +31,7 @@ public:
     ~RdmaClient();
 
     netlev_conn_t* connect(const char *host, int port);
-    void disconnect(netlev_conn_t *conn);
+//    void disconnect(netlev_conn_t *conn); //LCOV_AUBURN_DEAD_CODE
     void register_mem(struct memory_pool *mem_pool);
     int fetch(client_part_req_t *freq);
     int fetch_over(client_part_req_t *freq);

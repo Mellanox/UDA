@@ -48,6 +48,8 @@ extern "C" {
 #define QUOTE(name) #name
 #define STR(macro) QUOTE(macro)
 
+#define LCOV_AUBURN_DEAD_CODE 0
+
 /*****************************************
  * An interface for an input stream.
  *****************************************/
@@ -78,58 +80,6 @@ public:
     virtual size_t write(const void *buf, size_t len) = 0;
     virtual void flush() = 0;
     virtual bool close() = 0;
-};
-
-/*******************************************
- * A class to read a file as a stream.
- *******************************************/
-class NetStream : public InStream, 
-                  public OutStream 
-{
-public:
-    NetStream(int socket);
-    virtual ~NetStream() {};
-    size_t read(void *, const size_t ,
-                const char *, size_t size, 
-                int &idx)      {return -1;}
-    size_t skip(size_t nbytes) {return -1;}
-    size_t rewind (size_t)     {return -1;}
-    bool   hasMore(size_t)     {return false;}
-    bool   close()             {return true;}
-    void   flush()             {};
-    size_t read(void *, size_t);
-    size_t write(const void *, size_t);
-private:
-    int socket;
-};
-
-
-/*******************************************
- * A class to read a file as a stream.
- * Imported by Avner from Auburn debug branch
- *******************************************/
-class FileStream : public InStream,
-                   public OutStream
-{
-public:
-  FileStream(FILE *file);
-  virtual ~FileStream();
-  //InStream
-  size_t read(void *des,
-              const size_t len,
-              const char *extrasrc,
-              size_t size,
-              int &idx);
-  size_t read(void *buf, size_t len);
-  size_t rewind (size_t nbytes);
-  size_t skip(size_t nbytes);
-  bool   hasMore(size_t nbytes);
-  bool   close();
-  //OutStream
-  size_t write(const void *buf, size_t len);
-  void   flush();
-private:
-  FILE *mFile;
 };
 
 
@@ -216,6 +166,10 @@ enum log_severity_t {
 	lsALL,
 };
 
+
+
+
+
 const log_severity_t DEFAULT_LOG_THRESHOLD = lsINFO; // temporary backward compatibility for other developers...
 extern log_severity_t g_log_threshold;
 void log_set_threshold(log_severity_t _threshold);
@@ -226,6 +180,64 @@ void log_func(const char * func, const char * file, int line, log_severity_t sev
 
 
 #endif
+
+#if LCOV_AUBURN_DEAD_CODE
+
+
+/*******************************************
+ * A class to read a file as a stream.
+ *******************************************/
+class NetStream : public InStream,
+                  public OutStream
+{
+public:
+    NetStream(int socket);
+    virtual ~NetStream() {};
+    size_t read(void *, const size_t ,
+                const char *, size_t size,
+                int &idx)      {return -1;}
+    size_t skip(size_t nbytes) {return -1;}
+    size_t rewind (size_t)     {return -1;}
+    bool   hasMore(size_t)     {return false;}
+    bool   close()             {return true;}
+    void   flush()             {};
+    size_t read(void *, size_t);
+    size_t write(const void *, size_t);
+private:
+    int socket;
+};
+
+
+/*******************************************
+ * A class to read a file as a stream.
+ * Imported by Avner from Auburn debug branch
+ *******************************************/
+class FileStream : public InStream,
+                   public OutStream
+{
+public:
+  FileStream(FILE *file);
+  virtual ~FileStream();
+  //InStream
+  size_t read(void *des,
+              const size_t len,
+              const char *extrasrc,
+              size_t size,
+              int &idx);
+  size_t read(void *buf, size_t len);
+  size_t rewind (size_t nbytes);
+  size_t skip(size_t nbytes);
+  bool   hasMore(size_t nbytes);
+  bool   close();
+  //OutStream
+  size_t write(const void *buf, size_t len);
+  void   flush();
+private:
+  FILE *mFile;
+};
+
+#endif
+
 
 /*
  * Local variables:

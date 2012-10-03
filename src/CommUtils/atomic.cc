@@ -18,7 +18,9 @@
 */
 
 #include "atomic.h"
+#define LCOV_AUBURN_DEAD_CODE 0
 
+#if LCOV_AUBURN_DEAD_CODE
 void init_netlev_comp(netlev_comp_t *c)
 {
     c->comp  = 0;
@@ -112,6 +114,8 @@ void netlev_atomic_sub(int b, netlev_atomic_t *a)
     a->count -= b;
     pthread_mutex_unlock(&a->lock);
 }
+#endif
+
 /*
  * Local variables:
  *  c-indent-level: 4
