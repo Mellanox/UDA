@@ -60,8 +60,13 @@ int InputClient::start_fetch_req(client_part_req_t *req)
 
 void InputClient::comp_fetch_req(client_part_req_t *req)
 {
-	MergeManager *merge_man = req->mop->task->merge_man;
-	merge_man->update_fetch_req(req);
+	if (req->mop){
+		MergeManager *merge_man = req->mop->task->merge_man;
+		merge_man->update_fetch_req(req);
+	}else{
+		log(lsFATAL, "req->mop is null!"); //TODO might be related to key/value size bigger than rdma buffer size. see bug 89763
+		exit (-1);
+	}
 }
 
 /*
