@@ -2,7 +2,6 @@
 
 echoPrefix=$(basename $0)
 allContacts=`echo $REPORT_MAILING_LIST | awk 'BEGIN {RS=",";}{print $1}'`;
-allContacts="oriz"
 subject=$REPORT_SUBJECT
 messageType=`echo $REPORT_MESSAGE | grep -c "<html>"`
 if (($messageType==1));then
