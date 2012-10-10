@@ -1,5 +1,5 @@
 #!/bin/bash
-REPORT_MAILING_LIST="shania,oriz"
+#REPORT_MAILING_LIST="shania,oriz"
 echoPrefix=$(basename $0)
 allContacts=`echo $REPORT_MAILING_LIST | awk 'BEGIN {RS=",";}{print  $1}'`;
 
