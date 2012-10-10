@@ -85,9 +85,7 @@ n=0
 # DATA_SET_TOTAL="4"
 #fi
 #echo "$0: NEW DATA_SET_TOTAL=$DATA_SET_TOTAL"
-if [[ $TEST_RUN != $DEFAULT_TEST_RUN ]];then
-	DATA_SET_TOTAL=$TEST_RUN
-fi
+
 for i in ${DATA_SET_TOTAL}; do
 	n=$((n+1))
 	size=$((i * 10000000))

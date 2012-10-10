@@ -72,7 +72,7 @@ then
 			echo "error: found $matchCount SNAPSHOT folders" | tee $ERROR_LOG
 			exit $EEC1
 		fi
-		cp $snapshotFolder/* $workingFolder/
+		cp -r $snapshotFolder/* $workingFolder/
 	fi
 	javaHomeLine="export JAVA_HOME=$JAVA_HOME"
 	sed "/export JAVA_HOME=/ c $javaHomeLine" $workingFolder/conf/hadoop-env.sh > $workingFolder/conf/hadoop-env2.sh
@@ -118,9 +118,9 @@ if (($RPM_FLAG==1));then
 	fi
 
 	#sudo rpm -e libuda #sudo rpm -ivh $RPM;sudo rpm -iq libuda
-	cd ~
-	rpmDir="rpmbuild/SOURCES"
-	mkdir -p $rpmDir
+	#cd ~
+	#rpmDir="rpmbuild/SOURCES"
+	#mkdir -p $rpmDir
 	cd $TMP_DIR
 	echo "$echoPrefix: svn co $SVN_TRUNK"
 	svn co $SVN_TRUNK > $TMP_DIR/coTrunk.txt
@@ -128,7 +128,7 @@ if (($RPM_FLAG==1));then
 	
 	#$myHadoopHome/bin/slaves.sh sudo rpm -e libuda;
 	cd ~
-	cd rpmbuild/RPMS/x86_64
+	cd $RPMBUILD_DIR
 	currentRpm=`ls -t | grep -m 1 ""`
 	currentRpm=`pwd`/`ls -t | grep -m 1 ""`
 	rpmLine="RPM: $currentRpm"

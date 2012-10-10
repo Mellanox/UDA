@@ -207,7 +207,7 @@ function manageAddParams()
 		{
 			if (params[p] == "v")
 				teraval=1
-			else if (params[p] == "t")
+			else if (params[p] == "g")
 				teragen=1	
 		}		
 

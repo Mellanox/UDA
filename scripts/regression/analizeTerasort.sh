@@ -31,7 +31,11 @@ findMinDuration()
 			min=$i
 		fi
 	done
-	getMinDuration=$min
+	if (($min == $minDuration));then
+		getMinDuration=$maxDuration # = 0 (in general code-writing)
+	else
+		getMinDuration=$min
+	fi
 }
 
 findMaxDuration()
@@ -100,14 +104,16 @@ do
 	errorCount=0
 	fatalDuration=0
 	fatalCount=0
-	successMaxDuration=0
-	successMinDuration=1000000000000000 # just some very big number
-	warnMaxDuration=$successMaxDuration
-	warnMinDuration=$successMinDuration
-	errorMaxDuration=$successMaxDuration
-	errorMinDuration=$successMinDuration
-	fatalMaxDuration=$successMaxDuration
-	fatalMinDuration=$successMinDuration
+	maxDuration=0
+	minDuration=1000000000000000 # just some very big number
+	successMaxDuration=$maxDuration
+	successMinDuration=$minDuration
+	warnMaxDuration=$maxDuration
+	warnMinDuration=$minDuration
+	errorMaxDuration=$maxDuration
+	errorMinDuration=$minDuration
+	fatalMaxDuration=$maxDuration
+	fatalMinDuration=$minDuration
 	testsValues=""
 	statisticsValues=""
 	source $jobDir/testLogExports.sh
@@ -435,7 +441,7 @@ do
 	
 	statisticsTotal="
 	<tr bgcolor='CornflowerBlue'>
-		<td>TOTAL<font size="2">(valid only)</font>:</td>
+		<td>TOTAL <font size="2">(valid only)</font>:</td>
 		<td>$totalCount</td>
 		<td>$totalAverage</td>
 		<td>$totalMinDuration</td>

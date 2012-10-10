@@ -36,10 +36,10 @@ javaHome=""
 ramSize=0
 nfsResultsDir=""
 reportSubject=""
-testRunDataset=""
 reportInput=""
 coresDir=""
 coresPattern=""
+rpmBuildDir=""
 
 # the defalut for logs.server is the master
 
@@ -106,6 +106,7 @@ do
 				svn.rpm.build	) svnRpmBuild=$value ;;
 				svn.revision	) svnRevision=$value ;;
 				rpm.jar			) rpmJar=$value ;;
+				rpm.build		) rpmBuildDir=$value ;;
 				#scripts		) scriptsDir=$value;;			
 				tests.folder	) testsFolderDir=$value;;			
 				tests.current	) currentTestsDir=$value;;	 		
@@ -120,7 +121,6 @@ do
 				report.comment	) reportComment=$value;;
 				ram.size	) ramSize=$value;;
 				java.home	) javaHome=$value;;
-				#mode.test.dataset	) testRunDataset=$value;;
 				#cores.uda	) udaCoresDir=$value;;
 				cores.dir	) coresDir=$value;;	
 				cores.pattern	) coresPattern=$value;;
@@ -195,10 +195,6 @@ if [ -z "$reportSubject" ];then
     reportSubject=$DEFAULT_REPORT_SUBJECT
 fi
 
-if [ -z "$testRunDataset" ];then
-    testRunDataset=$DEFAULT_TEST_RUN
-fi
-
 if [ -z "$reportInput" ];then
     reportInput=$DEFAULT_REPORT_INPUT
 fi
@@ -209,6 +205,10 @@ fi
 
 if [ -z "$coresPattern" ];then
     coresPattern=$DEFAULT_CORES_PATTERN
+fi
+
+if [ -z "$rpmBuildDir" ];then
+    rpmBuildDir=$DEFAULT_RPMBUILD_DIR
 fi
 
 #currentNfsResultsDir=$CURRENT_NFS_RESULTS_DIR
@@ -259,8 +259,8 @@ echo "
 	export RAM_SIZE=$ramSize
 	export JAVA_HOME='$javaHome'
 	export HADOOP_CLASSPATH='$hadoopClasspath' 
-	export TEST_RUN=$testRunDataset
 	export CORES_DIR='$coresDir'
 	export CORES_PATTERN='$coresPattern'
+	export RPMBUILD_DIR='$rpmBuildDir'
 	#export CURRENT_NFS_RESULTS_DIR=$currentNfsResultsDir
 " > $TMP_DIR/inputExports.sh

@@ -11,16 +11,16 @@ day = sys.argv[3]
 senderUsername = sys.argv[4]
 mailTo = sys.argv[5]
 
-# me == my email address
-# you == recipient's email address
-me = senderUsername+"@mellanox.com"
-you = mailTo+"@mellanox.com;amirh@mellanox.com;avnerb@mellanox.com;idanwe@mellanox.com;alexr@mellanox.com;oriz@mellanox.com;katyak@mellanox.com"
+# sender == my email address
+# recipients == recipient's email address
+sender = senderUsername+"@mellanox.com"
+recipients = mailTo
 
 # Create message container - the correct MIME type is multipart/alternative.
 msg = MIMEMultipart('alternative')
 msg['Subject'] = headline
-msg['From'] = me
-msg['To'] = you
+msg['From'] = sender
+msg['To'] = recipients
 
 
 # Record the MIME types of both parts - text/plain and text/html.
@@ -37,5 +37,5 @@ msg.attach(part2)
 s = smtplib.SMTP('localhost')
 # sendmail function takes 3 arguments: sender's address, recipient's address
 # and message to send - here it is sent as one string.
-s.sendmail(me, you, msg.as_string())
+s.sendmail(sender, recipients.split(","), msg.as_string())
 s.quit()

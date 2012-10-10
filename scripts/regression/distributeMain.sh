@@ -1,8 +1,24 @@
 #!/bin/bash
-
+REPORT_MAILING_LIST="shania,oriz"
 echoPrefix=$(basename $0)
-allContacts=`echo $REPORT_MAILING_LIST | awk 'BEGIN {RS=",";}{print $1}'`;
-allContacts="oriz"
+allContacts=`echo $REPORT_MAILING_LIST | awk 'BEGIN {RS=",";}{print  $1}'`;
+
+count=0
+for i in $allContacts;do
+	count=$((count+1))
+done
+iterator=0
+recipientList=""
+for i in $allContacts
+do
+	iterator=$((iterator+1))
+	recipientList="${recipientList}${i}@mellanox.com"
+	if (($iterator == $count));then
+		break;
+	fi
+	recipientList="${recipientList}, "
+done
+
 subject=$REPORT_SUBJECT
 messageType=`echo $REPORT_MESSAGE | grep -c "<html>"`
 if (($messageType==1));then
@@ -15,11 +31,8 @@ else
 	echo $message
 fi
 
-for content in $allContacts
-do  
-	echo "$echoPrefix: sending mail to $content"
-	python $SCRIPTS_DIR/mailSender.py "$subject" "$message" "`date`" "$USER" "$content"
-done 
+echo "$echoPrefix: sending mail to $recipientList"
+python $SCRIPTS_DIR/mailSender.py "$subject" "$message" "`date`" "$USER" "$recipientList"
 
 echo "
 	#!/bin/sh

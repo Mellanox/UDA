@@ -164,9 +164,7 @@ for line in `seq 1 $TOTAL_TESTS` ; do
 		ds_n=0
 		
 		dataSet=$DATA_SET
-		#if [[ $TEST_RUN != $DEFAULT_TEST_RUN ]];then
-		#	dataSet=$TEST_RUN
-		#fi
+
 		for ds in $dataSet; do
 			attempt=0
 			code=0
@@ -207,9 +205,7 @@ for line in `seq 1 $TOTAL_TESTS` ; do
 
 				echo "$echoPrefix: job=${logPrefix}.N${ds}G.N${mappers}m.N${reducers}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}"
 				job=${logPrefix}.N${ds}G.${ds_n}.N${mappers}m.N${reducers}r.T${totalDataSet}G.T${totalReducers}r.log.${sample}
-			#if [[ $TEST_RUN != $DEFAULT_TEST_RUN ]];then
-			#	totalDataSet=$TEST_RUN
-			#fi
+
 				# executing the job and making staticsics
 				export INPUTDIR="/terasort/input/${totalDataSet}G.${ds_n}"
 				echo "$echoPrefix: calling mr-dstat for $USER_CMD attempt $attempt"
