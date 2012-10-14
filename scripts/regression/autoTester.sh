@@ -140,11 +140,12 @@ flowManager()
 }
 
 if [[ -z $TMP_DIR ]];then
-	export TMP_DIR="/tmp/ori-temp"
+	echo "$echoPrefix: please export TMP_DIR"
+	exit 0
 fi
 
 if [[ -z $SCRIPTS_DIR ]] && [[ -z $SVN_SCRIPTS ]];then
-	echo "$echoPrefix: please export SCRIPTS_DIR or SVN_SCRIPTS "
+	echo "$echoPrefix: please export SCRIPTS_DIR or SVN_SCRIPTS"
 	exit 0
 	#export SCRIPTS_DIR="/labhome/oriz/scripts/commit2"
 elif [[ -n $SVN_SCRIPTS ]];then

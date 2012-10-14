@@ -1,7 +1,7 @@
 #!/bin/bash
 
 	# the default hadoop version is currently hadoop-1.1.0-patched-v2
-export DEFAULT_CSV_FILE='https://sirius.voltaire.com/repos/enterprise/uda/hadoops/hadoop-1.1.0-patched-v2'
+export DEFAULT_CSV_FILE='/.autodirect/mtrswgwork/UDA/daily_regressions/configuration_files/regression-1.1.0.csv'
 export DEFAULT_SVN_HADOOP='https://sirius.voltaire.com/repos/enterprise/uda/hadoops/hadoop-1.1.0-patched-v2'
 export DEFAULT_RPM_JAR='uda-hadoop-1.x.jar'
 	# --
