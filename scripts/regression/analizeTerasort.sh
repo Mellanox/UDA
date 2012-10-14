@@ -77,10 +77,10 @@ testsNames="
 	<td>Teravalidate</td>
 	<td>input=output</td>
 	<td>Lunched Map Tasks</td>
-	<td>Fatal Map Tasks</td>
+	<td>Failed Map Tasks</td>
 	<td>Killed Map Tasks</td>
 	<td>Lunched Reduce Tasks</td>
-	<td>Fatal Reduce Tasks</td>
+	<td>Failed Reduce Tasks</td>
 	<td>Killed Reduce Tasks</td>
 </tr>"
 
