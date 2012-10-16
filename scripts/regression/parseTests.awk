@@ -37,8 +37,9 @@ function manageCommaDelimitedProps(commaProps)
 
 function manageMinusPrefixProps(minusProps)
 {
-        for (i in minusProps)
-		execParams[minusProps[i]]="-Xmx"execParams[minusProps[i]]"m"
+    for (i in minusProps)
+		if (execParams[minusProps[i]] != "")
+			execParams[minusProps[i]]="-Xmx"execParams[minusProps[i]]"m"
 }
 
 function getDefaultsIfNeeded()

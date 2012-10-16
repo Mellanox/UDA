@@ -4,7 +4,7 @@ getTime (){
 	local TL=`echo $@ | awk 'BEGIN{FS="("} {print $2}'`
 	local dummy=$TMP_DIR/csvDummy.csv
 	echo "," > $dummy
-	getTimeRetVal=`awk -v timeLine="$TL" -f $SCRIPTS_DIR/getTime.awk ~/docs/blank.csv $dummy` # the CSV_FILE is here just because awk scripts must have input file
+	getTimeRetVal=`awk -v timeLine="$TL" -f $SCRIPTS_DIR/getTime.awk $dummy` # the CSV_FILE is here just because awk scripts must have input file
 }
 
 stdDev (){ 
