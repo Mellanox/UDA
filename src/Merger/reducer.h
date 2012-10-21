@@ -66,9 +66,6 @@ typedef struct reduce_task {
     char              *reduce_task_id;
     int                mop_index;
 
-//    FetchManager      *fetch_man;
-//    netlev_thread_t    fetch_thread;
-
     MergeManager      *merge_man;  
     netlev_thread_t    merge_thread;
 
@@ -87,6 +84,10 @@ typedef struct reduce_task {
     int			  lpq_size;
     int			  buffer_size;
     std::vector<std::string>   local_dirs; // local dirs will serve for lpq temp files
+
+    /*for compression*/
+    char *compr_alg;
+    int block_size;
 } reduce_task_t;
 
 void reduce_downcall_handler(const std::string & msg);

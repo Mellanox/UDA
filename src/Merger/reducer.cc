@@ -104,10 +104,13 @@ void reduce_downcall_handler(const string & msg)
 		merging_sm.client->rdma->register_mem(&merging_sm.mop_pool);
 		log(lsINFO, " After RDMA buffers registration (%d buffers X %d bytes = total %lld bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
 
+
+		int num_dirs =DIRS_START;
+
 		if (hadoop_cmd->count -1  > DIRS_START) {
 			assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
 			if (hadoop_cmd->params[DIRS_START] != NULL) {
-				int num_dirs = atoi(hadoop_cmd->params[DIRS_START]);
+				num_dirs = atoi(hadoop_cmd->params[DIRS_START]);
 				log(lsDEBUG, " ===>>> num_dirs=%d" , num_dirs);
 
 				assert (num_dirs >= 0); // sanity under debug
@@ -120,6 +123,12 @@ void reduce_downcall_handler(const string & msg)
 				}
 			}
 		}
+		g_task->compr_alg = strdup(hadoop_cmd->params[DIRS_START + 1 + num_dirs]);
+		g_task->block_size = atoi(hadoop_cmd->params[DIRS_START + 2 + num_dirs]);
+
+		log(lsDEBUG, " dhi4 compression codec is %s", g_task->compr_alg);
+		log(lsDEBUG, " dhi5 block_size for compression is %d", g_task->block_size);
+
 		init_reduce_task(g_task);
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);

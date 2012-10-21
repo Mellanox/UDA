@@ -134,7 +134,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
 		mCmdParams.add("-t");
 		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "2"));
-
+		
 	}
 
 	public UdaPluginRT(UdaShuffleConsumerPlugin udaShuffleConsumer, ReduceTask reduceTask, JobConf jobConf, Reporter reporter,
@@ -193,6 +193,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(Integer.toString(rdmaBufferSize)); // in Bytes
 		mParams.add(Integer.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment 
 		
+	
 		String [] dirs = jobConf.getLocalDirs();
 		ArrayList<String> dirsCanBeCreated = new ArrayList<String>();
 		//checking if the directories can be created
@@ -210,6 +211,24 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 			mParams.add(dirsCanBeCreated.get(i));
 		}
 
+		boolean compression = jobConf.getCompressMapOutput(); //"true" or "false"
+//		if (compression){
+			String alg = jobConf.get("mapred.map.output.compression.codec", null); 
+//		}
+		LOG.info("dhi1. compression is " + compression);
+		LOG.info("dhi2. alg is " + alg);
+		mParams.add(alg); 
+		
+		String bufferSize="0";
+		
+		if (alg.contains("LzoCodec")){
+			int defaultBlockSize = 256*1024;
+			bufferSize = jobConf.get("io.compression.codec.lzo.buffersize", Integer.toString(defaultBlockSize)); 
+		}
+
+		mParams.add(bufferSize); 
+		LOG.info("dhi3. bufferSize is " + bufferSize);
+		LOG.info("dhi4. array is " + mParams);
 		LOG.info("UDA: sending INIT_COMMAND");    	  
 		String msg = UdaCmd.formCmd(UdaCmd.INIT_COMMAND, mParams);
 		UdaBridge.doCommand(msg);
