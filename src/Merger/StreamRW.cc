@@ -212,19 +212,23 @@ Segment::~Segment() {
 int BaseSegment::nextKVInternal(InStream *stream) {
 	//TODO: this can only work with ((DataStream*)stream)
 
+	mem_desc_t *cur_buf = kv_output->mop_bufs[kv_output->staging_mem_idx];
+	int total_read = 0;
 	if (!stream)
 		return 0;
     
     /* check if stream has enough bytes to read the length of next K+V */
     if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len)))
         return -1;   
+    int digested = 0;
     /* key length */
+
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
 	if (!k)
 		return -1;
-    int digested = 0;
-    digested += kbytes;
 
+    digested += kbytes;
+    log(lsINFO, "katt1 cur_key_len is %d  kbytes is %d ", cur_key_len, kbytes);
     /* value length */
     bool v = StreamUtility::deserializeInt(*stream, cur_val_len, &vbytes);
     if (!v) {
@@ -232,10 +236,13 @@ int BaseSegment::nextKVInternal(InStream *stream) {
         return -1;
     }
     digested += vbytes;
-
+    log(lsINFO, "katt1 cur_val_len is %d  vbytes is %d ", cur_val_len, vbytes);
 	if (cur_key_len == EOF_MARKER && cur_val_len == EOF_MARKER) {
         eof = true;
-        byte_read += (kbytes + vbytes);
+        total_read = kbytes + vbytes;
+        byte_read += total_read;
+        cur_buf->start += total_read;
+        cur_buf->free_bytes += total_read;
         return 0;
     }
 
@@ -243,7 +250,10 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     if (cur_key_len < 0 || cur_val_len < 0) {
 		output_stderr("Reader:Error in nextKV")
 ;		eof = true;
-        byte_read += (kbytes + vbytes);
+		total_read = kbytes + vbytes;
+		byte_read += total_read;
+		cur_buf->start += total_read;
+		cur_buf->free_bytes += total_read;
         return 0;
     }
 
@@ -267,7 +277,10 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     mem = ((DataStream*)stream)->getData();
     this->val.reset(mem + pos, cur_val_len);
     stream->skip(cur_val_len);
-    byte_read += (kbytes + vbytes + cur_key_len + cur_val_len);
+    total_read = kbytes + vbytes + cur_key_len + cur_val_len;
+    byte_read += total_read;
+    cur_buf->free_bytes += total_read;
+    cur_buf->start += total_read;
     return 1;
 
 }
@@ -350,38 +363,47 @@ void Segment::send_request() {
 }
 
 bool BaseSegment::switch_mem() {
-	if (kv_output != NULL) {
-		mem_desc_t *staging_mem =
-				kv_output->mop_bufs[kv_output->staging_mem_idx];
 
-		if (byte_read >= kv_output->total_len) {
-            return false;
-        }
+		if (kv_output != NULL) {
+			mem_desc_t *staging_mem =
+					kv_output->mop_bufs[kv_output->staging_mem_idx];
 
-        time_t st, ed;
-        time(&st);
-		pthread_mutex_lock(&kv_output->lock);
-        //pthread_mutex_lock(&merger->lock);
-        //if (staging_mem->status != MERGE_READY) {
-        while (staging_mem->status != MERGE_READY) {
-			pthread_cond_wait(&kv_output->cond, &kv_output->lock);
-            //pthread_cond_wait(&merger->cond, &merger->lock);
-            /* merger->fetched_mops.clear(); */
-        }
-        //pthread_mutex_unlock(&merger->lock);
-		pthread_mutex_unlock(&kv_output->lock);
-        time(&ed);
+			if (byte_read >= kv_output->total_len) {
+				return false;
+			}
 
-		kv_output->task->total_wait_mem_time += ((int) (ed - st));
+			time_t st, ed;
+			time(&st);
+			pthread_mutex_lock(&kv_output->lock);
+			//pthread_mutex_lock(&merger->lock);
+			//if (staging_mem->status != MERGE_READY) {
+			while (staging_mem->status != MERGE_READY) {
+				pthread_cond_wait(&kv_output->cond, &kv_output->lock);
+				//pthread_cond_wait(&merger->cond, &merger->lock);
+				/* merger->fetched_mops.clear(); */
+			}
+			//pthread_mutex_unlock(&merger->lock);
+			pthread_mutex_unlock(&kv_output->lock);
+			time(&ed);
 
-		log(lsTRACE, "IDAN before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched, kv_output->last_fetched);
-		/* restore break record */
-		bool b = join(staging_mem->buff, kv_output->last_fetched);
+			kv_output->task->total_wait_mem_time += ((int) (ed - st));
 
-        /* to check if we need more data from map output*/
-        this->send_request();
-        return b;
-    }
+			log(lsTRACE, "IDAN before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched, kv_output->last_fetched);
+			/* restore break record */
+			bool b = join(staging_mem->buff, kv_output->last_fetched);
+
+			/* to check if we need more data from map output*/
+			if (!get_task()->block_size){ //represents that compression is on
+				this->send_request();
+			}
+			else{
+				mem_desc_t *cur_buf = kv_output->mop_bufs[kv_output->staging_mem_idx];
+				cur_buf->start = 0;
+				//cur_buf->free_bytes = cur_buf->free_bytes % cur_buf->buf_len; //is the % necessary
+			}
+			return b;
+		}
+
     return false;
 }
 

@@ -263,6 +263,11 @@ KVOutput::KVOutput(struct reduce_task *task)
 	
 }
 
+int32_t KVOutput::getFreeBytes(){
+	return mop_bufs[staging_mem_idx]->free_bytes;
+}
+
+
 MapOutput::~MapOutput()
 {
     part_req->mop = NULL;

@@ -127,6 +127,7 @@ public:
     
     KVOutput(struct reduce_task *task);
 	virtual ~KVOutput();
+	int32_t getFreeBytes();
 };
 
 /* MapOutput holds the data from one partition */

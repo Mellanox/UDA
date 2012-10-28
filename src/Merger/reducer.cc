@@ -253,6 +253,9 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool)
         desc->buf_len = buf_len;
         desc->owner = pool;
         desc->status = INIT;
+        desc->start = 0;
+        desc->end = 0;
+        desc->free_bytes = buf_len;
         pthread_mutex_init(&desc->lock, NULL);
         pthread_cond_init(&desc->cond, NULL);
 

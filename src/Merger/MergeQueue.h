@@ -44,6 +44,11 @@ typedef struct mem_desc {
     pthread_mutex_t      lock;
     pthread_cond_t       cond;
 
+    //the following variables are for cyclic buffer
+    int32_t 			start; //index of the oldest element
+    int32_t				end; //index at which to write new element
+    int32_t 			free_bytes; //represents the current number of free bytes
+
 } mem_desc_t;
 
 
@@ -316,7 +321,7 @@ protected:
                 core_queue.adjustTop();
                 break;
             }
-            case -1: { /*break in the middle*/
+            case -1: { /*break in the middle - for cyclic buffer can represent that you need to switch to the beginning of the buffer*/
                 if (segment->switch_mem() ){
                     /* DBGPRINT(DBG_CLIENT, "adjust priority queue\n"); */
                     core_queue.adjustTop();
