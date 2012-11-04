@@ -23,6 +23,7 @@ set -ex
 
 cd `dirname $0`/
 ./autogen.sh
+mkdir -p ./build/utils/m4
 autoreconf --install
 ./configure
 make clean > /dev/null
