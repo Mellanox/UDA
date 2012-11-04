@@ -17,7 +17,8 @@ echo ======== preparing and making C++ ...
 # export UDA into source dir, remove plugins/*/*.jar, and create tarball
 echo ======== Creating source.tgz ...
 rm -rf source.tgz source
-svn export .. source && rm source/plugins/*/*.jar && tar cfz source.tgz source/src source/plugins
+# temp comment out - TODO: this should be adjusted to GIT !!!
+#svn export .. source && rm source/plugins/*/*.jar && tar cfz source.tgz source/src source/plugins
 rm -rf source
 
 #build C++ and JAVA, and then create RPM
