@@ -25,7 +25,7 @@ touch ~/rpmbuild/SOURCES/source.tgz
 
 uda_version=`awk -F- '{print $1}' ../release`
 uda_fix=`awk -F- '{print $2}' ../release`
-revision=`awk -F: '{print $1}' svnversion.txt` # remove ':' (in case user's dir is dirty), since it is illegal in spec file
+revision=`awk -F: '{print $1}' gitversion.txt` # remove ':' (in case user's dir is dirty), since it is illegal in spec file
 echo ========== creating RPM...
 rpmbuild -ba uda.spec --define "_revision $revision" --define "_uda_version $uda_version" --define "_uda_fix $uda_fix"
 cd -

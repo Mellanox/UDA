@@ -8,7 +8,7 @@ if [ ! -f ~/.rpmmacros ] ; then
 	rpmdev-setuptree
 fi
 
-echo `svnversion -n` > ./svnversion.txt
+echo `git rev-list HEAD | wc -l` > ./gitversion.txt
 
 #prepare C++
 echo ======== preparing and making C++ ...
@@ -19,6 +19,9 @@ echo ======== Creating source.tgz ...
 rm -rf source.tgz source
 # temp comment out - TODO: this should be adjusted to GIT !!!
 #svn export .. source && rm source/plugins/*/*.jar && tar cfz source.tgz source/src source/plugins
+
+git archive --format tar  master | gzip > /tmp/avner.tgz 
+
 rm -rf source
 
 #build C++ and JAVA, and then create RPM
