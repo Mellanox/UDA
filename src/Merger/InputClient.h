@@ -20,38 +20,21 @@
 #ifndef ROCE_INPUT_CLIENT_H
 #define ROCE_INPUT_CLIENT_H      1
 
-#include "../DataNet/RDMAClient.h"
 
 class  RdmaClient;
 struct merging_state;
+struct client_part_req;
 
-/* A Dummy TcpClient for now */
-class TcpClient 
-{
-public:
-    TcpClient(void*, int) {};
-    ~TcpClient() {};
 
-    void start() {};
-
-private:
-    int                svc_port;	
-    netlev_thread_t    helper;
-    netlev_ctx_t       ctx;
-
-    int create_client ();
-    int destroy_client ();
-};
 
 class InputClient 
 {
 public:
-    InputClient() {};
-    InputClient(int data_port, int mode, struct merging_state *state);
-    ~InputClient();
 
-    void start_client();
-    void stop_client();
+    virtual ~InputClient() {};
+
+    virtual void start_client() = 0;
+    virtual void stop_client() = 0;
 
     /* XXX: the general flow of a fetch request for a client
      * 1. prepare the request 
@@ -66,15 +49,16 @@ public:
      * 7. For network levitation, only use the 1st registered segment
      *    to receive more data
      */
-    int start_fetch_req(client_part_req_t *req);
-    void comp_fetch_req(client_part_req_t *req);
+    virtual int start_fetch_req(struct client_part_req *req) = 0;
+    virtual void comp_fetch_req(struct client_part_req *req) = 0;
+    virtual RdmaClient* getRdmaClient() = 0;
 
     /* port for data movement between client and server.  */
-    int                     data_port;
+//    int                     data_port;
 
-    RdmaClient             *rdma;
-    TcpClient              *tcp;
-    struct merging_state   *state; 
+//    RdmaClient             *rdma;
+//    TcpClient              *tcp;
+ //   struct merging_state   *state;
 
 };
 #endif

@@ -25,6 +25,8 @@
 
 using namespace std;
 
+
+/*
 InputClient::InputClient(int data_port, int mode, merging_state_t *state)
 {
     this->data_port = data_port;
@@ -68,7 +70,7 @@ void InputClient::comp_fetch_req(client_part_req_t *req)
 		exit (-1);
 	}
 }
-
+*/
 /*
  * Local variables:
  *  c-indent-level: 4

@@ -35,9 +35,9 @@
 #include <math.h> //for sqrt
 
 #include "reducer.h"
-#include "InputClient.h"
 #include "IOUtility.h"
 #include "C2JNexus.h"
+#include "../DataNet/RDMAClient.h"
 
 using namespace std;
 
@@ -101,7 +101,7 @@ void reduce_downcall_handler(const string & msg)
 		}
 
 	    // register RDMA buffers
-		merging_sm.client->rdma->register_mem(&merging_sm.mop_pool);
+		merging_sm.client->getRdmaClient()->register_mem(&merging_sm.mop_pool);
 		log(lsINFO, " After RDMA buffers registration (%d buffers X %d bytes = total %lld bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
 
 

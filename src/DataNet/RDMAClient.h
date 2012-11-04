@@ -23,8 +23,10 @@
 #include <map>
 #include "RDMAComm.h"
 #include "../Merger/reducer.h"
+#include "../Merger/InputClient.h"
 
-class RdmaClient
+
+class RdmaClient : public InputClient
 {
 public:
     RdmaClient (int port, merging_state_t *state);
@@ -33,9 +35,15 @@ public:
     netlev_conn_t* connect(const char *host, int port);
 //    void disconnect(netlev_conn_t *conn); //LCOV_AUBURN_DEAD_CODE
     void register_mem(struct memory_pool *mem_pool);
-    int fetch(client_part_req_t *freq);
-    int fetch_over(client_part_req_t *freq);
     unsigned long get_hostip(const char *host);
+
+    void start_client();
+    void stop_client();
+
+    int start_fetch_req(client_part_req_t *req);
+    void comp_fetch_req(client_part_req_t *req);
+
+    RdmaClient* getRdmaClient();
 
     int                 svc_port;
     netlev_thread_t     helper;

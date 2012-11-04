@@ -33,8 +33,8 @@
 #include "../DataNet/RDMAComm.h"
 #include "../Merger/MergeManager.h"
 #include "AIOHandler.h"
+#include "InputClient.h"
 
-class InputClient;
 class C2JNexus;
 class MergeManager;
 struct reduce_task;
@@ -46,7 +46,7 @@ typedef struct reduce_directory {
 
 typedef struct merging_state {
 
-    InputClient       *client;   /* Transport */
+    InputClient       *client;
 
     int                online;
 

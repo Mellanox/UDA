@@ -30,9 +30,7 @@
 #include "C2JNexus.h"
 #include "UdaBridge.h"
 #include "AIOHandler.h"
-#include "InputClient.h"
 
-class InputClient;
 
 
 #ifndef PATH_MAX  // normally defined in limits.h

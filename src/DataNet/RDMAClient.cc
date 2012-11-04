@@ -29,7 +29,6 @@
 #include <rdma/rdma_cma.h>
 
 #include "RDMAClient.h"
-#include "../Merger/InputClient.h"
 #include "../include/IOUtility.h"
 using namespace std;
 
@@ -95,7 +94,7 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
         memcpy(req->recvd_msg, h->msg, h->tot_len);
 
         log(lsTRACE, "Client received RDMA completion for fetch request: jobid=%s, mapid=%s, reducer_id=%s, total_fetched=%lld (not updated for this comp)", req->info->params[1], req->info->params[2], req->info->params[3], req->mop->total_fetched);
-        merging_sm.client->rdma->fetch_over(req); 
+        merging_sm.client->comp_fetch_req(req);
     } 
     else {
     	log(lsDEBUG, "received a noop");
@@ -367,7 +366,7 @@ RdmaClient::RdmaClient(int port, merging_state_t *state)
     errno = 0;
 
     this->state = state;
-    this->parent = state->client;
+
     this->svc_port = port;
     this->ctx.cm_channel = rdma_create_event_channel();
 
@@ -476,16 +475,33 @@ RdmaClient::connect(const char *host, int port)
     return conn;
 }
 
-int
-RdmaClient::fetch_over(client_part_req_t *freq)
+
+void RdmaClient::comp_fetch_req(client_part_req_t *req)
 {
-    this->parent->comp_fetch_req(freq);
-    return 0;
+	if (parent==this){//there is no decompression thread ->must notify MergeManager directly
+		if (req->mop){
+			MergeManager *merge_man = req->mop->task->merge_man;
+			merge_man->update_fetch_req(req);
+		}else{
+			log(lsFATAL, "req->mop is null!"); //TODO might be related to key/value size bigger than rdma buffer size. see bug 89763
+			exit (-1);
 }
+	}else{
+		parent->comp_fetch_req(req);
+	}
+}
+
+RdmaClient* RdmaClient::getRdmaClient(){return this;}
+
+void RdmaClient::start_client(){
+	this->parent = state->client; //problem here!!!!!
+}
+
+void RdmaClient::stop_client(){}
 
 
 int 
-RdmaClient::fetch(client_part_req_t *freq) 
+RdmaClient::start_fetch_req(client_part_req_t *freq)
 {
     int             msg_len;
     uint64_t        addr;
