@@ -309,7 +309,7 @@ BEGIN{
 	interfaceNameEthA="eth4"
 	interfaceNameEthB="eth1"
 	interfaceValueIb="ib"
-	interfaceValueEthA="40g"
+	interfaceValueEthA="10g"
 	interfaceValueEthB="1g"
 	
 	piMappersDefault=10
