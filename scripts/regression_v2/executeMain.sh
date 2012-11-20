@@ -188,7 +188,7 @@ do
 	testLogExports=$currentExecDir/testLogExports.sh
 	cat $testPath/exports.sh > $testLogExports
 	echo "
-		export tslDATA_SET='$totalDataSet'
+		export tslDATA_SET='$TOTAL_DATA_SET'
 		export tslSAMPLES='$NSAMPLES'
 	" >> $testLogExports
 	
