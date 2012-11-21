@@ -16,12 +16,22 @@ aa=`echo $disks | awk 'BEGIN { FS = "name> <value>"} ; { print $2}'`
 
 cc=`echo $aa | awk 'BEGIN { FS = "<"} ; { print $1}'`
 echo $(basename $0): "removing $cc"
-#bb=`echo $cc | awk 'BEGIN { FS = "," } ; { print NF }'`
 
 partitions=`echo $cc | sed 's/\,/\ /g'`
 echo " partitions $partitions"
 rm -rf $partitions
-$MY_HADOOP_HOME/bin/slaves.sh  rm -rf $partitions
+isRemoved=$?
+
+if (( $isRemoved != 0 )); then
+	echo "$(basename $0) couldn't remove $partitions core-site.xml exiting.... :("
+	exit 0
+fi	
+	
+slaves=`cat $MY_HADOOP_HOME/conf/slaves`
+for slave in $slaves; do
+	ssh $slave rm -rf $partitions; isRemoved=$?; if ((  $isRemoved != 0 )); then echo "couldn't remove $partitions from $slave core-site.xml EXITING... ";  exit 0; fi
+done
+
 
 disks=$(cat $MY_HADOOP_HOME/conf/hdfs-site.xml | grep -A 1 ">dfs.data.dir<")
 
@@ -32,7 +42,19 @@ bb=`echo $cc | awk 'BEGIN { FS = "," } ; { print NF }'`
 partitions=`echo $cc | sed 's/\,/\ /g'`
 echo " partitions $partitions"
 rm -rf $partitions
-$MY_HADOOP_HOME/bin/slaves.sh  rm -rf $partitions
+
+isRemoved=$?
+
+if (( $isRemoved != 0 )); then
+	echo "$(basename $0) couldn't remove $partitions hdfs-site.xml exiting..... :( "
+	exit 0
+fi	
+	
+slaves=`cat $MY_HADOOP_HOME/conf/slaves`
+for slave in $slaves; do
+	ssh $slave rm -rf $partitions; isRemoved=$?; if ((  $isRemoved != 0 )); then echo "couldn't remove $partitions from $slave hdfs-site.xml EXITING... ";  exit 0; fi
+done
+
 
 disks=$(cat $MY_HADOOP_HOME/conf/hdfs-site.xml | grep -A 1 ">dfs.name.dir<")
 
@@ -43,9 +65,17 @@ echo $(basename $0): "removing $cc"
 partitions=`echo $cc | sed 's/\,/\ /g'`
 echo " partitions $partitions"
 rm -rf $partitions
-$MY_HADOOP_HOME/bin/slaves.sh  rm -rf $partitions
+isRemoved=$?
 
-
+if (( $isRemoved != 0 )); then
+	echo "$(basename $0) couldn't remove $partitions hdfs-site.xml exiting.... :("
+	exit 0
+fi	
+	
+slaves=`cat $MY_HADOOP_HOME/conf/slaves`
+for slave in $slaves; do
+	ssh $slave rm -rf $partitions; isRemoved=$?; if ((  $isRemoved != 0 )); then echo "couldn't remove $partitions from $slave hdfs-site.xml EXITING... ";  exit 0; fi
+done
 
  echo "$(basename $0) formating namenode"
         format_output=`bin/hadoop namenode -format 2>&1`
@@ -91,5 +121,6 @@ echo
 
 	done
 
-
+	
+	echo "--------->>><<<--------"
 	
