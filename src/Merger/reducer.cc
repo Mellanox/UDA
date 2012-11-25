@@ -38,6 +38,7 @@
 #include "InputClient.h"
 #include "IOUtility.h"
 #include "C2JNexus.h"
+#include "CompareFunc.h"
 
 using namespace std;
 
@@ -69,7 +70,7 @@ void reduce_downcall_handler(const string & msg)
 	}
 	log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd->count - 1, (int)hadoop_cmd->header);
 
-	static const int DIRS_START = 6;
+	static const int DIRS_START = 7;
 	switch (hadoop_cmd->header) {
 	case INIT_MSG: {
 		assert (hadoop_cmd->count -1 > 2); // sanity under debug
@@ -80,6 +81,7 @@ void reduce_downcall_handler(const string & msg)
 		int buffer_size_from_java = atoi(hadoop_cmd->params[4]); // unaligned to pagesize
 		g_task->buffer_size = buffer_size_from_java - buffer_size_from_java % getpagesize(); // alignment to pagesize
 		int minBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
+		g_task->java_comparator_class_name = strdup(hadoop_cmd->params[6]);
 
 		if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minBuffer) ) {
 			log(lsFATAL, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minBuffer);
@@ -277,6 +279,7 @@ static void init_reduce_task(struct reduce_task *task)
 
     /* Initialize a merge manager thread */
     task->merge_man = new MergeManager(1, merging_sm.online, task, num_lpqs);
+    set_compare_func(task->java_comparator_class_name);
 
     memset(&task->merge_thread, 0, sizeof(netlev_thread_t));
     task->merge_thread.stop = 0;
@@ -416,6 +419,7 @@ void finalize_reduce_task(reduce_task_t *task)
     
     free(task->reduce_task_id);
     free(task->job_id);
+    free(task->java_comparator_class_name);
     free(task);
 
     final_cleanup();

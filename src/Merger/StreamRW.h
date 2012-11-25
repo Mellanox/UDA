@@ -30,6 +30,7 @@ class RawKeyValueIterator;
 #include "MergeQueue.h"
 #include "AIOHandler.h"
 
+extern int (*g_cmp_func)(char* key1, int len1, char* key2, int len2);
 
 class BaseSegment
 {
@@ -51,7 +52,8 @@ public:
     virtual void        close();
     virtual void        send_request() = 0;
     virtual reduce_task *get_task() {return kv_output->task;}
-	bool operator<(BaseSegment &seg) { return  (memcmp(key.getData(), seg.key.getData(), key.getLength())  <  0)  ;    }
+
+    bool operator<(BaseSegment &seg) { 	return ( (g_cmp_func(key.getData(), key.getLength(), seg.key.getData(), seg.key.getLength())) < 0 ); }
 
     DataStream  key;
     DataStream  val;

@@ -131,7 +131,7 @@ Segment::Segment(MapOutput *mapOutput) :
 }
 /*  The following is for class Segment */
 BaseSegment::BaseSegment(KVOutput *kvOutput) {
-	log(lsDEBUG, "IDAN BaseSegment CTOR this=%llu", (uint64_t)this);
+	log(lsDEBUG, "BaseSegment CTOR this=%llu", (uint64_t)this);
     this->eof = false;
     this->temp_kv = NULL;
     this->temp_kv_len = 0;
@@ -152,7 +152,7 @@ BaseSegment::BaseSegment(KVOutput *kvOutput) {
     else {
     	this->in_mem_data = NULL;
     }
-	log(lsDEBUG, "IDAN BaseSegment CTOR finished this=%llu", (uint64_t)this);
+	log(lsDEBUG, "BaseSegment CTOR finished this=%llu", (uint64_t)this);
 }
 
 
@@ -181,7 +181,7 @@ Segment::Segment(const string &path)
 #endif
 
 BaseSegment::~BaseSegment() {
-	log(lsDEBUG, "IDAN BaseSegment DTOR this=%llu", (uint64_t)this);
+	log(lsDEBUG, "BaseSegment DTOR this=%llu", (uint64_t)this);
 	if (this->kv_output)
 		delete this->kv_output;
 
@@ -211,13 +211,18 @@ Segment::~Segment() {
 
 int BaseSegment::nextKVInternal(InStream *stream) {
 	//TODO: this can only work with ((DataStream*)stream)
+	log(lsDEBUG, "");
 
 	if (!stream)
 		return 0;
+
+	log(lsDEBUG, "!stream - ok");
+
+	if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len)))
+	        return -1;
+
+	log(lsDEBUG, "!hasMore - ok");
     
-    /* check if stream has enough bytes to read the length of next K+V */
-    if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len)))
-        return -1;   
     /* key length */
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
 	if (!k)
@@ -261,6 +266,9 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     mem = ((DataStream*)stream)->getData();
     this->key.reset(mem + pos, cur_key_len);
     stream->skip(cur_key_len);
+
+	log(lsDEBUG, "key was reset - ok");
+
 
     /* val */
     pos = ((DataStream*)stream)->getPosition();
@@ -374,7 +382,7 @@ bool BaseSegment::switch_mem() {
 
 		kv_output->task->total_wait_mem_time += ((int) (ed - st));
 
-		log(lsTRACE, "IDAN before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched, kv_output->last_fetched);
+		log(lsTRACE, "before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched, kv_output->last_fetched);
 		/* restore break record */
 		bool b = join(staging_mem->buff, kv_output->last_fetched);
 
@@ -538,7 +546,7 @@ void merge_lpq_to_aio_file(reduce_task* task, MergeQueue<BaseSegment*> *records,
 AioSegment::AioSegment(KVOutput* kvOutput, AIOHandler* aio,
 	const char* filename) :
 	BaseSegment(kvOutput) {
-	log(lsDEBUG, "IDAN AioSegment CTOR this=%llu , filename=%s", (uint64_t)this, filename);
+	log(lsDEBUG, "AioSegment CTOR this=%llu , filename=%s", (uint64_t)this, filename);
 	this->aio = aio;
 	this->fd = open(filename, O_DIRECT | O_RDONLY);
 	if (this->fd < 0) {
@@ -549,15 +557,15 @@ AioSegment::AioSegment(KVOutput* kvOutput, AIOHandler* aio,
 		struct stat st;
 		fstat(fd, &st);
 		this->kv_output->total_len = st.st_size;
-		log(lsTRACE, "IDAN lpq output file %s is open - size=%lld", filename, st.st_size)
+		log(lsTRACE, "lpq output file %s is open - size=%lld", filename, st.st_size)
 
-		log(lsDEBUG, "IDAN AioSegment CTOR finish this=%llu , filename=%s", (uint64_t)this, filename);
+		log(lsDEBUG, "AioSegment CTOR finish this=%llu , filename=%s", (uint64_t)this, filename);
 	}
 }
 
 void AioSegment::send_request() {
 	int rc;
-	log(lsTRACE, " IDAN ENTERED func  - total_len=%lld , total_fetched=%lld", kv_output->total_len , kv_output->total_fetched);
+	log(lsTRACE, " ENTERED func  - total_len=%lld , total_fetched=%lld", kv_output->total_len , kv_output->total_fetched);
 	if (kv_output->total_fetched > kv_output->total_len) {
 		log(lsERROR, "Unexpectedly send_request called while total_fetched(%lld) >  total_len(%lld)", kv_output->total_fetched, kv_output->total_len);
 	}
@@ -602,7 +610,7 @@ void AioSegment::send_request() {
 
 AioSegment::~AioSegment() {
 	::close(this->fd);
-	log(lsDEBUG, "IDAN AioSegment DTOR this=%llu", (uint64_t)this)
+	log(lsDEBUG, "AioSegment DTOR this=%llu", (uint64_t)this)
 ;}
 
 SuperSegment::SuperSegment(reduce_task *_task, const std::string &_path) :

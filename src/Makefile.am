@@ -65,6 +65,7 @@ libuda_la_SOURCES = \
                         Merger/MergeQueue.h \
                         Merger/MergeQueue.cc \
                         Merger/NetMergerMain.cc \
+						Merger/CompareFunc.h \
                         UdaBridge.cc 
 
 libuda_la_LIBADD =  -lpthread -libverbs -lrdmacm -laio

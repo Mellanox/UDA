@@ -138,6 +138,8 @@ public:
                                 int &idx, int *br);
     static bool deserializeString(std::string &t, InStream &stream);
     static int  getVIntSize(int64_t );
+    static int 	decodeVIntSize(int byteValue);
+
 };
 
 /*log functions */ 

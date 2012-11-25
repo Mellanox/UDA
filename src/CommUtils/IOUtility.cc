@@ -360,6 +360,15 @@ int StreamUtility::getVIntSize(int64_t i)
     return (dataBits + 7) / 8 + 1;
 }
 
+int StreamUtility::decodeVIntSize(int byteValue) {
+    if (byteValue >= -112)
+        return 1;
+    else if (byteValue < -120)
+        return -119 - byteValue;
+    else
+        return -111 - byteValue;
+}
+
 
 //------------------------------------------------------------------------------
 const char *rdmalog_dir = "default";

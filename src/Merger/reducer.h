@@ -65,6 +65,7 @@ typedef struct reduce_task {
     char              *job_id;
     char              *reduce_task_id;
     int                mop_index;
+    char			  *java_comparator_class_name;
 
 //    FetchManager      *fetch_man;
 //    netlev_thread_t    fetch_thread;
