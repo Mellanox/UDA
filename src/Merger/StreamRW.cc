@@ -211,18 +211,12 @@ Segment::~Segment() {
 
 int BaseSegment::nextKVInternal(InStream *stream) {
 	//TODO: this can only work with ((DataStream*)stream)
-	log(lsDEBUG, "");
-
 	if (!stream)
 		return 0;
-
-	log(lsDEBUG, "!stream - ok");
 
 	if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len)))
 	        return -1;
 
-	log(lsDEBUG, "!hasMore - ok");
-    
     /* key length */
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
 	if (!k)
@@ -266,9 +260,6 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     mem = ((DataStream*)stream)->getData();
     this->key.reset(mem + pos, cur_key_len);
     stream->skip(cur_key_len);
-
-	log(lsDEBUG, "key was reset - ok");
-
 
     /* val */
     pos = ((DataStream*)stream)->getPosition();
