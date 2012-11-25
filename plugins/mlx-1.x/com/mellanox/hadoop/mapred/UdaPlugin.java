@@ -18,11 +18,13 @@
 */
 package com.mellanox.hadoop.mapred;
 import org.apache.hadoop.mapred.*;
+import java.lang.reflect.ParameterizedType;
 
 import java.io.File;
 import java.io.IOException;
 import java.lang.management.MemoryType;
 import java.lang.management.MemoryUsage;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -96,7 +98,6 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	private int               mReqNums      = 0;
 	private final int         mReportCount  = 20;
 	private J2CQueue<K,V>     j2c_queue     = null;
-
 
 	//* kv buf status 
 	private final int         kv_buf_recv_ready = 1;
@@ -191,7 +192,9 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(reduceId.toString());
 		mParams.add(jobConf.get("mapred.netmerger.hybrid.lpq.size", "0"));
 		mParams.add(Integer.toString(rdmaBufferSize)); // in Bytes
-		mParams.add(Integer.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment 
+		mParams.add(Integer.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment			 
+		mParams.add(jobConf.getOutputKeyClass().getSimpleName());
+		
 		
 		String [] dirs = jobConf.getLocalDirs();
 		ArrayList<String> dirsCanBeCreated = new ArrayList<String>();
