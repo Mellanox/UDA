@@ -18,7 +18,6 @@
 */
 package com.mellanox.hadoop.mapred;
 import org.apache.hadoop.mapred.*;
-import java.lang.reflect.ParameterizedType;
 
 import java.io.File;
 import java.io.IOException;
