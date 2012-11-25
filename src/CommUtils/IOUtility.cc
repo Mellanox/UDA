@@ -271,7 +271,18 @@ bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret,
 }
 
 
-bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret, int *br)
+/**
+   * Serializes a long to a binary stream with zero-compressed encoding.
+   * For -112 <= i <= 127, only one byte is used with the actual value.
+   * For other values of i, the first byte value indicates whether the
+   * long is positive or negative, and the number of bytes that follow.
+   * If the first byte value v is between -113 and -120, the following long
+   * is positive, with number of bytes that follow are -(v+112).
+   * If the first byte value v is between -121 and -128, the following long
+   * is negative, with number of bytes that follow are -(v+120). Bytes are
+   * stored in the high-non-zero-byte-first order.
+   * */
+  bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret, int *br)
 {
     int digested = 0;
     int8_t b;
@@ -360,6 +371,11 @@ int StreamUtility::getVIntSize(int64_t i)
     return (dataBits + 7) / 8 + 1;
 }
 
+/**
+ * Parse the first byte of a vint/vlong to determine the number of bytes
+ * byteValue: value of the first byte of the vint/vlong
+ * return the total number of bytes (1 to 9)
+ */
 int StreamUtility::decodeVIntSize(int byteValue) {
     if (byteValue >= -112)
         return 1;
