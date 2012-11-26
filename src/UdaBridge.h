@@ -34,6 +34,7 @@ jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long
 void UdaBridge_invoke_fetchOverMessage_callback(JNIEnv * jniEnv);
 void UdaBridge_invoke_dataFromUda_callback(JNIEnv * jniEnv, jobject jbuf, int len);
 index_record* UdaBridge_invoke_getPathUda_callback (JNIEnv * jniEnv, const char* job_id, const char* map_id, int reduceId);
+char* UdaBridge_invoke_getConfData_callback(JNIEnv * jniEnv, const char* paramName, const char* defaultParam);
 
 // a utility function that attach the **current native thread** to the JVM and
 // return the JNIEnv interface pointer for this thread

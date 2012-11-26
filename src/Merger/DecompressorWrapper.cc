@@ -272,6 +272,25 @@ void DecompressorWrapper::comp_fetch_req(client_part_req_t *req)
 
 
 
+void DecompressorWrapper::initJniEnv(){
+	this->jniEnv = attachNativeThread();
+
+}
+
+
+/**
+ * loads symbols from handle library
+ */
+void* DecompressorWrapper::loadSymbol(void *handle, char *symbol ){
+	char *error = NULL;
+	void* func_ptr = dlsym(handle, symbol);
+	if ((error = dlerror()) != NULL) {
+		log(lsERROR,"error loading %s, %s",symbol,error);
+		return NULL;
+	}
+	return func_ptr;
+}
+
 
 
 /*

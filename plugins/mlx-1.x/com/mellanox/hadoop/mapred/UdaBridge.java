@@ -82,6 +82,12 @@ public class UdaBridge {
 		return d;
 	}	
 	
+	static public String getConfData(String paramName,String defaultParam)  {
+		if (LOG.isDebugEnabled()) LOG.debug("+++>>> started  UdaBridge.getConfData");
+		String data = UdaPluginRT.getDataFromConf(paramName,defaultParam);
+		return data;
+	}
+	
 }
 
 class DataPassToJni{

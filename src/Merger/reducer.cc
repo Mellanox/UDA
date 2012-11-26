@@ -39,6 +39,7 @@
 #include "C2JNexus.h"
 #include "../DataNet/RDMAClient.h"
 #include "DummyDecompressor.cc"
+#include "LzoDecompressor.cc"
 
 using namespace std;
 
@@ -119,7 +120,8 @@ void reduce_downcall_handler(const string & msg)
 			g_task->client = new RdmaClient(merging_sm.data_port, g_task);
 		}else{
 			log(lsDEBUG, "bugg before creating dummydecompressor");
-			g_task->client = new DummyDecompressor(merging_sm.data_port, g_task);
+			//g_task->client = new DummyDecompressor(merging_sm.data_port, g_task);
+			g_task->client = new LzoDecompressor(merging_sm.data_port, g_task);
 			log(lsDEBUG, "bugg after creating dummydecompressor");
 		}
 		g_task->client->start_client();

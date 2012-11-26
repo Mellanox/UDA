@@ -223,12 +223,12 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		String bufferSize="0";
 		
 		if (alg.contains("LzoCodec")){
-			int defaultBlockSize = 16*1024;
+			int defaultBlockSize = 256*1024;
 			bufferSize = jobConf.get("io.compression.codec.lzo.buffersize", Integer.toString(defaultBlockSize)); 
 		}
 
 //		mParams.add(bufferSize); 
-		mParams.add(Integer.toString(16*1024));
+		mParams.add(Integer.toString(256*1024));
 		LOG.info("dhi3. bufferSize is " + bufferSize);
 		LOG.info("dhi4. array is " + mParams);
 		LOG.info("UDA: sending INIT_COMMAND");    	  
@@ -323,6 +323,12 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		if (LOG.isDebugEnabled()) LOG.debug ("<<-- dataFromUda finished callback");
 	}
 
+	/**
+	 * gets property paramName from configuration file
+	 */
+	static String getDataFromConf(String paramName, String defaultParam){
+		return mjobConf.get(paramName,defaultParam);
+	}
 
 	/* kv buf object, j2c_queue uses 
  the kv object inside.

@@ -41,6 +41,7 @@ static jclass jclassUdaBridge; // just casted ref to above jweakUdaBridge. Hence
 static jmethodID jmethodID_fetchOverMessage; // handle to java cb method
 static jmethodID jmethodID_dataFromUda; // handle to java cb method
 static jmethodID jmethodID_getPathUda; // handle to java cb method
+static jmethodID jmethodID_getConfData; // handle to java cb method
 static jfieldID fidOffset;
 static jfieldID fidRawLength;
 static jfieldID fidPartLength;
@@ -120,6 +121,14 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
 		printf("-->> In C++ java UdaBridge.jmethodID_getPathUda() callback method was NOT found\n");
 		return JNI_ERR;
 	}
+
+	//getConfData callback
+	jmethodID_getConfData = env->GetStaticMethodID(jclassUdaBridge, "getConfData", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+	if (jmethodID_getConfData == NULL) {
+		printf("-->> In C++ java UdaBridge.jmethodID_getConfData() callback method was NOT found\n");
+		return JNI_ERR;
+	}
+
 	printf("-->> In C++ java callback methods were found and cached\n");
 	return JNI_VERSION_1_4;  //direct buffer requires java 1.4
 }
@@ -345,6 +354,32 @@ extern "C" index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, c
 	log(lsDEBUG, "after  jniEnv->CallStaticVoidMethod... ");
 	return data;
 }
+
+/**
+ *
+ */
+extern "C" char* UdaBridge_invoke_getConfData_callback(JNIEnv * jniEnv, const char* paramName, const char* defaultParam) {
+	log(lsTRACE, "before getConfData...");
+	jstring jstr_param = jniEnv->NewStringUTF(paramName);
+	jstring jstr_default = jniEnv->NewStringUTF(defaultParam);
+	jobject jdata = jniEnv->CallStaticObjectMethod(jclassUdaBridge, jmethodID_getConfData, jstr_param,jstr_default);
+	log(lsTRACE, "after getConfData...");
+	jniEnv->DeleteLocalRef(jstr_param);
+	jniEnv->DeleteLocalRef(jstr_default);
+	if (jdata==NULL){
+		log(lsERROR, "-->> In C++ java UdaBridge.getConfData returned null!");
+		return NULL;
+	}
+	log(lsTRACE, "got data getConfData");
+	const char *nativeString = jniEnv->GetStringUTFChars( (jstring) jdata, 0);
+	const size_t len = strlen(nativeString);
+	char *dataStr = (char*) malloc(len);
+	strncpy(dataStr, nativeString, len);
+	jniEnv->ReleaseStringUTFChars( (jstring)jdata, nativeString);
+	return dataStr;
+
+}
+
 
 // must be called with JNIEnv that matched the caller thread - see attachNativeThread() above
 // - otherwise TOO BAD unexpected results are expected!
