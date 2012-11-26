@@ -76,7 +76,7 @@ typedef struct memory_pool {
 //    pthread_cond_t       cond; //this cond should be used in case the reducer is running several LPQs simultaneously
     struct list_head     free_descs;
     char                *mem;        
-    int32_t              size;
+//    int32_t              size;
     int32_t              num;
     int64_t              total_size;
     struct list_head     register_mem_list;
@@ -94,12 +94,13 @@ typedef struct client_part_req
      * This constructor is basically for the fetching request from hadoop
      */
     struct list_head list;
-    int64_t          last_fetched;  /* offset to fetch in a MOF Partition */
-    int64_t          total_len;     /* total length of the partition */
+//    int64_t          last_fetched;  nobody reads it!!! /* offset to fetch in a MOF Partition */
+ //   int64_t          total_len;     nobody reads it!!!/* total length of the partition */
     struct host_list *host;
     hadoop_cmd_t     *info; /* [0]:hostname,[1]:jobid,[2]:mapid,[3]:reduceid*/
     MapOutput        *mop;         /* A pointer to mop */
     char             recvd_msg[64];
+    bool			request_in_air;
 } client_part_req_t;
 
 
@@ -115,15 +116,21 @@ class KVOutput  {
 public:
     pthread_mutex_t         lock; 
     pthread_cond_t          cond;
-    mem_desc_t             *mop_bufs[2];
+    mem_desc_t             *mop_bufs[NUM_STAGE_MEM];
     struct reduce_task     *task;
     
     /* indicate which mem_desc should be filled by fetcher*/
     volatile int            staging_mem_idx;  
     
-    int64_t          		last_fetched;  /* offset to fetch in a KV Partition */
-    int64_t                 total_fetched;
-    int64_t                 total_len;
+    int64_t          		last_fetched;  /*represents how many bytes were fetched in the last time */
+//    int64_t                 total_fetched;
+
+    int64_t                 total_fetched_read; //represents total #bytes ready to read.(for non-compressed data total_fetched_part==total_fetched_raw)
+    int64_t                 total_fetched_raw; //represents #bytes fetched (current offset)
+
+//    int64_t                 total_len;
+    int64_t                 total_len_part; //represents compressed size of MOF partition
+    int64_t                 total_len_raw; //represents decompressed length of MOF
     
     KVOutput(struct reduce_task *task);
 	virtual ~KVOutput();
@@ -161,6 +168,7 @@ public:
   
     int start_fetch_req(client_part_req_t *req);
     int update_fetch_req(client_part_req_t *req);
+    int mark_req_as_ready(client_part_req_t *req);
     void allocate_rdma_buffers(client_part_req_t *req);
 
     pthread_mutex_t      lock; 

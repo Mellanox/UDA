@@ -29,7 +29,7 @@
 class RdmaClient : public InputClient
 {
 public:
-    RdmaClient (int port, merging_state_t *state);
+    RdmaClient (int port, reduce_task_t* reduce_task);
     ~RdmaClient();
 
     netlev_conn_t* connect(const char *host, int port);
@@ -49,7 +49,8 @@ public:
     netlev_thread_t     helper;
     netlev_ctx_t        ctx;
     InputClient        *parent;
-    merging_state_t    *state;
+//    merging_state_t    *state;
+    reduce_task_t* reduce_task;
     struct list_head    register_mems_head;
     std::map<std::string, unsigned long> local_dns;
 };

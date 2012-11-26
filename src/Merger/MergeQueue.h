@@ -40,7 +40,7 @@ typedef struct mem_desc {
     int32_t              buf_len;
     int32_t              act_len;
     volatile int         status; /* available or invalid*/
-    struct memory_pool  *owner;  /* owner pool */
+//    struct memory_pool  *owner;  /* owner pool */
     pthread_mutex_t      lock;
     pthread_cond_t       cond;
 
@@ -50,6 +50,15 @@ typedef struct mem_desc {
     int32_t 			free_bytes; //represents the current number of free bytes
 
 } mem_desc_t;
+
+
+typedef struct mem_set_desc {
+    struct list_head     list;
+    mem_desc_t* buffer_unit [NUM_STAGE_MEM];
+
+} mem_set_desc_t;
+
+
 
 
 //#include "StreamRW.h"
@@ -206,7 +215,7 @@ class MergeQueue
 {
 private:
     std::list<T> *mSegments;
-    T min_segment;
+//    T min_segment;
     DataStream *key;
     DataStream *val;
     int num_of_segments;
@@ -214,6 +223,7 @@ public:
     const std::string filename;
     mem_desc_t*  staging_bufs[NUM_STAGE_MEM];
     PriorityQueue<T> core_queue;
+    T min_segment;
 public: 
     size_t getQueueSize() { return num_of_segments; }
     virtual ~MergeQueue(){}
@@ -227,6 +237,7 @@ public:
         }
 
         if (core_queue.size() == 0) {
+        	log(lsTRACE, "mmm6");
         	return false;
         }
 
@@ -235,6 +246,7 @@ public:
             this->adjustPriorityQueue(this->min_segment);
             if (core_queue.size() == 0) {
                 this->min_segment = NULL;
+                log(lsTRACE, "mmm6");
                 return false;
             }
         }
@@ -245,9 +257,11 @@ public:
     }
 
     bool insert(T segment){
+    	log(lsTRACE, "bugg inside MergeQueue.insert");
         int ret = segment->nextKV();
         switch (ret) {
             case 0: { /*end of the map output*/
+            	log(lsDEBUG, "bugg vvv-deleting segment ");
                 delete segment;
                 break;
             }
@@ -313,6 +327,7 @@ protected:
         switch (ret) {
             case 0: { /*no more data for this segment*/
                 T s = core_queue.pop();
+                log(lsDEBUG, "bugg vvv2 why are we here??? ");
                 delete s;
                 num_of_segments--;
                 break;
@@ -322,6 +337,7 @@ protected:
                 break;
             }
             case -1: { /*break in the middle - for cyclic buffer can represent that you need to switch to the beginning of the buffer*/
+            	log(lsDEBUG, "bugg vvv6 why are we here??? ");
                 if (segment->switch_mem() ){
                     /* DBGPRINT(DBG_CLIENT, "adjust priority queue\n"); */
                     core_queue.adjustTop();
@@ -329,6 +345,7 @@ protected:
                     T s = core_queue.pop();
                     num_of_segments--;
                     delete s;
+                    log(lsDEBUG, "bugg vvv1 why are we here??? ");
                 }
                 break;
             }

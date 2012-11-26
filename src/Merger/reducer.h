@@ -46,15 +46,20 @@ typedef struct reduce_directory {
 
 typedef struct merging_state {
 
-    InputClient       *client;
+//    InputClient       *client;
 
     int                online;
 
     memory_pool_t      mop_pool;
     
+    int 			data_port;
+
 
 } merging_state_t;
 typedef struct reduce_task {
+
+	InputClient       *client;
+
     struct list_head   list;
     int                reduce_id;
 
@@ -95,7 +100,7 @@ extern reduce_task_t * g_task; // we only support 1 reducer per process
 void spawn_reduce_task();
 void finalize_reduce_task(reduce_task_t *task);
 int  create_mem_pool(int logsize, int num, memory_pool_t *pool);
-
+int  create_mem_pool_pair(int size1, int size2,  int num, memory_pool_t *pool);
 #endif
 
 /*

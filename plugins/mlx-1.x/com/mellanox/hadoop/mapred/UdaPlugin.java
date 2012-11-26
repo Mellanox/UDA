@@ -217,16 +217,18 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 //		}
 		LOG.info("dhi1. compression is " + compression);
 		LOG.info("dhi2. alg is " + alg);
-		mParams.add(alg); 
+//		mParams.add(alg); 
+		mParams.add("bla"); 
 		
 		String bufferSize="0";
 		
 		if (alg.contains("LzoCodec")){
-			int defaultBlockSize = 256*1024;
+			int defaultBlockSize = 16*1024;
 			bufferSize = jobConf.get("io.compression.codec.lzo.buffersize", Integer.toString(defaultBlockSize)); 
 		}
 
-		mParams.add(bufferSize); 
+//		mParams.add(bufferSize); 
+		mParams.add(Integer.toString(16*1024));
 		LOG.info("dhi3. bufferSize is " + bufferSize);
 		LOG.info("dhi4. array is " + mParams);
 		LOG.info("UDA: sending INIT_COMMAND");    	  

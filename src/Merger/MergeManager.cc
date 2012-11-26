@@ -62,7 +62,7 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 		//sending fetch requests
 		log(lsDEBUG, "sending first chunk fetch requests");
 		while (manager->fetch_list.size() > 0) {
-			if ((mem_pool->free_descs.next != &mem_pool->free_descs) && (mem_pool->free_descs.next->next != &mem_pool->free_descs)){
+			if (mem_pool->free_descs.next != &mem_pool->free_descs) { // the list represents a pair of buffers && (mem_pool->free_descs.next->next != &mem_pool->free_descs)){
 				log(lsTRACE, "there are free RDMA buffers");
 				client_part_req *fetch_req = NULL;
 				 pthread_mutex_lock(&manager->lock);
@@ -116,7 +116,11 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 
 				manager->mops_in_queue.insert(mop->mop_id);
 				Segment *segment = new Segment(mop);
-				segment->send_request(); // send rew for second buffer
+
+				if (!task->compr_alg){
+					segment->send_request(); // send req for second buffer
+				}
+
 				// the above send was called from the Segment's Ctor before, but now because it is a virtual method it canot be called from CTOR
 				merge_queue->insert(segment);
 
@@ -241,23 +245,32 @@ KVOutput::KVOutput(struct reduce_task *task)
     memory_pool_t *mem_pool;
 
     this->task = task;
+    if (task->compr_alg){//compression
+    	this->staging_mem_idx = 1;
+    }else{
     this->staging_mem_idx = 0;
-    this->total_len = 0;
-    this->total_fetched = 0;
+    }
+
+    this->total_len_part = 0;
+    this->total_len_raw = 0;
+    this->total_fetched_raw = 0;
+    this->total_fetched_read = 0;
     this->last_fetched = 0;
     pthread_mutex_init(&this->lock, NULL);
     pthread_cond_init(&this->cond, NULL);
     
     mem_pool = &(merging_sm.mop_pool);
     /*lock of mop_pool should be done in the calling function in case the reducer is running several LPQs simultaneously  */
-    mop_bufs[0] = list_entry(mem_pool->free_descs.next,
-                             typeof(*mop_bufs[0]), list); 
-    mop_bufs[0]->status = FETCH_READY;
-    list_del(&mop_bufs[0]->list);
-    mop_bufs[1] = list_entry(mem_pool->free_descs.next,
-                             typeof(*mop_bufs[1]), list); 
-    mop_bufs[1]->status = FETCH_READY;
-    list_del(&mop_bufs[1]->list);
+
+    mem_set_desc_t *desc_pair = list_entry(merging_sm.mop_pool.free_descs.next,
+                                                     typeof(*desc_pair), list);
+    for (int i=0; i<NUM_STAGE_MEM; i++){
+    	mop_bufs[i] = desc_pair->buffer_unit[i];
+    	mop_bufs[i]->status = FETCH_READY;
+    }
+
+    list_del(&desc_pair->list);
+    delete (desc_pair);
 	
 }
 
@@ -268,6 +281,7 @@ int32_t KVOutput::getFreeBytes(){
 
 MapOutput::~MapOutput()
 {
+	log(lsDEBUG, "bugg vvv-d-tor of mop");
     part_req->mop = NULL;
     free_hadoop_cmd(*(part_req->info));
     free(part_req->info);
@@ -276,14 +290,20 @@ MapOutput::~MapOutput()
 
 KVOutput::~KVOutput() 
 {
+	log(lsDEBUG, "bugg vvv-d-tor of KVOutput");
     /* return mem */
     memory_pool_t *mem_pool = &(merging_sm.mop_pool);
+    mem_set_desc_t *desc_pair = (mem_set_desc_t*) malloc(sizeof(mem_set_desc_t));
+
     pthread_mutex_lock(&mem_pool->lock);
-    mop_bufs[0]->status = INIT;
-    mop_bufs[1]->status = INIT;
-    list_add_tail(&mop_bufs[0]->list, &mem_pool->free_descs);
-    list_add_tail(&mop_bufs[1]->list, &mem_pool->free_descs);
-//    pthread_cond_broadcast(&mem_pool->cond);
+
+    for (int i=0; i<NUM_STAGE_MEM; i++){
+    	mop_bufs[i]->status = INIT;
+    	desc_pair->buffer_unit[i] = mop_bufs[i];
+
+    }
+    list_add_tail(&desc_pair->list, &mem_pool->free_descs);
+
     pthread_mutex_unlock(&mem_pool->lock);
     
     pthread_mutex_destroy(&this->lock);
@@ -344,7 +364,7 @@ int MergeManager::update_fetch_req(client_part_req_t *req)
      */
     uint64_t recvd_data[3];
     int i = 0;
-    bool in_queue = false;
+
 
     /* format: "rawlength:partlength:recv_data" */
     recvd_data[0] = atoll(req->recvd_msg);
@@ -353,21 +373,29 @@ int MergeManager::update_fetch_req(client_part_req_t *req)
     while (req->recvd_msg[i] != ':' ) { ++i; }
     recvd_data[2] = atoll(req->recvd_msg + (++i));
 
-    in_queue = (req->mop->fetch_count != 0);
-        /*(merger->mops_in_queue.find(req->mop->mop_id)
-        != merger->mops_in_queue.end());*/
-    req->last_fetched = recvd_data[2];
-    req->total_len    = recvd_data[1];
-
     pthread_mutex_lock(&req->mop->lock);
     /* set variables in map output */
-    req->mop->last_fetched = req->last_fetched;
-    req->mop->total_len      = req->total_len;
-    req->mop->total_fetched += req->last_fetched;
+    req->mop->last_fetched = recvd_data[2];
+    req->mop->total_len_part = recvd_data[1];
+    req->mop->total_len_raw = recvd_data[0];
+    req->mop->total_fetched_raw += recvd_data[2];
+
+    pthread_mutex_unlock(&req->mop->lock);
+
+    log(lsDEBUG, "bugg vvv1 total_len_part=%d total_len_raw=%d req->mop->total_fetched_raw=%d req->last_fetched=%d req->mop->mop_id=%d",
+       		req->mop->total_len_part, req->mop->total_len_raw, req->mop->total_fetched_raw, recvd_data[2], req->mop->mop_id);
+
+    return 1;
+}
+
+int MergeManager::mark_req_as_ready(client_part_req_t *req)
+{
+
+	pthread_mutex_lock(&req->mop->lock);
     req->mop->mop_bufs[req->mop->staging_mem_idx]->status = MERGE_READY;
     pthread_mutex_unlock(&req->mop->lock);
 
-    if (!in_queue) {
+	if (req->mop->fetch_count == 0) {
         // Insert into merge manager fetched_mops
 		log(lsTRACE, "Inserting into merge manager fetched_mops...");
         pthread_mutex_lock(&this->lock);
@@ -394,10 +422,13 @@ void MergeManager::allocate_rdma_buffers(client_part_req_t *req)
 
 int MergeManager::start_fetch_req(client_part_req_t *req)
 {
-    /* Update the buf status */
-    req->mop->mop_bufs[req->mop->staging_mem_idx]->status = BUSY;
 
-    int ret = merging_sm.client->start_fetch_req(req);
+    /* Update the buf status */
+	//TODO: katya remove hard coded
+//    req->mop->mop_bufs[req->mop->staging_mem_idx]->status = BUSY;
+	req->mop->mop_bufs[0]->status = BUSY;
+
+    int ret = task->client->start_fetch_req(req);
     if ( ret == 0 ) {
         if (req->mop->fetch_count == 0) {
             write_log(task->reduce_log, DBG_CLIENT,

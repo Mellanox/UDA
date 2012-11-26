@@ -52,6 +52,17 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
 
     int i = 0;
     while (records->next()) {
+
+    	log(lsTRACE, "mmm5 next");
+    	if (records->min_segment->get_task()->compr_alg){
+    		MapOutput *mop = dynamic_cast<MapOutput*>(records->min_segment->getKVOUutput());
+			if (mop == NULL) {
+				log(lsFATAL, "problem?");
+				exit (1);
+			}
+			records->min_segment->get_task()->client->start_fetch_req(mop->part_req);
+    	}
+
         //log(lsTRACE, "in loop i=%d", i++);
         DataStream *k = records->getKey();
         DataStream *v = records->getVal();
@@ -125,7 +136,12 @@ Segment::Segment(MapOutput *mapOutput) :
 	this->map_output = mapOutput;
 	if (mapOutput) {
 		mem_desc_t *mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
-		this->in_mem_data->reset(mem->buff, mapOutput->part_req->last_fetched);
+
+		if (get_task()->compr_alg){//compression is on
+			this->in_mem_data->reset(mem->buff, mem->end);
+		}else{
+			this->in_mem_data->reset(mem->buff, mapOutput->last_fetched);
+		}
 	}
 
 }
@@ -144,10 +160,12 @@ BaseSegment::BaseSegment(KVOutput *kvOutput) {
     this->byte_read = 0;
 
 	this->kv_output = kvOutput;
+	mem_desc_t *mem;
 	if (kvOutput) {
-		mem_desc_t *mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
+		mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
 		this->in_mem_data = new DataStream();
 		this->in_mem_data->reset(mem->buff, mem->buf_len);
+		log(lsDEBUG, "bugg creating DataStream with count=%d", mem->buf_len);
     }
     else {
     	this->in_mem_data = NULL;
@@ -214,19 +232,21 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 
 	mem_desc_t *cur_buf = kv_output->mop_bufs[kv_output->staging_mem_idx];
 	int total_read = 0;
-	if (!stream)
+	if (!stream){
 		return 0;
+	}
     
     /* check if stream has enough bytes to read the length of next K+V */
-    if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len)))
+    if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len))){
         return -1;   
+    }
     int digested = 0;
     /* key length */
 
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
-	if (!k)
+	if (!k){
 		return -1;
-
+	}
     digested += kbytes;
     log(lsINFO, "katt1 cur_key_len is %d  kbytes is %d ", cur_key_len, kbytes);
     /* value length */
@@ -236,30 +256,38 @@ int BaseSegment::nextKVInternal(InStream *stream) {
         return -1;
     }
     digested += vbytes;
-    log(lsINFO, "katt1 cur_val_len is %d  vbytes is %d ", cur_val_len, vbytes);
+    log(lsTRACE, "mmm1 cur_key_len is %d  cur_val_len is %d   pos is %d start is %d end is %d", cur_key_len, cur_val_len, this->in_mem_data->getPosition(), cur_buf->start, cur_buf->end);
 	if (cur_key_len == EOF_MARKER && cur_val_len == EOF_MARKER) {
         eof = true;
         total_read = kbytes + vbytes;
         byte_read += total_read;
+        pthread_mutex_lock(&cur_buf->lock);
         cur_buf->start += total_read;
+        log(lsDEBUG, "bugg vvv2. total_read is %d, free_bytes is %d after update it is %d", total_read, cur_buf->free_bytes, cur_buf->free_bytes+total_read);
         cur_buf->free_bytes += total_read;
+        pthread_mutex_unlock(&cur_buf->lock);
         return 0;
     }
 
     /* Making a sanity check */
     if (cur_key_len < 0 || cur_val_len < 0) {
-		output_stderr("Reader:Error in nextKV")
-;		eof = true;
+		output_stderr("Reader:Error in nextKV");
+		eof = true;
 		total_read = kbytes + vbytes;
 		byte_read += total_read;
+		pthread_mutex_lock(&cur_buf->lock);
 		cur_buf->start += total_read;
+		log(lsDEBUG, "bugg fff2. total_read is %d, free_bytes is %d after update it is %d", total_read, cur_buf->free_bytes, cur_buf->free_bytes+total_read);
 		cur_buf->free_bytes += total_read;
+		pthread_mutex_unlock(&cur_buf->lock);
         return 0;
     }
 
     /* no enough for key + val */
     if (!stream->hasMore(cur_key_len + cur_val_len)) {
+    	int ttt = this->in_mem_data->getPosition();
     	stream->rewind(digested);
+    	log(lsDEBUG, "bugg vvv2 here3 before is %d after is %d", ttt, this->in_mem_data->getPosition());
         return -1;
     }
 
@@ -276,11 +304,14 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     pos = ((DataStream*)stream)->getPosition();
     mem = ((DataStream*)stream)->getData();
     this->val.reset(mem + pos, cur_val_len);
+    log(lsDEBUG, "bugg vvv4-resetting6 to %d and %d", cur_key_len, cur_val_len);
     stream->skip(cur_val_len);
     total_read = kbytes + vbytes + cur_key_len + cur_val_len;
     byte_read += total_read;
+    pthread_mutex_lock(&cur_buf->lock);
     cur_buf->free_bytes += total_read;
     cur_buf->start += total_read;
+    pthread_mutex_unlock(&cur_buf->lock);
     return 1;
 
 }
@@ -290,8 +321,8 @@ int BaseSegment::nextKV() {
 
     /* in mem map output */
 	if (kv_output != NULL) {
-		if (eof || byte_read >= this->kv_output->total_len) {
-			log(lsERROR, "Reader: End of Stream - byte_read=%ll total_len=%ll", byte_read, this->kv_output->total_len);
+		if (eof || byte_read >= this->kv_output->total_len_raw) {
+			log(lsERROR, "Reader: End of Stream - byte_read=%lld total_len=%lld", byte_read, this->kv_output->total_len_raw);
 	        return 0;
 	    }
     	return nextKVInternal(in_mem_data);
@@ -340,10 +371,11 @@ void BaseSegment::close() {
 }
 
 void Segment::send_request() {
-	if (map_output->total_fetched == map_output->total_len) {
+	//compression is not calling this function: chekcing only total_fetched_raw
+	if (map_output->total_fetched_raw == map_output->total_len_part) {
 		return; // TODO: probably the segment was switched while it was already reached the total_len
-	} else if (map_output->total_fetched > map_output->total_len) {
-		log(lsERROR, "Unexpectedly send_request called while total_fetched(%lld) >  total_len(%lld)", map_output->total_fetched, map_output->total_len);
+	} else if (map_output->total_fetched_raw > map_output->total_len_part) {
+		log(lsERROR, "Unexpectedly send_request called while total_fetched_raw(%lld) >  total_len(%lld)", map_output->total_fetched_raw, map_output->total_len_part);
         return;
     }
 
@@ -362,13 +394,15 @@ void Segment::send_request() {
     map_output->task->merge_man->start_fetch_req(map_output->part_req);
 }
 
+
+//called by adjustPriorityQueue
 bool BaseSegment::switch_mem() {
 
 		if (kv_output != NULL) {
 			mem_desc_t *staging_mem =
 					kv_output->mop_bufs[kv_output->staging_mem_idx];
 
-			if (byte_read >= kv_output->total_len) {
+			if (byte_read >= kv_output->total_len_raw) {
 				return false;
 			}
 
@@ -388,20 +422,65 @@ bool BaseSegment::switch_mem() {
 
 			kv_output->task->total_wait_mem_time += ((int) (ed - st));
 
+			log(lsTRACE, "mmm2 inside switch_mem");
+
+
+			int difference = staging_mem->end - staging_mem->start;
+			if (difference < 0){
+				//turnaround of the cyclic buffer. new data was added so must do join
+//				log(lsTRACE, "mmm7a turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d",
+//						staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
+				//checking if there is more than one key-value pair before the end of the buffer
+				if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < staging_mem->buf_len-staging_mem->start){
+					log(lsTRACE, "mmm7a turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
+								staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
+					//just reset
+					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->buf_len-staging_mem->start);
+					return true;
+				}else{
+					log(lsTRACE, "mmm7b turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
+								staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
+					//there is a partial key-value pair: must do join
+					bool b = join(staging_mem->buff, staging_mem->end);
+					int shift_len = staging_mem->end - this->in_mem_data->getLength();
+					staging_mem->start = shift_len;
+			return b;
+				}
+			}else{
+				if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < difference){
+					//there is new data
+					log(lsTRACE, "mmm7c since last time more data was fetched/decompressed. resetting to start=%d end=%d count=%d pos=%d",
+							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
+					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->end-staging_mem->start);
+					return true;
+				}else{
+					//no new data was added: must sleep
+					log(lsTRACE, "mmm7d there is no data: wait for fetch. start=%d, end=%d, count=%d, pos=%d. ",
+							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
+					pthread_mutex_lock(&kv_output->lock);
+					pthread_cond_wait(&kv_output->cond, &kv_output->lock);
+					pthread_mutex_unlock(&kv_output->lock);
+					log(lsTRACE, "mmm7d after wait for fetch");
+				}
+			}
+
+
+
+
+
+			
+			//TODO: katya for non compression
+			/*
+			// restore break record
 			log(lsTRACE, "IDAN before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched, kv_output->last_fetched);
-			/* restore break record */
 			bool b = join(staging_mem->buff, kv_output->last_fetched);
 
-			/* to check if we need more data from map output*/
-			if (!get_task()->block_size){ //represents that compression is on
-				this->send_request();
-			}
-			else{
-				mem_desc_t *cur_buf = kv_output->mop_bufs[kv_output->staging_mem_idx];
-				cur_buf->start = 0;
-				//cur_buf->free_bytes = cur_buf->free_bytes % cur_buf->buf_len; //is the % necessary
-			}
+			staging_mem->start = shift_len;
+			// to check if we need more data from map output
+			this->send_request();
 			return b;
+			*/
+
 		}
 
     return false;
@@ -416,6 +495,7 @@ bool BaseSegment::join(char *src, const int32_t src_len) {
 
     /* break in the key len */
     if (index > 0) {
+    	log(lsDEBUG, "bugg vvv4-resetting3 to %d", src_len - index);
         in_mem_data->reset(src + index, src_len - index);
         StreamUtility::deserializeInt(*in_mem_data, cur_val_len, &vbytes);
     } else {
@@ -424,6 +504,7 @@ bool BaseSegment::join(char *src, const int32_t src_len) {
 
         /* break in the val len */
         if (index > 0) {
+        	log(lsDEBUG, "bugg vvv4-resetting4 to %d", src_len - index);
 			in_mem_data->reset(src + index, src_len - index);
         }
     }
@@ -439,6 +520,7 @@ bool BaseSegment::join(char *src, const int32_t src_len) {
         char *mem = NULL;
         pos = in_mem_data->getPosition();
         mem = in_mem_data->getData();
+        log(lsDEBUG, "bugg vvv4-resetting5 to %d and %d", cur_key_len, cur_val_len);
         key.reset(mem + pos,  cur_key_len);
         val.reset(mem + pos + cur_key_len, cur_val_len);
         in_mem_data->skip(cur_key_len + cur_val_len);
@@ -470,6 +552,7 @@ bool BaseSegment::join(char *src, const int32_t src_len) {
         memcpy(temp_kv, org, part_len);
         /* Copying from the new partition */
         memcpy(temp_kv + part_len, src, shift_len);
+        log(lsDEBUG, "bugg vvv4-resetting6 to %d and %d and %d", src_len - shift_len, cur_key_len, cur_val_len);
         in_mem_data->reset(src + shift_len, src_len - shift_len);
         key.reset(temp_kv, cur_key_len);
         val.reset(temp_kv + cur_key_len, cur_val_len);

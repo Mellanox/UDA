@@ -53,6 +53,7 @@ DataStream::DataStream(char *buf, int32_t len)
     this->buf  = buf;
     this->pos  = 0;
     this->count= len;
+    log(lsDEBUG, "bugg vvv2 here4 this->count=%d", this->count);
 }
 
 
@@ -126,6 +127,7 @@ size_t DataStream::skip(size_t nbytes)
 bool DataStream::hasMore(size_t nbytes) 
 {
     if (this->pos + nbytes > this->count) {
+    	log(lsDEBUG, "bugg vvv2 here7 this->pos=%d nbytes=%d this->count=%d", this->pos,nbytes,this->count);
         return false;
     }
     return true;

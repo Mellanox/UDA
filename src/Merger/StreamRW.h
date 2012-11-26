@@ -52,6 +52,7 @@ public:
     virtual void        send_request() = 0;
     virtual reduce_task *get_task() {return kv_output->task;}
 	bool operator<(BaseSegment &seg) { return  (memcmp(key.getData(), seg.key.getData(), key.getLength())  <  0)  ;    }
+	virtual KVOutput * getKVOUutput() {return kv_output;}
 
     DataStream  key;
     DataStream  val;
@@ -84,6 +85,7 @@ public:
     virtual ~Segment();
 
     virtual void        send_request();
+    virtual KVOutput * getKVOUutput() {return map_output;}
 
 protected:
     MapOutput   *map_output;

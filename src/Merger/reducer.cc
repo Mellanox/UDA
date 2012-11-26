@@ -38,6 +38,7 @@
 #include "IOUtility.h"
 #include "C2JNexus.h"
 #include "../DataNet/RDMAClient.h"
+#include "DummyDecompressor.cc"
 
 using namespace std;
 
@@ -55,6 +56,7 @@ void reduce_downcall_handler(const string & msg)
 {
 	client_part_req_t   *req;
 	hadoop_cmd_t        *hadoop_cmd;
+	int rc;
 
 	hadoop_cmd = (hadoop_cmd_t*) malloc(sizeof(hadoop_cmd_t));
 	memset(hadoop_cmd, 0, sizeof(hadoop_cmd_t));
@@ -86,23 +88,6 @@ void reduce_downcall_handler(const string & msg)
 			exit(-1);
 		}
 
-		// init map output memory pool
-	    memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
-		int numBuffers = g_task->num_maps * RDMA_BUFFERS_PER_SEGMENT + EXTRA_RDMA_BUFFERS;
-			log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
-
-		if (create_mem_pool(g_task->buffer_size,
-						numBuffers,
-						&merging_sm.mop_pool)) {
-			log(lsFATAL, "failed to create Map Output memory pool");
-			free_hadoop_cmd(*hadoop_cmd);
-			free(hadoop_cmd);
-			exit(-1);
-		}
-
-	    // register RDMA buffers
-		merging_sm.client->getRdmaClient()->register_mem(&merging_sm.mop_pool);
-		log(lsINFO, " After RDMA buffers registration (%d buffers X %d bytes = total %lld bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
 
 
 		int num_dirs =DIRS_START;
@@ -128,6 +113,47 @@ void reduce_downcall_handler(const string & msg)
 
 		log(lsDEBUG, " dhi4 compression codec is %s", g_task->compr_alg);
 		log(lsDEBUG, " dhi5 block_size for compression is %d", g_task->block_size);
+
+
+		if (!g_task->compr_alg) {//if not compression
+			g_task->client = new RdmaClient(merging_sm.data_port, g_task);
+		}else{
+			log(lsDEBUG, "bugg before creating dummydecompressor");
+			g_task->client = new DummyDecompressor(merging_sm.data_port, g_task);
+			log(lsDEBUG, "bugg after creating dummydecompressor");
+		}
+		g_task->client->start_client();
+		log(lsINFO, " AFTER INPUT CLIENT CREATION");
+
+		// init map output memory pool
+		memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
+		int numBuffers = g_task->num_maps + EXTRA_RDMA_BUFFERS; //the buffers will be allocated in pairs
+		log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
+
+		if (g_task->block_size){//TODO: katya what if it is gzip??? add what if buffer size is smaller than block size*1.25
+			rc = create_mem_pool_pair(g_task->block_size, g_task->buffer_size*2 - g_task->block_size,
+				numBuffers,
+				&merging_sm.mop_pool);
+		}else{
+			rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,
+							numBuffers,
+							&merging_sm.mop_pool);
+		}
+
+		if (rc) {
+			log(lsFATAL, "failed to create Map Output memory pool");
+			free_hadoop_cmd(*hadoop_cmd);
+			free(hadoop_cmd);
+			exit(-1);
+		}
+
+		// register RDMA buffers
+		g_task->client->getRdmaClient()->register_mem(&merging_sm.mop_pool);
+
+		log(lsINFO, " After RDMA buffers registration (%d buffer pairs X (%d + %d) bytes each pair= total %lld bytes)", numBuffers, g_task->block_size, g_task->buffer_size*2 - g_task->block_size, merging_sm.mop_pool.total_size);
+
+
+
 
 		init_reduce_task(g_task);
 		free_hadoop_cmd(*hadoop_cmd);
@@ -165,9 +191,10 @@ void reduce_downcall_handler(const string & msg)
 		memset(req, 0, sizeof(client_part_req_t));
 		req->info = hadoop_cmd;
 		/* req->host = host; */
-		req->total_len = 0;
-		req->last_fetched = 0;
+//		req->total_len = 0;
+//		req->last_fetched = 0;
 		req->mop = NULL;
+		req->request_in_air = false;
 
 		pthread_mutex_lock(&g_task->merge_man->lock);
 		g_task->merge_man->fetch_list.push_back(req);
@@ -220,25 +247,38 @@ void reduce_downcall_handler(const string & msg)
 	log(lsDEBUG, "<<<=== HANDLED COMMAND FROM JAVA SIDE");
 }
 
-int  create_mem_pool(int size, int num, memory_pool_t *pool)
+
+void init_mem_desc(mem_desc_t *desc, char *addr, int32_t buf_len){
+	desc->buff  = addr;
+	log(lsDEBUG, "bugg www adrr is %p buf len is %d", addr, buf_len);
+        desc->buf_len = buf_len;
+        desc->status = INIT;
+        desc->start = 0;
+        desc->end = 0;
+        desc->free_bytes = buf_len;
+        pthread_mutex_init(&desc->lock, NULL);
+        pthread_cond_init(&desc->cond, NULL);
+
+}
+
+
+
+int  create_mem_pool(int size, int num, memory_pool_t *pool) //similar to the old one
+//buffers come in pair and might be of different size
 {
     int pagesize = getpagesize();
     uint64_t buf_len;
-    int rc;
 
     pthread_mutex_init(&pool->lock, NULL);
     INIT_LIST_HEAD(&pool->free_descs);
 
     buf_len = size;
-    pool->size = size;
     pool->num = num;
     pool->total_size = buf_len * num;
 
-    log (lsDEBUG, "logsize is %d\n", size);
-    log (lsDEBUG, "buffer length is %d\n", buf_len);
-    log (lsDEBUG, "pool->total_size is %d\n", pool->total_size);
+    log (lsDEBUG, "buffer length is %d, pool->total_size is %d\n", buf_len, pool->total_size);
     
-    rc = posix_memalign((void**)&pool->mem,  pagesize, pool->total_size);
+    int rc = posix_memalign((void**)&pool->mem,  pagesize, pool->total_size);
     if (rc) {
     	log(lsERROR, "Failed to memalign. aligment=%d size=%ll , rc=%d", pagesize ,pool->total_size, rc );
         return -1;
@@ -249,22 +289,58 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool)
 
     for (int i = 0; i < num; ++i) {
         mem_desc_t *desc = (mem_desc_t *) malloc(sizeof(mem_desc_t));
-        desc->buff  = pool->mem + i * buf_len;
-        desc->buf_len = buf_len;
-        desc->owner = pool;
-        desc->status = INIT;
-        desc->start = 0;
-        desc->end = 0;
-        desc->free_bytes = buf_len;
-        pthread_mutex_init(&desc->lock, NULL);
-        pthread_cond_init(&desc->cond, NULL);
-
+        init_mem_desc(desc, pool->mem + i * buf_len, buf_len);
         pthread_mutex_lock(&pool->lock);
         list_add_tail(&desc->list, &pool->free_descs);
         pthread_mutex_unlock(&pool->lock);
     }
     return 0;
 }
+
+
+int  create_mem_pool_pair(int size1, int size2, int num, memory_pool_t *pool)
+//TODO: merge this with create_mem_pool method
+//buffers come in pair and might be of different size
+{
+    int pagesize = getpagesize();
+
+    pthread_mutex_init(&pool->lock, NULL);
+    INIT_LIST_HEAD(&pool->free_descs);
+
+    uint64_t num_buf_pairs = num;
+    pool->num = num;
+    pool->total_size = num_buf_pairs*(size1 + size2);
+
+    log (lsDEBUG, "buffer length1  is %d, buffer length2  is %d pool->total_size is %d\n", size1, size2, pool->total_size);
+
+    int rc = posix_memalign((void**)&pool->mem,  pagesize, pool->total_size);
+    if (rc) {
+    	log(lsERROR, "Failed to memalign. aligment=%d size=%ll , rc=%d", pagesize ,pool->total_size, rc );
+        return -1;
+    }
+
+    log(lsDEBUG,"memalign successed - %lld bytes", pool->total_size);
+    memset(pool->mem, 0, pool->total_size);
+
+    for (int i = 0; i < num; ++i) {
+    	//init mem_desc of the pair
+        mem_desc_t *desc1 = (mem_desc_t *) malloc(sizeof(mem_desc_t));
+        init_mem_desc(desc1, pool->mem + i * (size1+size2), size1);
+        mem_desc_t *desc2 = (mem_desc_t *) malloc(sizeof(mem_desc_t));
+        init_mem_desc(desc2, pool->mem + i * (size1+size2)+size1, size2);
+
+        mem_set_desc_t *pair_desc = (mem_set_desc_t *) malloc(sizeof(mem_set_desc_t));
+        pair_desc->buffer_unit[0] = desc1;
+        pair_desc->buffer_unit[1] = desc2;
+
+        pthread_mutex_lock(&pool->lock);
+        list_add_tail(&pair_desc->list, &pool->free_descs);
+        pthread_mutex_unlock(&pool->lock);
+    }
+    return 0;
+}
+
+
 
 static void init_reduce_task(struct reduce_task *task)
 {
@@ -332,21 +408,23 @@ void final_cleanup(){
 	log(lsINFO, "-------------- STOPING PROCESS ---------");
     /* free map output pool */
     while (!list_empty(&merging_sm.mop_pool.free_descs)) {
-        mem_desc_t *desc =
-            list_entry(merging_sm.mop_pool.free_descs.next,
-                       typeof(*desc), list);
-        list_del(&desc->list);
-        free(desc);
+    	mem_set_desc_t *desc_pair = list_entry(merging_sm.mop_pool.free_descs.next,
+                       typeof(*desc_pair), list);
+        list_del(&desc_pair->list);
+        for (int i=0; i<NUM_STAGE_MEM; i++){
+        	 free (desc_pair->buffer_unit[i]);
+        }
+        free(desc_pair);
     }
     pthread_mutex_destroy(&merging_sm.mop_pool.lock);
     free(merging_sm.mop_pool.mem);
     log (lsDEBUG, "mop pool is freed");
 
-    merging_sm.client->stop_client();
-    log (lsDEBUG, "RDMA client is stoped");
+//    merging_sm.client->stop_client();
+//    log (lsDEBUG, "RDMA client is stoped");
 
-    delete merging_sm.client;
-    log (lsDEBUG, "RDMA client is deleted");
+//    delete merging_sm.client;
+ //   log (lsDEBUG, "RDMA client is deleted");
 
     log (lsDEBUG, "finished all C++ threads");
 }
@@ -428,6 +506,12 @@ void finalize_reduce_task(reduce_task_t *task)
     
     free(task->reduce_task_id);
     free(task->job_id);
+    task->client->stop_client();
+    log (lsDEBUG, "INPUT client is stoped");
+
+    delete(task->client);
+    log (lsDEBUG, "INPUT client is deleted");
+
     free(task);
 
     final_cleanup();
