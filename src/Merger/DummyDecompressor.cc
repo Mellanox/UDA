@@ -33,10 +33,18 @@ public:
 	DummyDecompressor(int port, reduce_task_t* reduce_task):DecompressorWrapper (port, reduce_task){}
 
 	int get_next_block_length(char* buf) {
-		return 16384;
+		return 16000;
 //		return 100000;
 	}
 	int getBlockSizeOffset (){ return 0;} //for LZO return 4;
+
+
+	decompressRetData_t* decompress(char* compressed_buff, char* uncompressed_buff, size_t compressed_buff_len, size_t uncompressed_buff_len,int offest){
+	//decompressRetData_t* LzoDecompressor::decompress(lzo_bytep compressed_buff, lzo_bytep uncompressed_buff, lzo_uint compressed_buff_len, lzo_uint uncompressed_buff_len,int offest){
+
+			decompressRetData_t* ret = new decompressRetData_t();
+			return ret;
+	}
 
 
 

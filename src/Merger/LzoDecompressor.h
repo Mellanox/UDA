@@ -45,7 +45,7 @@ public:
 private:
 	void init();
 	void loadDecompressorFunc();
-	void* loadSymbol(void *handle, char *symbol );
+//	void* loadSymbol(void *handle, char *symbol );
 
 	char* decompressionParamName;
 	int numOfDecompressFuncs;
