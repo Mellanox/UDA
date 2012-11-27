@@ -48,6 +48,7 @@ public:
      */ 
     virtual int         nextKV();
     virtual bool        switch_mem();
+    virtual bool 		reset_data();
     virtual void        close();
     virtual void        send_request() = 0;
     virtual reduce_task *get_task() {return kv_output->task;}

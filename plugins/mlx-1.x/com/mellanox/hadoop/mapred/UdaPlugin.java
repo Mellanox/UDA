@@ -222,13 +222,13 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		
 		String bufferSize="0";
 		
-		if (alg.contains("LzoCodec")){
+//		if (alg.contains("LzoCodec")){
 			int defaultBlockSize = 256*1024;
 			bufferSize = jobConf.get("io.compression.codec.lzo.buffersize", Integer.toString(defaultBlockSize)); 
-		}
+//		}
 
 //		mParams.add(bufferSize); 
-		mParams.add(Integer.toString(256*1024));
+		mParams.add(bufferSize);
 		LOG.info("dhi3. bufferSize is " + bufferSize);
 		LOG.info("dhi4. array is " + mParams);
 		LOG.info("UDA: sending INIT_COMMAND");    	  

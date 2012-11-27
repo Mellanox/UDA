@@ -233,11 +233,12 @@ public:
     DataStream* getVal() { return this->val; }
     bool next() {
         if(this->mergeq_flag) {
+        	log(lsTRACE, "mmmf");
             return true;
         }
 
         if (core_queue.size() == 0) {
-        	log(lsTRACE, "mmm6");
+        	log(lsTRACE, "mmmp");
         	return false;
         }
 
@@ -324,6 +325,7 @@ protected:
     void adjustPriorityQueue(T segment){
         int ret = segment->nextKV();
 
+        log(lsDEBUG, "bugg mmm4");
         switch (ret) {
             case 0: { /*no more data for this segment*/
                 T s = core_queue.pop();
@@ -338,6 +340,9 @@ protected:
             }
             case -1: { /*break in the middle - for cyclic buffer can represent that you need to switch to the beginning of the buffer*/
             	log(lsDEBUG, "bugg vvv6 why are we here??? ");
+            	if (segment->get_task()->compr_alg &&  segment->reset_data()){
+            			adjustPriorityQueue(segment); //calling the function again, since data was reset
+            	}else{
                 if (segment->switch_mem() ){
                     /* DBGPRINT(DBG_CLIENT, "adjust priority queue\n"); */
                     core_queue.adjustTop();
@@ -348,6 +353,7 @@ protected:
                     log(lsDEBUG, "bugg vvv1 why are we here??? ");
                 }
                 break;
+            }
             }
         }
     }
