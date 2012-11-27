@@ -130,8 +130,8 @@ void *decompressMainThread(void* wrapper)
 				//TODO: note that we should skip the bytes indicating the length of the block!!!! do it in the deriving class
 
 				decompressRetData_t* retData = decompWrapper->decompress(rdma_mem_desc->buff + rdma_mem_desc ->start, decompWrapper->buffer,
-						next_block_size, decompWrapper->reduce_task->block_size, 0);// TODO: katya release the retData
-//				decompWrapper->decompress(rdma_mem_desc->buff + rdma_mem_desc ->start, next_block_size);
+						next_block_size, decompWrapper->reduce_task->block_size, 0);
+				decompWrapper->decompress(rdma_mem_desc->buff + rdma_mem_desc ->start, next_block_size);
 				log(lsDEBUG, "bugg after decompression for mop %drdma_mem_desc ->start=%d next_block_size=%d", current_req_to_decompress->mop->mop_id, rdma_mem_desc ->start, next_block_size);
 
 				rdma_mem_desc ->start+= next_block_size;
@@ -141,18 +141,19 @@ void *decompressMainThread(void* wrapper)
 
 				pthread_mutex_lock(&read_mem_desc->lock); //lock something on the reading side
 
-				copy_from_side_buffer_to_actual_buffer(read_mem_desc, decompWrapper->buffer, retData->num_uncompressed_bytes); 
-				log(lsDEBUG, "bugg just copied %d bytes from side buffer to actual buffer", retData->num_uncompressed_bytes);
+//				copy_from_side_buffer_to_actual_buffer(read_mem_desc, decompWrapper->buffer, retData->num_uncompressed_bytes);
+//				log(lsDEBUG, "bugg just copied %d bytes from side buffer to actual buffer", retData->num_uncompressed_bytes);
 
-//				copy_from_side_buffer_to_actual_buffer(read_mem_desc, decompWrapper->buffer, next_block_size); //TODO: for LZO instead of last fetched should return the actual #of decompressed bytes
-//				log(lsDEBUG, "bugg just copied %d bytes from side buffer to actual buffer", next_block_size);//TODO: for LZO instead of last fetched should return the actual #of decompressed bytes
+				copy_from_side_buffer_to_actual_buffer(read_mem_desc, decompWrapper->buffer, next_block_size); //TODO: for LZO instead of last fetched should return the actual #of decompressed bytes
+				log(lsDEBUG, "bugg just copied %d bytes from side buffer to actual buffer", next_block_size);//TODO: for LZO instead of last fetched should return the actual #of decompressed bytes
 
 
 				pthread_mutex_unlock(&read_mem_desc->lock);
 
-				current_req_to_decompress->mop->total_fetched_read += retData->num_uncompressed_bytes; 
-//				current_req_to_decompress->mop->total_fetched_read += next_block_size; //TODO: for LZO instead of last fetched should return the actual #of decompressed bytes
+//				current_req_to_decompress->mop->total_fetched_read += retData->num_uncompressed_bytes;
+				current_req_to_decompress->mop->total_fetched_read += next_block_size; //TODO: for LZO instead of last fetched should return the actual #of decompressed bytes
 
+//				delete (retdata);
 
 				current_req_to_decompress->mop->task->merge_man->mark_req_as_ready(current_req_to_decompress);
 				current_req_to_decompress->mop->fetch_count++;

@@ -424,9 +424,12 @@ int MergeManager::start_fetch_req(client_part_req_t *req)
 {
 
     /* Update the buf status */
-	//TODO: katya remove hard coded
-//    req->mop->mop_bufs[req->mop->staging_mem_idx]->status = BUSY;
-	req->mop->mop_bufs[0]->status = BUSY;
+
+	if (this->task->compr_alg){
+		req->mop->mop_bufs[0]->status = BUSY;
+	}else{
+		req->mop->mop_bufs[req->mop->staging_mem_idx]->status = BUSY;
+	}
 
     int ret = task->client->start_fetch_req(req);
     if ( ret == 0 ) {

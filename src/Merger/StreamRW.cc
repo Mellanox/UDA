@@ -474,71 +474,22 @@ bool BaseSegment::switch_mem() {
 			log(lsTRACE, "mmm2 inside switch_mem");
 
 
-			log(lsTRACE, "mmm7b turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
-						staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
-			//there is a partial key-value pair: must do join
-			bool b = join(staging_mem->buff, staging_mem->end);
-			int shift_len = staging_mem->end - this->in_mem_data->getLength();
-			staging_mem->start = shift_len;
-			return b;
-
-/*
-			int difference = staging_mem->end - staging_mem->start;
-			if (difference < 0){
-				//turnaround of the cyclic buffer. new data was added so must do join
-//				log(lsTRACE, "mmm7a turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d",
-//						staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
-				//checking if there is more than one key-value pair before the end of the buffer
-				if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < staging_mem->buf_len-staging_mem->start){
-					log(lsTRACE, "mmm7a turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
-								staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
-					//just reset
-					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->buf_len-staging_mem->start);
-					return true;
-				}else{
-					log(lsTRACE, "mmm7b turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
-								staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
-					//there is a partial key-value pair: must do join
-					bool b = join(staging_mem->buff, staging_mem->end);
-					int shift_len = staging_mem->end - this->in_mem_data->getLength();
-					staging_mem->start = shift_len;
-			return b;
-				}
+			if (this->get_task()->compr_alg){
+				log(lsTRACE, "mmm7b turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
+							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
+				//there is a partial key-value pair: must do join
+				bool b = join(staging_mem->buff, staging_mem->end);
+				int shift_len = staging_mem->end - this->in_mem_data->getLength();
+				staging_mem->start = shift_len;
+				return b;
 			}else{
-				if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < difference){
-					//there is new data
-					log(lsTRACE, "mmm7c since last time more data was fetched/decompressed. resetting to start=%d end=%d count=%d pos=%d",
-							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
-					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->end-staging_mem->start);
-					return true;
-				}else{
-					//no new data was added: must sleep
-					log(lsTRACE, "mmm7d there is no data: wait for fetch. start=%d, end=%d, count=%d, pos=%d. ",
-							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
-					pthread_mutex_lock(&kv_output->lock);
-					pthread_cond_wait(&kv_output->cond, &kv_output->lock);
-					pthread_mutex_unlock(&kv_output->lock);
-					log(lsTRACE, "mmm7d after wait for fetch");
-					return true;
-				}
+				// restore break record
+				log(lsTRACE, "IDAN before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched_raw, kv_output->last_fetched);
+				bool b = join(staging_mem->buff, kv_output->last_fetched);
+				// to check if we need more data from map output
+				this->send_request();
+				return b;
 			}
-
-*/
-
-
-
-			
-			//TODO: katya for non compression
-			/*
-			// restore break record
-			log(lsTRACE, "IDAN before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched, kv_output->last_fetched);
-			bool b = join(staging_mem->buff, kv_output->last_fetched);
-
-			staging_mem->start = shift_len;
-			// to check if we need more data from map output
-			this->send_request();
-			return b;
-			*/
 
 		}
 
