@@ -282,9 +282,11 @@ bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret,
    * is negative, with number of bytes that follow are -(v+120). Bytes are
    * stored in the high-non-zero-byte-first order.
    * */
-  bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret, int *br)
-{
-    int digested = 0;
+bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret, int *br) {
+	if (!stream.hasMore(1))
+		return false;
+
+	int digested = 0;
     int8_t b;
     if ((size_t)(-1) == stream.read(&b, 1)) {
         return false;
@@ -304,6 +306,12 @@ bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret,
         negative = false;
         len = -112 - b;
     }
+
+	if (!stream.hasMore(len)) {
+        stream.rewind(digested);
+		return false;
+	}
+
     uint8_t barr[len];
     if ((size_t)(-1) == stream.read(barr, len)) {
         stream.rewind(digested);

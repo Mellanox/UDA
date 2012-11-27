@@ -211,11 +211,10 @@ Segment::~Segment() {
 
 int BaseSegment::nextKVInternal(InStream *stream) {
 	//TODO: this can only work with ((DataStream*)stream)
+	log(lsTRACE, "");
+
 	if (!stream)
 		return 0;
-
-	if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len)))
-	        return -1;
 
     /* key length */
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
