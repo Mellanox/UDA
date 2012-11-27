@@ -29,14 +29,14 @@ InputClient::InputClient(int data_port, int mode, merging_state_t *state)
 {
     this->data_port = data_port;
     this->rdma  = NULL; 
-    this->tcp   = NULL;
+//    this->tcp   = NULL; AUBURN_DEAD_CODE
     this->state = state;
 }
 
 InputClient::~InputClient()
 {
     this->rdma  = NULL; 
-    this->tcp   = NULL;
+//    this->tcp   = NULL; AUBURN_DEAD_CODE
     this->state = NULL;
     this->data_port = -1;
 }

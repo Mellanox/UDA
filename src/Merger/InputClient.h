@@ -25,6 +25,7 @@
 class  RdmaClient;
 struct merging_state;
 
+#if LCOV_AUBURN_DEAD_CODE
 /* A Dummy TcpClient for now */
 class TcpClient 
 {
@@ -42,7 +43,7 @@ private:
     int create_client ();
     int destroy_client ();
 };
-
+#endif
 class InputClient 
 {
 public:
@@ -73,7 +74,7 @@ public:
     int                     data_port;
 
     RdmaClient             *rdma;
-    TcpClient              *tcp;
+    //TcpClient              *tcp; AUBURN_DEAD_CODE
     struct merging_state   *state; 
 
 };
