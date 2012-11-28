@@ -29,8 +29,7 @@ class MapOutput;
 class RawKeyValueIterator;
 #include "MergeQueue.h"
 #include "AIOHandler.h"
-
-extern int (*g_cmp_func)(char* key1, int len1, char* key2, int len2);
+#include "CompareFunc.h"
 
 class BaseSegment
 {

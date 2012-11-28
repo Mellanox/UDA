@@ -27,7 +27,7 @@
 #include "Merger/InputClient.h"
 #include "Merger/reducer.h"
 #include "include/IOUtility.h"
-
+#include "CompareFunc.h"
 using namespace std;
 
 
@@ -40,7 +40,7 @@ JNIEnv *jniEnv;
 /* merger state machine */
 merging_state_t merging_sm;
 
-int (*g_cmp_func)(char* key1, int len1, char* key2, int len2);
+hadoop_cmp_func g_cmp_func;
 
 
 int MergeManager_main(int argc, char* argv[])

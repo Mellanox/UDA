@@ -211,8 +211,6 @@ Segment::~Segment() {
 
 int BaseSegment::nextKVInternal(InStream *stream) {
 	//TODO: this can only work with ((DataStream*)stream)
-	log(lsTRACE, "");
-
 	if (!stream)
 		return 0;
 

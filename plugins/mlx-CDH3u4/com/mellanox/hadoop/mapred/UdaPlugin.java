@@ -192,7 +192,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(jobConf.get("mapred.netmerger.hybrid.lpq.size", "0"));
 		mParams.add(Integer.toString(rdmaBufferSize)); // in Bytes
 		mParams.add(Integer.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment 
-		mParams.add(jobConf.getOutputKeyClass().getSimpleName());
+		mParams.add(jobConf.getOutputKeyClass().getName());
 		
 		String [] dirs = jobConf.getLocalDirs();
 		ArrayList<String> dirsCanBeCreated = new ArrayList<String>();
