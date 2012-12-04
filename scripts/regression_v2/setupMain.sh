@@ -123,10 +123,6 @@ then
 		fi
 		cp -r $snapshotFolder/* $workingFolder/
 	fi
-	javaHomeLine="export JAVA_HOME=$JAVA_HOME"
-	sed "/export JAVA_HOME=/ c $javaHomeLine" $workingFolder/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh > $workingFolder/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
-	sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $workingFolder/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh > $workingFolder/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
-	rm -f $workingFolder/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
 	
 	headline="Daily Smoke Test of revision $revision"
 	urlLine="from $SVN_HADOOP";
@@ -136,6 +132,8 @@ else  # in case we're running a totaly-build and ready hadoop from NFS
 		echo "$echoPrefix: MY_HADOOP_HOME must be set when working with local hadoop" | tee $ERROR_LOG
 		exit $EEC1
 	fi
+	
+	echo "workingFolder=$MY_HADOOP_HOME"
 	workingFolder=$MY_HADOOP_HOME
 	workingDir=`echo "$workingFolder" | awk ' BEGIN {FS="/"} {print $NF}'`
 
@@ -152,6 +150,20 @@ if [[ $myHadoopHome == "/" ]];then
 	echo "$echoPrefix: MY_HADOOP_HOME is / !!" | tee $ERROR_LOG
 	exit $EEC1
 fi
+	javaHomeLine="export JAVA_HOME=$JAVA_HOME"
+	sed "/export JAVA_HOME=/ c $javaHomeLine" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
+	sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+	#rm -f $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
+if [[ `cat $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh` == *COVF* ]]; then
+	echo "Changing COVFILE in hadoop-env export COVFILE=${COVFILE}"
+	sed "/export COVFILE=/ c export COVFILE=${COVFILE}" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+else
+	echo "there's no COVFILE exported in hadoop-evn.sh";
+	echo "export COVFILE=$COVFILE" >> $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+fi
+
+#echo "export COVFILE=/$COVFILE" >> $DEFAULT_MY_HADOOP_HOME/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+rm -f $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
 
 echo -e \\n
 echo "$echoPrefix: MY_HADOOP_HOME is $myHadoopHome"
@@ -165,7 +177,40 @@ if (($RPM_FLAG==1));then
 		echo "$echoPrefix: uninstalling the existing RPM"
 		sudo rpm -e libuda;
 	fi
+
+	if (($CODE_COVE_FLAG==1)); then
+		echo "CODE COVERAGE FLAG is turned on!!!!"
+		echo "turning Bullseye ON!!!!!!!!!!!!!!!!"
+		
+		#bash $SCRIPTS_DIR/bullseyeRunner.sh // in this part insert bullseye install
+		cov01 -1
+	else 
+		cov01 -0
+	fi
+	
+	
+	echo "cov01 -s # bullseye Flag stat"
+	cov01 -s  # 
+	bash $TMP_DIR/$TRUNK_RPM_BUILD_RELATIVE_PATH > $STATUS_DIR/buildHadoop.txt #building rpm
+	
 	buildRpmGit
+	
+	
+	if (($CODE_COVE_FLAG==1)); then
+		echo "cov01 -0 # bullseye Flag stat"
+		cov01 -0  # 
+		echo "cov01 -s # shutting down bullseye Flag"
+		cov01 -s # shutting down bullseye Flag
+		for slave in `cat $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/slaves`
+			do
+				echo "$COVFILE $slave:/tmp/"
+				scp $COVFILE $slave:/tmp/
+			done 
+	fi
+	
+	echo "WAWAWAWWWWWWWWWAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
+	
 	#$myHadoopHome/bin/slaves.sh sudo rpm -e libuda;
 	cd ~
 	cd $RPMBUILD_DIR

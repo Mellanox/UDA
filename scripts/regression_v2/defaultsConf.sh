@@ -47,3 +47,9 @@ export TEST_DFSIO_WRITE_DIR="$TEST_DFSIO_DIR/io_write"
 export PI_NUMERIC_ERROR="0.5"
 export PI_HDFS_TEMP_DIR="/user/$USER"
 export PI_REAL_VALUE="3.141592654"
+export COVFILE=/tmp/TEST.cov
+export PATH=/labhome/shania/bullseye/bin/:$PATH
+
+
+
+

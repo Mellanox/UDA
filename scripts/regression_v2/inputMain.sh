@@ -3,6 +3,7 @@
  # control flags
 	# user-defined:
 configureFlag=0
+codeCoverageFlag=0
 executeFlag=0
 distributeFlag=0
 analizeFlag=0
@@ -89,7 +90,7 @@ usage $0
 "
 }
 
-while getopts ":beadcrstuzD:" Option
+while getopts ":beadcrstuziD:" Option
 do
 	case ${Option} in
     		"b"     ) configureFlag=1 ;;
@@ -102,6 +103,7 @@ do
 			"t"     ) testRunFlag=1 ;;
 			"u"     ) unspreadConfFlag=1 ;;
 			"z"		) zipFlag=1 ;;
+			"i"     ) codeCoverageFlag=1 ;;
     		"D"     ) 
 			param=${OPTARG:0:`expr index $OPTARG =`-1}
 			value=${OPTARG:`expr index $OPTARG =`}
@@ -153,6 +155,8 @@ fi
 
 if [ -z "$hadoopHome" ];then
     hadoopHome=$DEFAULT_MY_HADOOP_HOME
+	echo "DEFAULT_MY_HADOOP_HOME $DEFAULT_MY_HADOOP_HOME"
+	#exit $SEC
 fi
 
 if [ -z "$hadoopClasspath" ];then
@@ -250,6 +254,7 @@ echo "
 		# control flags
 	export CONTROL_FLAG=$controlFlag
 	export CONFIGURE_FLAG=$configureFlag
+	export CODE_COVE_FLAG=$codeCoverageFlag
 	export SETUP_FLAG=$setupFlag
 	export EXECUTE_FLAG=$executeFlag
 	export COLLECT_FLAG=$collectFlag
