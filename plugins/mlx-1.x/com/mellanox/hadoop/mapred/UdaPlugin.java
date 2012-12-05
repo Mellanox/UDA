@@ -217,8 +217,8 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 //		}
 		LOG.info("dhi1. compression is " + compression);
 		LOG.info("dhi2. alg is " + alg);
-//		mParams.add(alg); 
-		mParams.add("bla"); 
+		mParams.add(alg); 
+//		mParams.add("bla"); 
 		
 		String bufferSize="0";
 		

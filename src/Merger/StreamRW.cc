@@ -53,7 +53,7 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     int i = 0;
     while (records->next()) {
 
-    	log(lsTRACE, "mmm5 next");
+//    	log(lsTRACE, "mmm5 next");
     	if (records->min_segment->get_task()->compr_alg){
     		MapOutput *mop = dynamic_cast<MapOutput*>(records->min_segment->getKVOUutput());
 			if (mop == NULL) {
@@ -237,22 +237,25 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 	}
     
     /* check if stream has enough bytes to read the length of next K+V */
-    if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len))){
-        return -1;   
-    }
+ //   if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len))){
+//        log(lsTRACE, "mmm1a cur_key_len is %d  cur_val_len is %d   pos is %d start is %d end is %d", cur_key_len, cur_val_len, this->in_mem_data->getPosition(), cur_buf->start, cur_buf->end);
+//        return -1;
+ //   }
     int digested = 0;
     /* key length */
 
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
 	if (!k){
+		log(lsTRACE, "mmm1b cur_key_len is %d  cur_val_len is %d   pos is %d start is %d end is %d", cur_key_len, cur_val_len, this->in_mem_data->getPosition(), cur_buf->start, cur_buf->end);
 		return -1;
 	}
     digested += kbytes;
-    log(lsINFO, "katt1 cur_key_len is %d  kbytes is %d ", cur_key_len, kbytes);
+//    log(lsINFO, "katt1 cur_key_len is %d  kbytes is %d ", cur_key_len, kbytes);
     /* value length */
     bool v = StreamUtility::deserializeInt(*stream, cur_val_len, &vbytes);
     if (!v) {
         stream->rewind(digested);
+        log(lsTRACE, "mmm1c cur_key_len is %d  cur_val_len is %d   pos is %d start is %d end is %d", cur_key_len, cur_val_len, this->in_mem_data->getPosition(), cur_buf->start, cur_buf->end);
         return -1;
     }
     digested += vbytes;
@@ -287,7 +290,7 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     if (!stream->hasMore(cur_key_len + cur_val_len)) {
     	int ttt = this->in_mem_data->getPosition();
     	stream->rewind(digested);
-    	log(lsDEBUG, "bugg vvv2 here3 before is %d after is %d", ttt, this->in_mem_data->getPosition());
+//    	log(lsDEBUG, "bugg vvv2 here3 before is %d after is %d", ttt, this->in_mem_data->getPosition());
         return -1;
     }
 
@@ -304,7 +307,7 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     pos = ((DataStream*)stream)->getPosition();
     mem = ((DataStream*)stream)->getData();
     this->val.reset(mem + pos, cur_val_len);
-    log(lsDEBUG, "bugg vvv4-resetting6 to %d and %d", cur_key_len, cur_val_len);
+//    log(lsDEBUG, "bugg vvv4-resetting6 to %d and %d", cur_key_len, cur_val_len);
     stream->skip(cur_val_len);
     total_read = kbytes + vbytes + cur_key_len + cur_val_len;
     byte_read += total_read;
@@ -408,7 +411,7 @@ bool BaseSegment::reset_data() {
 //						staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
 				//checking if there is more than one key-value pair before the end of the buffer
 				if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < staging_mem->buf_len-staging_mem->start){
-					log(lsTRACE, "mmm7a turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
+					log(lsTRACE, "mmm7a turnaround of the cyclic buffer. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
 								staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
 					//just reset
 					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->buf_len-staging_mem->start);
@@ -428,6 +431,9 @@ bool BaseSegment::reset_data() {
 					//no new data was added: must sleep
 					log(lsTRACE, "mmm7d there is no data: wait for fetch. start=%d, end=%d, count=%d, pos=%d. ",
 							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
+					char tmp [2];
+					memcpy(tmp, this->in_mem_data->buf, 2);
+					log(lsTRACE, "mmm7d %s", tmp);
 					pthread_mutex_lock(&kv_output->lock);
 					pthread_cond_wait(&kv_output->cond, &kv_output->lock);
 					pthread_mutex_unlock(&kv_output->lock);

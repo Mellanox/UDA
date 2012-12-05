@@ -127,7 +127,7 @@ size_t DataStream::skip(size_t nbytes)
 bool DataStream::hasMore(size_t nbytes) 
 {
     if (this->pos + nbytes > this->count) {
-    	log(lsDEBUG, "bugg vvv2 here7 this->pos=%d nbytes=%d this->count=%d", this->pos,nbytes,this->count);
+ //   	log(lsDEBUG, "bugg vvv2 here7 this->pos=%d nbytes=%d this->count=%d", this->pos,nbytes,this->count);
         return false;
     }
     return true;
@@ -273,8 +273,21 @@ bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret,
 }
 
 
-bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret, int *br)
-{
+/**
+    * Serializes a long to a binary stream with zero-compressed encoding.
+    * For -112 <= i <= 127, only one byte is used with the actual value.
+    * For other values of i, the first byte value indicates whether the
+    * long is positive or negative, and the number of bytes that follow.
+    * If the first byte value v is between -113 and -120, the following long
+    * is positive, with number of bytes that follow are -(v+112).
+    * If the first byte value v is between -121 and -128, the following long
+    * is negative, with number of bytes that follow are -(v+120). Bytes are
+    * stored in the high-non-zero-byte-first order.
+    * */
+bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret, int *br) {
+    if (!stream.hasMore(1))
+       return false;
+
     int digested = 0;
     int8_t b;
     if ((size_t)(-1) == stream.read(&b, 1)) {
@@ -295,6 +308,13 @@ bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret, int *br)
         negative = false;
         len = -112 - b;
     }
+
+    if (!stream.hasMore(len)) {
+    	stream.rewind(digested);
+    	return false;
+    }
+
+
     uint8_t barr[len];
     if ((size_t)(-1) == stream.read(barr, len)) {
         stream.rewind(digested);

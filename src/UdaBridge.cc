@@ -373,8 +373,8 @@ extern "C" char* UdaBridge_invoke_getConfData_callback(JNIEnv * jniEnv, const ch
 	log(lsTRACE, "got data getConfData");
 	const char *nativeString = jniEnv->GetStringUTFChars( (jstring) jdata, 0);
 	const size_t len = strlen(nativeString);
-	char *dataStr = (char*) malloc(len);
-	strncpy(dataStr, nativeString, len);
+	char *dataStr = (char*) malloc(len+1);
+	strncpy(dataStr, nativeString, len+1);
 	jniEnv->ReleaseStringUTFChars( (jstring)jdata, nativeString);
 	return dataStr;
 

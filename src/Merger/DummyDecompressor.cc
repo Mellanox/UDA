@@ -32,8 +32,8 @@ public:
 
 	DummyDecompressor(int port, reduce_task_t* reduce_task):DecompressorWrapper (port, reduce_task){}
 
-	int get_next_block_length(char* buf) {
-		return 16000;
+	decompressRetData_t* get_next_block_length(char* buf) {
+		return NULL;
 //		return 100000;
 	}
 	int getBlockSizeOffset (){ return 0;} //for LZO return 4;

@@ -34,9 +34,9 @@ public:
     virtual void decompress(char* compressed, int length) = 0;
     virtual decompressRetData_t* decompress(char* compressed_buff, char* uncompressed_buff, size_t compressed_buff_len, size_t uncompressed_buff_len,int offest)=0;
     virtual void initDecompress() = 0;
-    bool load(char *library_name); //- implemented in the abstract class . STATIC>?????. in java it is  System.loadLibrary("gplcompression");
-    char* getParamFromJava(char* property_name);// - implemented in the abstract class. if it is int: to convert it in the calling function?
-    virtual int get_next_block_length(char* buff) = 0; //should be implemented in deriving class since different for block and non block
+//    bool load(char *library_name); //- implemented in the abstract class . STATIC>?????. in java it is  System.loadLibrary("gplcompression");
+//    char* getParamFromJava(char* property_name);// - implemented in the abstract class. if it is int: to convert it in the calling function?
+    virtual decompressRetData_t* get_next_block_length(char* buff) = 0; //should be implemented in deriving class since different for block and non block
 
     void start_client();
     void stop_client();
@@ -60,6 +60,7 @@ public:
     netlev_thread_t    decompress_thread;
     char* buffer; //this is the side buffer to where the data is decompressed
     JNIEnv *jniEnv;
+//    set<int>  mops_in_queue; //indicates req for which mops are already in queue
 
 };
 

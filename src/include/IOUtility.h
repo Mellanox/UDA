@@ -90,11 +90,12 @@ class DataStream : public InStream,
                    public OutStream 
 {
 protected:
-    char   *buf;
     size_t count;
     size_t pos;
 
 public:
+    char   *buf;
+
     DataStream(char*, int32_t);
     DataStream();
     ~DataStream();
