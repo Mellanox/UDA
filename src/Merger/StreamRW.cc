@@ -53,7 +53,6 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     int i = 0;
     while (records->next()) {
 
-//    	log(lsTRACE, "mmm5 next");
     	if (records->min_segment->get_task()->compr_alg){
     		MapOutput *mop = dynamic_cast<MapOutput*>(records->min_segment->getKVOUutput());
 			if (mop == NULL) {
@@ -165,7 +164,6 @@ BaseSegment::BaseSegment(KVOutput *kvOutput) {
 		mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
 		this->in_mem_data = new DataStream();
 		this->in_mem_data->reset(mem->buff, mem->buf_len);
-		log(lsDEBUG, "bugg creating DataStream with count=%d", mem->buf_len);
     }
     else {
     	this->in_mem_data = NULL;
@@ -236,37 +234,28 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 		return 0;
 	}
     
-    /* check if stream has enough bytes to read the length of next K+V */
- //   if (!stream->hasMore(sizeof(cur_key_len) + sizeof(cur_val_len))){
-//        log(lsTRACE, "mmm1a cur_key_len is %d  cur_val_len is %d   pos is %d start is %d end is %d", cur_key_len, cur_val_len, this->in_mem_data->getPosition(), cur_buf->start, cur_buf->end);
-//        return -1;
- //   }
     int digested = 0;
     /* key length */
 
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
 	if (!k){
-		log(lsTRACE, "mmm1b cur_key_len is %d  cur_val_len is %d   pos is %d start is %d end is %d", cur_key_len, cur_val_len, this->in_mem_data->getPosition(), cur_buf->start, cur_buf->end);
 		return -1;
 	}
     digested += kbytes;
-//    log(lsINFO, "katt1 cur_key_len is %d  kbytes is %d ", cur_key_len, kbytes);
+
     /* value length */
     bool v = StreamUtility::deserializeInt(*stream, cur_val_len, &vbytes);
     if (!v) {
         stream->rewind(digested);
-        log(lsTRACE, "mmm1c cur_key_len is %d  cur_val_len is %d   pos is %d start is %d end is %d", cur_key_len, cur_val_len, this->in_mem_data->getPosition(), cur_buf->start, cur_buf->end);
         return -1;
     }
     digested += vbytes;
-    log(lsTRACE, "mmm1 cur_key_len is %d  cur_val_len is %d   pos is %d start is %d end is %d", cur_key_len, cur_val_len, this->in_mem_data->getPosition(), cur_buf->start, cur_buf->end);
 	if (cur_key_len == EOF_MARKER && cur_val_len == EOF_MARKER) {
         eof = true;
         total_read = kbytes + vbytes;
         byte_read += total_read;
         pthread_mutex_lock(&cur_buf->lock);
         cur_buf->start += total_read;
-        log(lsDEBUG, "bugg vvv2. total_read is %d, free_bytes is %d after update it is %d", total_read, cur_buf->free_bytes, cur_buf->free_bytes+total_read);
         cur_buf->free_bytes += total_read;
         pthread_mutex_unlock(&cur_buf->lock);
         return 0;
@@ -280,7 +269,6 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 		byte_read += total_read;
 		pthread_mutex_lock(&cur_buf->lock);
 		cur_buf->start += total_read;
-		log(lsDEBUG, "bugg fff2. total_read is %d, free_bytes is %d after update it is %d", total_read, cur_buf->free_bytes, cur_buf->free_bytes+total_read);
 		cur_buf->free_bytes += total_read;
 		pthread_mutex_unlock(&cur_buf->lock);
         return 0;
@@ -288,9 +276,7 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 
     /* no enough for key + val */
     if (!stream->hasMore(cur_key_len + cur_val_len)) {
-    	int ttt = this->in_mem_data->getPosition();
     	stream->rewind(digested);
-//    	log(lsDEBUG, "bugg vvv2 here3 before is %d after is %d", ttt, this->in_mem_data->getPosition());
         return -1;
     }
 
@@ -307,7 +293,6 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     pos = ((DataStream*)stream)->getPosition();
     mem = ((DataStream*)stream)->getData();
     this->val.reset(mem + pos, cur_val_len);
-//    log(lsDEBUG, "bugg vvv4-resetting6 to %d and %d", cur_key_len, cur_val_len);
     stream->skip(cur_val_len);
     total_read = kbytes + vbytes + cur_key_len + cur_val_len;
     byte_read += total_read;
@@ -406,12 +391,9 @@ bool BaseSegment::reset_data() {
 
 			int difference = staging_mem->end - staging_mem->start;
 			if (difference < 0){
-				//turnaround of the cyclic buffer. new data was added so must do join
-//				log(lsTRACE, "mmm7a turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d",
-//						staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
 				//checking if there is more than one key-value pair before the end of the buffer
 				if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < staging_mem->buf_len-staging_mem->start){
-					log(lsTRACE, "mmm7a turnaround of the cyclic buffer. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
+					log(lsDEBUG, "turnaround of the cyclic buffer. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
 								staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
 					//just reset
 					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->buf_len-staging_mem->start);
@@ -423,21 +405,18 @@ bool BaseSegment::reset_data() {
 			}else{
 				if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < difference){
 					//there is new data
-					log(lsTRACE, "mmm7c since last time more data was fetched/decompressed. resetting to start=%d end=%d count=%d pos=%d",
+					log(lsDEBUG, "since last time more data was fetched/decompressed. resetting to start=%d end=%d count=%d pos=%d",
 							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
 					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->end-staging_mem->start);
 					return true;
 				}else{
 					//no new data was added: must sleep
-					log(lsTRACE, "mmm7d there is no data: wait for fetch. start=%d, end=%d, count=%d, pos=%d. ",
-							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
-					char tmp [2];
-					memcpy(tmp, this->in_mem_data->buf, 2);
-					log(lsTRACE, "mmm7d %s", tmp);
+					log(lsDEBUG, "there is no data: wait for fetch. start=%d, end=%d, count=%d, pos=%d. total_len_part is %d",
+							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), this->kv_output->total_len_part);
 					pthread_mutex_lock(&kv_output->lock);
 					pthread_cond_wait(&kv_output->cond, &kv_output->lock);
 					pthread_mutex_unlock(&kv_output->lock);
-					log(lsTRACE, "mmm7d after wait for fetch");
+					log(lsDEBUG, "after wait for fetch");
 					return true;
 				}
 			}
@@ -477,11 +456,8 @@ bool BaseSegment::switch_mem() {
 
 			kv_output->task->total_wait_mem_time += ((int) (ed - st));
 
-			log(lsTRACE, "mmm2 inside switch_mem");
-
-
 			if (this->get_task()->compr_alg){
-				log(lsTRACE, "mmm7b turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
+				log(lsDEBUG, "turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
 							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
 				//there is a partial key-value pair: must do join
 				bool b = join(staging_mem->buff, staging_mem->end);
@@ -511,7 +487,6 @@ bool BaseSegment::join(char *src, const int32_t src_len) {
 
     /* break in the key len */
     if (index > 0) {
-    	log(lsDEBUG, "bugg vvv4-resetting3 to %d", src_len - index);
         in_mem_data->reset(src + index, src_len - index);
         StreamUtility::deserializeInt(*in_mem_data, cur_val_len, &vbytes);
     } else {
@@ -520,7 +495,6 @@ bool BaseSegment::join(char *src, const int32_t src_len) {
 
         /* break in the val len */
         if (index > 0) {
-        	log(lsDEBUG, "bugg vvv4-resetting4 to %d", src_len - index);
 			in_mem_data->reset(src + index, src_len - index);
         }
     }
@@ -536,7 +510,6 @@ bool BaseSegment::join(char *src, const int32_t src_len) {
         char *mem = NULL;
         pos = in_mem_data->getPosition();
         mem = in_mem_data->getData();
-        log(lsDEBUG, "bugg vvv4-resetting5 to %d and %d", cur_key_len, cur_val_len);
         key.reset(mem + pos,  cur_key_len);
         val.reset(mem + pos + cur_key_len, cur_val_len);
         in_mem_data->skip(cur_key_len + cur_val_len);
@@ -568,7 +541,6 @@ bool BaseSegment::join(char *src, const int32_t src_len) {
         memcpy(temp_kv, org, part_len);
         /* Copying from the new partition */
         memcpy(temp_kv + part_len, src, shift_len);
-        log(lsDEBUG, "bugg vvv4-resetting6 to %d and %d and %d", src_len - shift_len, cur_key_len, cur_val_len);
         in_mem_data->reset(src + shift_len, src_len - shift_len);
         key.reset(temp_kv, cur_key_len);
         val.reset(temp_kv + cur_key_len, cur_val_len);

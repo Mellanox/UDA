@@ -281,7 +281,7 @@ int32_t KVOutput::getFreeBytes(){
 
 MapOutput::~MapOutput()
 {
-	log(lsDEBUG, "bugg vvv-d-tor of mop");
+	log(lsDEBUG, "d-tor of mop");
     part_req->mop = NULL;
     free_hadoop_cmd(*(part_req->info));
     free(part_req->info);
@@ -290,7 +290,7 @@ MapOutput::~MapOutput()
 
 KVOutput::~KVOutput() 
 {
-	log(lsDEBUG, "bugg vvv-d-tor of KVOutput");
+	log(lsDEBUG, "d-tor of KVOutput");
     /* return mem */
     memory_pool_t *mem_pool = &(merging_sm.mop_pool);
     mem_set_desc_t *desc_pair = (mem_set_desc_t*) malloc(sizeof(mem_set_desc_t));
@@ -382,7 +382,7 @@ int MergeManager::update_fetch_req(client_part_req_t *req)
 
     pthread_mutex_unlock(&req->mop->lock);
 
-    log(lsDEBUG, "bugg vvv1 total_len_part=%d total_len_raw=%d req->mop->total_fetched_raw=%d req->last_fetched=%d req->mop->mop_id=%d",
+    log(lsTRACE, "total_len_part=%d total_len_raw=%d req->mop->total_fetched_raw=%d req->last_fetched=%d req->mop->mop_id=%d",
        		req->mop->total_len_part, req->mop->total_len_raw, req->mop->total_fetched_raw, recvd_data[2], req->mop->mop_id);
 
     return 1;

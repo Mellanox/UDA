@@ -233,12 +233,10 @@ public:
     DataStream* getVal() { return this->val; }
     bool next() {
         if(this->mergeq_flag) {
-        	log(lsTRACE, "mmmf");
             return true;
         }
 
         if (core_queue.size() == 0) {
-        	log(lsTRACE, "mmmp");
         	return false;
         }
 
@@ -247,7 +245,6 @@ public:
             this->adjustPriorityQueue(this->min_segment);
             if (core_queue.size() == 0) {
                 this->min_segment = NULL;
-                log(lsTRACE, "mmm6");
                 return false;
             }
         }
@@ -258,11 +255,9 @@ public:
     }
 
     bool insert(T segment){
-    	log(lsTRACE, "bugg inside MergeQueue.insert");
         int ret = segment->nextKV();
         switch (ret) {
             case 0: { /*end of the map output*/
-            	log(lsDEBUG, "bugg vvv-deleting segment ");
                 delete segment;
                 break;
             }
@@ -325,11 +320,9 @@ protected:
     void adjustPriorityQueue(T segment){
         int ret = segment->nextKV();
 
-        log(lsDEBUG, "bugg mmm4");
         switch (ret) {
             case 0: { /*no more data for this segment*/
                 T s = core_queue.pop();
-                log(lsDEBUG, "bugg vvv2 why are we here??? ");
                 delete s;
                 num_of_segments--;
                 break;
@@ -339,7 +332,6 @@ protected:
                 break;
             }
             case -1: { /*break in the middle - for cyclic buffer can represent that you need to switch to the beginning of the buffer*/
-            	log(lsDEBUG, "bugg vvv6 why are we here??? ");
             	if (segment->get_task()->compr_alg &&  segment->reset_data()){
             			adjustPriorityQueue(segment); //calling the function again, since data was reset
             	}else{
@@ -350,7 +342,6 @@ protected:
                     T s = core_queue.pop();
                     num_of_segments--;
                     delete s;
-                    log(lsDEBUG, "bugg vvv1 why are we here??? ");
                 }
                 break;
             }

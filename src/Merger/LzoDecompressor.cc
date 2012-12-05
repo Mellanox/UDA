@@ -128,10 +128,7 @@ decompressRetData_t* LzoDecompressor::decompress(char* compressed_buff, char* un
 //decompressRetData_t* LzoDecompressor::decompress(lzo_bytep compressed_buff, lzo_bytep uncompressed_buff, lzo_uint compressed_buff_len, lzo_uint uncompressed_buff_len,int offest){
 	lzo_decompress_t fptr = (lzo_decompress_t) FUNC_PTR(decompressor_func_ptr);
 	lzo_uint uncomp_len = uncompressed_buff_len;
-	log(lsDEBUG,"www1 compressed_buff=%p uncompressed_buff=%p compressed_buff_len=%d uncompressed_buff_len=%d", compressed_buff, uncompressed_buff, compressed_buff_len, uncompressed_buff_len);
-
-
-
+	log(lsTRACE,"compressed_buff=%p uncompressed_buff=%p compressed_buff_len=%d uncompressed_buff_len=%d", compressed_buff, uncompressed_buff, compressed_buff_len, uncompressed_buff_len);
 
 	int rv = fptr((lzo_bytep)compressed_buff, (lzo_uint)compressed_buff_len,(lzo_bytep)uncompressed_buff, &uncomp_len,NULL);
 	if (rv == LZO_E_OK) {
@@ -160,7 +157,7 @@ decompressRetData_t* LzoDecompressor::get_next_block_length(char* buf) {
 	ret->num_compressed_bytes+=((tmp[1] & 0xFF00)<<8);
 	ret->num_compressed_bytes+=((tmp[1] & 0xFF)<<24);
 
-	log(lsDEBUG,"www2 num_uncompressed_bytes: %d num_compressed_bytes: %d",ret->num_uncompressed_bytes, ret->num_compressed_bytes);
+	log(lsTRACE,"num_uncompressed_bytes: %d num_compressed_bytes: %d",ret->num_uncompressed_bytes, ret->num_compressed_bytes);
 
 	return ret;
 

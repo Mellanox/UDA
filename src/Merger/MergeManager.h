@@ -100,6 +100,7 @@ typedef struct client_part_req
     hadoop_cmd_t     *info; /* [0]:hostname,[1]:jobid,[2]:mapid,[3]:reduceid*/
     MapOutput        *mop;         /* A pointer to mop */
     char             recvd_msg[64];
+
     bool			request_in_air;
 } client_part_req_t;
 

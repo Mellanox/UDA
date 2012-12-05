@@ -89,8 +89,6 @@ void reduce_downcall_handler(const string & msg)
 			exit(-1);
 		}
 
-
-
 		int num_dirs =DIRS_START;
 
 		if (hadoop_cmd->count -1  > DIRS_START) {
@@ -112,17 +110,16 @@ void reduce_downcall_handler(const string & msg)
 		g_task->compr_alg = strdup(hadoop_cmd->params[DIRS_START + 1 + num_dirs]);
 		g_task->block_size = atoi(hadoop_cmd->params[DIRS_START + 2 + num_dirs]);
 
-		log(lsDEBUG, " dhi4 compression codec is %s", g_task->compr_alg);
-		log(lsDEBUG, " dhi5 block_size for compression is %d", g_task->block_size);
+		log(lsDEBUG, " compression codec is %s", g_task->compr_alg);
+		log(lsDEBUG, " block_size for compression is %d", g_task->block_size);
 
 
 		if (!g_task->compr_alg) {//if not compression
 			g_task->client = new RdmaClient(merging_sm.data_port, g_task);
 		}else{
-			log(lsDEBUG, "bugg before creating dummydecompressor");
-//			g_task->client = new DummyDecompressor(merging_sm.data_port, g_task);
+			log(lsDEBUG, "before creating decompressor");
 			g_task->client = new LzoDecompressor(merging_sm.data_port, g_task);
-			log(lsDEBUG, "bugg after creating dummydecompressor");
+			log(lsDEBUG, "after creating decompressor");
 		}
 		g_task->client->start_client();
 		log(lsINFO, " AFTER INPUT CLIENT CREATION");
