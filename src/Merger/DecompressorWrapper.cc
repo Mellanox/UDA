@@ -157,6 +157,7 @@ void *decompressMainThread(void* wrapper)
 				current_req_to_decompress->mop->total_fetched_read += retData->num_uncompressed_bytes;
 
 				delete (retData);
+				delete (next_block_size);
 
 				current_req_to_decompress->mop->task->merge_man->mark_req_as_ready(current_req_to_decompress);
 				current_req_to_decompress->mop->fetch_count++;
@@ -234,7 +235,7 @@ int DecompressorWrapper::start_fetch_req(client_part_req_t *req) //called by the
 	if (rdmaBuffer->buf_len - rdmaBuffer->start  >= next_block_length->num_compressed_bytes){
 		//checking if there is enough space to decompress it
 		if (req->mop->getFreeBytes() >= req->mop->task->block_size ){
-		 	//TODO: should save somewhere the next_block_length.
+		 	//TODO: should save somewhere the next_block_length: for rdma->offset keep the next block length
 
 			log(lsTRACE, "this is enough space to decompress another block!");
 			//pushing the request to queue and waking up decompressor thread
@@ -261,6 +262,7 @@ int DecompressorWrapper::start_fetch_req(client_part_req_t *req) //called by the
 			return b;
 		   }
 	   }
+	delete (next_block_length);
 //	 TODO: return ?;
 }
 
