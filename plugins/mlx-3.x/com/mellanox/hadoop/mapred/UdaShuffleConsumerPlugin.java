@@ -24,7 +24,7 @@ import org.apache.hadoop.mapred.JobID;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.ShuffleConsumerPlugin;
-import org.apache.hadoop.mapred.ShuffleContext;
+//import org.apache.hadoop.mapred.ShuffleConsumerPlugin.Context;
 import org.apache.hadoop.mapred.RawKeyValueIterator;
 import org.apache.hadoop.mapred.TaskID;
 import org.apache.hadoop.mapred.Task;
@@ -111,7 +111,7 @@ class MapOutputLocation {
 
 
 
-public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin<K, V>{
+public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin<K, V>{
 	
 	protected ReduceTask reduceTask;
 	protected TaskAttemptID reduceId;
@@ -129,16 +129,16 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin<K, V>{
 	/**
 		* initialize this ShuffleConsumer instance.  
 	*/
-  public  void init(ShuffleContext<K, V> context) {
+  public  void init(ShuffleConsumerPlugin.Context<K, V> context) {
 	  
 
-		this.reduceTask = (ReduceTask)context.reduceTask();
-		this.reduceId = context.reduceTask().getTaskID();
+		this.reduceTask = (ReduceTask)context.getReduceTask();
+		this.reduceId = this.reduceTask.getTaskID();
 		
-		this.umbilical = context.umbilical();
-		this.jobConf = context.jobConf();
-		this.localFS = context.localFS();
-		this.reporter = context.reporter();
+		this.umbilical = context.getUmbilical();
+		this.jobConf = context.getJobConf();
+		this.localFS = context.getLocalFS();
+		this.reporter = context.getReporter();
 
 		try {
 //			configureClasspath(this.jobConf);
