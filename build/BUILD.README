@@ -15,33 +15,38 @@ RND can change 'release' from time to time (usually after doing something "meani
 RND must increment 'fix' by 1 any time we ship fix that is based on an existing version (same major.minor.release)
 NOTE: In addition, the build process will:
 	a. parse ./release file and read the version you wrote in the X.Y.Z-W format
-	b. and, will automatically add it the proper svnversion!
-	(Hence, the resulted version will be: X.Y.Z-W.<svnversion>)
+	b. and, will automatically add it the proper gitversion!
+	(Hence, the resulted version will be: X.Y.Z-W.<gitversion>)
 
 
 3) Check in ./release, ./README and ./journal.txt
 	- In this check-in use "highlighting" comment, something like:
 	************* Closing release X.Y.Z-W *******************
-	
-4) Create TAG:
-	svn cp https://sirius.voltaire.com/repos/enterprise/uda/trunk https://sirius.voltaire.com/repos/enterprise/uda/tags/UDA_<version>_from_<date>
-for example:	
-	svn cp https://sirius.voltaire.com/repos/enterprise/uda/trunk https://sirius.voltaire.com/repos/enterprise/uda/tags/UDA_3.0.2-0.r4279_from_20120930
-	(in case you build non-trunk branch, copy the TAG from your branch)
 
 *** the build ***
-5) after all files are checked-in, perform a clean check-out:
-   svn co https://sirius.voltaire.com/repos/enterprise/uda/trunk uda # uda is the desired name for the folder that svn will create
+4) after all files are checked-in, perform a clean check-out:
+   git clone /.autodirect/mswg/git/accl/uda.git
    
-6) export your JAVA_HOME, for example:
+5) export your JAVA_HOME, for example:
 	export JAVA_HOME=/usr/lib64/java/jdk1.6.0_25 # in the future this will be arg to our buildrpm.sh
 
-7) do build, using: ./uda/build/buildrpm.sh
+6) do build, using: ./uda/build/buildrpm.sh
    - the resulted rpm will be under your home in ~/rpmbuild/RPMS/x86_64/
    - the name of the rpm will be: libuda-<version>.<distribution>.x86_64.rpm
 
+*** tagging ***
+7) Create TAG:
+	git tag -a UDA_<version>_from_<date>
+	push the tag to origin (remote)
+
+for example:	
+	git tag -a UDA_3.0.2-0.r4279_from_20120930
+	git push origin UDA_3.0.2-0.r4279_from_20120930
+	(in case you build non-trunk branch, make sure to take the TAG from your branch - TODO: howto do that!)
+
+
 *** publish ***
-8) Create directory under /.autodirect/mswg/release/uda/  with name uda-X.Y.Z-W.r<revision from svn> 
+8) Create directory under /.autodirect/mswg/release/uda/  with name uda-X.Y.Z-W.r<revision from git> 
 ( you can access it from Windows, using \\labfs01\MSWG\release\uda )
 9) copy the resulted rpm to the new directory you created
 
