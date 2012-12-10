@@ -181,7 +181,7 @@ void *decompressMainThread(void* wrapper)
 				if (current_req_to_decompress->mop->total_fetched_raw < current_req_to_decompress->mop->total_len_part){
 					mem_desc_t *rdmaBuffer = current_req_to_decompress->mop->mop_bufs[0];
 					decompressRetData_t* next_block_length = decompWrapper->get_next_block_length(rdmaBuffer->buff + rdmaBuffer->start);
-					if (rdmaBuffer->buf_len - rdmaBuffer->start  < next_block_length->num_compressed_bytes && !current_req_to_decompress->request_in_air){ //check of req_in_air is redundant??
+					if (rdmaBuffer->buf_len - rdmaBuffer->start - decompWrapper->getBlockSizeOffset() < next_block_length->num_compressed_bytes && !current_req_to_decompress->request_in_air){ //check of req_in_air is redundant??
 						int leftover_prevoius_block = rdmaBuffer->buf_len - rdmaBuffer->start;
 
 					   log(lsTRACE, "should send a new fetch request - rewinding %d bytes so we would read a whole block", leftover_prevoius_block);
