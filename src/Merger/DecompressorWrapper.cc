@@ -83,7 +83,7 @@ void *decompressMainThread(void* wrapper)
 	log(lsDEBUG, "decompressMainThread DecompressorWrapper");
 	while (!decompWrapper->decompress_thread.stop){
 		if (!decompWrapper->req_to_decompress.empty()){
-			log(lsTRACE, "removing req for decompression from queue");
+//			log(lsTRACE, "removing req for decompression from queue");
 
 			pthread_mutex_lock(&decompWrapper->lock);
 			client_part_req_t *current_req_to_decompress = decompWrapper->req_to_decompress.front();
@@ -116,8 +116,8 @@ void *decompressMainThread(void* wrapper)
 				 *  one after another and there was enough space for only one block
 				 *  TODO: to consider having a data structure, that will hold a sinlge instance per MOF and only once it will be removed a new one would be added */
 				if (current_req_to_decompress->mop->task->block_size > current_req_to_decompress->mop->getFreeBytes()){
-					log(lsTRACE, "there is no free space to copy a block. block size is %d, free space is %d",
-							current_req_to_decompress->mop->task->block_size, current_req_to_decompress->mop->getFreeBytes());
+//					log(lsTRACE, "there is no free space to copy a block. block size is %d, free space is %d",
+//							current_req_to_decompress->mop->task->block_size, current_req_to_decompress->mop->getFreeBytes());
 					continue;
 				}
 
@@ -135,10 +135,11 @@ void *decompressMainThread(void* wrapper)
 				/* checking if in the meanwhile rdma buffer was emptied. it is possible that 2 requests were entered to the queue and the first one
 				read the last compressed block
 				*/
-				if (rdma_mem_desc->buf_len - rdma_mem_desc->start  < next_block_size->num_compressed_bytes){
+				if (rdma_mem_desc->buf_len - rdma_mem_desc->start - decompWrapper->getBlockSizeOffset() < next_block_size->num_compressed_bytes){
 					log(lsTRACE, "in the meanwhile rdma buffer was emptied! ");
 					continue;
 				}
+
 
 				log(lsTRACE, "sending request to decompression with block size=%d", next_block_size->num_compressed_bytes);
 
@@ -282,7 +283,7 @@ int DecompressorWrapper::start_fetch_req(client_part_req_t *req) //called by the
 						   req->mop->mop_id, req->mop->total_fetched_read, req->mop->total_len_raw, req->mop->getFreeBytes(), rdmaBuffer->start);
 
 
-			log(lsTRACE, "this is enough space to decompress another block!");
+//			log(lsTRACE, "this is enough space to decompress another block!");
 
 			//pushing the request to queue and waking up decompressor thread
 		 	pthread_mutex_lock(&this->lock);

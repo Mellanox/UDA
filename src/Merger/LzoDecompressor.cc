@@ -156,7 +156,7 @@ decompressRetData_t* LzoDecompressor::get_next_block_length(char* buf) {
 	ret->num_compressed_bytes+=((tmp[1] & 0xFF00)<<8);
 	ret->num_compressed_bytes+=((tmp[1] & 0xFF)<<24);
 
-	log(lsTRACE,"num_uncompressed_bytes: %d num_compressed_bytes: %d",ret->num_uncompressed_bytes, ret->num_compressed_bytes);
+//	log(lsTRACE,"num_uncompressed_bytes: %d num_compressed_bytes: %d",ret->num_uncompressed_bytes, ret->num_compressed_bytes);
 
 	return ret;
 
