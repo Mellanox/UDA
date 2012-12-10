@@ -67,7 +67,7 @@ void LzoDecompressor::init(){
 			  (int)sizeof(lzo_callback_t));
 	if (rv != LZO_E_OK) {
 		log(lsERROR,"Error calling lzo_init");
-		return;
+		exit (1);
 	}
 
 	loadDecompressorFunc();
@@ -86,11 +86,7 @@ void LzoDecompressor::loadDecompressorFunc(){
 	char *lzo_decompressor_function =  UdaBridge_invoke_getConfData_callback(this->jniEnv, decompressionParamName, /*"LZO1X"*/"LZO1X_SAFE");
 	log(lsDEBUG,lzo_decompressor_function);
 	int i;
-	//if wrong lzo decompressor function was specified - load default
-//	if(lzo_decompressor_function==NULL){
-//		log(lsERROR,"can't find lzo decompress function, using default LZO1X instead");
-//		lzo_decompressor_function = "LZO1X";
-//	}
+
 	for(i=0; i< numOfDecompressFuncs; i++){
 		if(strcmp(decompressorFuncs[i][0],lzo_decompressor_function)==0){
 			log(lsDEBUG,"found name!!!!!!!!!!!!!!!!!!");
@@ -98,11 +94,13 @@ void LzoDecompressor::loadDecompressorFunc(){
 			break;
 		}
 	}
+
+	free(lzo_decompressor_function);
+
 	if (i==numOfDecompressFuncs){
 		log(lsFATAL,"can't find lzo decompress function");
 		exit (1);
 	}
-	free(lzo_decompressor_function);
 }
 
 /**
@@ -116,7 +114,7 @@ void LzoDecompressor::initDecompress(){
 		liblzo2 = dlopen("liblzo2.so", RTLD_LAZY | RTLD_GLOBAL);
 		if (!liblzo2) {
 			log(lsERROR,"Error loading lzo library ");
-			  return;
+			exit (1);
 		}
 		lzo_loaded = 1;
 	}
@@ -124,7 +122,8 @@ void LzoDecompressor::initDecompress(){
 }
 
 
-decompressRetData_t* LzoDecompressor::decompress(char* compressed_buff, char* uncompressed_buff, size_t compressed_buff_len, size_t uncompressed_buff_len,int offest){
+decompressRetData_t* LzoDecompressor::decompress
+(char* compressed_buff, char* uncompressed_buff, size_t compressed_buff_len, size_t uncompressed_buff_len,int offest){
 //decompressRetData_t* LzoDecompressor::decompress(lzo_bytep compressed_buff, lzo_bytep uncompressed_buff, lzo_uint compressed_buff_len, lzo_uint uncompressed_buff_len,int offest){
 	lzo_decompress_t fptr = (lzo_decompress_t) FUNC_PTR(decompressor_func_ptr);
 	lzo_uint uncomp_len = uncompressed_buff_len;
@@ -138,7 +137,7 @@ decompressRetData_t* LzoDecompressor::decompress(char* compressed_buff, char* un
 		return ret;
 	} else {
 		log(lsERROR,"Error=%d in lzo decompress function ", rv);
-		return NULL;
+		exit (1);
 	}
 }
 

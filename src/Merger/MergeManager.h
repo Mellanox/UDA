@@ -102,6 +102,7 @@ typedef struct client_part_req
     char             recvd_msg[64];
 
     bool			request_in_air;
+    int 			bytes_in_air; //represents (for compression #of bytes that will be decompressed by the decompressor thread once he will remove this req from queue
 } client_part_req_t;
 
 

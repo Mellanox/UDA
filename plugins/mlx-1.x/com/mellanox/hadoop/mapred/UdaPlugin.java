@@ -212,22 +212,29 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		}
 
 		boolean compression = jobConf.getCompressMapOutput(); //"true" or "false"
-//		if (compression){
-			String alg = jobConf.get("mapred.map.output.compression.codec", null); 
-//		}
+		String alg = jobConf.get("mapred.map.output.compression.codec", null); 
+
 		LOG.info("dhi1. compression is " + compression);
 		LOG.info("dhi2. alg is " + alg);
 		mParams.add(alg); 
 //		mParams.add("bla"); 
 		
-		String bufferSize="0";
+//		String bufferSize="0";
 		
-//		if (alg.contains("LzoCodec")){
-			int defaultBlockSize = 256*1024;
-			bufferSize = jobConf.get("io.compression.codec.lzo.buffersize", Integer.toString(defaultBlockSize)); 
-//		}
-
-//		mParams.add(bufferSize); 
+		String bufferSize=Integer.toString(256*1024);
+		
+		if(alg!=null){
+             if(alg.contains("lzo.LzoCodec")){
+                LOG.debug("dhi3. lzo");
+                bufferSize = jobConf.get("io.compression.codec.lzo.buffersize", bufferSize);
+            }else if(alg.contains("SnappyCodec")){
+                LOG.debug("dhi3. snappy");
+                bufferSize = jobConf.get("io.compression.codec.snappy.buffersize", bufferSize);
+            }else{
+                LOG.debug("dhi3. default");
+            }
+        }
+		
 		mParams.add(bufferSize);
 		LOG.info("dhi3. bufferSize is " + bufferSize);
 		LOG.info("dhi4. array is " + mParams);

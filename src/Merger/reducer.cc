@@ -117,8 +117,20 @@ void reduce_downcall_handler(const string & msg)
 		if (!g_task->compr_alg) {//if not compression
 			g_task->client = new RdmaClient(merging_sm.data_port, g_task);
 		}else{
-			log(lsDEBUG, "before creating decompressor");
-			g_task->client = new LzoDecompressor(merging_sm.data_port, g_task);
+			log(lsDEBUG, "before creating decompressor, alg is %s",g_task->compr_alg);
+			if(strcmp(g_task->compr_alg,"com.hadoop.compression.lzo.LzoCodec")==0){
+			       log(lsDEBUG, "comp11 lzo");
+			       g_task->client = new LzoDecompressor(merging_sm.data_port, g_task);
+			}
+//			else if(strcmp(g_task->compr_alg,"org.apache.hadoop.io.compress.SnappyCodec")==0){
+//			       log(lsDEBUG, "comp11 snappy");
+//			       g_task->client = new SnappyDecompressor(merging_sm.data_port, g_task);
+//			}
+		else{
+			        log(lsERROR, "compression not supported");
+			        exit (1);
+			 }
+
 			log(lsDEBUG, "after creating decompressor");
 		}
 		g_task->client->start_client();
@@ -194,6 +206,7 @@ void reduce_downcall_handler(const string & msg)
 //		req->last_fetched = 0;
 		req->mop = NULL;
 		req->request_in_air = false;
+		req->bytes_in_air = 0;
 
 		pthread_mutex_lock(&g_task->merge_man->lock);
 		g_task->merge_man->fetch_list.push_back(req);
@@ -482,10 +495,10 @@ void finalize_reduce_task(reduce_task_t *task)
                        typeof(*desc), list);
         list_del(&desc->list);
         if ((rc=pthread_cond_destroy(&desc->cond))) {
-        	log(lsERROR, "Faile to destroy pthread_cond - rc=%d", rc);
+        	log(lsERROR, "Failed to destroy pthread_cond - rc=%d", rc);
         }
         if ((rc=pthread_mutex_destroy(&desc->lock))) {
-        	log(lsERROR, "Faile to destroy pthread_mutex - rc=%d", rc);
+        	log(lsERROR, "Failed to destroy pthread_mutex - rc=%d", rc);
         }
         free(desc);
     }
@@ -495,10 +508,10 @@ void finalize_reduce_task(reduce_task_t *task)
     write_log(task->reduce_log, DBG_CLIENT, "kv pool is freed");
 
     if ((rc=pthread_cond_destroy(&task->cond))) {
-    	log(lsERROR, "Faile to destroy pthread_cond - rc=%d", rc);
+    	log(lsERROR, "Failed to destroy pthread_cond - rc=%d", rc);
     }
     if ((rc=pthread_mutex_destroy(&task->lock))) {
-    	log(lsERROR, "Faile to destroy pthread_mutex - rc=%d", rc);
+    	log(lsERROR, "Failed to destroy pthread_mutex - rc=%d", rc);
     }
 
     write_log(task->reduce_log, DBG_CLIENT, "reduce task is freed successfully");
@@ -506,7 +519,7 @@ void finalize_reduce_task(reduce_task_t *task)
     free(task->reduce_task_id);
     free(task->job_id);
     task->client->stop_client();
-    log (lsDEBUG, "INPUT client is stoped");
+    log (lsDEBUG, "INPUT client is stopped");
 
     delete(task->client);
     log (lsDEBUG, "INPUT client is deleted");

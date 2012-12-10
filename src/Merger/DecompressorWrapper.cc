@@ -34,8 +34,8 @@ DecompressorWrapper::DecompressorWrapper(int port, reduce_task_t* reduce_task)
     int block_size = this->reduce_task->block_size;
 
     log(lsDEBUG, "length is %d", block_size);
-   this->buffer = (char *) malloc(block_size * sizeof(char));
-   memset(this->buffer, 0, block_size);
+    this->buffer = (char *) malloc(block_size * sizeof(char));
+    memset(this->buffer, 0, block_size);
 
     pthread_cond_init(&this->cond, NULL);
     pthread_mutex_init(&this->lock, NULL);
@@ -97,6 +97,11 @@ void *decompressMainThread(void* wrapper)
 					continue;
 				}
 
+				//checking if in the meanwhile, all data from rdma buffer was read and a fetch request is in the air.
+				if (current_req_to_decompress->request_in_air){
+					continue;
+				}
+
 				//check if the decompression of this block is still necessary or we already have enough data (unless it is the first fetch)
 				if (current_req_to_decompress->mop->fetch_count != 0 &&
 					current_req_to_decompress->mop->total_fetched_read  >= current_req_to_decompress->mop->total_len_raw) {
@@ -120,10 +125,11 @@ void *decompressMainThread(void* wrapper)
 				mem_desc_t * rdma_mem_desc = current_req_to_decompress->mop->mop_bufs[0];
 
 				//TODO: save this data instead of reading it again
-				decompressRetData_t* next_block_size = decompWrapper->get_next_block_length(rdma_mem_desc->buff + rdma_mem_desc ->start);
+				decompressRetData_t* next_block_size = decompWrapper->get_next_block_length(rdma_mem_desc->buff + rdma_mem_desc->start);
 
-				log(lsTRACE, "uncompr is %d, compr is %d total_fetched_read is %d total_len_raw is %d",next_block_size->num_uncompressed_bytes, next_block_size->num_compressed_bytes,
-						current_req_to_decompress->mop->total_fetched_read,  current_req_to_decompress->mop->total_len_raw);
+				log(lsTRACE, "mop_id is %d, uncompr is %d, compr is %d total_fetched_read is %d total_len_raw is %d total_len_part is %d rdma_start is %d",
+						current_req_to_decompress->mop->mop_id, next_block_size->num_uncompressed_bytes, next_block_size->num_compressed_bytes,
+						current_req_to_decompress->mop->total_fetched_read,  current_req_to_decompress->mop->total_len_raw, current_req_to_decompress->mop->total_len_part, rdma_mem_desc->start);
 
 
 				/* checking if in the meanwhile rdma buffer was emptied. it is possible that 2 requests were entered to the queue and the first one
@@ -138,12 +144,12 @@ void *decompressMainThread(void* wrapper)
 
 				//note that we should skip the bytes indicating the length of the block
 
-				decompressRetData_t* retData = decompWrapper->decompress(rdma_mem_desc->buff + rdma_mem_desc ->start + decompWrapper->getBlockSizeOffset(), decompWrapper->buffer,
+				decompressRetData_t* retData = decompWrapper->decompress(rdma_mem_desc->buff + rdma_mem_desc->start + decompWrapper->getBlockSizeOffset(), decompWrapper->buffer,
 						next_block_size->num_compressed_bytes, next_block_size->num_uncompressed_bytes, 0);
 
-				log(lsTRACE, " after decompression for mop %drdma_mem_desc ->start=%d next_block_size=%d", current_req_to_decompress->mop->mop_id, rdma_mem_desc ->start, next_block_size);
+				log(lsTRACE, "after decompression for mop %d rdma_mem_desc ->start=%d next_block_size=%d", current_req_to_decompress->mop->mop_id, rdma_mem_desc ->start, next_block_size->num_compressed_bytes);
 
-				rdma_mem_desc ->start+= next_block_size->num_compressed_bytes + decompWrapper->getBlockSizeOffset();
+				rdma_mem_desc->start += next_block_size->num_compressed_bytes + decompWrapper->getBlockSizeOffset();
 
 				mem_desc_t * read_mem_desc = current_req_to_decompress->mop->mop_bufs[1];
 
@@ -156,11 +162,38 @@ void *decompressMainThread(void* wrapper)
 
 				current_req_to_decompress->mop->total_fetched_read += retData->num_uncompressed_bytes;
 
+				//TODO : make it a different lock?
+				pthread_mutex_lock(&decompWrapper->lock);
+				current_req_to_decompress->bytes_in_air -= retData->num_uncompressed_bytes;
+				pthread_mutex_unlock(&decompWrapper->lock);
+
+
 				delete (retData);
 				delete (next_block_size);
 
 				current_req_to_decompress->mop->task->merge_man->mark_req_as_ready(current_req_to_decompress);
 				current_req_to_decompress->mop->fetch_count++;
+
+
+
+				//checking if we finished data in rdma buffer and can send a fetch request:
+				if (current_req_to_decompress->mop->total_fetched_raw < current_req_to_decompress->mop->total_len_part){
+					mem_desc_t *rdmaBuffer = current_req_to_decompress->mop->mop_bufs[0];
+					decompressRetData_t* next_block_length = decompWrapper->get_next_block_length(rdmaBuffer->buff + rdmaBuffer->start);
+					if (rdmaBuffer->buf_len - rdmaBuffer->start  < next_block_length->num_compressed_bytes && !current_req_to_decompress->request_in_air){ //check of req_in_air is redundant??
+						int leftover_prevoius_block = rdmaBuffer->buf_len - rdmaBuffer->start;
+
+					   log(lsTRACE, "should send a new fetch request - rewinding %d bytes so we would read a whole block", leftover_prevoius_block);
+
+					   current_req_to_decompress->mop->total_fetched_raw -= leftover_prevoius_block;
+					   log(lsTRACE, "mop->total_fetched_raw=%d mop->total_len_part=%d ", current_req_to_decompress->mop->total_fetched_raw, current_req_to_decompress->mop->total_len_part);
+
+					   decompWrapper->getRdmaClient()->start_fetch_req(current_req_to_decompress);
+					   current_req_to_decompress->request_in_air = true;
+
+					}
+
+				}
 
 			}
 		}
@@ -224,44 +257,41 @@ int DecompressorWrapper::start_fetch_req(client_part_req_t *req) //called by the
 		return rdmaClient->start_fetch_req(req);
 	}
 
-   log(lsTRACE, "mop->total_fetched_read=%d mop->total_len_raw=%d free bytes is %d", req->mop->total_fetched_read, req->mop->total_len_raw, req->mop->getFreeBytes());
-
+	//checking if we already have all the data decompressed:
+	if (req->mop->total_fetched_read >= req->mop->total_len_raw){
+//		log(lsTRACE, "we already have all the data decompressed");
+		return 0; //TODO return value
+	}
 
 	mem_desc_t *rdmaBuffer = req->mop->mop_bufs[0];
+
+//	 log(lsTRACE, "mopid=%d mop->total_fetched_read=%d mop->total_len_raw=%d free bytes is %d. rdma_start is %d",
+//			   req->mop->mop_id, req->mop->total_fetched_read, req->mop->total_len_raw, req->mop->getFreeBytes(), rdmaBuffer->start);
+
+
 	decompressRetData_t* next_block_length = get_next_block_length(rdmaBuffer->buff + rdmaBuffer->start);
 
 
 	//checking if there is a whole compressed block in rdmaBuffer
 	if (rdmaBuffer->buf_len - rdmaBuffer->start  >= next_block_length->num_compressed_bytes){
 		//checking if there is enough space to decompress it
-		if (req->mop->getFreeBytes() >= req->mop->task->block_size ){
+		if (req->mop->getFreeBytes()-req->bytes_in_air >= req->mop->task->block_size ){ //next_block_length->num_uncompressed_bytes
 		 	//TODO: should save somewhere the next_block_length: for rdma->offset keep the next block length
 
+			log(lsTRACE, "mopid=%d mop->total_fetched_read=%d mop->total_len_raw=%d free bytes is %d. rdma_start is %d",
+						   req->mop->mop_id, req->mop->total_fetched_read, req->mop->total_len_raw, req->mop->getFreeBytes(), rdmaBuffer->start);
+
+
 			log(lsTRACE, "this is enough space to decompress another block!");
+
 			//pushing the request to queue and waking up decompressor thread
 		 	pthread_mutex_lock(&this->lock);
 		 	this->req_to_decompress.push_back(req);
+//		 	req->bytes_in_air += next_block_length->num_uncompressed_bytes; //should be a different lock
 		 	pthread_mutex_unlock(&this->lock);
 			pthread_cond_broadcast(&this->cond); //wakes up decompress thread
 	   }
-	}else{
-		//there is only partial block in rdmaBuffer. checking if there isn't already a request sent/ we have enough decompressed data
-		   if (!req->request_in_air && req->mop->total_fetched_raw < req->mop->total_len_part) { //one can send fetch request
-			   //if there is a part of block that was fetched, must rewind, so the whole block will be fetched
-			   mem_desc_t *rdmaBuffer = req->mop->mop_bufs[0];
-			   int leftover_prevoius_block = rdmaBuffer->buf_len - rdmaBuffer->start;
-
-			   log(lsTRACE, "should send a new fetch request - rewinding %d bytes so we would read a whole block", leftover_prevoius_block);
-
-
-			   req->mop->total_fetched_raw -= leftover_prevoius_block;
-			   log(lsTRACE, "mop->total_fetched_raw=%d mop->total_len_part=%d ", req->mop->total_fetched_raw, req->mop->total_len_part);
-
-			bool b = rdmaClient->start_fetch_req(req); //TODO:to call start_fetch_req of MergeManager instead: there is return value checking code
-			req->request_in_air = true;
-			return b;
-		   }
-	   }
+	}
 	delete (next_block_length);
 //	 TODO: return ?;
 }
@@ -270,9 +300,10 @@ int DecompressorWrapper::start_fetch_req(client_part_req_t *req) //called by the
 //this method is being called by the RDMA client thread
 void DecompressorWrapper::comp_fetch_req(client_part_req_t *req)
 {
-	req->request_in_air = false;
+
 	req->mop->mop_bufs[0]->start = 0;
 	req->mop->task->merge_man->update_fetch_req(req);
+	req->request_in_air = false;
 	if (req->mop->getFreeBytes() >= req->mop->task->block_size ){
 		pthread_mutex_lock(&this->lock);
 		this->req_to_decompress.push_back(req);
@@ -297,7 +328,7 @@ void* DecompressorWrapper::loadSymbol(void *handle, char *symbol ){
 	void* func_ptr = dlsym(handle, symbol);
 	if ((error = dlerror()) != NULL) {
 		log(lsERROR,"error loading %s, %s",symbol,error);
-		return NULL;
+		exit (1);
 	}
 	return func_ptr;
 }
