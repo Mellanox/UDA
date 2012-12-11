@@ -28,14 +28,15 @@
 
 #in order to run UDA, you'll need:
 #1. add line containing jar name matching your hadoop version to the end of your hadoop-env.sh.
-	For Hadoop 1.x add:
+	For Hadoop 1.x (including HDP) add:
 	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-1.x.jar
 	For CDH3u4 add:
 	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-CDH3u4.jar
 	For Hadoop 0.20.2 add:
 	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-0.20.2.jar
 
-#2. run script set_hadoop_slave_property.sh located in /usr/lib64/uda on your slave nodes and on master node.
+#2. OPTIONAL: in case your IB interface is not the default one on your machine:
+#             run script set_hadoop_slave_property.sh located in /usr/lib64/uda on your slave nodes and on master node.
 This script edits property "slave.host.name" located in mapred-site.xml. This property is used to represent 
 the interface you want to run hadoop on. There are two ways to configure it:
 		a. it can contain `hostname`-suffix (for example eagle1-ib). In this case in /etc/hosts should contain 
@@ -49,7 +50,8 @@ Required options:
 		--interface=INTERFACE_NAME	interface name as it appears in 'ifconfig'
 		--host-suffix=HOST_SUFFIX  	suffix to be added to hostname	
 		
-3. HDFS settings:
+3. OPTIONAL: in case your IB interface is not the default one on your machine:
+#            HDFS settings:
 #Merge the following lines into your hdfs-site.xml
 <?xml version="1.0"?>
 	<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
@@ -81,7 +83,8 @@ Required options:
 				com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin
 			</description>
 		</property>
-					
+			
+		<!-- this one is OPTIONAL, needed: in case your IB interface is not the default one on your machine -->
 		<property>
 			<name>mapred.tasktracker.dns.interface</name>
 			<value>ib0</value>
