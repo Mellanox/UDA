@@ -40,7 +40,7 @@ public:
     void start_client();
     void stop_client();
 
-    int start_fetch_req(client_part_req_t *req);
+    int start_fetch_req (client_part_req_t *freq, char *buff, int32_t buf_len);
     void comp_fetch_req(client_part_req_t *req);
 
     RdmaClient* getRdmaClient();

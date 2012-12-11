@@ -502,18 +502,18 @@ void RdmaClient::stop_client(){}
 
 
 int 
-RdmaClient::start_fetch_req(client_part_req_t *freq)
+RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf_len)
 {
     int             msg_len;
     uint64_t        addr;
     netlev_conn_t  *conn;
 
 //    int idx = freq->mop->staging_mem_idx;
+//    int idx = 0;
 
-    //TODO: KATYAremove hard coded!!!!!!
-    int idx = 0;
 
-    addr = (uint64_t)((uintptr_t)(freq->mop->mop_bufs[idx]->buff));
+ //   addr = (uint64_t)((uintptr_t)(freq->mop->mop_bufs[idx]->buff));
+    addr = (uint64_t)((uintptr_t)(buff));
 
     netlev_msg_t h;
 
@@ -525,7 +525,8 @@ RdmaClient::start_fetch_req(client_part_req_t *freq)
                       freq->info->params[3],
                       addr,
                       (uint64_t) freq,
-                      freq->mop->mop_bufs[idx]->buf_len);
+                      buf_len);
+//                      freq->mop->mop_bufs[idx]->buf_len);
 
     conn = connect(freq->info->params[0], svc_port);
     if (!conn) return -1; //log was already issued inside connect

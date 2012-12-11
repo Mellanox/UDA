@@ -41,7 +41,7 @@ public:
     void start_client();
     void stop_client();
 
-    int start_fetch_req(struct client_part_req *req);
+    int start_fetch_req(struct client_part_req *req,  char * buff, int32_t buf_len);
     void comp_fetch_req(struct client_part_req *req);
     RdmaClient* getRdmaClient();
     virtual int getBlockSizeOffset() = 0; //For LZO will return the number of bytes of the block length. for non block alg's will return 0

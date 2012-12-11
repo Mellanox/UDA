@@ -425,13 +425,16 @@ int MergeManager::start_fetch_req(client_part_req_t *req)
 
     /* Update the buf status */
 
+	int ret;
 	if (this->task->compr_alg){
 		req->mop->mop_bufs[0]->status = BUSY;
+		ret = task->client->start_fetch_req(req, req->mop->mop_bufs[0]->buff, req->mop->mop_bufs[0]->buf_len);
 	}else{
 		req->mop->mop_bufs[req->mop->staging_mem_idx]->status = BUSY;
+		ret = task->client->start_fetch_req(req, req->mop->mop_bufs[req->mop->staging_mem_idx]->buff, req->mop->mop_bufs[req->mop->staging_mem_idx]->buf_len);
 	}
 
-    int ret = task->client->start_fetch_req(req);
+ //   int ret = task->client->start_fetch_req(req);
     if ( ret == 0 ) {
         if (req->mop->fetch_count == 0) {
             write_log(task->reduce_log, DBG_CLIENT,

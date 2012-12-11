@@ -49,7 +49,7 @@ public:
      * 7. For network levitation, only use the 1st registered segment
      *    to receive more data
      */
-    virtual int start_fetch_req(struct client_part_req *req) = 0;
+    virtual int start_fetch_req(struct client_part_req *req, char *buff, int32_t buf_len) = 0;
     virtual void comp_fetch_req(struct client_part_req *req) = 0;
     virtual RdmaClient* getRdmaClient() = 0;
 

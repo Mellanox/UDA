@@ -83,7 +83,7 @@ void LzoDecompressor::loadDecompressorFunc(){
 	log(lsDEBUG,"getDecompressorFunc!!!!!!!!!!!!!!!!!!");
 	initJniEnv();
 	decompressor_func_ptr = NULL;
-	char *lzo_decompressor_function =  UdaBridge_invoke_getConfData_callback(this->jniEnv, decompressionParamName, /*"LZO1X"*/"LZO1X_SAFE");
+	char *lzo_decompressor_function =  UdaBridge_invoke_getConfData_callback(this->jniEnv, decompressionParamName, "LZO1X");//LZO1X_SAFE");
 	log(lsDEBUG,lzo_decompressor_function);
 	int i;
 

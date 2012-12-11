@@ -184,12 +184,17 @@ void *decompressMainThread(void* wrapper)
 					if (rdmaBuffer->buf_len - rdmaBuffer->start - decompWrapper->getBlockSizeOffset() < next_block_length->num_compressed_bytes && !current_req_to_decompress->request_in_air){ //check of req_in_air is redundant??
 						int leftover_prevoius_block = rdmaBuffer->buf_len - rdmaBuffer->start;
 
-					   log(lsTRACE, "should send a new fetch request - rewinding %d bytes so we would read a whole block", leftover_prevoius_block);
+//					   log(lsTRACE, "should send a new fetch request - rewinding %d bytes so we would read a whole block", leftover_prevoius_block);
 
-					   current_req_to_decompress->mop->total_fetched_raw -= leftover_prevoius_block;
+//					   current_req_to_decompress->mop->total_fetched_raw -= leftover_prevoius_block;
+
+						//copy the leftover to the beginning of the rdma buffer
+						memcpy (rdmaBuffer->buff, rdmaBuffer->buff + rdmaBuffer->start, leftover_prevoius_block);
+
 					   log(lsTRACE, "mop->total_fetched_raw=%d mop->total_len_part=%d ", current_req_to_decompress->mop->total_fetched_raw, current_req_to_decompress->mop->total_len_part);
 
-					   decompWrapper->getRdmaClient()->start_fetch_req(current_req_to_decompress);
+					   decompWrapper->getRdmaClient()->start_fetch_req(current_req_to_decompress,
+							   rdmaBuffer->buff + leftover_prevoius_block, rdmaBuffer->buf_len - leftover_prevoius_block);
 					   current_req_to_decompress->request_in_air = true;
 
 					}
@@ -248,14 +253,14 @@ RdmaClient* DecompressorWrapper::getRdmaClient(){
 
 
 
-int DecompressorWrapper::start_fetch_req(client_part_req_t *req) //called by the merge thread (similar to what's happening now)
+int DecompressorWrapper::start_fetch_req(client_part_req_t *req, char * buff, int32_t buf_len) //called by the merge thread (similar to what's happening now)
 {
 
 	//checking if it is the first fetch for this reducer
 	if (!req->mop->fetch_count){
 		log(lsDEBUG, "this is the first fetch for this mop-id %d", req->mop->mop_id);
 		req->request_in_air = true;
-		return rdmaClient->start_fetch_req(req);
+		return rdmaClient->start_fetch_req(req, req->mop->mop_bufs[0]->buff, req->mop->mop_bufs[0]->buf_len);
 	}
 
 	//checking if we already have all the data decompressed:
