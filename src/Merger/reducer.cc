@@ -40,6 +40,7 @@
 #include "../DataNet/RDMAClient.h"
 #include "DummyDecompressor.cc"
 #include "LzoDecompressor.cc"
+#include "SnappyDecompressor.cc"
 
 using namespace std;
 
@@ -114,19 +115,21 @@ void reduce_downcall_handler(const string & msg)
 		log(lsDEBUG, " block_size for compression is %d", g_task->block_size);
 
 
-		if (!g_task->compr_alg) {//if not compression
+		if (!g_task->compr_alg || strcmp(g_task->compr_alg,"null")==0) {//if not compression
 			g_task->client = new RdmaClient(merging_sm.data_port, g_task);
+			log(lsTRACE, "dina no comp");
 		}else{
+			log(lsTRACE, "dina comp");
 			log(lsDEBUG, "before creating decompressor, alg is %s",g_task->compr_alg);
 			if(strcmp(g_task->compr_alg,"com.hadoop.compression.lzo.LzoCodec")==0){
 			       log(lsDEBUG, "comp11 lzo");
 			       g_task->client = new LzoDecompressor(merging_sm.data_port, g_task);
 			}
-//			else if(strcmp(g_task->compr_alg,"org.apache.hadoop.io.compress.SnappyCodec")==0){
-//			       log(lsDEBUG, "comp11 snappy");
-//			       g_task->client = new SnappyDecompressor(merging_sm.data_port, g_task);
-//			}
-		else{
+			else if(strcmp(g_task->compr_alg,"org.apache.hadoop.io.compress.SnappyCodec")==0){
+			       log(lsDEBUG, "comp11 snappy");
+			       g_task->client = new SnappyDecompressor(merging_sm.data_port, g_task);
+			}
+			else{
 			        log(lsERROR, "compression not supported");
 			        exit (1);
 			 }
@@ -141,12 +144,17 @@ void reduce_downcall_handler(const string & msg)
 		int numBuffers = g_task->num_maps + EXTRA_RDMA_BUFFERS; //the buffers will be allocated in pairs
 		log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
 
-		if (g_task->block_size){//TODO: katya what if it is gzip??? add what if buffer size is smaller than block size*1.25
-			rc = create_mem_pool_pair(g_task->block_size, g_task->buffer_size*2 - g_task->block_size,
-				numBuffers,
-				&merging_sm.mop_pool);
+		//TODO: katya what if it is gzip??? add what if buffer size is smaller than block size*1.25
+		if (!g_task->compr_alg || strcmp(g_task->compr_alg,"null")==0) {//if not compression
+			log(lsTRACE, "dina no comp");
+			log(lsINFO, "aaa1 compression not configured: allocating 2 buffers of same size");
+						rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,
+										numBuffers,
+										&merging_sm.mop_pool);
 		}else{
-			rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,
+			log(lsTRACE, "dina comp");
+			log(lsINFO, "aaa1 compression configured: allocating 2 buffers of different size");
+						rc = create_mem_pool_pair(g_task->block_size, g_task->buffer_size*2 - g_task->block_size,
 							numBuffers,
 							&merging_sm.mop_pool);
 		}

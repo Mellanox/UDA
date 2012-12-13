@@ -332,7 +332,7 @@ protected:
                 break;
             }
             case -1: { /*break in the middle - for cyclic buffer can represent that you need to switch to the beginning of the buffer*/
-            	if (segment->get_task()->compr_alg &&  segment->reset_data()){
+            	if (strcmp(segment->get_task()->compr_alg,"null")!=0 &&  segment->reset_data()){
             			adjustPriorityQueue(segment); //calling the function again, since data was reset
             	}else{
                 if (segment->switch_mem() ){

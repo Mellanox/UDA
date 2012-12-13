@@ -117,8 +117,9 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 				manager->mops_in_queue.insert(mop->mop_id);
 				Segment *segment = new Segment(mop);
 
-				if (!task->compr_alg){
+				if (!task->compr_alg || strcmp(task->compr_alg,"null")==0){
 					segment->send_request(); // send req for second buffer
+					log(lsTRACE, "dina no comp");
 				}
 
 				// the above send was called from the Segment's Ctor before, but now because it is a virtual method it canot be called from CTOR
@@ -245,12 +246,15 @@ KVOutput::KVOutput(struct reduce_task *task)
     memory_pool_t *mem_pool;
 
     this->task = task;
-    if (task->compr_alg){//compression
-    	this->staging_mem_idx = 1;
+    if (!task->compr_alg || strcmp(task->compr_alg,"null")==0){//compression
+    	this->staging_mem_idx = 0;
+    	log(lsTRACE, "dina no comp");
     }else{
-    this->staging_mem_idx = 0;
+    	this->staging_mem_idx = 1;
+    	log(lsTRACE, "dina comp");
     }
 
+    log(lsTRACE, "dina staging is %d comp is %s", this->staging_mem_idx,task->compr_alg);
     this->total_len_part = 0;
     this->total_len_raw = 0;
     this->total_fetched_raw = 0;
@@ -426,10 +430,12 @@ int MergeManager::start_fetch_req(client_part_req_t *req)
     /* Update the buf status */
 
 	int ret;
-	if (this->task->compr_alg){
+	if (strcmp(this->task->compr_alg,"null")!=0){
+		log(lsTRACE, "dina comp");
 		req->mop->mop_bufs[0]->status = BUSY;
 		ret = task->client->start_fetch_req(req, req->mop->mop_bufs[0]->buff, req->mop->mop_bufs[0]->buf_len);
 	}else{
+		log(lsTRACE, "dina no comp");
 		req->mop->mop_bufs[req->mop->staging_mem_idx]->status = BUSY;
 		ret = task->client->start_fetch_req(req, req->mop->mop_bufs[req->mop->staging_mem_idx]->buff, req->mop->mop_bufs[req->mop->staging_mem_idx]->buf_len);
 	}

@@ -53,7 +53,8 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     int i = 0;
     while (records->next()) {
 
-    	if (records->min_segment->get_task()->compr_alg){
+    	if (strcmp(records->min_segment->get_task()->compr_alg,"null")!=0){
+    		log(lsTRACE, "dina comp");
     		MapOutput *mop = dynamic_cast<MapOutput*>(records->min_segment->getKVOUutput());
 			if (mop == NULL) {
 				log(lsFATAL, "problem?");
@@ -137,9 +138,11 @@ Segment::Segment(MapOutput *mapOutput) :
 	if (mapOutput) {
 		mem_desc_t *mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
 
-		if (get_task()->compr_alg){//compression is on
+		if (strcmp(get_task()->compr_alg,"null")!=0){//compression is on
+			log(lsTRACE, "dina comp");
 			this->in_mem_data->reset(mem->buff, mem->end);
 		}else{
+			log(lsTRACE, "dina no comp");
 			this->in_mem_data->reset(mem->buff, mapOutput->last_fetched);
 		}
 	}
@@ -230,6 +233,7 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 	//TODO: this can only work with ((DataStream*)stream)
 
 	mem_desc_t *cur_buf = kv_output->mop_bufs[kv_output->staging_mem_idx];
+	log(lsTRACE, "mmm7 staging is %d", kv_output->staging_mem_idx);
 	int total_read = 0;
 	if (!stream){
 		return 0;
@@ -240,14 +244,17 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
 	if (!k){
+		log(lsTRACE, "mmm7 1");
 		return -1;
 	}
+
     digested += kbytes;
 
     /* value length */
     bool v = StreamUtility::deserializeInt(*stream, cur_val_len, &vbytes);
     if (!v) {
         stream->rewind(digested);
+        log(lsTRACE, "mmm7 2");
         return -1;
     }
     digested += vbytes;
@@ -278,6 +285,7 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     /* no enough for key + val */
     if (!stream->hasMore(cur_key_len + cur_val_len)) {
     	stream->rewind(digested);
+    	log(lsTRACE, "mmm7 3");
         return -1;
     }
 
@@ -371,6 +379,7 @@ void Segment::send_request() {
 	/* switch to new staging buffer */
     pthread_mutex_lock(&map_output->lock);
 	map_output->staging_mem_idx = (map_output->staging_mem_idx == 0 ? 1 : 0);
+	log(lsTRACE, "mmm7 staging is %d", map_output->staging_mem_idx);
     map_output->mop_bufs[map_output->staging_mem_idx]->status = FETCH_READY;
     map_output->fetch_count++;
 
@@ -385,7 +394,7 @@ void Segment::send_request() {
 
 //this function is used for compression: it resets in_mem_data if it is necessary
 bool BaseSegment::reset_data() {
-
+		log(lsDEBUG, "BaseSegment::reset_data");
 		if (kv_output != NULL) {
 			mem_desc_t *staging_mem =
 					kv_output->mop_bufs[kv_output->staging_mem_idx];
@@ -457,7 +466,8 @@ bool BaseSegment::switch_mem() {
 
 			kv_output->task->total_wait_mem_time += ((int) (ed - st));
 
-			if (this->get_task()->compr_alg){
+			if (strcmp(this->get_task()->compr_alg,"null")!=0){
+				log(lsTRACE, "dina comp");
 				log(lsDEBUG, "turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
 							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
 				//there is a partial key-value pair: must do join
@@ -466,6 +476,7 @@ bool BaseSegment::switch_mem() {
 				staging_mem->start = shift_len;
 				return b;
 			}else{
+				log(lsTRACE, "dina no comp");
 				// restore break record
 				log(lsTRACE, "IDAN before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched_raw, kv_output->last_fetched);
 				bool b = join(staging_mem->buff, kv_output->last_fetched);
