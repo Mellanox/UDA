@@ -212,7 +212,10 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		}
 
 		boolean compression = jobConf.getCompressMapOutput(); //"true" or "false"
-		String alg = jobConf.get("mapred.map.output.compression.codec", null); 
+		String alg =null;
+        if(compression){
+            alg = jobConf.get("mapred.map.output.compression.codec", null);
+		}
 
 		LOG.info("dhi1. compression is " + compression);
 		LOG.info("dhi2. alg is " + alg);
