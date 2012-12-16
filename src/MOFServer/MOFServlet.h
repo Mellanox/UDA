@@ -17,8 +17,7 @@
 **
 */
 
-#ifndef ROCE_MOF_SERVER_H
-#define ROCE_MOF_SERVER_H      1
+#define LCOV_AUBURN_DEAD_CODE 0
 
 #include <string>
 #include <map>
@@ -26,6 +25,8 @@
 #include "C2JNexus.h"
 #include "IndexInfo.h"
 #include "../DataNet/RDMAServer.h"
+
+#if LCOV_AUBURN_DEAD_CODE
 
 /* A Dummy TcpServer for now */
 class TcpServer 
@@ -43,6 +44,8 @@ private:
     int create_listener ();
     int destroy_listener();
 };
+
+#endif
 
 shuffle_req_t * get_shuffle_req(const string &param);
 
@@ -72,7 +75,7 @@ public:
     int               data_port;
     int               rdma_buf_size; //size of a single rdma buffer.
     RdmaServer       *rdma;
-    TcpServer        *tcp;
+    //TcpServer        *tcp;  LCOV_AUBURN_DEAD_CODE
     supplier_state_t *state; /* data engine */
 
     pthread_mutex_t   in_lock;
@@ -88,7 +91,6 @@ public:
     void list_fet_req(const char *test_dir);
 
 };
-#endif
 
 /*
  * Local variables:
