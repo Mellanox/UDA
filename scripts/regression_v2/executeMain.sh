@@ -100,7 +100,14 @@ do
 	# using the correct job file
 	dir_name=`ls $TESTS_PATH | grep test${line}`
 	testPath=$TESTS_PATH/$dir_name
+	source $TESTS_PATH/general.sh
 	source $testPath/exports.sh
+	echo "source $testPath/exports.sh"
+	
+	if (( $COMPRESSION==1 )); then
+		echo "bash $SCRIPTS_DIR/compressionSet.sh"
+		bash $SCRIPTS_DIR/compressionSet.sh
+	fi
 	
 	# start processing test
 	echo -e \\n\\n "$echoPrefix: -->>> execution $line. name: $EXEC_NAME" \\n\\n
@@ -213,4 +220,5 @@ echo "
 	export TEST_DFSIO_LOGS_RELATIVE_DIR='$TEST_DFSIO_JOBS_DIR_NAME'
 	export PI_LOGS_RELATIVE_DIR='$PI_JOBS_DIR_NAME'
 	export RES_SERVER=$RES_SERVER
+	export COMPRESSION='$COMPRESSION'
 " > $TMP_DIR/executeExports.sh

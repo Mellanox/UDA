@@ -7,6 +7,7 @@ export DEFAULT_GIT_HADOOPS_DIR='/.autodirect/mswg/git/accl/hadoops' #'http://web
 export DEFAULT_GIT_HADOOP_VERSION='hadoop-1.1.0-patched-v2' # hadoop-0.20.2-patched-v2
 export DEFAULT_GIT_MASTER_DIR='/.autodirect/mswg/git/accl/uda' #'http://webdev01:8080/git/accl/uda.git'
 export DEFAULT_RPM_JAR='uda-hadoop-1.x.jar'
+export DEFAULT_LZO_JAR='/.autodirect/mtrswgwork/shania/hadoop/hortonworks-hadoop-lzo-cf4e7cb/build/hadoop-lzo-0.4.15.jar'
 	# --
 export DEFAULT_CONF_FOLDER_DIR='/.autodirect/mtrswgwork/UDA/daily_regressions/tests_confs'
 export DEFAULT_MY_HADOOP_HOME='/hadoop-1.0.1'

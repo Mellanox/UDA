@@ -117,6 +117,7 @@ do
 				svn.revision	) svnRevision=$value ;;
 				rpm.jar			) rpmJar=$value ;;
 				rpm.build		) rpmBuildDir=$value ;;
+				lzo.jar			) lzoJar=$value ;;
 				#scripts		) scriptsDir=$value;;			
 				conf.folder	) confFolderDir=$value;;			
 				conf.current	) currentConfDir=$value;;	 		
@@ -189,6 +190,10 @@ fi
 
 if [ -z "$rpmJar" ];then
     rpmJar=$DEFAULT_RPM_JAR
+fi
+
+if [ -z "$lzoJar" ];then
+    lzoJar=$DEFAULT_LZO_JAR
 fi
 
 if [ -z "$reportMailingList" ];then
@@ -283,6 +288,7 @@ echo "
 	#export TRUNK_RPM_BUILD_RELATIVE_PATH='$svnRpmBuild'
 	export SVN_REVISION='$svnRevision'
 	export RPM_JAR='$rpmJar'
+	export LZO_JAR='$lzoJar'
 	export REPORT_MAILING_LIST='$reportMailingList'
 	export REPORT_NAME='$reportName'
 	export REPORT_COMMENT='$reportComment'

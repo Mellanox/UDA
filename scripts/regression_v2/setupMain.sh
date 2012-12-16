@@ -135,11 +135,16 @@ else  # in case we're running a totaly-build and ready hadoop from NFS
 	
 	echo "workingFolder=$MY_HADOOP_HOME"
 	workingFolder=$MY_HADOOP_HOME
+	last_char=`echo $workingFolder | sed 's/^.*\(.\{1\}\)$/\1/'`
+	echo "last char is: $last_char"
+	if [[ $last_char == "/" ]]; then
+		workingFolder=${workingFolder%?}
+	fi
+	
 	workingDir=`echo "$workingFolder" | awk ' BEGIN {FS="/"} {print $NF}'`
 
 	echo "$echoPrefix: cp -r $workingFolder $hadoopHome/";
 	cp -r $workingFolder $hadoopHome/; 
-	echo "$echoPrefix: cp -r $workingFolder $hadoopHome/";
 	cd $hadoopHome/$workingDir;
 	workingFolder=$workingDir
 	headline="Running hadoop from local directory"
@@ -152,11 +157,43 @@ if [[ $myHadoopHome == "/" ]];then
 fi
 	javaHomeLine="export JAVA_HOME=$JAVA_HOME"
 	sed "/export JAVA_HOME=/ c $javaHomeLine" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
-	sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
-	#rm -f $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
+	
+	#source $testPath/exports.sh
+	source $TESTS_PATH/general.sh
+	mv $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+	
+	if (( $LZO==1 )); then
+
+		echo "sed /export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}:${RPM_JAR}${LZO_JAR} $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh"
+		sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}:${LZO_JAR}" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
+		
+		echo "cat $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh"
+		mv $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+	
+		if [[ `cat $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh` == *JAVA_LIBRARY_PATH* ]]; then
+			echo "$(basename $0) Changing JAVA_LIBRARY_PATH in hadoop-env"
+			sed "/export JAVA_LIBRARY_PATH=/ c export JAVA_LIBRARY_PATH=/.autodirect/mtrswgwork/shania/hadoop/hortonworks-hadoop-lzo-cf4e7cb/build/native/Linux-amd64-64/.libs/" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
+			#mv $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+			
+		else
+			echo "$(basename $0) there's no JAVA_LIBRARY_PATH exported in hadoop-evn.sh ";
+			echo "export JAVA_LIBRARY_PATH=/.autodirect/mtrswgwork/shania/hadoop/hortonworks-hadoop-lzo-cf4e7cb/build/native/Linux-amd64-64/.libs/" >> $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+			
+		fi
+	
+	else
+		sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
+		mv $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+		rm -f $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
+	fi
+	
+	
+	
+	
 if [[ `cat $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh` == *COVF* ]]; then
 	echo "Changing COVFILE in hadoop-env export COVFILE=${COVFILE}"
-	sed "/export COVFILE=/ c export COVFILE=${COVFILE}" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+	sed "/export COVFILE=/ c export COVFILE=${COVFILE}" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
+	mv $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
 else
 	echo "there's no COVFILE exported in hadoop-evn.sh";
 	echo "export COVFILE=$COVFILE" >> $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
@@ -208,7 +245,6 @@ if (($RPM_FLAG==1));then
 			done 
 	fi
 	
-	echo "WAWAWAWWWWWWWWWAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
 	
 	#$myHadoopHome/bin/slaves.sh sudo rpm -e libuda;
