@@ -105,6 +105,8 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	private final int         kv_buf_size = 1 << 20;   /* 1 MB */
 	private final int         kv_buf_num = 2;
 	private KVBuf[]           kv_bufs = null;
+	
+	private final float 	  default_shuffle_input_buffer_percent = 0.7f;
 
 	private void init_kv_bufs() {
 		kv_bufs = new KVBuf[kv_buf_num];
@@ -143,10 +145,14 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		this.udaShuffleConsumer = udaShuffleConsumer;
 		this.reduceTask = reduceTask;
 		
-		int maxRdmaBufferSize= jobConf.getInt("mapred.rdma.buf.size", 1024);
-		int minRdmaBufferSize=jobConf.getInt("mapred.rdma.buf.size.min", 16);
+		long maxRdmaBufferSize= jobConf.getInt("mapred.rdma.buf.size", 1024);
+		long minRdmaBufferSize=jobConf.getInt("mapred.rdma.buf.size.min", 16);
 		long maxHeapSize = Runtime.getRuntime().maxMemory();
-		float shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", 0.7f);
+		float shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", default_shuffle_input_buffer_percent);
+		if ((shuffleInputBufferPercent < 0) || (shuffleInputBufferPercent > 1)) {
+			LOG.warn("UDA: mapred.job.shuffle.input.buffer.percent is out of range - set to default: " + default_shuffle_input_buffer_percent);
+			shuffleInputBufferPercent = default_shuffle_input_buffer_percent;
+		}
 		long shuffleMemorySize = (long)(maxHeapSize * shuffleInputBufferPercent);
 		
 		LOG.debug("UDA: numMaps=" + numMaps + 
@@ -159,9 +165,9 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		LOG.info("UDA: user prefer rdma.buf.size=" + maxRdmaBufferSize + "KB");
 		LOG.info("UDA: minimum rdma.buf.size=" + minRdmaBufferSize + "KB");
 
-		int rdmaBufferSize=maxRdmaBufferSize * 1024; // for comparing rdmaBuffSize to shuffleMemorySize in Bytes
-		if (shuffleMemorySize < numMaps * rdmaBufferSize * 2 ) { // double buffer
-			rdmaBufferSize= (int)(shuffleMemorySize / (numMaps * 2) );
+		long rdmaBufferSize=maxRdmaBufferSize * 1024; // for comparing rdmaBuffSize to shuffleMemorySize in Bytes
+		if (shuffleMemorySize <  numMaps * rdmaBufferSize * 2) { // 2 for double buffer
+			rdmaBufferSize= shuffleMemorySize / (numMaps * 2);
 			//*** Can't get pagesize from java, avoid using hardcoded pagesize, c will make the alignment */ 
 		
 			if (rdmaBufferSize < minRdmaBufferSize * 1024) {
@@ -170,7 +176,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 			LOG.warn("UDA: Not enough memory for rdma.buf.size=" + maxRdmaBufferSize + "KB");
 		}		
 		LOG.info("UDA: number of segments to fetch: " + numMaps);
-		LOG.info("UDA: Passing to MofSupplier rdma.buf.size=" + rdmaBufferSize + "B  (not aligned to pagesize)");
+		LOG.info("UDA: Passing to C rdma.buf.size=" + rdmaBufferSize + "B  (not aligned to pagesize)");
 		
 		/* init variables */
 		init_kv_bufs(); 
@@ -190,8 +196,8 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(reduceId.getJobID().toString());
 		mParams.add(reduceId.toString());
 		mParams.add(jobConf.get("mapred.netmerger.hybrid.lpq.size", "0"));
-		mParams.add(Integer.toString(rdmaBufferSize)); // in Bytes
-		mParams.add(Integer.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment			 
+		mParams.add(Long.toString(rdmaBufferSize)); // in Bytes
+		mParams.add(Long.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment			 
 		mParams.add(jobConf.getOutputKeyClass().getName());
 		
 		
