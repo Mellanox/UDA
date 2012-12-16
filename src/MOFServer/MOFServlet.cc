@@ -76,7 +76,7 @@ OutputServer::OutputServer(int data_port, int mode, int rdma_buf_size,
 	this->data_port = data_port;
     this->rdma = NULL; 
     this->rdma_buf_size = rdma_buf_size;
-    this->tcp  = NULL;
+    //this->tcp  = NULL;    AUBURN_DEAD_CODE
     this->state = state;
     INIT_LIST_HEAD(&this->incoming_req_list);
 

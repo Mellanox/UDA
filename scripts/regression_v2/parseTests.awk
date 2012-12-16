@@ -189,6 +189,12 @@ function exportMenager()
 		print "export SHUFFLE_PROVIDER=1" >> execDir "/" exportsFile
 	else
 		print "export SHUFFLE_PROVIDER=0" >> execDir "/" exportsFile
+	
+	if (execParams["mapred.compress.map.output"] == "true"){
+		print "export COMPRESION_=1" >> execDir "/" exportsFile
+		if (execParams["mapred.map.output.compression.codec"] == "com.hadoop.compression.lzo.LzoCodec")
+			print "export COMPRESION_TYPE=LZO" >> execDir "/" exportsFile
+	}
 
 	manageAddParams()
 }
@@ -314,6 +320,8 @@ BEGIN{
 	
 	piMappersDefault=10
 	piSamplesDefault=100
+	isSnappyExist=0
+	isLZOExist=0
 	
 	confFilesHeader="<?xml version=\"1.0\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>"
 	executionPrefix="bin/hadoop jar"
@@ -407,6 +415,11 @@ BEGIN{
 			}
 			else
 				confParams = confParams "-D" propName "=" propValue " "
+			
+			if ( match(propValue, /com.hadoop.compression.lzo.LzoCodec/) ==1 ){
+				isLZOExist=1
+				print "isLZOExist" ,isLZOExist
+			}
 		}
 	}
 	#CMD= executionPrefix " " execParams["jar_dir"] " " execParams["program"] " " confParams 
@@ -469,10 +482,21 @@ END{
 		relevantSlavesComma=""
 		errorDesc = errorDesc "error in general configuration - no slaves selected \n"
 	}
+
+	if ( isLZOExist==1 ){
+		print "export LZO=1" >> generalDir
+		print "export COMPRESSION=1" >> generalDir
+	}
+	else
+		print "export COMPRESSION=0" >> generalDir
+
 	print "export RELEVANT_SLAVES_BY_SPACES='" relevantSlavesSpace "'" >> generalDir
 	print "export RELEVANT_SLAVES_BY_COMMAS='" relevantSlavesComma "'" >> generalDir
 	print "export TESTS_COUNT=" testsCount >> generalDir
 	print "export DEFAULT_RES_SERVER='" generalParams[glbMasters]  "'"  >> generalDir
 	print "export ERRORS='" errorDesc "'" >> generalDir
 	print errorDesc
+	isSnappyExist=0
+	isLZOExist=0
 }
+
