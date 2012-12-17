@@ -78,7 +78,7 @@ public class UdaBridge {
 	static public Object getPathUda(String jobId, String mapId, int reduceId)  {
 		if (LOG.isDebugEnabled()) LOG.debug("+++>>> started  UdaBridge.getPathUda");
     	//String s = callable.getPath(jobId, mapId, reduceId);//return "katya";
-		DataPassToJni d = UdaPluginTT.getPathIndex(jobId, mapId, reduceId);//return "katya";
+		DataPassToJni d = UdaPluginSH.getPathIndex(jobId, mapId, reduceId);//return "katya";
 		return d;
 	}	
 	
