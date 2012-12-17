@@ -106,7 +106,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	private final int         kv_buf_num = 2;
 	private KVBuf[]           kv_bufs = null;
 	
-	private final float 	  default_shuffle_input_buffer_percent = 0.7f;
+	private final static float 	  DEFAULT_SHUFFLE_INPUT_PERCENT = 0.7f;
 
 	private void init_kv_bufs() {
 		kv_bufs = new KVBuf[kv_buf_num];
@@ -145,13 +145,13 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		this.udaShuffleConsumer = udaShuffleConsumer;
 		this.reduceTask = reduceTask;
 		
-		long maxRdmaBufferSize= jobConf.getInt("mapred.rdma.buf.size", 1024);
-		long minRdmaBufferSize=jobConf.getInt("mapred.rdma.buf.size.min", 16);
+		long maxRdmaBufferSize= jobConf.getLong("mapred.rdma.buf.size", 1024);
+		long minRdmaBufferSize=jobConf.getLong("mapred.rdma.buf.size.min", 16);
 		long maxHeapSize = Runtime.getRuntime().maxMemory();
-		float shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", default_shuffle_input_buffer_percent);
+		double shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", DEFAULT_SHUFFLE_INPUT_PERCENT);
 		if ((shuffleInputBufferPercent < 0) || (shuffleInputBufferPercent > 1)) {
-			LOG.warn("UDA: mapred.job.shuffle.input.buffer.percent is out of range - set to default: " + default_shuffle_input_buffer_percent);
-			shuffleInputBufferPercent = default_shuffle_input_buffer_percent;
+			LOG.warn("UDA: mapred.job.shuffle.input.buffer.percent is out of range - set to default: " + DEFAULT_SHUFFLE_INPUT_PERCENT);
+			shuffleInputBufferPercent = DEFAULT_SHUFFLE_INPUT_PERCENT;
 		}
 		long shuffleMemorySize = (long)(maxHeapSize * shuffleInputBufferPercent);
 		
@@ -173,10 +173,10 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 			if (rdmaBufferSize < minRdmaBufferSize * 1024) {
 				throw new OutOfMemoryError("UDA: Not enough memory for rdma buffers: shuffleMemorySize=" + shuffleMemorySize + "B, mapred.rdma.buf.size.min=" + minRdmaBufferSize + "KB");
 			}
-			LOG.warn("UDA: Not enough memory for rdma.buf.size=" + maxRdmaBufferSize + "KB");
+			LOG.warn("UDA: using calulated RDMA buffer size=" + rdmaBufferSize + "B (not aligned yet) instead of max size=" + maxRdmaBufferSize + "KB");
 		}		
 		LOG.info("UDA: number of segments to fetch: " + numMaps);
-		LOG.info("UDA: Passing to C rdma.buf.size=" + rdmaBufferSize + "B  (not aligned to pagesize)");
+		LOG.info("UDA: Passing to C rdma.buf.size=" + rdmaBufferSize + "B  (before alignment to pagesize)");
 		
 		/* init variables */
 		init_kv_bufs(); 
