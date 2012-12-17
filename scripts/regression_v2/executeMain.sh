@@ -38,6 +38,8 @@ calculateDataSize (){
 				tmp="${tmp}${DATA_SET} "
 				sum=$((${sum}-${DATA_SET}))
 		done
+	else 
+		tmp=${DATA_SET}
 	fi
 
 	calculateDataSizeRetVal=$tmp
