@@ -25,9 +25,9 @@ CPATH=.:hadoop-common-3.0.0-SNAPSHOT.jar:commons-logging-1.1.1.jar:hadoop-mapred
 all:
 	rm -rf out
 	mkdir -p out
-#	CLASSPATH=$(CPATH) javac -d out com/mellanox/hadoop/mapred/*.java
-	CLASSPATH=$(CPATH) javac -d out com/mellanox/hadoop/mapred/SpillRecord.java  com/mellanox/hadoop/mapred/IndexCache.java com/mellanox/hadoop/mapred/UdaPlugin.java com/mellanox/hadoop/mapred/UdaBridge.java com/mellanox/hadoop/mapred/UdaShuffleConsumerPlugin.java com/mellanox/hadoop/mapred/UdaShuffleHandler.java
-	jar -cvf uda-hadoop-3.x.jar -C out com
+	CLASSPATH=$(CPATH) javac -d out -sourcepath ../shared/:. com/mellanox/hadoop/mapred/*.java org/apache/hadoop/mapred/*.java ../shared/com/mellanox/hadoop/mapred/*.java ../shared/org/apache/hadoop/mapred/*.java
+	
+	jar -cvf uda-hadoop-3.x.jar -C out com org
 	rm -rf out
 
 clean:

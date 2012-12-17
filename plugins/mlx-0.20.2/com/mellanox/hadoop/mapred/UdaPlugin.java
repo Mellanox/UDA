@@ -582,6 +582,13 @@ class UdaPluginTT extends UdaPlugin {
 
 }
 
+// Starting to unify code between all our plugins...
+class UdaPluginSH {
+	static DataPassToJni getPathIndex(String jobId, String mapId, int reduce){
+		return UdaPluginTT.getPathIndex(jobId, mapId, reduce);
+	}
+}
+
 
 
 class UdaCmd {
