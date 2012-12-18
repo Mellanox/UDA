@@ -38,7 +38,7 @@ public class UdaMapredBridge {
 	public static ShuffleConsumerPlugin getShuffleConsumerPlugin(Class<? extends ShuffleConsumerPlugin> clazz, ReduceTask reduceTask, 
 			TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws ClassNotFoundException, IOException  {
 	
-		return getShuffleConsumerPlugin(clazz, reduceTask, umbilical, conf, (TaskReporter) reporter);
+		return ShuffleConsumerPlugin.getShuffleConsumerPlugin(clazz, reduceTask, umbilical, conf, (TaskReporter) reporter);
 	}
 
 }

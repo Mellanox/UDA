@@ -53,7 +53,8 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;  // TODO: probably concurrency is not needed 
 
-//import org.apache.hadoop.mapred.ReduceTask.ReduceCopier.MapOutputLocation;
+
+import org.apache.hadoop.mapred.UdaMapredBridge;
 /**
 	* Abstraction to track a map-output.
 */
@@ -103,6 +104,8 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	// This is the channel used to transfer the data between RDMA C++ and Hadoop
 	private UdaPluginRT rdmaChannel;
 	
+	ShuffleConsumerPlugin fallbackPlugin = null;
+	
 	/**
 		* initialize this ShuffleConsumer instance.  The base class implementation will initialize its members and 
 		* then invoke init for plugin specific initiaiztion
@@ -116,15 +119,37 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	*/
 	public void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException {
 
-		this.reduceTask = reduceTask;
-		this.reduceId = reduceTask.getTaskID();
-		
-		this.umbilical = umbilical;
-		this.jobConf = conf;
-		this.reporter = reporter;
-
-		configureClasspath(jobConf);
-		this.rdmaChannel = new UdaPluginRT<K,V>(this, reduceTask, jobConf, reporter, reduceTask.getNumMaps());
+		try {
+			LOG.warn("Using UdaShuffleConsumerPlugin");
+			this.reduceTask = reduceTask;
+			this.reduceId = reduceTask.getTaskID();
+			
+			this.umbilical = umbilical;
+			this.jobConf = conf;
+			this.reporter = reporter;
+	
+			configureClasspath(jobConf);
+			this.rdmaChannel = new UdaPluginRT<K,V>(this, reduceTask, jobConf, reporter, reduceTask.getNumMaps());
+		}
+		catch (Throwable t) {		
+			LOG.error("Failed to initialize UdaPlugin - fallbacking to vanilla. \nException is:" + StringUtils.stringifyException(t));
+			try {
+				if (rdmaChannel != null) 
+					close();
+			}
+			catch (Throwable t2) {
+				LOG.warn("Failed to properly close rdmaChannel.\nException is:" + StringUtils.stringifyException(t2));
+			}
+			
+			try {
+				fallbackPlugin = UdaMapredBridge.getShuffleConsumerPlugin(null, reduceTask, umbilical, conf, reporter);
+			}
+			catch (ClassNotFoundException e) {
+				RuntimeException re = new RuntimeException("Failed to initialize UDA Shuffle and failed to fallback to vanilla Shuffle because of ClassNotFoundException", e);
+				re.setStackTrace(e.getStackTrace());
+				throw re;
+			}
+		}
 	}
 	
     
@@ -140,7 +165,11 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	*/
 	protected volatile boolean exitGetMapEvents = false; //TODO: no need volatile
 	
-	public boolean fetchOutputs() {
+	public boolean fetchOutputs() throws IOException {
+		if (fallbackPlugin != null) {
+			return fallbackPlugin.fetchOutputs();
+		}
+		
 		GetMapEventsThread getMapEventsThread = null;
 		// start the map events thread
 		getMapEventsThread = new GetMapEventsThread();
@@ -169,10 +198,18 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	}   
 	
 	public RawKeyValueIterator createKVIterator(JobConf job, FileSystem fs, Reporter reporter) throws IOException {
+		if (fallbackPlugin != null) {
+			return fallbackPlugin.createKVIterator(job, fs, reporter);
+		}
+		
 		return this.rdmaChannel.createKVIterator_rdma(job,fs,reporter);
 	}
 	
 	public void close() {
+		if (fallbackPlugin != null) {
+			fallbackPlugin.close();
+			return;
+		}
 		this.rdmaChannel.close();
 	}
 	
