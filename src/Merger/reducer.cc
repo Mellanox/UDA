@@ -134,25 +134,6 @@ void reduce_downcall_handler(const string & msg)
 		 * 2. map from the hostid to its request list
 		 * 3. lock the list and insert the new request
 		 */
-		//string hostid = hadoop_cmd->params[0];
-
-		/* map<string, host_list_t *>::iterator iter;
-        host = NULL;
-        bool is_new = false;
-
-            pthread_mutex_lock(&g_task->lock);
-            iter = g_task->hostmap->find(hostid);
-            if (iter == g_task->hostmap->end()) {
-            host = (host_list_t *) malloc(sizeof(host_list_t));
-            pthread_mutex_init(&host->lock, NULL);
-            INIT_LIST_HEAD(&host->todo_fetch_list);
-            host->hostid = strdup(hostid.c_str());
-                (*(g_task->hostmap))[hostid] = host;
-            is_new = true;
-        } else {
-            host = iter->second;
-        }
-            pthread_mutex_unlock(&g_task->lock); */
 
 		/* Insert a segment request into the list */
 		req = (client_part_req_t *) malloc(sizeof(client_part_req_t));
@@ -168,20 +149,6 @@ void reduce_downcall_handler(const string & msg)
 
 		pthread_cond_broadcast(&g_task->merge_man->cond);
 		pthread_mutex_unlock(&g_task->merge_man->lock);
-
-		/* pthread_mutex_lock(&host->lock);
-        list_add_tail(&req->list, &host->todo_fetch_list);
-        pthread_mutex_unlock(&host->lock);
-
-            pthread_mutex_lock(&g_task->fetch_man->send_req_lock);
-        if (is_new) {
-                list_add_tail(&host->list, &g_task->fetch_man->send_req_list);
-        }
-            g_task->fetch_man->send_req_count++;
-            pthread_mutex_unlock(&g_task->fetch_man->send_req_lock);*/
-
-		/* wake up fetch thread */
-		//pthread_cond_broadcast(&g_task->cond);
 
 		write_log(g_task->reduce_log, DBG_CLIENT,
 				"Got 1 more fetch request, total is %d",
@@ -348,19 +315,6 @@ void finalize_reduce_task(reduce_task_t *task)
    /* for measurement please enable the codes and set up your directory */
 	log(lsINFO, "-------------- STOPING REDUCER ---------");
 
-/*
- Avner: no one has ever updated this counters
-
-    write_log(task->reduce_log, DBG_CLIENT, 
-              "Total merge time: %d",  
-              task->total_merge_time);
-    write_log(task->reduce_log, DBG_CLIENT, 
-              "Total upload time: %d", 
-              task->total_upload_time);
-    write_log(task->reduce_log, DBG_CLIENT, 
-              "Total fetch time: %d",
-              task->total_fetch_time);
-//*/
     write_log(task->reduce_log, DBG_CLIENT,
               "Total wait  time: %d", 
               task->total_wait_mem_time);
@@ -376,17 +330,6 @@ void finalize_reduce_task(reduce_task_t *task)
 
     delete task->merge_man;
    
-    /* delete map */
-    /* map <string, host_list_t*>::iterator iter =
-        task->hostmap->begin();
-    while (iter != task->hostmap->end()) {
-        free((iter->second)->hostid);
-        free(iter->second);
-        iter++;
-    }
-    delete task->hostmap;
-    DBGPRINT(DBG_CLIENT, "host lists and map are freed\n"); */
-
     /* free large pool */
 	int rc=0;
     log(lsTRACE, ">> before free pool loop");
