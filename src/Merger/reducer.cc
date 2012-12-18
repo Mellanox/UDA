@@ -52,6 +52,65 @@ static void init_reduce_task(struct reduce_task *task);
 
 reduce_task_t * g_task;
 
+void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
+{
+	static const int DIRS_START = 7;
+
+
+	assert (hadoop_cmd->count -1 > 2); // sanity under debug
+	g_task->num_maps = atoi(hadoop_cmd->params[0]);
+	g_task->job_id = strdup(hadoop_cmd->params[1]);
+	g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
+	g_task->lpq_size = atoi(hadoop_cmd->params[3]);
+	int buffer_size_from_java = atoi(hadoop_cmd->params[4]); // unaligned to pagesize
+	g_task->buffer_size = buffer_size_from_java - buffer_size_from_java % getpagesize(); // alignment to pagesize
+	int minBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
+	log(lsINFO, "set C compare function according to java key class: %s",  hadoop_cmd->params[6]);
+	g_cmp_func = get_compare_func(hadoop_cmd->params[6]); // set compare func using Java's key type name
+
+	if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minBuffer) ) {
+		log(lsFATAL, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minBuffer);
+		exit(-1);
+	}
+
+	// init map output memory pool
+    memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
+	int numBuffers = g_task->num_maps * RDMA_BUFFERS_PER_SEGMENT + EXTRA_RDMA_BUFFERS;
+		log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
+
+	if (create_mem_pool(g_task->buffer_size,
+					numBuffers,
+					&merging_sm.mop_pool)) {
+		log(lsFATAL, "failed to create Map Output memory pool");
+		free_hadoop_cmd(*hadoop_cmd);
+		free(hadoop_cmd);
+		exit(-1);
+	}
+
+    // register RDMA buffers
+	merging_sm.client->rdma->register_mem(&merging_sm.mop_pool);
+	log(lsINFO, " After RDMA buffers registration (%d buffers X %d bytes = total %lld bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
+
+	if (hadoop_cmd->count -1  > DIRS_START) {
+		assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
+		if (hadoop_cmd->params[DIRS_START] != NULL) {
+			int num_dirs = atoi(hadoop_cmd->params[DIRS_START]);
+			log(lsDEBUG, " ===>>> num_dirs=%d" , num_dirs);
+
+			assert (num_dirs >= 0); // sanity under debug
+			if (num_dirs > 0 && DIRS_START + 1 + num_dirs  <= hadoop_cmd->count - 1) {
+				g_task->local_dirs.resize(num_dirs);
+				for (int i = 0; i < num_dirs; ++i) {
+					g_task->local_dirs[i].assign(hadoop_cmd->params[DIRS_START + 1 + i]);
+					log(lsINFO, " -> dir[%d]=%s", i, g_task->local_dirs[i].c_str());
+				}
+			}
+		}
+	}
+
+	init_reduce_task(g_task);
+}
+
 void reduce_downcall_handler(const string & msg)
 {
 	client_part_req_t   *req;
@@ -70,60 +129,9 @@ void reduce_downcall_handler(const string & msg)
 	}
 	log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd->count - 1, (int)hadoop_cmd->header);
 
-	static const int DIRS_START = 7;
 	switch (hadoop_cmd->header) {
 	case INIT_MSG: {
-		assert (hadoop_cmd->count -1 > 2); // sanity under debug
-		g_task->num_maps = atoi(hadoop_cmd->params[0]);
-		g_task->job_id = strdup(hadoop_cmd->params[1]);
-		g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
-		g_task->lpq_size = atoi(hadoop_cmd->params[3]);
-		int buffer_size_from_java = atoi(hadoop_cmd->params[4]); // unaligned to pagesize
-		g_task->buffer_size = buffer_size_from_java - buffer_size_from_java % getpagesize(); // alignment to pagesize
-		int minBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
-		log(lsINFO, "set C compare function according to java key class: %s",  hadoop_cmd->params[6]);
-		g_cmp_func = get_compare_func(hadoop_cmd->params[6]); // set compare func using Java's key type name
-
-		if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minBuffer) ) {
-			log(lsFATAL, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minBuffer);
-			exit(-1);
-		}
-
-		// init map output memory pool
-	    memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
-		int numBuffers = g_task->num_maps * RDMA_BUFFERS_PER_SEGMENT + EXTRA_RDMA_BUFFERS;
-			log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
-
-		if (create_mem_pool(g_task->buffer_size,
-						numBuffers,
-						&merging_sm.mop_pool)) {
-			log(lsFATAL, "failed to create Map Output memory pool");
-			free_hadoop_cmd(*hadoop_cmd);
-			free(hadoop_cmd);
-			exit(-1);
-		}
-
-	    // register RDMA buffers
-		merging_sm.client->rdma->register_mem(&merging_sm.mop_pool);
-		log(lsINFO, " After RDMA buffers registration (%d buffers X %d bytes = total %lld bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
-
-		if (hadoop_cmd->count -1  > DIRS_START) {
-			assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
-			if (hadoop_cmd->params[DIRS_START] != NULL) {
-				int num_dirs = atoi(hadoop_cmd->params[DIRS_START]);
-				log(lsDEBUG, " ===>>> num_dirs=%d" , num_dirs);
-
-				assert (num_dirs >= 0); // sanity under debug
-				if (num_dirs > 0 && DIRS_START + 1 + num_dirs  <= hadoop_cmd->count - 1) {
-					g_task->local_dirs.resize(num_dirs);
-					for (int i = 0; i < num_dirs; ++i) {
-						g_task->local_dirs[i].assign(hadoop_cmd->params[DIRS_START + 1 + i]);
-						log(lsINFO, " -> dir[%d]=%s", i, g_task->local_dirs[i].c_str());
-					}
-				}
-			}
-		}
-		init_reduce_task(g_task);
+		handle_init_msg(hadoop_cmd);
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
 		break;
