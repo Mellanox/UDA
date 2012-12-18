@@ -41,6 +41,7 @@ then merge back your branch to the master (for above release/journal/readme edit
 	git checkout master # NOTE: here I assume master is the branch from whom you took the <commit-id> in step #0
 	git merge <branch-name>
 	git push
+	#TODO: consider remove that branch from the remote!
 
 
 
