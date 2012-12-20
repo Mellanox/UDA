@@ -28,7 +28,7 @@
 
 #in order to run UDA, you'll need:
 #1. add line containing jar name matching your hadoop version to the end of your hadoop-env.sh.
-	For Hadoop 1.x (including HDP) add:
+	For Hadoop 1.x.y (including HDP) add:
 	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-1.x.jar
 	For CDH3u4 add:
 	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-CDH3u4.jar
