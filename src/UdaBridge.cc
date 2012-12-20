@@ -48,14 +48,14 @@ static jfieldID fidPathMOF;
 
 
 //forward declarion until in H file...
-void reduce_downcall_handler(const std::string & msg); // #include "reducer.h"
+const char * reduce_downcall_handler(const std::string & msg); // #include "reducer.h"
 int MergeManager_main(int argc, char* argv[]);
 
-void mof_downcall_handler(const std::string & msg); // #include ...
+const char * mof_downcall_handler(const std::string & msg); // #include ...
 int MOFSupplier_main(int argc, char* argv[]);
 extern "C" void * MOFSupplierRun(void *);
 
-typedef void (*downcall_handler_t) (const std::string & msg);
+typedef const char * (*downcall_handler_t) (const std::string & msg);
 typedef int (*main_t)(int argc, char* argv[]);
 static downcall_handler_t my_downcall_handler;
 static main_t my_main;
@@ -240,7 +240,12 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 	std::string msg(str);
 	env->ReleaseStringUTFChars(s, str);
 
-	my_downcall_handler(msg);
+	const char * exMsg = my_downcall_handler(msg);
+	if (exMsg) {
+		log(lsERROR, "raising java.lang.RuntimeException to java side, with exMsg=%s", exMsg);
+		jclass exClass = env->FindClass("java/lang/RuntimeException");
+		env->ThrowNew(exClass, exMsg);
+	}
 	log(lsTRACE, "<<< finished");
 }
 

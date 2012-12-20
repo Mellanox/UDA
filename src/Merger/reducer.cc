@@ -70,7 +70,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 
 	if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minBuffer) ) {
 		log(lsFATAL, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minBuffer);
-		exit(-1);
+		throw "RDMA Buffer is too small";
 	}
 
 	// init map output memory pool
@@ -111,7 +111,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 	init_reduce_task(g_task);
 }
 
-void reduce_downcall_handler(const string & msg)
+const char * reduce_downcall_handler(const string & msg)
 {
 	client_part_req_t   *req;
 	hadoop_cmd_t        *hadoop_cmd;
@@ -125,15 +125,27 @@ void reduce_downcall_handler(const string & msg)
 		log(lsWARN, "Hadoop's command  - %s could not be parsed", msg.c_str());
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
-		return;
+		return "C++ could not parse Hadoop command";
 	}
 	log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd->count - 1, (int)hadoop_cmd->header);
 
 	switch (hadoop_cmd->header) {
 	case INIT_MSG: {
-		handle_init_msg(hadoop_cmd);
-		free_hadoop_cmd(*hadoop_cmd);
-		free(hadoop_cmd);
+		try {
+			handle_init_msg(hadoop_cmd);
+			free_hadoop_cmd(*hadoop_cmd);
+			free(hadoop_cmd);
+		}
+		catch (const char * exMsg) {
+			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to mapred default shuffle plugin (with exMsg=%s)", exMsg);
+			return exMsg;
+		}
+
+		catch (...) {
+			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to mapred default shuffle plugin");
+			return "C++ got exception";
+		}
+
 		break;
 	}
 	case FETCH_MSG:
@@ -187,6 +199,7 @@ void reduce_downcall_handler(const string & msg)
 	}
 
 	log(lsDEBUG, "<<<=== HANDLED COMMAND FROM JAVA SIDE");
+	return NULL;
 }
 
 int  create_mem_pool(int size, int num, memory_pool_t *pool)
