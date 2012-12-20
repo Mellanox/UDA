@@ -133,14 +133,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		}
 		catch (Throwable t) {		
 			LOG.error("Failed to initialize UdaPlugin - fallbacking to vanilla. \nException is:" + StringUtils.stringifyException(t));
-			try {
-				if (rdmaChannel != null) 
-					close();
-			}
-			catch (Throwable t2) {
-				LOG.warn("Failed to properly close rdmaChannel.\nException is:" + StringUtils.stringifyException(t2));
-			}
-			
+
 			try {
 				fallbackPlugin = UdaMapredBridge.getShuffleConsumerPlugin(null, reduceTask, umbilical, conf, reporter);
 			}
@@ -167,6 +160,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	
 	public boolean fetchOutputs() throws IOException {
 		if (fallbackPlugin != null) {
+			LOG.info("fetchOutputs: Using fallbackPlugin");
 			return fallbackPlugin.fetchOutputs();
 		}
 		
@@ -199,6 +193,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	
 	public RawKeyValueIterator createKVIterator(JobConf job, FileSystem fs, Reporter reporter) throws IOException {
 		if (fallbackPlugin != null) {
+			LOG.info("createKVIterator: Using fallbackPlugin");
 			return fallbackPlugin.createKVIterator(job, fs, reporter);
 		}
 		
@@ -207,6 +202,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	
 	public void close() {
 		if (fallbackPlugin != null) {
+			LOG.info("close: Using fallbackPlugin");
 			fallbackPlugin.close();
 			return;
 		}
