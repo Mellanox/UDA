@@ -84,7 +84,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 		log(lsFATAL, "failed to create Map Output memory pool");
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
-		exit(-1);
+		throw new UdaException("failed to create Map Output memory pool");
 	}
 
     // register RDMA buffers
@@ -296,7 +296,7 @@ void spawn_reduce_task()
     netlev_kv_pool_size  = 1 << NETLEV_KV_POOL_EXPO;
     if (create_mem_pool(netlev_kv_pool_size, NUM_STAGE_MEM, &g_task->kv_pool)) {
     	log(lsFATAL, "failed to create memory pool for reduce g_task for merged kv buffer");
-    	exit(-1);
+    	throw new UdaException("failed to create memory pool for reduce g_task for merged kv buffer");
     }
 
     /* report success spawn to java */

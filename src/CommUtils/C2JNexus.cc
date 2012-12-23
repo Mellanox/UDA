@@ -58,7 +58,7 @@ static void usage(const char *cmd)
     printf("  -h | --help              "
                    "    Display this help and exit\n\n");
    
-    exit(1);
+	throw new UdaException("bad usage");
 }
 
 int parse_options(int argc, char *argv[], netlev_option_t *op) 
@@ -143,7 +143,7 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         case 'v':
         	printf("Version is %s\n",STR(VERSION_UDA));
         	printf("Compiled on %s, %s\n", __DATE__, __TIME__);
-        	exit (1);
+        	exit (0);
         case 'h':
             usage(argv[0]);
         default: 
@@ -252,7 +252,7 @@ void *event_processor(void *context)
         if (nevents < 0) {
             if (errno != EINTR) {
             	log(lsERROR, "pollfd=%d: epoll_wait failed for with ret=%d (errno=%d: %m)", th->pollfd, nevents, errno);
-                pthread_exit(NULL);  // TODO: consider exit
+                pthread_exit(NULL);  // TODO: consider exit, OR throw new UdaException("failure in epoll_wait");
             }
         } else if (nevents) {
             for (i = 0; i < nevents; i++) {

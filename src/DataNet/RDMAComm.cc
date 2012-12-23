@@ -391,7 +391,7 @@ init_backlog_data(uint8_t type, uint32_t len, uint64_t src_req, void *context, c
 	netlev_msg_backlog_t *back = (netlev_msg_backlog_t*)malloc (sizeof(netlev_msg_backlog_t));
     if (back == NULL) {
     	log(lsFATAL, "failed to allocate memory for netlev_msg_backlog");
-    	exit(-1);
+    	throw new UdaException("failed to allocate memory for netlev_msg_backlog");
     }
 	back->type = type;
 	back->len = len;

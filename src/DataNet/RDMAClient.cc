@@ -278,7 +278,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
             rc = netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
             if (rc) {
                 log(lsFATAL, "FATAL ERROR: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
-                exit(rc);
+                throw new UdaException("failure in netlev_init_rdma_mem");
             }
         }
 

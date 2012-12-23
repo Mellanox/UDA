@@ -365,7 +365,7 @@ server_cm_handler(progress_event_t *pevent, void *data)
                 }
             }
             /* XXX: Trigger the exit of all threads */
-            exit (1);
+            throw new UdaException("Server is bailing out, because of an RDMA unknown event");
             break;
     }
 
@@ -623,7 +623,7 @@ RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req,
 			list_add_tail(&back->list, &conn->backlog);
 
 			if ((rc = ibv_post_send(conn->qp_hndl, &send_wr_rdma, &bad_wr)) != 0) {
-				log(lsERROR, "ServerConn: RDMA Post Failed, with exit status %d", rc);
+				log(lsERROR, "ServerConn: RDMA Post Failed, with rc=%d", rc);
 				pthread_mutex_unlock(&conn->lock);
 				return -1;
 			}

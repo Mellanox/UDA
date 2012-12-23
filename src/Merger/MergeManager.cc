@@ -531,7 +531,7 @@ void merge_hybrid_lpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpq
 
     if (min_number_rdma_buffers > merging_sm.mop_pool.num){
     	log(lsFATAL, "there are not enough rdma buffers! please allocate at least %d ", min_number_rdma_buffers);
-    	exit(-1);
+        throw new UdaException("there are not enough rdma buffers!");
     }
 
     // allocating aligned buffer for staging mem
@@ -540,7 +540,7 @@ void merge_hybrid_lpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpq
     int rc = posix_memalign((void**)&staging_row_mem,  AIO_ALIGNMENT, total_stating_size);
     if (rc) {
     	log(lsFATAL, "failed to allocate memory for LPQs stating buffer. posix_memalign failed: alignment=%d , total_size=%ll --> rc=%d %m", AIO_ALIGNMENT, total_stating_size, rc );
-        exit(-1);
+        throw new UdaException("failed to allocate memory for LPQs stating buffer. posix_memalign failed");
     }
 
     // creating one set of staging mem for all LPQs - TODO: on future non-blocking LPQs, will need a set of stating mem for each LPQ

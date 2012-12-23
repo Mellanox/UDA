@@ -223,10 +223,8 @@ extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_star
 
 		ret = my_main(argc, argv);
 		if (ret != 0) {
-			fprintf(stdout, "error in main'\n");
-			fprintf(stderr, "error in main'\n");
 			log(lsFATAL, "error in main");
-			exit(255); //TODO: this is too brutal
+			throw new UdaException("error in main");
 		}
 
 		log(lsINFO, "main initialization finished ret=%d", ret);
@@ -286,13 +284,13 @@ extern "C" JNIEnv *attachNativeThread()
     JNIEnv *env;
 	if (! cached_jvm) {
 		log(lsFATAL, "cached_jvm is NULL");
-		exit (1);
+		throw new UdaException("cached_jvm is NULL");
 	}
     jint ret = cached_jvm->AttachCurrentThread((void **)&env, NULL);
 
 	if (ret < 0) {
 		log(lsFATAL, "cached_jvm->AttachCurrentThread failed ret=%d", ret);
-		exit (1);
+		throw new UdaException("cached_jvm->AttachCurrentThread failed");
 	}
 	log(lsTRACE, "completed successfully env=%p", env);
     return env; // note: this handler is valid for all functions in this tread
