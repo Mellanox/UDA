@@ -529,7 +529,7 @@ void log_func(const char * func, const char * file, int line, log_severity_t sev
 UdaException::UdaException(const char *info): _info(info){
 
 	string bt = print_backtrace(NULL, lsNONE);// no print - only return the bt
-	_fullMessage = "This is UDA exception from C++ with the following info: ";
+	_fullMessage = "This is an UDA exception invoked from C++ with the following info: ";
 	_fullMessage += _info;
 	_fullMessage += "\n\tAnd with the following C++ stacktrace:";
 	_fullMessage += bt.c_str();

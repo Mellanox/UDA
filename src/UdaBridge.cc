@@ -75,7 +75,7 @@ typedef struct data_from_java
 
 void indicateUdaJniException(JNIEnv *env, UdaException *ex) {
 
-	const char *JNI_EXCEPTION_CLASS_NAME = "java/lang/RuntimeException"; //TODO: create our own class
+	const char *JNI_EXCEPTION_CLASS_NAME = "com/mellanox/hadoop/mapred/UdaRuntimeException";
 	//	log_func(func, file, line, lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, info);
 	log(lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, ex->_info);
 
