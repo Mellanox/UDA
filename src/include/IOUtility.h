@@ -142,18 +142,6 @@ public:
 
 };
 
-/*log functions */ 
-void startLogNetMerger();
-void startLogMOFSupplier();
-void closeLog();
-#define output_stderr(...) log(lsERROR, __VA_ARGS__) // support for deprecated code
-#define output_stdout(...) log(lsINFO,  __VA_ARGS__) // support for deprecated code
-#define write_log(f, dbg, ...) log(lsDEBUG,  __VA_ARGS__) // support for deprecated code
-
-
-
-void print_backtrace(const char *label = NULL);
-
 // -- Avner: Here we start a fully fledged log facility --
 
 enum log_severity_t {
@@ -169,16 +157,40 @@ enum log_severity_t {
 };
 
 
+/*log functions */
+// THE log macro that should be used everywhere...
+#define log(severity, ...) if (severity <= g_log_threshold) log_func(__func__, __FILE__, __LINE__, severity, __VA_ARGS__); else
 
 
+// throw exception that carry error message to JNI
+#define THROW_JNI_EXCEPTION(info) throw new UdaJniException(__func__, __FILE__,__LINE__, info)
+
+// log backtrace at the desired severity + return value is the bt
+// TIP: use severity=lsNONE to skip log and only get ret value
+std::string print_backtrace(const char *label = NULL, log_severity_t severity = lsTRACE);
+
+
+
+class UdaJniException{
+	std::string msgToJava; // for future use
+public:
+	const char *_info;
+	UdaJniException(const char * func, const char * file, int line, const char *info);
+};
 
 const log_severity_t DEFAULT_LOG_THRESHOLD = lsINFO; // temporary backward compatibility for other developers...
 extern log_severity_t g_log_threshold;
 void log_set_threshold(log_severity_t _threshold);
 void log_func(const char * func, const char * file, int line, log_severity_t severity, const char *fmt, ...); // should not be called directly
 
-// THE log macro that should be used everywhere...
-#define log(severity, ...) if (severity <= g_log_threshold) log_func(__func__, __FILE__, __LINE__, severity, __VA_ARGS__); else
+void startLogNetMerger();
+void startLogMOFSupplier();
+void closeLog();
+
+
+#define output_stderr(...) log(lsERROR, __VA_ARGS__) // support for deprecated code
+#define output_stdout(...) log(lsINFO,  __VA_ARGS__) // support for deprecated code
+#define write_log(f, dbg, ...) log(lsDEBUG,  __VA_ARGS__) // support for deprecated code
 
 
 #endif

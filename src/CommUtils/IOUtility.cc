@@ -29,6 +29,7 @@
 
 
 #include "IOUtility.h"
+#include "UdaBridge.h"
 
 
 using namespace std;
@@ -455,19 +456,24 @@ void closeLog()
 }
 
 //------------------------------------------------------------------------------
-void print_backtrace(const char *label)
+std::string print_backtrace(const char *label, log_severity_t severity)
 {
 	char **strings;
 	void* _backtrace[25];
 	int backtrace_size = backtrace(_backtrace, 25);
 	strings = backtrace_symbols(_backtrace, backtrace_size);
-//	log(lsTRACE, "=== backtrace label=%s: size=%d caller=%s ", label, backtrace_size, strings[1]); // will catch even caller of inline functions too
-//*
-	log(lsTRACE, "=== label=%s: printing backtrace with size=%d", label, backtrace_size);
-	for (int i = 0; i < backtrace_size; i++)
-		log(lsTRACE, "=== label=%s: [%i] %s", label, i, strings[i]);
-//*/
+
+	string bt;
+	log(severity, "=== label=%s: printing backtrace with size=%d", label, backtrace_size);
+	for (int i = 0; i < backtrace_size; i++) {
+		log(severity, "=== label=%s: [%i] %s", label, i, strings[i]);
+		bt += "\n\t\t";
+		bt += strings[i];
+	}
+
 	free(strings);
+	log(severity, "======== \n%s", bt.c_str());
+	return bt;
 }
 
 
@@ -517,6 +523,37 @@ void log_func(const char * func, const char * file, int line, log_severity_t sev
 		  s1);
     fflush(log_file);
 }
+
+UdaJniException::UdaJniException(const char * func, const char * file, int line, const char *info): _info(info){
+
+	const char *JNI_EXCEPTION_CLASS_NAME = "java/lang/RuntimeException"; //TODO: create our own class
+	log_func(func, file, line, lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, info);
+
+	string bt = print_backtrace("", lsNONE);// no print - only return the bt
+
+	msgToJava = "This is UDA exception from C++ with the following info: ";
+	msgToJava += _info;
+	msgToJava += "\n\tAnd with the following C++ stacktrace:";
+	msgToJava += bt.c_str();
+
+	// keep the info in the jvm
+	JNIEnv *env = attachNativeThread();//TODO: check!
+	if(env == NULL) { //Check for null. If something went wrong, give up
+		log(lsERROR, "Invalid 'env' null pointer");
+		return;
+	}
+
+	//Find the exception class.
+	jclass exClass = env->FindClass(JNI_EXCEPTION_CLASS_NAME);
+	if (exClass == NULL) {
+		log(lsERROR, "Not found %s",JNI_EXCEPTION_CLASS_NAME);
+		return;
+	}
+	//Indicate the exception with error message to JNI - NOTE: exception will occur after C++ terminates
+	env->ThrowNew(exClass, msgToJava.c_str());
+	env->DeleteLocalRef(exClass);
+}
+
 
 #if LCOV_AUBURN_DEAD_CODE
 /* FileStream class */
