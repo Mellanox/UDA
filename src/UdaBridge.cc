@@ -76,7 +76,8 @@ typedef struct data_from_java
 void indicateUdaJniException(JNIEnv *env, UdaException *ex) {
 
 	const char *JNI_EXCEPTION_CLASS_NAME = "java/lang/RuntimeException"; //TODO: create our own class
-//	log_func(func, file, line, lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, info);
+	//	log_func(func, file, line, lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, info);
+	log(lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, ex->_info);
 
 
 	//Find the exception class.
@@ -97,40 +98,40 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
 	printf("-->> In C++ JNI_OnLoad\n");
 
 	cached_jvm = jvm;
-    JNIEnv *env;
-    if ( jvm->GetEnv((void **)&env, JNI_VERSION_1_4)) { //direct buffer requires java 1.4
-        return JNI_ERR; /* JNI version not supported */
-    }
+	JNIEnv *env;
+	if ( jvm->GetEnv((void **)&env, JNI_VERSION_1_4)) { //direct buffer requires java 1.4
+		return JNI_ERR; /* JNI version not supported */
+	}
 
 	jclass cls = env->FindClass("com/mellanox/hadoop/mapred/UdaBridge");
-    if (cls == NULL) {
+	if (cls == NULL) {
 		printf("-->> In C++ java class was NOT found\n");
-        return JNI_ERR;
-    }
+		return JNI_ERR;
+	}
 
-    // keeps the handle valid after function exits, but still, use weak global ref
-    // for allowing GC to unload & re-load the class and handles
-    jweakUdaBridge = env->NewWeakGlobalRef(cls);
-    if (jweakUdaBridge == NULL) {
+	// keeps the handle valid after function exits, but still, use weak global ref
+	// for allowing GC to unload & re-load the class and handles
+	jweakUdaBridge = env->NewWeakGlobalRef(cls);
+	if (jweakUdaBridge == NULL) {
 		printf("-->> In C++ weak global ref to java class was NOT found\n");
-        return JNI_ERR;
-    }
-    jclassUdaBridge = (jclass) jweakUdaBridge;
+		return JNI_ERR;
+	}
+	jclassUdaBridge = (jclass) jweakUdaBridge;
 
 	// This handle remains valid until the java class is Unloaded
 	//fetchOverMessage callback
-    jmethodID_fetchOverMessage = env->GetStaticMethodID(jclassUdaBridge, "fetchOverMessage", "()V");
+	jmethodID_fetchOverMessage = env->GetStaticMethodID(jclassUdaBridge, "fetchOverMessage", "()V");
 	if (jmethodID_fetchOverMessage == NULL) {
 		printf("-->> In C++ java UdaBridge.fetchOverMessage() callback method was NOT found\n");
-        return JNI_ERR;
-    }
+		return JNI_ERR;
+	}
 
 	//dataFromUda callback
 	jmethodID_dataFromUda = env->GetStaticMethodID(cls, "dataFromUda", "(Ljava/lang/Object;I)V");
 	if (jmethodID_dataFromUda == NULL) {
 		printf("-->> In C++ java UdaBridge.jmethodID_dataFromUda() callback method was NOT found\n");
-        return JNI_ERR;
-    }
+		return JNI_ERR;
+	}
 
 	//dataFromUda callback
 	jmethodID_getPathUda = env->GetStaticMethodID(jclassUdaBridge, "getPathUda", "(Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/Object;");
@@ -149,11 +150,11 @@ extern "C" JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
 	printf("-->> In C++ JNI_OnUnload\n");
 
 	JNIEnv *env;
-    if (jvm->GetEnv((void **)&env, JNI_VERSION_1_4)) {
-        return;
-    }
-    env->DeleteWeakGlobalRef(jweakUdaBridge);
-    return;
+	if (jvm->GetEnv((void **)&env, JNI_VERSION_1_4)) {
+		return;
+	}
+	env->DeleteWeakGlobalRef(jweakUdaBridge);
+	return;
 }
 
 
@@ -185,88 +186,93 @@ void* mainThread(void* data)
 
 // This is the implementation of the native method
 extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jboolean isNetMerger, jobjectArray stringArray) {
+	int ret = 0;
+	try{
+		errno = 0; // we don't want the value from JVM
+		printf("-->> In C++ Java_com_mellanox_hadoop_mapred_UdaBridge_startNative\n");
 
-	errno = 0; // we don't want the value from JVM
-	printf("-->> In C++ Java_com_mellanox_hadoop_mapred_UdaBridge_startNative\n");
+		int argc = env->GetArrayLength(stringArray);
+		char **argv = new char*[argc];
 
-	int argc = env->GetArrayLength(stringArray);
-    char **argv = new char*[argc];
+		printf("-- argc=%d\n", argc);
 
-	printf("-- argc=%d\n", argc);
+		for (int i=0; i<argc; i++) {
+			//printf("-- i=%d\n", i);
+			jstring string = (jstring) env->GetObjectArrayElement(stringArray, i);
+			if (string != NULL) {
+				const char *rawString = env->GetStringUTFChars(string, 0);
+				argv[i] = strdup(rawString);
+				env->ReleaseStringUTFChars(string, rawString);
+			}
+			else {
+				argv[i] = strdup("");
+			}
+		}
 
-    for (int i=0; i<argc; i++) {
-    	//printf("-- i=%d\n", i);
-        jstring string = (jstring) env->GetObjectArrayElement(stringArray, i);
-        if (string != NULL) {
-			const char *rawString = env->GetStringUTFChars(string, 0);
-			argv[i] = strdup(rawString);
-			env->ReleaseStringUTFChars(string, rawString);
-        }
-        else {
-			argv[i] = strdup("");
-        }
-    }
+		is_net_merger = isNetMerger;
+		if (is_net_merger) {
+			printf("In NetMerger 'C++ main from Java Thread'\n");
+			my_downcall_handler = reduce_downcall_handler;
+			my_main = MergeManager_main;
+		}
+		else {
+			printf("In MOFSupplier 'C++ main from Java Thread'\n");
+			my_downcall_handler = mof_downcall_handler;
+			my_main = MOFSupplier_main;
+		}
 
-    is_net_merger = isNetMerger;
-    if (is_net_merger) {
-        printf("In NetMerger 'C++ main from Java Thread'\n");
-    	my_downcall_handler = reduce_downcall_handler;
-    	my_main = MergeManager_main;
-    }
-    else {
-        printf("In MOFSupplier 'C++ main from Java Thread'\n");
-    	my_downcall_handler = mof_downcall_handler;
-    	my_main = MOFSupplier_main;
-    }
+		ret = my_main(argc, argv);
+		if (ret != 0) {
+			fprintf(stdout, "error in main'\n");
+			fprintf(stderr, "error in main'\n");
+			log(lsFATAL, "error in main");
+			exit(255); //TODO: this is too brutal
+		}
 
-    int ret = my_main(argc, argv);
-    if (ret != 0) {
-        fprintf(stdout, "error in main'\n");
-        fprintf(stderr, "error in main'\n");
-    	log(lsFATAL, "error in main");
-    	exit(255); //TODO: this is too brutal
-    }
+		log(lsINFO, "main initialization finished ret=%d", ret);
+		if (! is_net_merger) {
+			pthread_t thr;
+			log(lsINFO, "CREATING THREAD"); pthread_create(&thr, NULL, MOFSupplierRun, NULL);  // This is actual main of MOFSupplier
+		}
 
-	log(lsINFO, "main initialization finished ret=%d", ret);
-	if (! is_net_merger) {
-		pthread_t thr;
-		log(lsINFO, "CREATING THREAD"); pthread_create(&thr, NULL, MOFSupplierRun, NULL);  // This is actual main of MOFSupplier
+		for (int i=0; i < argc; i++) {
+			free (argv[i]);
+		}
+		delete [] argv;
+
+		log(lsTRACE, "<<< finished");
+		printf("<<-- Finished C++ Java_com_mellanox_hadoop_mapred_UdaBridge_startNative\n");
+
 	}
-
-	for (int i=0; i < argc; i++) {
-        free (argv[i]);
-    }
-	delete [] argv;
-
-	log(lsTRACE, "<<< finished");
-	printf("<<-- Finished C++ Java_com_mellanox_hadoop_mapred_UdaBridge_startNative\n");
-
+	catch (UdaException *ex) {
+		indicateUdaJniException(env, ex);
+	}
 
     return ret;
 }
 
 // This is the implementation of the native method
 extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCommandNative  (JNIEnv *env, jclass cls, jstring s) {
-	errno = 0; // we don't want the value from JVM
-	log(lsTRACE, ">>> started");
-
-	const char *str = env->GetStringUTFChars(s, NULL);
-	if (str == NULL) {
-		log(lsFATAL, "out of memory in JNI call to GetStringUTFChars");
-		throw "Out of Memory";
-	}
-	std::string msg(str);
-	env->ReleaseStringUTFChars(s, str);
-
-
 	try {
+		errno = 0; // we don't want the value from JVM
+		log(lsTRACE, ">>> started");
+
+		const char *str = env->GetStringUTFChars(s, NULL);
+		if (str == NULL) {
+			log(lsFATAL, "out of memory in JNI call to GetStringUTFChars");
+			throw "Out of Memory";
+		}
+		std::string msg(str);
+		env->ReleaseStringUTFChars(s, str);
+
+
 		my_downcall_handler(msg);
+
+		log(lsTRACE, "<<< finished");
 	}
 	catch (UdaException *ex) {
 		indicateUdaJniException(env, ex);
 	}
-
-	log(lsTRACE, "<<< finished");
 }
 
 // a utility function that attaches the **current [native] thread** to the JVM and
