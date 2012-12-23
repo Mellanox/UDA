@@ -70,7 +70,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 
 	if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minBuffer) ) {
 		log(lsFATAL, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minBuffer);
-		throw "RDMA Buffer is too small";
+		throw new UdaException("RDMA Buffer is too small");
 	}
 
 	// init map output memory pool
@@ -136,14 +136,14 @@ const char * reduce_downcall_handler(const string & msg)
 			free_hadoop_cmd(*hadoop_cmd);
 			free(hadoop_cmd);
 		}
-		catch (const char * exMsg) {
-			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to mapred default shuffle plugin (with exMsg=%s)", exMsg);
-			return exMsg;
+		catch (UdaException *ex) {
+			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to Hadoop's default shuffle plugin (with exMsg=%s)", ex->_info);
+			throw ex; //re-throw
 		}
 
 		catch (...) {
 			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to mapred default shuffle plugin");
-			return "C++ got exception";
+			throw new UdaException("Failure during UDA Initialization");
 		}
 
 		break;

@@ -162,20 +162,18 @@ enum log_severity_t {
 #define log(severity, ...) if (severity <= g_log_threshold) log_func(__func__, __FILE__, __LINE__, severity, __VA_ARGS__); else
 
 
-// throw exception that carry error message to JNI
-#define THROW_JNI_EXCEPTION(info) throw new UdaJniException(__func__, __FILE__,__LINE__, info)
-
-// log backtrace at the desired severity + return value is the bt
+// log backtrace at the desired severity + 'return' value is the backtrace
 // TIP: use severity=lsNONE to skip log and only get ret value
 std::string print_backtrace(const char *label = NULL, log_severity_t severity = lsTRACE);
 
 
 
-class UdaJniException{
-	std::string msgToJava; // for future use
+class UdaException{
+	std::string _fullMessage;
 public:
 	const char *_info;
-	UdaJniException(const char * func, const char * file, int line, const char *info);
+	std::string & getFullMessage() {return _fullMessage;}
+	UdaException(const char *info);
 };
 
 const log_severity_t DEFAULT_LOG_THRESHOLD = lsINFO; // temporary backward compatibility for other developers...

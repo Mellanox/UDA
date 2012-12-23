@@ -72,6 +72,24 @@ typedef struct data_from_java
 } data_from_java_t;
 
 
+
+void indicateUdaJniException(JNIEnv *env, UdaException *ex) {
+
+	const char *JNI_EXCEPTION_CLASS_NAME = "java/lang/RuntimeException"; //TODO: create our own class
+//	log_func(func, file, line, lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, info);
+
+
+	//Find the exception class.
+	jclass exClass = env->FindClass(JNI_EXCEPTION_CLASS_NAME);
+	if (exClass == NULL) {
+		log(lsERROR, "Not found %s",JNI_EXCEPTION_CLASS_NAME);
+		return;
+	}
+	//Indicate the exception with error message to JNI - NOTE: exception will occur after C++ terminates
+	env->ThrowNew(exClass, ex->getFullMessage().c_str());
+	env->DeleteLocalRef(exClass);
+}
+
 //direct buffer requires java 1.4
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
 {
@@ -240,36 +258,37 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 	std::string msg(str);
 	env->ReleaseStringUTFChars(s, str);
 
-	const char * exMsg = my_downcall_handler(msg);
-	if (exMsg) {
-		log(lsERROR, "raising java.lang.RuntimeException to java side, with exMsg=%s", exMsg);
-		jclass exClass = env->FindClass("java/lang/RuntimeException");
-		env->ThrowNew(exClass, exMsg);
+
+	try {
+		my_downcall_handler(msg);
 	}
+	catch (UdaException *ex) {
+		indicateUdaJniException(env, ex);
+	}
+
 	log(lsTRACE, "<<< finished");
 }
 
-// a utility function that attaches the **current native thread** to the JVM and
+// a utility function that attaches the **current [native] thread** to the JVM and
 // return the JNIEnv interface pointer for this thread
 // BE CAREFUL:
-// - DON'T call this function more than once for the same thread!!
+// - DON'T call this function more than once for the same thread!! - perhaps not critical!
 // - DON'T use the handle from one thread in context of another threads!
 extern "C" JNIEnv *attachNativeThread()
 {
-	log(lsTRACE, "attachNativeThread started");
+	log(lsTRACE, "started");
     JNIEnv *env;
 	if (! cached_jvm) {
 		log(lsFATAL, "cached_jvm is NULL");
 		exit (1);
 	}
-	log(lsDEBUG, "attachNativeThread before AttachCurrentThread(..)");
     jint ret = cached_jvm->AttachCurrentThread((void **)&env, NULL);
 
 	if (ret < 0) {
 		log(lsFATAL, "cached_jvm->AttachCurrentThread failed ret=%d", ret);
 		exit (1);
 	}
-	log(lsINFO, "attachNativeThread completed successfully env=%p", env);
+	log(lsTRACE, "completed successfully env=%p", env);
     return env; // note: this handler is valid for all functions in this tread
 }
 
