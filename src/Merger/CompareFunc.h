@@ -22,8 +22,6 @@
 
 #include "IOUtility.h"
 
-#define JAVA_TEXT_CLASS_NAME "org.apache.hadoop.io.Text"
-
 typedef int (*hadoop_cmp_func)(char* key1, int len1, char* key2, int len2);
 
 // compare function to be used during reducer mergeSort
@@ -41,16 +39,6 @@ int inline java_text_compare(char* key1, int len1, char* key2, int len2) {
 	return byte_compare(key1 + k1_skip_bytes, len1 - k1_skip_bytes, key2 + k2_skip_bytes, len2 - k2_skip_bytes);
 }
 
-hadoop_cmp_func inline get_compare_func(const char* java_comparator_type_name) {
-	if (strcmp(java_comparator_type_name, JAVA_TEXT_CLASS_NAME)) {
-		log(lsINFO, "using byte compare function");
-		return byte_compare;
-	}
-	else {
-		log(lsINFO, "using Text compare function");
-		return java_text_compare;
-	}
-}
-
+hadoop_cmp_func get_compare_func(const char* java_comparator_type_name);
 
 #endif
