@@ -222,7 +222,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		String msg = UdaCmd.formCmd(UdaCmd.INIT_COMMAND, mParams);
 		UdaBridge.doCommand(msg);
 		this.mProgress = new Progress(); 
-		this.mProgress.set((float)(1/2));
+		this.mProgress.set(0.5f);
 	}
 
 //	public void sendFetchReq (MapOutputLocation loc) {
