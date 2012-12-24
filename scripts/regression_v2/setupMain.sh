@@ -106,12 +106,20 @@ sudo chown -R $USER $hadoopHome
 if (( $CO_FLAG == 1 ))
 then
 	coHadoopFromGit
+	cd $workingFolder
 
-	cd $workingFolder											
-	echo "$echoPrefix: /usr/local/ant-1.8.2/bin/ant -Djava5.home=$JAVA_HOME clean package"  #building
-	/usr/local/ant-1.8.2/bin/ant -Djava5.home=$JAVA_HOME clean package > $STATUS_DIR/buildHadoop.txt	
-	buildStatus=`cat $STATUS_DIR/buildHadoop.txt | grep -c "BUILD SUCCESSFUL"`
-
+	if (( $Snappy==1 ))
+	then
+		echo "using Sanppy!"
+		echo "$echoPrefix: /usr/local/ant-1.8.2/bin/ant -Djava5.home=$JAVA_HOME -Dcompile.native=true clean package"  #building
+		/usr/local/ant-1.8.2/bin/ant -Djava5.home=$JAVA_HOME -Dcompile.native=true clean package > $STATUS_DIR/buildHadoop.txt	
+		buildStatus=`cat $STATUS_DIR/buildHadoop.txt | grep -c "BUILD SUCCESSFUL"`
+	else	
+		echo "$echoPrefix: /usr/local/ant-1.8.2/bin/ant -Djava5.home=$JAVA_HOME clean package"  #building
+		/usr/local/ant-1.8.2/bin/ant -Djava5.home=$JAVA_HOME clean package > $STATUS_DIR/buildHadoop.txt	
+		buildStatus=`cat $STATUS_DIR/buildHadoop.txt | grep -c "BUILD SUCCESSFUL"`
+	fi
+	
 	if (($buildStatus == 0));then 
 		echo "$echoPrefix: BUILD FAILED!" | tee $ERROR_LOG
 		exit $EEC1
@@ -192,8 +200,22 @@ fi
 		rm -f $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
 	fi
 	
-	
-	
+	if (( $Snappy==1 ))
+	then
+		rpm -qa | grep snappy; 
+		ans=$?; 
+		if (( ans == 0 )); 
+		then 
+			echo "snappy here";
+			echo "scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/"
+			scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/
+		else 
+			echo "sudo yum -y install snappy snappy-devel snappy.i386 snappy-devel.i386"
+			sudo yum -y install snappy snappy-devel snappy.i386 snappy-devel.i386
+			echo "scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/"
+			scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/
+		fi
+	fi	
 	
 if [[ `cat $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh` == *COVF* ]]; then
 	echo "Changing COVFILE in hadoop-env export COVFILE=${COVFILE}"
