@@ -3,7 +3,7 @@
 echoPrefix=$(basename $0)
 recentNfsResultsDir=$NFS_RESULTS_DIR/$RECENT_JOB_DIR_NAME
 echo $recentNfsResultsDir
-rm -rf $recentNfsResultsDir
+sudo rm -rf $recentNfsResultsDir
 echo $recentNfsResultsDir
 mkdir $recentNfsResultsDir
 #CURRENT_NFS_RESULTS_DIR
