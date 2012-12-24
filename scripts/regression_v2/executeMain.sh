@@ -106,7 +106,7 @@ do
 	source $testPath/exports.sh
 	echo "source $testPath/exports.sh"
 	
-	if (( $COMPRESSION==1 )); then
+	if (( $LZO==1 )); then
 		echo "bash $SCRIPTS_DIR/compressionSet.sh"
 		bash $SCRIPTS_DIR/compressionSet.sh
 	fi
