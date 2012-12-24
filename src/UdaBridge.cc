@@ -258,7 +258,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 		const char *str = env->GetStringUTFChars(s, NULL);
 		if (str == NULL) {
 			log(lsFATAL, "out of memory in JNI call to GetStringUTFChars");
-			throw "Out of Memory";
+			throw new UdaException("Out of Memory");
 		}
 		std::string msg(str);
 		env->ReleaseStringUTFChars(s, str);
