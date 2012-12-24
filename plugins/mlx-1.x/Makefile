@@ -22,7 +22,7 @@ CPATH=hadoop-core-1.1.0-SNAPSHOT.jar:commons-logging-1.1.1.jar
 all:
 	rm -rf out
 	mkdir -p out
-	CLASSPATH=$(CPATH) javac -d out -sourcepath ../shared/:. com/mellanox/hadoop/mapred/*.java org/apache/hadoop/mapred/*.java ../shared/com/mellanox/hadoop/mapred/*.java ../shared/org/apache/hadoop/mapred/*.java
+	CLASSPATH=$(CPATH) javac -Xlint -d out -sourcepath ../shared/:. com/mellanox/hadoop/mapred/*.java org/apache/hadoop/mapred/*.java ../shared/com/mellanox/hadoop/mapred/*.java ../shared/org/apache/hadoop/mapred/*.java
 	jar -cvf uda-hadoop-1.x.jar -C out com -C out org
 	rm -rf out
 
