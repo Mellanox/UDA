@@ -99,6 +99,7 @@ tstart=`date`
 tStartSec=`date +"%s"`
 passed=0
 testOutput=$local_dir/$JOB.txt
+export testOutput=$testOutput
 export MY_HADOOP_HOME=$MY_HADOOP_HOME
 $USER_CMD 2>&1 | tee $testOutput &
 bash $SCRIPTS_DIR/isJobStillRunning.sh
