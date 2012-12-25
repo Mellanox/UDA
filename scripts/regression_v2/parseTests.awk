@@ -194,6 +194,9 @@ function exportMenager()
 		print "export COMPRESION_=1" >> execDir "/" exportsFile
 		if (execParams["mapred.map.output.compression.codec"] == "com.hadoop.compression.lzo.LzoCodec")
 			print "export COMPRESION_TYPE=LZO" >> execDir "/" exportsFile
+		if (execParams["mapred.map.output.compression.codec"] == "org.apache.hadoop.io.compress.SnappyCodec")
+			print "export COMPRESION_TYPE=Snappy" >> execDir "/" exportsFile
+		
 	}
 
 	manageAddParams()
@@ -420,6 +423,10 @@ BEGIN{
 				isLZOExist=1
 				print "isLZOExist" ,isLZOExist
 			}
+			if ( match(propValue, /org.apache.hadoop.io.compress.SnappyCodec/) ==1 ){
+				isSnappyExist=1
+				print "isSnappyExist" ,isSnappyExist
+			}
 		}
 	}
 	#CMD= executionPrefix " " execParams["jar_dir"] " " execParams["program"] " " confParams 
@@ -485,6 +492,10 @@ END{
 
 	if ( isLZOExist==1 ){
 		print "export LZO=1" >> generalDir
+		print "export COMPRESSION=1" >> generalDir
+	}
+	else if ( isSnappyExist==1 ){
+		print "export Snappy=1"  >> generalDir
 		print "export COMPRESSION=1" >> generalDir
 	}
 	else

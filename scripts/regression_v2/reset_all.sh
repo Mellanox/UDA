@@ -71,6 +71,12 @@ then
 	echo "$(basename $0) formating namenode"
 	echo "going to fm_part"
 	$(dirname $0)/fm_part.sh 
+	format_ans=$?
+	if (( $format_ans==5 ));
+	then
+		echo "format failed!!"
+		exit $SEC
+	fi
 	#format_output=`bin/hadoop namenode -format 2>&1`
 	#echo $format_output
 

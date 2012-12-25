@@ -99,12 +99,20 @@ tstart=`date`
 tStartSec=`date +"%s"`
 passed=0
 testOutput=$local_dir/$JOB.txt
-if ! eval $USER_CMD 2>&1 | tee $testOutput
+export testOutput=$testOutput
+export MY_HADOOP_HOME=$MY_HADOOP_HOME
+$USER_CMD 2>&1 | tee $testOutput &
+bash $SCRIPTS_DIR/isJobStillRunning.sh
+isJobFinished=$?
+echo "isJobFinished $isJobFinished"
+if (( $isJobFinished != 8 ))
+#if ! eval $USER_CMD 2>&1 | tee $testOutput
 then
 	echo $echoPrefix: error user command "<$USER_CMD>" has failed
 	cmd_status=3
 else 
 	passed=1
+	cmd_status=0
 fi
 #sudo bin/slaves.sh ${SCRIPTS_DIR}/cache_flush.sh
 tEndBecWithoutFlush=`date +"%s"`
@@ -122,6 +130,10 @@ coresCountAfter=`ls $CORES_DIR | grep -c "core\."`
 if [ `cat $testOutput | egrep -ic '(error|fail|exception)'` -ne 0 ];then 
 	echo "$echoPrefix: ERROR - found error/fail/exception"
 	cmd_status=4;
+	if [ `cat $testOutput | egrep -ic "map 100% reduce 100%"` -eq 1 ];then 
+		echo "Job has finished"
+		cmd_status=3
+	fi
 fi
 
 echo "$echoPrefix: user command has terminated"
@@ -146,68 +158,73 @@ teraval="-1" # -1 means that the user don't want to preform teravalidte
 inEqualOut="-1"
 if [[ $PROGRAM == "terasort" ]] && (( $passed == 1 )) && (( $TERAVALIDATE != 0 ))
 then
-	echo "$echoPrefix: Running TeraValidate"
-	echo "$echoPrefix: $teravalidate"
-	teravalidate="${MY_HADOOP_HOME}/bin/hadoop jar hadoop*-examples*.jar teravalidate $TERASORT_DIR $TERAVAL_DIR"
-	eval $teravalidate
-	valll="${MY_HADOOP_HOME}/bin/hadoop fs -ls $TERAVAL_DIR"
-	eval $valll | tee $TMP_DIR/vallFile.txt
-
-	valSum=`cat $TMP_DIR/vallFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5 }  } END {print sum}'`
-
-	echo ""
-	echo "$echoPrefix: val Sum is: $valSum"
-	
-	teraval=0
-	if (( $valSum == 0))
+	if (( $cmd_status == 4 ))
 	then
-		teraval=1
-		echo "TERAVALIDATE SUCCEEDED" >> $log
-		echo -e \\n\\n
-		echo "$echoPrefix: TERAVALIDATE SUCCEEDED"
-		echo -e \\n\\n
-		sleep 4
-
-		echo "$echoPrefix: Removing validate temp files"
-		rm -rf $TMP_DIR/vallFile.txt
-
-		echo "$echoPrefix: Removing $TERAVAL_DIR"
-		echo "$echoPrefix: bin/hadoop fs -rmr $TERAVAL_DIR"
-		bin/hadoop fs -rmr $TERAVAL_DIR
+		echo "not running validate, test failed..."
 	else
-		echo "TERAVALIDATE FAILED" >> $log
-		echo -e \\n\\n
-		echo "$echoPrefix: THIS IS BAD TERAVALIDATE FAILED!! "
-		echo -e \\n\\n
-		exit 500 
-	fi
+		echo "$echoPrefix: Running TeraValidate"
+		echo "$echoPrefix: $teravalidate"
+		teravalidate="${MY_HADOOP_HOME}/bin/hadoop jar hadoop*-examples*.jar teravalidate $TERASORT_DIR $TERAVAL_DIR"
+		eval $teravalidate
+		valll="${MY_HADOOP_HOME}/bin/hadoop fs -ls $TERAVAL_DIR"
+		eval $valll | tee $TMP_DIR/vallFile.txt
 
-	inputdir="bin/hadoop fs -ls ${INPUTDIR}" 
-	$inputdir | tee $TMP_DIR/inputFile.txt
-	inputSum=`cat $TMP_DIR/inputFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5}  } END {print sum}'`
+		valSum=`cat $TMP_DIR/vallFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5 }  } END {print sum}'`
 
-	echo "$echoPrefix: inputSum is: $inputSum"
+		echo ""
+		echo "$echoPrefix: val Sum is: $valSum"
+		
+		teraval=0
+		if (( $valSum == 0))
+		then
+			teraval=1
+			echo "TERAVALIDATE SUCCEEDED" >> $log
+			echo -e \\n\\n
+			echo "$echoPrefix: TERAVALIDATE SUCCEEDED"
+			echo -e \\n\\n
+			sleep 4
 
-	outputdir="bin/hadoop fs -ls $TERASORT_DIR"
-	$outputdir | tee $TMP_DIR/outputFile.txt
-	outputSum=`cat $TMP_DIR/outputFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5}  } END {print sum}'`
+			echo "$echoPrefix: Removing validate temp files"
+			rm -rf $TMP_DIR/vallFile.txt
 
-	echo "$echoPrefix:  outputSum is: $outputSum"
+			echo "$echoPrefix: Removing $TERAVAL_DIR"
+			echo "$echoPrefix: bin/hadoop fs -rmr $TERAVAL_DIR"
+			bin/hadoop fs -rmr $TERAVAL_DIR
+		else
+			echo "TERAVALIDATE FAILED" >> $log
+			echo -e \\n\\n
+			echo "$echoPrefix: THIS IS BAD TERAVALIDATE FAILED!! "
+			echo -e \\n\\n
+			exit 500 
+		fi
 
-	inEqualOut=0
-	if (( $inputSum == $outputSum ))
-	then
-		inEqualOut=1
-		echo "TERASORT OUTPUT==TERASORT INPUT -->SUCCEEDED" >> $log
-		echo "$echoPrefix: GOOD! TERASORT OUTPUT = TERASORT INPUT"
-		sleep 3
-		echo "$echoPrefix: removing $TMP_DIR/inputFile.txt and $TMP_DIR/outputFile.txt"
-		rm -rf $TMP_DIR/inputFile.txt
-		rm -rf $TMP_DIR/outputFile.txt
+		inputdir="bin/hadoop fs -ls ${INPUTDIR}" 
+		$inputdir | tee $TMP_DIR/inputFile.txt
+		inputSum=`cat $TMP_DIR/inputFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5}  } END {print sum}'`
 
-	else
-		echo "TERASORT OUTPUT!=TERASORT INPUT --> FAILED" >> $log
-		echo "$echoPrefix: NOT GOOD! TERASORT OUTPUT and INPUT ARENT EQUAL, PLEASE CHECK!!"
+		echo "$echoPrefix: inputSum is: $inputSum"
+
+		outputdir="bin/hadoop fs -ls $TERASORT_DIR"
+		$outputdir | tee $TMP_DIR/outputFile.txt
+		outputSum=`cat $TMP_DIR/outputFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5}  } END {print sum}'`
+
+		echo "$echoPrefix:  outputSum is: $outputSum"
+
+		inEqualOut=0
+		if (( $inputSum == $outputSum ))
+		then
+			inEqualOut=1
+			echo "TERASORT OUTPUT==TERASORT INPUT -->SUCCEEDED" >> $log
+			echo "$echoPrefix: GOOD! TERASORT OUTPUT = TERASORT INPUT"
+			sleep 3
+			echo "$echoPrefix: removing $TMP_DIR/inputFile.txt and $TMP_DIR/outputFile.txt"
+			rm -rf $TMP_DIR/inputFile.txt
+			rm -rf $TMP_DIR/outputFile.txt
+
+		else
+			echo "TERASORT OUTPUT!=TERASORT INPUT --> FAILED" >> $log
+			echo "$echoPrefix: NOT GOOD! TERASORT OUTPUT and INPUT ARENT EQUAL, PLEASE CHECK!!"
+		fi
 	fi
 elif [[ $PROGRAM == "pi" ]];then
 	piEstimation=`grep "Estimated value of Pi is" $testOutput | awk 'BEGIN{};{print $6}'`
