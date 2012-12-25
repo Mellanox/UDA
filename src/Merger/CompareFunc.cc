@@ -25,7 +25,7 @@
 // TODO: analyze/support the rest of classes in the above page, such as DoubleWriteable and so on...
 const char * TEXT_COMPARABLE[] = {
 		"org.apache.hadoop.io.Text",
-		"org.apache.hadoop.io.BytesWritable",
+//		"org.apache.hadoop.io.BytesWritable",
 		NULL};
 const char * BYTE_COMPARABLE[] = {
 		"org.apache.hadoop.io.BooleanWritable",
