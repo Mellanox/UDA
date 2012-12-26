@@ -21,18 +21,30 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 // Use the arrays below for defining whether a given type is a text-comparable, or a byte-comparable (or none of the above)
-// These classes were taken from: http://hadoop.apache.org/docs/current/api/org/apache/hadoop/io/WritableComparable.html
-// TODO: analyze/support the rest of classes in the above page, such as DoubleWriteable and so on...
 const char * TEXT_COMPARABLE[] = {
 		"org.apache.hadoop.io.Text",
-//		"org.apache.hadoop.io.BytesWritable",
 		NULL};
 const char * BYTE_COMPARABLE[] = {
 		"org.apache.hadoop.io.BooleanWritable",
+		"org.apache.hadoop.io.ByteWritable",
 		"org.apache.hadoop.io.ShortWritable",
 		"org.apache.hadoop.io.IntWritable",
 		"org.apache.hadoop.io.LongWritable",
 		NULL};
+
+/*
+ // unsupported yet - all are derived of WritableComparable
+ // see http://hadoop.apache.org/docs/current/api/org/apache/hadoop/io/WritableComparable.html
+
+org.apache.hadoop.io.BytesWritable
+org.apache.hadoop.io.DoubleWritable
+org.apache.hadoop.io.FloatWritable
+
+org.apache.hadoop.io.VIntWritable
+org.apache.hadoop.io.VLongWritable
+org.apache.hadoop.mapred.ID (based on int)
+
+//*/
 
 
 ////////////////////////////////////////////////////////////////////////////////
