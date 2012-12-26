@@ -91,9 +91,11 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
 
     if ( h->type == MSG_RTS ) {
     	client_part_req_t *req = (client_part_req_t*) (long2ptr(h->src_req));
+
         memcpy(req->recvd_msg, h->msg, h->tot_len);
 
-        log(lsTRACE, "Client received RDMA completion for fetch request: jobid=%s, mapid=%s, reducer_id=%s, total_fetched_raw=%lld, total_fetched_read=%lld (not updated for this comp)", req->info->params[1], req->info->params[2], req->info->params[3], req->mop->total_fetched_raw, req->mop->total_fetched_read);
+        log(lsTRACE, "Client received RDMA completion for fetch request: jobid=%s, mapid=%s, reducer_id=%s, total_fetched_raw=%lld, total_fetched_read=%lld (not updated for this comp)",
+        		req->info->params[1], req->info->params[2], req->info->params[3], req->mop->total_fetched_raw, req->mop->total_fetched_read);
         req->mop->task->client->comp_fetch_req(req);
     } 
     else {
