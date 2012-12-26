@@ -146,17 +146,25 @@ void reduce_downcall_handler(const string & msg)
 
 		//TODO: katya what if it is gzip??? add what if buffer size is smaller than block size*1.25
 		if (!g_task->compr_alg || strcmp(g_task->compr_alg,"null")==0) {//if not compression
-			log(lsTRACE, "dina no comp");
 			log(lsINFO, "aaa1 compression not configured: allocating 2 buffers of same size");
-						rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,
+			rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,
 										numBuffers,
 										&merging_sm.mop_pool);
 		}else{
-			log(lsTRACE, "dina comp");
 			log(lsINFO, "aaa1 compression configured: allocating 2 buffers of different size");
-						rc = create_mem_pool_pair(g_task->block_size, g_task->buffer_size*2 - g_task->block_size,
+						/*rc = create_mem_pool_pair(g_task->block_size, g_task->buffer_size*2 - g_task->block_size,
 							numBuffers,
-							&merging_sm.mop_pool);
+							&merging_sm.mop_pool);*/
+			int temp = g_task->block_size*2;
+			if(g_task->buffer_size>=temp){
+				rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,
+											numBuffers,
+											&merging_sm.mop_pool);
+			}else{
+				rc = create_mem_pool_pair(g_task->buffer_size*2-temp, temp,
+										numBuffers,
+										&merging_sm.mop_pool);
+			}
 		}
 
 		if (rc) {

@@ -60,8 +60,7 @@ decompressRetData_t* SnappyDecompressor::decompress(char* compressed_buff, char*
 		ret->num_uncompressed_bytes=uncompressed_buff_len;
 		return ret;
 	}
-	log(lsDEBUG,"am i here????");
-	exit(1);
+	throw "SNAPPY error";
 }
 
 decompressRetData_t* SnappyDecompressor::get_next_block_length(char* buf) {
@@ -79,8 +78,7 @@ decompressRetData_t* SnappyDecompressor::get_next_block_length(char* buf) {
 	ret->num_compressed_bytes+=((tmp[1] & 0xFF00)<<8);
 	ret->num_compressed_bytes+=((tmp[1] & 0xFF)<<24);
 
-	log(lsDEBUG,"num_uncompressed_bytes: %d",ret->num_uncompressed_bytes);
-	log(lsDEBUG,"num_compressed_bytes: %d",ret->num_compressed_bytes);
+	//log(lsDEBUG,"num_uncompressed_bytes: %d num_compressed_bytes: %d",ret->num_uncompressed_bytes,ret->num_compressed_bytes);
 
 	return ret;
 

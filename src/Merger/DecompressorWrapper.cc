@@ -42,25 +42,26 @@ DecompressorWrapper::DecompressorWrapper(int port, reduce_task_t* reduce_task)
     log(lsDEBUG, "ctor DecompressorWrapper");
 }
 
-
+int64_t g_total_fetched_read = 0;
 DecompressorWrapper::~DecompressorWrapper()
 {
 	free(this->buffer);
 	pthread_mutex_destroy(&this->lock);
 	pthread_cond_destroy(&this->cond);
-    log(lsDEBUG, "dtor DecompressorWrapper");
+    log(lsDEBUG, "dtor DecompressorWrapper %d", g_total_fetched_read);
 }
 
 
 
 
-void copy_from_side_buffer_to_actual_buffer(mem_desc_t * dest, char *side_buffer, int length){
-	log(lsTRACE, "before copy end is %d length is %d", dest->end, length);
+void copy_from_side_buffer_to_actual_buffer(mem_desc_t * dest, char *side_buffer, int length)
+{
+	log(lsTRACE, "before copy of %d bytes, start=%d, end=%d, free=%d" , length, dest->start, dest->end, dest->getFreeBytes());
 	//write in a single step
 	if (length <= dest->buf_len - dest->end){
 		memcpy(dest->buff + dest->end, side_buffer, length);
 		dest->end += length;
-		dest->free_bytes -= length;
+//		dest->free_bytes -= length;
 	}
 	//write in two steps
 	else
@@ -70,9 +71,9 @@ void copy_from_side_buffer_to_actual_buffer(mem_desc_t * dest, char *side_buffer
 		int size_copy_second_round = length - size_copy_first_round;
 		memcpy(dest->buff, side_buffer + size_copy_first_round, size_copy_second_round);
 		dest->end = size_copy_second_round;
-		dest->free_bytes -= length;
+//		dest->free_bytes -= length;
 	}
-	log(lsTRACE, "after copy end is %d length is %d", dest->end, length);
+	log(lsTRACE, "after copy of %d bytes, start=%d, end=%d, free=%d" , length, dest->start, dest->end, dest->getFreeBytes());
 }
 
 
@@ -80,7 +81,7 @@ void copy_from_side_buffer_to_actual_buffer(mem_desc_t * dest, char *side_buffer
 void *decompressMainThread(void* wrapper)
 {
 	DecompressorWrapper *decompWrapper = (DecompressorWrapper *) wrapper;
-	log(lsDEBUG, "decompressMainThread DecompressorWrapper");
+
 	while (!decompWrapper->decompress_thread.stop){
 		if (!decompWrapper->req_to_decompress.empty()){
 //			log(lsTRACE, "removing req for decompression from queue");
@@ -149,18 +150,20 @@ void *decompressMainThread(void* wrapper)
 						next_block_size->num_compressed_bytes, next_block_size->num_uncompressed_bytes, 0);
 
 				log(lsTRACE, "after decompression for mop %d rdma_mem_desc ->start=%d next_block_size=%d", current_req_to_decompress->mop->mop_id, rdma_mem_desc ->start, next_block_size->num_compressed_bytes);
-
+				pthread_mutex_lock(&rdma_mem_desc->lock);
 				rdma_mem_desc->start += next_block_size->num_compressed_bytes + decompWrapper->getBlockSizeOffset();
+				pthread_mutex_unlock(&rdma_mem_desc->lock);
 
 				mem_desc_t * read_mem_desc = current_req_to_decompress->mop->mop_bufs[1];
 
-				pthread_mutex_lock(&read_mem_desc->lock); //lock something on the reading side
+//				pthread_mutex_lock(&read_mem_desc->lock); //lock something on the reading side
 
 				copy_from_side_buffer_to_actual_buffer(read_mem_desc, decompWrapper->buffer, retData->num_uncompressed_bytes);
-				log(lsTRACE, "just copied %d bytes from side buffer to actual buffer", retData->num_uncompressed_bytes);
+				log(lsTRACE, "mopid=%d, just copied %d bytes from side buffer to actual buffer", current_req_to_decompress->mop->mop_id, retData->num_uncompressed_bytes);
 
-				pthread_mutex_unlock(&read_mem_desc->lock);
-
+//				pthread_mutex_unlock(&read_mem_desc->lock);
+				g_total_fetched_read += retData->num_uncompressed_bytes;
+				log(lsDEBUG, "g_total_fetched_read = %d" , g_total_fetched_read);
 				current_req_to_decompress->mop->total_fetched_read += retData->num_uncompressed_bytes;
 
 				//TODO : make it a different lock?
@@ -196,9 +199,7 @@ void *decompressMainThread(void* wrapper)
 					   decompWrapper->getRdmaClient()->start_fetch_req(current_req_to_decompress,
 							   rdmaBuffer->buff + leftover_prevoius_block, rdmaBuffer->buf_len - leftover_prevoius_block);
 					   current_req_to_decompress->request_in_air = true;
-
 					}
-
 				}
 
 			}
@@ -255,6 +256,8 @@ RdmaClient* DecompressorWrapper::getRdmaClient(){
 
 int DecompressorWrapper::start_fetch_req(client_part_req_t *req, char * buff, int32_t buf_len) //called by the merge thread (similar to what's happening now)
 {
+	//log(lsTRACE, "start_fetch_req 1 mopid=%d mop->total_fetched_read=%d mop->total_len_raw=%d read free bytes is %d. read_buff_len=%d",
+	//		req->mop->mop_id, req->mop->total_fetched_read, req->mop->total_len_raw, req->mop->getFreeBytes(), req->mop->mop_bufs[1]->buf_len);
 
 	//checking if it is the first fetch for this reducer
 	if (!req->mop->fetch_count){
@@ -277,23 +280,20 @@ int DecompressorWrapper::start_fetch_req(client_part_req_t *req, char * buff, in
 
 	decompressRetData_t* next_block_length = get_next_block_length(rdmaBuffer->buff + rdmaBuffer->start);
 
-
+//	log(lsTRACE,"rdmaBuffer->buf_len=%d, rdmaBuffer->start=%d num_compressed=%d",rdmaBuffer->buf_len, rdmaBuffer->start,next_block_length->num_compressed_bytes);
 	//checking if there is a whole compressed block in rdmaBuffer
-	if (rdmaBuffer->buf_len - rdmaBuffer->start  >= next_block_length->num_compressed_bytes){
+	if (rdmaBuffer->buf_len - rdmaBuffer->start  >= next_block_length->num_compressed_bytes + getBlockSizeOffset()){
 		//checking if there is enough space to decompress it
 		if (req->mop->getFreeBytes()-req->bytes_in_air >= req->mop->task->block_size ){ //next_block_length->num_uncompressed_bytes
 		 	//TODO: should save somewhere the next_block_length: for rdma->offset keep the next block length
 
-			log(lsTRACE, "mopid=%d mop->total_fetched_read=%d mop->total_len_raw=%d free bytes is %d. rdma_start is %d",
-						   req->mop->mop_id, req->mop->total_fetched_read, req->mop->total_len_raw, req->mop->getFreeBytes(), rdmaBuffer->start);
-
-
 //			log(lsTRACE, "this is enough space to decompress another block!");
 
 			//pushing the request to queue and waking up decompressor thread
+			log(lsDEBUG, "pushing data instart_fetch_req, uncomp=%d",next_block_length->num_uncompressed_bytes);
 		 	pthread_mutex_lock(&this->lock);
 		 	this->req_to_decompress.push_back(req);
-//		 	req->bytes_in_air += next_block_length->num_uncompressed_bytes; //should be a different lock
+		 	req->bytes_in_air += next_block_length->num_uncompressed_bytes; //should be a different lock
 		 	pthread_mutex_unlock(&this->lock);
 			pthread_cond_broadcast(&this->cond); //wakes up decompress thread
 	   }
@@ -307,12 +307,15 @@ int DecompressorWrapper::start_fetch_req(client_part_req_t *req, char * buff, in
 void DecompressorWrapper::comp_fetch_req(client_part_req_t *req)
 {
 
-	req->mop->mop_bufs[0]->start = 0;
+	mem_desc_t *rdmaBuffer = req->mop->mop_bufs[0];
+	rdmaBuffer->start = 0;
 	req->mop->task->merge_man->update_fetch_req(req);
 	req->request_in_air = false;
-	if (req->mop->getFreeBytes() >= req->mop->task->block_size ){
+	decompressRetData_t* next_block_length = get_next_block_length(rdmaBuffer->buff + rdmaBuffer->start);
+	if (req->mop->getFreeBytes() - req->bytes_in_air >= req->mop->task->block_size ){
 		pthread_mutex_lock(&this->lock);
 		this->req_to_decompress.push_back(req);
+		req->bytes_in_air += next_block_length->num_uncompressed_bytes; //should be a different lock
 		pthread_mutex_unlock(&this->lock);
 		pthread_cond_broadcast(&this->cond); //wakes up decompress thread
 	}

@@ -54,7 +54,6 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     while (records->next()) {
 
     	if (strcmp(records->min_segment->get_task()->compr_alg,"null")!=0){
-    		log(lsTRACE, "dina comp");
     		MapOutput *mop = dynamic_cast<MapOutput*>(records->min_segment->getKVOUutput());
 			if (mop == NULL) {
 				log(lsFATAL, "problem?");
@@ -139,10 +138,8 @@ Segment::Segment(MapOutput *mapOutput) :
 		mem_desc_t *mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
 
 		if (strcmp(get_task()->compr_alg,"null")!=0){//compression is on
-			log(lsTRACE, "dina comp");
 			this->in_mem_data->reset(mem->buff, mem->end);
 		}else{
-			log(lsTRACE, "dina no comp");
 			this->in_mem_data->reset(mem->buff, mapOutput->last_fetched);
 		}
 	}
@@ -233,9 +230,9 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 	//TODO: this can only work with ((DataStream*)stream)
 
 	mem_desc_t *cur_buf = kv_output->mop_bufs[kv_output->staging_mem_idx];
-	log(lsTRACE, "mmm7 staging is %d", kv_output->staging_mem_idx);
 	int total_read = 0;
 	if (!stream){
+		log(lsTRACE, "mmm7 0a");
 		return 0;
 	}
     
@@ -262,10 +259,11 @@ int BaseSegment::nextKVInternal(InStream *stream) {
         eof = true;
         total_read = kbytes + vbytes;
         byte_read += total_read;
-        pthread_mutex_lock(&cur_buf->lock);
+//        pthread_mutex_lock(&cur_buf->lock);
         cur_buf->start += total_read;
-        cur_buf->free_bytes += total_read;
-        pthread_mutex_unlock(&cur_buf->lock);
+//        cur_buf->free_bytes += total_read;
+//        pthread_mutex_unlock(&cur_buf->lock);
+		log(lsTRACE, "mmm7 0b");
         return 0;
     }
 
@@ -275,10 +273,11 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 		eof = true;
 		total_read = kbytes + vbytes;
 		byte_read += total_read;
-		pthread_mutex_lock(&cur_buf->lock);
+//		pthread_mutex_lock(&cur_buf->lock);
 		cur_buf->start += total_read;
-		cur_buf->free_bytes += total_read;
-		pthread_mutex_unlock(&cur_buf->lock);
+//		cur_buf->free_bytes += total_read;
+//		pthread_mutex_unlock(&cur_buf->lock);
+		log(lsTRACE, "mmm7 0c");
         return 0;
     }
 
@@ -305,10 +304,10 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     stream->skip(cur_val_len);
     total_read = kbytes + vbytes + cur_key_len + cur_val_len;
     byte_read += total_read;
-    pthread_mutex_lock(&cur_buf->lock);
-    cur_buf->free_bytes += total_read;
+//    pthread_mutex_lock(&cur_buf->lock);
     cur_buf->start += total_read;
-    pthread_mutex_unlock(&cur_buf->lock);
+//    cur_buf->free_bytes += total_read;
+//    pthread_mutex_unlock(&cur_buf->lock);
     return 1;
 
 }
@@ -319,7 +318,7 @@ int BaseSegment::nextKV() {
     /* in mem map output */
 	if (kv_output != NULL) {
 		if (eof || byte_read >= this->kv_output->total_len_raw) {
-			log(lsERROR, "Reader: End of Stream - byte_read=%lld total_len=%lld", byte_read, this->kv_output->total_len_raw);
+			log(lsERROR, "Reader: End of Stream [%p]- byte_read=%lld total_len=%lld", kv_output->mop_bufs[kv_output->staging_mem_idx], byte_read,  this->kv_output->total_len_raw);
 	        return 0;
 	    }
     	return nextKVInternal(in_mem_data);
@@ -392,37 +391,43 @@ void Segment::send_request() {
     map_output->task->merge_man->start_fetch_req(map_output->part_req);
 }
 
-//this function is used for compression: it resets in_mem_data if it is necessary
+//this function is used for compression: it sync's the DataStream in_mem_data with the cyclic buffer ('staging_mem')
 bool BaseSegment::reset_data() {
 		log(lsDEBUG, "BaseSegment::reset_data");
 		if (kv_output != NULL) {
 			mem_desc_t *staging_mem =
 					kv_output->mop_bufs[kv_output->staging_mem_idx];
 
-			int difference = staging_mem->end - staging_mem->start;
-			if (difference < 0){
+			int32_t	end = staging_mem->end; // no need for lock as long as we refer to same 'end' value
+			int difference = end - staging_mem->start;
+			if (difference < 0) {
 				//checking if there is more than one key-value pair before the end of the buffer
 				if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < staging_mem->buf_len-staging_mem->start){
-					log(lsDEBUG, "turnaround of the cyclic buffer. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
-								staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
+					log(lsDEBUG, " before turnaround of the cyclic buffer [%p]. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
+							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
 					//just reset
 					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->buf_len-staging_mem->start);
+					log(lsDEBUG, " after turnaround of the cyclic buffer [%p]. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
+							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
 					return true;
 				}else{
 					//indicates that there should be join
+					log(lsDEBUG, "DINA return false, cyclic buffer [%p]", staging_mem);
 					return false;
 				}
-			}else{
+			}
+			else {
 				if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < difference){
 					//there is new data
-					log(lsDEBUG, "since last time more data was fetched/decompressed. resetting to start=%d end=%d count=%d pos=%d",
-							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
-					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->end-staging_mem->start);
+					log(lsDEBUG, "since last time more data was fetched/decompressed. resetting cyclic buffer [%p] to start=%d end=%d count=%d pos=%d",
+							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
+					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, end-staging_mem->start);
 					return true;
-				}else{
+				}
+				else{
 					//no new data was added: must sleep
-					log(lsDEBUG, "there is no data: wait for fetch. start=%d, end=%d, count=%d, pos=%d. total_len_part is %d",
-							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), this->kv_output->total_len_part);
+					log(lsDEBUG, "there is no data in cyclic buffer [%p]: wait for fetch. start=%d, end=%d, count=%d, pos=%d. total_len_part is %d",
+							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), this->kv_output->total_len_part);
 					pthread_mutex_lock(&kv_output->lock);
 					pthread_cond_wait(&kv_output->cond, &kv_output->lock);
 					pthread_mutex_unlock(&kv_output->lock);
@@ -442,52 +447,54 @@ bool BaseSegment::reset_data() {
 //called by adjustPriorityQueue
 bool BaseSegment::switch_mem() {
 
-		if (kv_output != NULL) {
-			mem_desc_t *staging_mem =
-					kv_output->mop_bufs[kv_output->staging_mem_idx];
+	if (kv_output != NULL) {
+		mem_desc_t *staging_mem =
+				kv_output->mop_bufs[kv_output->staging_mem_idx];
 
-			if (byte_read >= kv_output->total_len_raw) {
-				return false;
-			}
-
-			time_t st, ed;
-			time(&st);
-			pthread_mutex_lock(&kv_output->lock);
-			//pthread_mutex_lock(&merger->lock);
-			//if (staging_mem->status != MERGE_READY) {
-			while (staging_mem->status != MERGE_READY) {
-				pthread_cond_wait(&kv_output->cond, &kv_output->lock);
-				//pthread_cond_wait(&merger->cond, &merger->lock);
-				/* merger->fetched_mops.clear(); */
-			}
-			//pthread_mutex_unlock(&merger->lock);
-			pthread_mutex_unlock(&kv_output->lock);
-			time(&ed);
-
-			kv_output->task->total_wait_mem_time += ((int) (ed - st));
-
-			if (strcmp(this->get_task()->compr_alg,"null")!=0){
-				log(lsTRACE, "dina comp");
-				log(lsDEBUG, "turnaround of the cyclic buffer. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
-							staging_mem->start, staging_mem->end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
-				//there is a partial key-value pair: must do join
-				bool b = join(staging_mem->buff, staging_mem->end);
-				int shift_len = staging_mem->end - this->in_mem_data->getLength();
-				staging_mem->start = shift_len;
-				return b;
-			}else{
-				log(lsTRACE, "dina no comp");
-				// restore break record
-				log(lsTRACE, "IDAN before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched_raw, kv_output->last_fetched);
-				bool b = join(staging_mem->buff, kv_output->last_fetched);
-				// to check if we need more data from map output
-				this->send_request();
-				return b;
-			}
-
+		if (byte_read >= kv_output->total_len_raw) {
+			return false;
 		}
 
-    return false;
+		time_t st, ed;
+		time(&st);
+		pthread_mutex_lock(&kv_output->lock);
+		//pthread_mutex_lock(&merger->lock);
+		//if (staging_mem->status != MERGE_READY) {
+		while (staging_mem->status != MERGE_READY) {
+			pthread_cond_wait(&kv_output->cond, &kv_output->lock);
+			//pthread_cond_wait(&merger->cond, &merger->lock);
+			/* merger->fetched_mops.clear(); */
+		}
+		//pthread_mutex_unlock(&merger->lock);
+		pthread_mutex_unlock(&kv_output->lock);
+		time(&ed);
+
+		kv_output->task->total_wait_mem_time += ((int) (ed - st));
+
+		if (strcmp(this->get_task()->compr_alg,"null")!=0) {
+			int32_t	end = staging_mem->end; // no need for lock as long as we refer to same 'end' value
+			log(lsDEBUG, " before turnaround of the cyclic buffer [%]. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
+					staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
+			//there is a partial key-value pair: must do join
+			bool b = join(staging_mem->buff, end);
+
+			staging_mem->start = end - this->in_mem_data->getLength();
+			log(lsDEBUG, " after turnaround of the cyclic buffer [%]. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
+					staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
+			return b;
+		}
+		else{
+			// restore break record
+			log(lsTRACE, "IDAN before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched_raw, kv_output->last_fetched);
+			bool b = join(staging_mem->buff, kv_output->last_fetched);
+			// to check if we need more data from map output
+			this->send_request();
+			return b;
+		}
+
+	}
+
+	return false;
 }
 
 bool BaseSegment::join(char *src, const int32_t src_len) {

@@ -35,6 +35,26 @@
 class RawKeyValueIterator;
 
 typedef struct mem_desc {
+
+	int32_t getFreeBytes()
+	{
+		int32_t _start = start;
+		int32_t _end = end;
+
+		int32_t free_bytes = 0;
+		if (_start <= _end) {
+			// _start pos is smaller then end pos
+			int32_t used_bytes = _end - _start;
+			free_bytes = buf_len - used_bytes;
+		}
+		else {
+			// _end pos is smaller then start pos (wrap around)
+			free_bytes = _start - _end;
+		}
+		return free_bytes;
+	}
+
+
     struct list_head     list;
     char                *buff;
     int32_t              buf_len;
@@ -206,6 +226,7 @@ private:
     }
 };
 
+static int g_count=0; //temp debug
 
 /****************************************************************************
  * The implementation of PriorityQueue and RawKeyValueIterator
@@ -251,6 +272,24 @@ public:
         this->min_segment = core_queue.top();
         this->key = &this->min_segment->key;
         this->val = &this->min_segment->val;
+
+
+		// temp debug
+        g_count++;
+
+        // ALEXR
+        if (this->min_segment->cur_key_len != 11) {
+
+           		output_stderr("ALEXR bad cur_key_len = %d, count=%d", this->min_segment->cur_key_len, g_count);
+
+           		throw "this->min_segment->cur_key_len != 11";
+        }
+        if (this->min_segment->cur_val_len != 89) {
+
+    		output_stderr("ALEXR bad cur_val_len = %d, count=%d", this->min_segment->cur_val_len, g_count);
+
+    		throw "this->min_segment->cur_val_len != 89";
+        }
         return true;
     }
 
@@ -317,36 +356,40 @@ public:
 protected:
 
     bool lessThan(T a, T b);
-    void adjustPriorityQueue(T segment){
-        int ret = segment->nextKV();
+    void adjustPriorityQueue(T segment) {
+    	int ret = segment->nextKV();
 
-        switch (ret) {
-            case 0: { /*no more data for this segment*/
-                T s = core_queue.pop();
-                delete s;
-                num_of_segments--;
-                break;
-            }
-            case 1: { /*next KV pair exist*/
-                core_queue.adjustTop();
-                break;
-            }
-            case -1: { /*break in the middle - for cyclic buffer can represent that you need to switch to the beginning of the buffer*/
-            	if (strcmp(segment->get_task()->compr_alg,"null")!=0 &&  segment->reset_data()){
-            			adjustPriorityQueue(segment); //calling the function again, since data was reset
-            	}else{
-                if (segment->switch_mem() ){
-                    /* DBGPRINT(DBG_CLIENT, "adjust priority queue\n"); */
-                    core_queue.adjustTop();
-                } else {
-                    T s = core_queue.pop();
-                    num_of_segments--;
-                    delete s;
-                }
-                break;
-            }
-            }
-        }
+		// temp DEBUG - REMOVE it !!!
+    	mem_desc_t *staging_mem = segment->getKVOUutput()->mop_bufs[segment->getKVOUutput()->staging_mem_idx];
+    	log(lsTRACE, "adjustPriorityQueue (%p) ret=%d", staging_mem, ret);
+
+    	switch (ret) {
+    	case 0: { /*no more data for this segment*/
+    		T s = core_queue.pop();
+    		delete s;
+    		num_of_segments--;
+    		break;
+    	}
+    	case 1: { /*next KV pair exist*/
+    		core_queue.adjustTop();
+    		break;
+    	}
+    	case -1: { /*break in the middle - for cyclic buffer can represent that you need to switch to the beginning of the buffer*/
+    		if (strcmp(segment->get_task()->compr_alg,"null")!=0 &&  segment->reset_data()){
+    			adjustPriorityQueue(segment); //calling the function again, since data was reset
+    		}else{
+    			if (segment->switch_mem() ){
+    				/* DBGPRINT(DBG_CLIENT, "adjust priority queue\n"); */
+    				core_queue.adjustTop();
+    			} else {
+    				T s = core_queue.pop();
+    				num_of_segments--;
+    				delete s;
+    			}
+    			break;
+    		}
+    	}
+    	}
     }
 
 
