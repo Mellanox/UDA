@@ -56,7 +56,7 @@ DecompressorWrapper::~DecompressorWrapper()
 
 void copy_from_side_buffer_to_actual_buffer(mem_desc_t * dest, char *side_buffer, int length)
 {
-	log(lsTRACE, "before copy of %d bytes, start=%d, end=%d, free=%d" , length, dest->start, dest->end, dest->getFreeBytes());
+	log(lsTRACE, "before copy of %d bytes, start=%d, end=%d, free=%d, [%p]" , length, dest->start, dest->end, dest->getFreeBytes(),dest);
 	//write in a single step
 	if (length <= dest->buf_len - dest->end){
 		memcpy(dest->buff + dest->end, side_buffer, length);
@@ -73,7 +73,7 @@ void copy_from_side_buffer_to_actual_buffer(mem_desc_t * dest, char *side_buffer
 		dest->end = size_copy_second_round;
 //		dest->free_bytes -= length;
 	}
-	log(lsTRACE, "after copy of %d bytes, start=%d, end=%d, free=%d" , length, dest->start, dest->end, dest->getFreeBytes());
+	log(lsTRACE, "after copy of %d bytes, start=%d, end=%d, free=%d, [%p]" , length, dest->start, dest->end, dest->getFreeBytes(),dest);
 }
 
 

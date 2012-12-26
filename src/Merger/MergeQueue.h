@@ -54,6 +54,16 @@ typedef struct mem_desc {
 		return free_bytes;
 	}
 
+	void incStart(int32_t bytesToAdd){
+		int32_t oldStart = start;
+		if(oldStart + bytesToAdd < buf_len){
+			start += bytesToAdd;
+		}else{
+			start = oldStart + bytesToAdd - buf_len;
+		}
+		log(lsDEBUG, "incStart new start=%d, oldStart=%d ",start,oldStart);
+	}
+
 
     struct list_head     list;
     char                *buff;
@@ -226,8 +236,6 @@ private:
     }
 };
 
-static int g_count=0; //temp debug
-
 /****************************************************************************
  * The implementation of PriorityQueue and RawKeyValueIterator
  ****************************************************************************/
@@ -273,23 +281,6 @@ public:
         this->key = &this->min_segment->key;
         this->val = &this->min_segment->val;
 
-
-		// temp debug
-        g_count++;
-
-        // ALEXR
-        if (this->min_segment->cur_key_len != 11) {
-
-           		output_stderr("ALEXR bad cur_key_len = %d, count=%d", this->min_segment->cur_key_len, g_count);
-
-           		throw "this->min_segment->cur_key_len != 11";
-        }
-        if (this->min_segment->cur_val_len != 89) {
-
-    		output_stderr("ALEXR bad cur_val_len = %d, count=%d", this->min_segment->cur_val_len, g_count);
-
-    		throw "this->min_segment->cur_val_len != 89";
-        }
         return true;
     }
 

@@ -260,7 +260,8 @@ int BaseSegment::nextKVInternal(InStream *stream) {
         total_read = kbytes + vbytes;
         byte_read += total_read;
 //        pthread_mutex_lock(&cur_buf->lock);
-        cur_buf->start += total_read;
+        cur_buf->incStart(total_read);
+       // cur_buf->start += total_read;
 //        cur_buf->free_bytes += total_read;
 //        pthread_mutex_unlock(&cur_buf->lock);
 		log(lsTRACE, "mmm7 0b");
@@ -274,7 +275,8 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 		total_read = kbytes + vbytes;
 		byte_read += total_read;
 //		pthread_mutex_lock(&cur_buf->lock);
-		cur_buf->start += total_read;
+		cur_buf->incStart(total_read);
+		//cur_buf->start += total_read;
 //		cur_buf->free_bytes += total_read;
 //		pthread_mutex_unlock(&cur_buf->lock);
 		log(lsTRACE, "mmm7 0c");
@@ -305,7 +307,8 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     total_read = kbytes + vbytes + cur_key_len + cur_val_len;
     byte_read += total_read;
 //    pthread_mutex_lock(&cur_buf->lock);
-    cur_buf->start += total_read;
+    cur_buf->incStart(total_read);
+    //cur_buf->start += total_read;
 //    cur_buf->free_bytes += total_read;
 //    pthread_mutex_unlock(&cur_buf->lock);
     return 1;
@@ -473,14 +476,14 @@ bool BaseSegment::switch_mem() {
 
 		if (strcmp(this->get_task()->compr_alg,"null")!=0) {
 			int32_t	end = staging_mem->end; // no need for lock as long as we refer to same 'end' value
-			log(lsDEBUG, " before turnaround of the cyclic buffer [%]. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
-					staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
+			log(lsDEBUG, " before turnaround of the cyclic buffer [%]. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d,byte_read=%d",
+					staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len, byte_read);
 			//there is a partial key-value pair: must do join
 			bool b = join(staging_mem->buff, end);
 
 			staging_mem->start = end - this->in_mem_data->getLength();
-			log(lsDEBUG, " after turnaround of the cyclic buffer [%]. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d",
-					staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
+			log(lsDEBUG, " after turnaround of the cyclic buffer [%]. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d, byte_read=%d",
+					staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len, byte_read);
 			return b;
 		}
 		else{
