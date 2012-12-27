@@ -198,6 +198,10 @@ function exportMenager()
 			print "export COMPRESION_TYPE=Snappy" >> execDir "/" exportsFile
 		
 	}
+	else {
+		print "export COMPRESION_=0" >> execDir "/" exportsFile
+	}
+	
 
 	manageAddParams()
 }
@@ -494,12 +498,18 @@ END{
 		print "export LZO=1" >> generalDir
 		print "export COMPRESSION=1" >> generalDir
 	}
-	else if ( isSnappyExist==1 ){
+	else {
+		print "export LZO=0" >> generalDir
+		print "export COMPRESSION=0" >> generalDir
+	}
+	if ( isSnappyExist==1 ){
 		print "export Snappy=1"  >> generalDir
 		print "export COMPRESSION=1" >> generalDir
 	}
-	else
+	else{
+		print "export Snappy=0"  >> generalDir
 		print "export COMPRESSION=0" >> generalDir
+	}
 
 	print "export RELEVANT_SLAVES_BY_SPACES='" relevantSlavesSpace "'" >> generalDir
 	print "export RELEVANT_SLAVES_BY_COMMAS='" relevantSlavesComma "'" >> generalDir
