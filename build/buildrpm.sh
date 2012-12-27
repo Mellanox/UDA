@@ -1,26 +1,26 @@
 #!/bin/bash
 
 set -ex
-cd `dirname $0`
+BUILD_DIR=`dirname $0`
+cd $BUILD_DIR/.. # Aparently, git commands (especially git archive) prefer the top level dir without path argument??
 
 #one time setup per user
 if [ ! -f ~/.rpmmacros ] ; then
 	rpmdev-setuptree
 fi
 
-echo `svnversion -n` > ./svnversion.txt
+echo `git rev-list HEAD | wc -l` > $BUILD_DIR/gitversion.txt
+
+# export UDA into tar, remove plugins/*/*.jar, and create tarball
+echo ======== Creating source.tgz ...
+rm -rf $BUILD_DIR/source.tgz
+git archive --format tar  HEAD | tar --delete '*.jar' | gzip > $BUILD_DIR/source.tgz
 
 #prepare C++
 echo ======== preparing and making C++ ...
-./../src/premake.sh
-
-# export UDA into source dir, remove plugins/*/*.jar, and create tarball
-echo ======== Creating source.tgz ...
-rm -rf source.tgz source
-svn export .. source && rm source/plugins/*/*.jar && tar cfz source.tgz source/src source/plugins
-rm -rf source
+$BUILD_DIR/../src/premake.sh
 
 #build C++ and JAVA, and then create RPM
 echo ======== making RPM ...
-./makerpm.sh 
+$BUILD_DIR/makerpm.sh 
 cd -

@@ -2,7 +2,18 @@
 Building
 ========
 
+
 *** pre-build ***
+			
+0) OPTIONAL for COMMIT-ID: in case you want to make release based on commit-id that is not the HEAD, 
+then find the commit-id in the log and create a branch from that commit and push it:
+(*** NOTE: usually you'll take the commit-id after the fix was merged to origin!!! ***)
+	git branch <branch name> <commit-id>
+	git push -u origin <branch-name>
+	
+0.1 OPTIONAL for BRANCH: in any case you build from branch, make sure to switch to that branch:
+	git checkout <branch-name>
+
 
 In order to create the rpm you should:
 1) Update README and journal.txt with all the major version changes
@@ -15,41 +26,62 @@ RND can change 'release' from time to time (usually after doing something "meani
 RND must increment 'fix' by 1 any time we ship fix that is based on an existing version (same major.minor.release)
 NOTE: In addition, the build process will:
 	a. parse ./release file and read the version you wrote in the X.Y.Z-W format
-	b. and, will automatically add it the proper svnversion!
-	(Hence, the resulted version will be: X.Y.Z-W.<svnversion>)
+	b. and, will automatically add it the proper gitversion!
+	(Hence, the resulted version will be: X.Y.Z-W.<gitversion>)
 
 
-3) Check in ./release, ./README and ./journal.txt
+3) Check in (and push) ./release, ./README and ./journal.txt 
+	**** make sure to do all of: git add, git commit, and git push
+
 	- In this check-in use "highlighting" comment, something like:
 	************* Closing release X.Y.Z-W *******************
-	
-4) Create TAG:
-	svn cp https://sirius.voltaire.com/repos/enterprise/uda/trunk https://sirius.voltaire.com/repos/enterprise/uda/tags/UDA_<version>_from_<date>
-for example:	
-	svn cp https://sirius.voltaire.com/repos/enterprise/uda/trunk https://sirius.voltaire.com/repos/enterprise/uda/tags/UDA_3.0.2-0.r4279_from_20120930
-	(in case you build non-trunk branch, copy the TAG from your branch)
+		
+3.1 OPTIONAL for COMMIT-ID: In case you make release based on commit-id and you branched from that commit (step #0),
+then merge back your branch to the master (for above release/journal/readme editting) using
+	git checkout master # NOTE: here I assume master is the branch from whom you took the <commit-id> in step #0
+	git merge <branch-name>
+	git push
+	#TODO: consider remove that branch from the remote!
+
+
 
 *** the build ***
-5) after all files are checked-in, perform a clean check-out:
-   svn co https://sirius.voltaire.com/repos/enterprise/uda/trunk uda # uda is the desired name for the folder that svn will create
-   
-6) export your JAVA_HOME, for example:
+4) after all files are checked-in (and pushed), perform a clean check-out:
+   git clone /.autodirect/mswg/git/accl/uda.git
+   cd uda
+
+
+4.1 OPTIONAL for BRANCH: in case you build from branch, make sure to switch to that branch:
+	git checkout <branch-name>
+
+
+5) export your JAVA_HOME, for example:
 	export JAVA_HOME=/usr/lib64/java/jdk1.6.0_25 # in the future this will be arg to our buildrpm.sh
 
-7) do build, using: ./uda/build/buildrpm.sh
+6) do build, using: ./build/buildrpm.sh
    - the resulted rpm will be under your home in ~/rpmbuild/RPMS/x86_64/
    - the name of the rpm will be: libuda-<version>.<distribution>.x86_64.rpm
 
+*** tagging ***
+7) Create TAG and push it:
+	git tag -a UDA_<version>_from_<date>
+	push the tag to origin (remote)
+
+for example:	
+	git tag -a UDA_3.0.2-0.r4279_from_20120930
+	git push origin UDA_3.0.2-0.r4279_from_20120930
+
+
 *** publish ***
-8) Create directory under /.autodirect/mswg/release/uda/  with name uda-X.Y.Z-W.r<revision from svn> 
+8) Create directory under /.autodirect/mswg/release/uda/  with name uda-X.Y.Z-W.r<revision from git> 
 ( you can access it from Windows, using \\labfs01\MSWG\release\uda )
 9) copy the resulted rpm to the new directory you created
+	- also it is good practice to copy the *.src.rpm too
 
 
 ========================================
 In order to install the rpm:
-	(you may need to issue rpm -e libuda in order to remove previous RPM)
-	rpm -ivh <your-rpm>  
+	rpm -Uvh <your-rpm> [--force]
 
 The name of your-rpm is in the form:  libuda-<version>.<distribution>.x86_64.rpm
 The 64-bit libuda.so and *.jar files will be installed in /usr/lib64/uda
@@ -68,4 +100,3 @@ The rpm contains the following files:
 	/usr/lib64/uda/uda-hadoop-0.20.2.jar
 	/usr/lib64/uda/uda-hadoop-1.x.jar
 	/usr/lib64/uda/uda-hadoop-3.x.jar
-

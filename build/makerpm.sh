@@ -18,10 +18,14 @@ cp ../plugins/mlx-CDH3u4/uda-CDH3u4.jar .
 cp ../plugins/mlx-0.20.2/uda-hadoop-0.20.2.jar .
 cp ../scripts/set_hadoop_slave_property.sh .
 
-cp uda-hadoop-1.x.jar uda-hadoop-3.x.jar uda-CDH3u4.jar uda-hadoop-0.20.2.jar libuda.so README LICENSE.txt journal.txt set_hadoop_slave_property.sh  ~/rpmbuild/SOURCES/
+#cp uda-hadoop-1.x.jar uda-hadoop-3.x.jar uda-CDH3u4.jar uda-hadoop-0.20.2.jar libuda.so README LICENSE.txt journal.txt set_hadoop_slave_property.sh source.tgz ~/rpmbuild/SOURCES/
+cp uda-hadoop-1.x.jar uda-hadoop-3.x.jar uda-CDH3u4.jar uda-hadoop-0.20.2.jar libuda.so README LICENSE.txt journal.txt set_hadoop_slave_property.sh ~/rpmbuild/SOURCES/
+touch ~/rpmbuild/SOURCES/source.tgz
+# TODO: above is temp till we adjust buildrpm.sh to git
+
 uda_version=`awk -F- '{print $1}' ../release`
 uda_fix=`awk -F- '{print $2}' ../release`
-revision=`awk -F: '{print $1}' svnversion.txt` # remove ':' (in case user's dir is dirty), since it is illegal in spec file
+revision=`awk -F: '{print $1}' gitversion.txt` # remove ':' (in case user's dir is dirty), since it is illegal in spec file
 echo ========== creating RPM...
 rpmbuild -ba uda.spec --define "_revision $revision" --define "_uda_version $uda_version" --define "_uda_fix $uda_fix"
 cd -
