@@ -53,7 +53,7 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     int i = 0;
     while (records->next()) {
 
-    	if (strcmp(records->min_segment->get_task()->compr_alg,"null")!=0){
+    	if (records->min_segment->get_task()->isCompressionOn()){
     		MapOutput *mop = dynamic_cast<MapOutput*>(records->min_segment->getKVOUutput());
 			if (mop == NULL) {
 				log(lsFATAL, "problem?");
@@ -137,7 +137,7 @@ Segment::Segment(MapOutput *mapOutput) :
 	if (mapOutput) {
 		mem_desc_t *mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
 
-		if (strcmp(get_task()->compr_alg,"null")!=0){//compression is on
+		if (get_task()->isCompressionOn()){//compression is on
 			this->in_mem_data->reset(mem->buff, mem->end);
 		}else{
 			this->in_mem_data->reset(mem->buff, mapOutput->last_fetched);
@@ -232,7 +232,6 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 	mem_desc_t *cur_buf = kv_output->mop_bufs[kv_output->staging_mem_idx];
 	int total_read = 0;
 	if (!stream){
-		log(lsTRACE, "mmm7 0a");
 		return 0;
 	}
     
@@ -241,7 +240,6 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
 	if (!k){
-		log(lsTRACE, "mmm7 1");
 		return -1;
 	}
 
@@ -251,7 +249,6 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     bool v = StreamUtility::deserializeInt(*stream, cur_val_len, &vbytes);
     if (!v) {
         stream->rewind(digested);
-        log(lsTRACE, "mmm7 2");
         return -1;
     }
     digested += vbytes;
@@ -259,12 +256,7 @@ int BaseSegment::nextKVInternal(InStream *stream) {
         eof = true;
         total_read = kbytes + vbytes;
         byte_read += total_read;
-//        pthread_mutex_lock(&cur_buf->lock);
         cur_buf->incStart(total_read);
-       // cur_buf->start += total_read;
-//        cur_buf->free_bytes += total_read;
-//        pthread_mutex_unlock(&cur_buf->lock);
-		log(lsTRACE, "mmm7 0b");
         return 0;
     }
 
@@ -274,19 +266,13 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 		eof = true;
 		total_read = kbytes + vbytes;
 		byte_read += total_read;
-//		pthread_mutex_lock(&cur_buf->lock);
 		cur_buf->incStart(total_read);
-		//cur_buf->start += total_read;
-//		cur_buf->free_bytes += total_read;
-//		pthread_mutex_unlock(&cur_buf->lock);
-		log(lsTRACE, "mmm7 0c");
         return 0;
     }
 
     /* no enough for key + val */
     if (!stream->hasMore(cur_key_len + cur_val_len)) {
     	stream->rewind(digested);
-    	log(lsTRACE, "mmm7 3");
         return -1;
     }
 
@@ -306,11 +292,7 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     stream->skip(cur_val_len);
     total_read = kbytes + vbytes + cur_key_len + cur_val_len;
     byte_read += total_read;
-//    pthread_mutex_lock(&cur_buf->lock);
     cur_buf->incStart(total_read);
-    //cur_buf->start += total_read;
-//    cur_buf->free_bytes += total_read;
-//    pthread_mutex_unlock(&cur_buf->lock);
     return 1;
 
 }
@@ -381,7 +363,6 @@ void Segment::send_request() {
 	/* switch to new staging buffer */
     pthread_mutex_lock(&map_output->lock);
 	map_output->staging_mem_idx = (map_output->staging_mem_idx == 0 ? 1 : 0);
-	log(lsTRACE, "mmm7 staging is %d", map_output->staging_mem_idx);
     map_output->mop_bufs[map_output->staging_mem_idx]->status = FETCH_READY;
     map_output->fetch_count++;
 
@@ -395,8 +376,7 @@ void Segment::send_request() {
 }
 
 //this function is used for compression: it sync's the DataStream in_mem_data with the cyclic buffer ('staging_mem')
-bool BaseSegment::reset_data() {
-		log(lsDEBUG, "BaseSegment::reset_data");
+bool BaseSegment::reset_data() {;
 		if (kv_output != NULL) {
 			mem_desc_t *staging_mem =
 					kv_output->mop_bufs[kv_output->staging_mem_idx];
@@ -415,7 +395,7 @@ bool BaseSegment::reset_data() {
 					return true;
 				}else{
 					//indicates that there should be join
-					log(lsDEBUG, "DINA return false, cyclic buffer [%p]", staging_mem);
+					log(lsDEBUG, "reset_data return false, cyclic buffer [%p]", staging_mem);
 					return false;
 				}
 			}
@@ -474,16 +454,12 @@ bool BaseSegment::switch_mem() {
 
 		kv_output->task->total_wait_mem_time += ((int) (ed - st));
 
-		if (strcmp(this->get_task()->compr_alg,"null")!=0) {
+		if (this->get_task()->isCompressionOn()) {
 			int32_t	end = staging_mem->end; // no need for lock as long as we refer to same 'end' value
-			log(lsDEBUG, " before turnaround of the cyclic buffer [%]. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d,byte_read=%d",
-					staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len, byte_read);
 			//there is a partial key-value pair: must do join
+			int32_t tempByte_read = byte_read;
 			bool b = join(staging_mem->buff, end);
-
-			staging_mem->start = end - this->in_mem_data->getLength();
-			log(lsDEBUG, " after turnaround of the cyclic buffer [%]. new data was added so must do join start=%d end=%d count=%d pos=%d size=%d, byte_read=%d",
-					staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len, byte_read);
+			staging_mem->incStart(byte_read-tempByte_read);
 			return b;
 		}
 		else{

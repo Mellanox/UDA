@@ -117,7 +117,7 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 				manager->mops_in_queue.insert(mop->mop_id);
 				Segment *segment = new Segment(mop);
 
-				if (!task->compr_alg || strcmp(task->compr_alg,"null")==0){
+				if (!task->isCompressionOn()){
 					segment->send_request(); // send req for second buffer
 
 				}
@@ -246,13 +246,12 @@ KVOutput::KVOutput(struct reduce_task *task)
     memory_pool_t *mem_pool;
 
     this->task = task;
-    if (!task->compr_alg || strcmp(task->compr_alg,"null")==0){// nocompression
+    if (!task->isCompressionOn()){// nocompression
     	this->staging_mem_idx = 0;
     }else{
     	this->staging_mem_idx = 1;
     }
 
-    log(lsTRACE, "dina staging is %d comp is %s", this->staging_mem_idx,task->compr_alg);
     this->total_len_part = 0;
     this->total_len_raw = 0;
     this->total_fetched_raw = 0;
@@ -386,7 +385,7 @@ int MergeManager::update_fetch_req(client_part_req_t *req)
 
     pthread_mutex_unlock(&req->mop->lock);
 
-    log(lsTRACE, "total_len_part=%d total_len_raw=%d req->mop->total_fetched_raw=%d req->last_fetched=%d req->mop->mop_id=%d",
+    log(lsTRACE, "update_fetch_req total_len_part=%d total_len_raw=%d req->mop->total_fetched_raw=%d req->last_fetched=%d req->mop->mop_id=%d",
        		req->mop->total_len_part, req->mop->total_len_raw, req->mop->total_fetched_raw, recvd_data[2], req->mop->mop_id);
 
     return 1;
@@ -430,12 +429,10 @@ int MergeManager::start_fetch_req(client_part_req_t *req)
     /* Update the buf status */
 
 	int ret;
-	if (strcmp(this->task->compr_alg,"null")!=0){
-		log(lsTRACE, "MergeManager::start_fetch_req comp mop_id=%d",req->mop->mop_id);
+	if (this->task->isCompressionOn()){
 		req->mop->mop_bufs[0]->status = BUSY;
 		ret = task->client->start_fetch_req(req, req->mop->mop_bufs[0]->buff, req->mop->mop_bufs[0]->buf_len);
 	}else{
-		log(lsTRACE, "dina no comp");
 		req->mop->mop_bufs[req->mop->staging_mem_idx]->status = BUSY;
 		ret = task->client->start_fetch_req(req, req->mop->mop_bufs[req->mop->staging_mem_idx]->buff, req->mop->mop_bufs[req->mop->staging_mem_idx]->buf_len);
 	}

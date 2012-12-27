@@ -39,6 +39,8 @@ class C2JNexus;
 class MergeManager;
 struct reduce_task;
 
+enum compressionType{compOff, compSnappy, compLzo};
+
 typedef struct reduce_directory {
     char         *path;
     list_head_t   list;
@@ -91,8 +93,21 @@ typedef struct reduce_task {
     std::vector<std::string>   local_dirs; // local dirs will serve for lpq temp files
 
     /*for compression*/
-    char *compr_alg;
+
+    compressionType compr_alg;
     int block_size;
+
+    bool isCompressionOn(){
+    	if(compr_alg != compOff){
+    		return true;
+    	}
+    	return false;
+    }
+
+    compressionType getCompressionType(){
+    	return compr_alg;
+    }
+
 } reduce_task_t;
 
 void reduce_downcall_handler(const std::string & msg);
@@ -101,6 +116,7 @@ void spawn_reduce_task();
 void finalize_reduce_task(reduce_task_t *task);
 int  create_mem_pool(int logsize, int num, memory_pool_t *pool);
 int  create_mem_pool_pair(int size1, int size2,  int num, memory_pool_t *pool);
+void createCompressionClient();
 #endif
 
 /*

@@ -36,15 +36,15 @@ class RawKeyValueIterator;
 
 typedef struct mem_desc {
 
-	int32_t getFreeBytes()
+	uint32_t getFreeBytes()
 	{
-		int32_t _start = start;
-		int32_t _end = end;
+		uint32_t _start = start;
+		uint32_t _end = end;
 
-		int32_t free_bytes = 0;
+		uint32_t free_bytes = 0;
 		if (_start <= _end) {
 			// _start pos is smaller then end pos
-			int32_t used_bytes = _end - _start;
+			uint32_t used_bytes = _end - _start;
 			free_bytes = buf_len - used_bytes;
 		}
 		else {
@@ -54,14 +54,14 @@ typedef struct mem_desc {
 		return free_bytes;
 	}
 
-	void incStart(int32_t bytesToAdd){
-		int32_t oldStart = start;
-		if(oldStart + bytesToAdd < buf_len){
+	void incStart(int32_t bytesToAdd)
+	{
+		uint32_t oldStart = start;
+		if (oldStart + bytesToAdd < buf_len) {
 			start += bytesToAdd;
-		}else{
+		} else {
 			start = oldStart + bytesToAdd - buf_len;
 		}
-		log(lsDEBUG, "incStart new start=%d, oldStart=%d ",start,oldStart);
 	}
 
 
@@ -350,10 +350,6 @@ protected:
     void adjustPriorityQueue(T segment) {
     	int ret = segment->nextKV();
 
-		// temp DEBUG - REMOVE it !!!
-    	mem_desc_t *staging_mem = segment->getKVOUutput()->mop_bufs[segment->getKVOUutput()->staging_mem_idx];
-    	log(lsTRACE, "adjustPriorityQueue (%p) ret=%d", staging_mem, ret);
-
     	switch (ret) {
     	case 0: { /*no more data for this segment*/
     		T s = core_queue.pop();
@@ -366,7 +362,7 @@ protected:
     		break;
     	}
     	case -1: { /*break in the middle - for cyclic buffer can represent that you need to switch to the beginning of the buffer*/
-    		if (strcmp(segment->get_task()->compr_alg,"null")!=0 &&  segment->reset_data()){
+    		if (segment->get_task()->isCompressionOn() &&  segment->reset_data()){
     			adjustPriorityQueue(segment); //calling the function again, since data was reset
     		}else{
     			if (segment->switch_mem() ){

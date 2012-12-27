@@ -108,34 +108,25 @@ void reduce_downcall_handler(const string & msg)
 				}
 			}
 		}
-		g_task->compr_alg = strdup(hadoop_cmd->params[DIRS_START + 1 + num_dirs]);
+
+		char* comp = strdup(hadoop_cmd->params[DIRS_START + 1 + num_dirs]);
+		if(strcmp(comp,"com.hadoop.compression.lzo.LzoCodec")==0){
+			g_task->compr_alg = compLzo;
+		}else if(strcmp(comp,"org.apache.hadoop.io.compress.SnappyCodec")==0){
+			g_task->compr_alg = compSnappy;
+		}else if(strcmp(comp,"null")==0){
+			g_task->compr_alg = compOff;
+		}else{
+			log(lsERROR, "compression not supported");
+			throw "compression not supported";
+		}
+
 		g_task->block_size = atoi(hadoop_cmd->params[DIRS_START + 2 + num_dirs]);
 
-		log(lsDEBUG, " compression codec is %s", g_task->compr_alg);
 		log(lsDEBUG, " block_size for compression is %d", g_task->block_size);
 
+		createCompressionClient();
 
-		if (!g_task->compr_alg || strcmp(g_task->compr_alg,"null")==0) {//if not compression
-			g_task->client = new RdmaClient(merging_sm.data_port, g_task);
-			log(lsTRACE, "dina no comp");
-		}else{
-			log(lsTRACE, "dina comp");
-			log(lsDEBUG, "before creating decompressor, alg is %s",g_task->compr_alg);
-			if(strcmp(g_task->compr_alg,"com.hadoop.compression.lzo.LzoCodec")==0){
-			       log(lsDEBUG, "comp11 lzo");
-			       g_task->client = new LzoDecompressor(merging_sm.data_port, g_task);
-			}
-			else if(strcmp(g_task->compr_alg,"org.apache.hadoop.io.compress.SnappyCodec")==0){
-			       log(lsDEBUG, "comp11 snappy");
-			       g_task->client = new SnappyDecompressor(merging_sm.data_port, g_task);
-			}
-			else{
-			        log(lsERROR, "compression not supported");
-			        exit (1);
-			 }
-
-			log(lsDEBUG, "after creating decompressor");
-		}
 		g_task->client->start_client();
 		log(lsINFO, " AFTER INPUT CLIENT CREATION");
 
@@ -145,25 +136,31 @@ void reduce_downcall_handler(const string & msg)
 		log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
 
 		//TODO: katya what if it is gzip??? add what if buffer size is smaller than block size*1.25
-		if (!g_task->compr_alg || strcmp(g_task->compr_alg,"null")==0) {//if not compression
-			log(lsINFO, "aaa1 compression not configured: allocating 2 buffers of same size");
+		if (!g_task->isCompressionOn()) {//if not compression
+			log(lsINFO, "init compression not configured: allocating 2 buffers of same size = %d",g_task->buffer_size);
 			rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,
 										numBuffers,
 										&merging_sm.mop_pool);
+
 		}else{
-			log(lsINFO, "aaa1 compression configured: allocating 2 buffers of different size");
-						/*rc = create_mem_pool_pair(g_task->block_size, g_task->buffer_size*2 - g_task->block_size,
-							numBuffers,
-							&merging_sm.mop_pool);*/
-			int temp = g_task->block_size*2;
-			if(g_task->buffer_size>=temp){
+			log(lsINFO, "init compression configured: allocating 2 buffers of different size");
+			int tempComp = g_task->block_size*2;
+			int tempRdma = g_task->buffer_size*2;
+			if(tempRdma - minBuffer - tempComp <= 0)
+			{
+				log(lsERROR, "not enough memory to allocate buffers. rdma buffer size=%d, comp block size=%d",g_task->block_size,g_task->buffer_size);
+				throw "not enough memory to allocate buffers";
+
+			}else if(g_task->buffer_size>=tempComp){
 				rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,
 											numBuffers,
 											&merging_sm.mop_pool);
-			}else{
-				rc = create_mem_pool_pair(g_task->buffer_size*2-temp, temp,
+				log(lsINFO, "init compression configured. allocating rdma buff=%d, cyclic buff=%d",g_task->buffer_size,g_task->buffer_size);
+			}else {
+				rc = create_mem_pool_pair(tempRdma-tempComp, tempComp,
 										numBuffers,
 										&merging_sm.mop_pool);
+				log(lsINFO, "init compression configured. allocating rdma buff=%d, cyclic buff=%d",tempRdma-tempComp,tempComp);
 			}
 		}
 
@@ -176,8 +173,8 @@ void reduce_downcall_handler(const string & msg)
 
 		// register RDMA buffers
 		g_task->client->getRdmaClient()->register_mem(&merging_sm.mop_pool);
+	//	log(lsINFO, " After RDMA buffers registration (%d buffer pairs X (%d + %d) bytes each pair= total %lld bytes)", numBuffers, g_task->block_size, g_task->buffer_size*2 - g_task->block_size, merging_sm.mop_pool.total_size);
 
-		log(lsINFO, " After RDMA buffers registration (%d buffer pairs X (%d + %d) bytes each pair= total %lld bytes)", numBuffers, g_task->block_size, g_task->buffer_size*2 - g_task->block_size, merging_sm.mop_pool.total_size);
 
 
 
@@ -278,7 +275,6 @@ void reduce_downcall_handler(const string & msg)
 
 void init_mem_desc(mem_desc_t *desc, char *addr, int32_t buf_len){
 	desc->buff  = addr;
-	log(lsDEBUG, "bugg www adrr is %p buf len is %d", addr, buf_len);
         desc->buf_len = buf_len;
         desc->status = INIT;
         desc->start = 0;
@@ -545,6 +541,24 @@ void finalize_reduce_task(reduce_task_t *task)
     final_cleanup();
     log(lsINFO, "*********  ALL C++ threads finished  ************");
     closeLog();
+}
+
+void createCompressionClient(){
+	compressionType comp = g_task->getCompressionType();
+	if (comp == compOff) {//if not compression
+		g_task->client = new RdmaClient(merging_sm.data_port, g_task);
+		 log (lsDEBUG, "creating rdma client");
+	}else{
+		if(comp == compLzo){
+			g_task->client = new LzoDecompressor(merging_sm.data_port, g_task);
+			log (lsDEBUG, "creating lzo client");
+		}
+		else if(comp == compSnappy){
+			g_task->client = new SnappyDecompressor(merging_sm.data_port, g_task);
+			log (lsDEBUG, "creating snappy client");
+		}
+
+	}
 }
 
 /*
