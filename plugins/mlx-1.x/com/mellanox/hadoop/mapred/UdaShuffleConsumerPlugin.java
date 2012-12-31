@@ -132,7 +132,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 			this.rdmaChannel = new UdaPluginRT<K,V>(this, reduceTask, jobConf, reporter, reduceTask.getNumMaps());
 		}
 		catch (Throwable t) {		
-			LOG.error("Failed to initialize UdaPlugin - fallbacking to vanilla. \n\tException is:" + StringUtils.stringifyException(t));
+			LOG.error("Failed to initialize UdaPlugin - We'll use vanilla as fallbackPlugin. \n\tException is:" + StringUtils.stringifyException(t));
 
 			try {
 				fallbackPlugin = UdaMapredBridge.getShuffleConsumerPlugin(null, reduceTask, umbilical, conf, reporter);
