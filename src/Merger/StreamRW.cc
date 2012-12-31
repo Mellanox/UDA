@@ -275,7 +275,7 @@ int BaseSegment::nextKV() {
 	if (kv_output != NULL) {
 		if (eof || byte_read >= this->kv_output->total_len) {
 			log(lsERROR, "Reader: End of Stream - byte_read=%ll total_len=%ll", byte_read, this->kv_output->total_len);
-	        return 0;
+	        return 0;  //TODO: consider throw !
 	    }
     	return nextKVInternal(in_mem_data);
 
