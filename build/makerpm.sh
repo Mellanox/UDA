@@ -18,10 +18,7 @@ cp ../plugins/mlx-CDH3u4/uda-CDH3u4.jar .
 cp ../plugins/mlx-0.20.2/uda-hadoop-0.20.2.jar .
 cp ../scripts/set_hadoop_slave_property.sh .
 
-#cp uda-hadoop-1.x.jar uda-hadoop-3.x.jar uda-CDH3u4.jar uda-hadoop-0.20.2.jar libuda.so README LICENSE.txt journal.txt set_hadoop_slave_property.sh source.tgz ~/rpmbuild/SOURCES/
-cp uda-hadoop-1.x.jar uda-hadoop-3.x.jar uda-CDH3u4.jar uda-hadoop-0.20.2.jar libuda.so README LICENSE.txt journal.txt set_hadoop_slave_property.sh ~/rpmbuild/SOURCES/
-touch ~/rpmbuild/SOURCES/source.tgz
-# TODO: above is temp till we adjust buildrpm.sh to git
+cp uda-hadoop-1.x.jar uda-hadoop-3.x.jar uda-CDH3u4.jar uda-hadoop-0.20.2.jar libuda.so README LICENSE.txt journal.txt set_hadoop_slave_property.sh source.tgz ~/rpmbuild/SOURCES/
 
 uda_version=`awk -F- '{print $1}' ../release`
 uda_fix=`awk -F- '{print $2}' ../release`
