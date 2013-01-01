@@ -20,12 +20,13 @@
 #ifndef UdaBridge__H___
 #define UdaBridge__H___
 
+#include <jni.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 
-#include <jni.h>
 //forward declarations
 
 struct index_record;
