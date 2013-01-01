@@ -3,7 +3,7 @@
 teragenning (){
 	echo "$echoPrefix: Teragenning"
 	tmpTeragenDir="/TestDFSIOteragen"
-	teragenSize=$((RAM_SIZE*10000000))
+	teragenSize=$((RAM_SIZE*10000000*SLAVES_COUNT))
 	mapTasks=$((SLAVES_COUNT*MAX_MAPPERS))
 	eval bin/hadoop jar hadoop*examples*.jar teragen -Dmapred.map.tasks=$mapTasks $teragenSize $tmpTeragenDir
 	bin/hadoop fs -rmr $tmpTeragenDir
