@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 totalTests=0
 succeededTests=0
 export REPORT_TABLES_MAPPER=$REPORT_INPUT_DIR/analizeResults.txt

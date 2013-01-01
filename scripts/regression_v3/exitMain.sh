@@ -1,13 +1,13 @@
 #!/bin/bash
 
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 recentNfsResultsDir=$NFS_RESULTS_DIR/$RECENT_JOB_DIR_NAME
 echo $recentNfsResultsDir
 sudo rm -rf $recentNfsResultsDir
 echo $recentNfsResultsDir
 mkdir $recentNfsResultsDir
-chgrp -R $GROUP_USER $recentNfsResultsDir
-chgrp -R $GROUP_USER $CURRENT_NFS_RESULTS_DIR
+chgrp -R $GROUP_NAME $recentNfsResultsDir
+chgrp -R $GROUP_NAME $CURRENT_NFS_RESULTS_DIR
 
 cp -rf $CURRENT_NFS_RESULTS_DIR/* $recentNfsResultsDir
 
@@ -16,7 +16,7 @@ if ! cat $errorLog | grep -c "";then
 	rm -f $errorLog
 fi
 
-if [[ -n $HUGE_PAGES_FLAG ]];then
+if [[ -n $RESTART_CLUSTER_CONF_FLAG ]];then
 	sudo pdsh -w $RELEVANT_SLAVES_BY_COMMAS "bash $EXIT_SCRIPTS_SLAVES | tee $STATUS_DIR/hugepageValidation.txt"
 fi
 

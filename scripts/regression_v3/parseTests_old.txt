@@ -40,7 +40,7 @@ function getDefaultsIfNeeded()
 {
 	for (i in defaults){
 
-		if (($i == ""))
+		if (($i == "") )
 			execParams[headers[i]]=defaults[i]
 		else if ($i != emptyFieldFlag)
 			execParams[headers[i]]=$i
@@ -99,16 +99,6 @@ function formatNumber(num,digits)
 	return num
 }
 
-function valueInDict(key,dict)
-{
-	for (i in dict)
-	{
-		if (dict[i] == key)
-			return 1
-	}
-	return 0
-}
-
 function manageBooleanValueProps(booleanProps)
 {
 	for (i in booleanProps)
@@ -118,28 +108,28 @@ function manageBooleanValueProps(booleanProps)
 		else if (execParams[booleanProps[i]]=="TRUE")
 			execParams[booleanProps[i]]="true"
 		else if ((execParams[booleanProps[i]]!="true") && (execParams[booleanProps[i]]!="false") && (execParams[booleanProps[i]]!~/[[:space:]]*/))
-			errorDesc = errorDesc "error in test #" $totalTestsCount " - wrong input at " booleanProps[i] "\n"		
+			errorDesc = errorDesc "error in test #" $testsCount " - wrong input at " booleanProps[i] "\n"		
 	}
 }
 
 function manageInterface(pInterface)
 {
-	interfaceEnding=""
+	ending=""
 
 	if (pInterface==interfaceNameIb)
-		interfaceEnding=interfaceValueIb
+		ending=interfaceValueIb
 	else if (pInterface==interfaceNameEthA)
-		interfaceEnding=interfaceValueEthA
+		ending=interfaceValueEthA
 	else if (pInterface==interfaceNameEthB)
-		interfaceEnding=interfaceValueEthB
+		ending=interfaceValueEthB
 	else if (pInterface=="")
-		interfaceEnding=""
+		ending=""
 	else
 		errorDesc = errorDesc "error in " $1 " - unknown interface \n"
 
-	plantInterface(interfaceEnding)
+	plantInterface(ending)
 
-	return interfaceEnding
+	return ending
 }
 
 function plantInterface(pInterface)
@@ -215,42 +205,46 @@ function buildConfigurationFiles()
 
 function exportMenager()
 {	
-	print "export INTERFACE_ENDING='" interfaceEnding "'" >> exportsFile 
-	print "export MAX_MAPPERS="execParams["mapred.tasktracker.map.tasks.maximum"] >> exportsFile
-	print "export MAX_REDUCERS="execParams["mapred.tasktracker.reduce.tasks.maximum"] >> exportsFile
-	print "export PROGRAM='"execParams["program"] "'" >> exportsFile 
-	print "export DESIRED_MAPPERS="execParams["mapred.map.tasks"] >> exportsFile
-	print "export DESIRED_REDUCERS="execParams["mapred.reduce.tasks"] >> exportsFile
-	print "export NSAMPLES="execParams["samples"] >> exportsFile
-	print "export SLAVES_COUNT="execParams["slaves"] >> exportsFile
+	print "export PROGRAM='"execParams["program"] "'" >> execDir "/" exportsFile 
+	print "export INTERFACE_ENDING='"ending "'" >> execDir "/" exportsFile 
+	print "export MAX_MAPPERS="execParams["mapred.tasktracker.map.tasks.maximum"] >> execDir "/" exportsFile
+	print "export DESIRED_MAPPERS="execParams["mapred.map.tasks"] >> execDir "/" exportsFile
+	print "export MAX_REDUCERS="execParams["mapred.tasktracker.reduce.tasks.maximum"] >> execDir "/" exportsFile
+	print "export DESIRED_REDUCERS="execParams["mapred.reduce.tasks"] >> execDir "/" exportsFile
+	print "export NSAMPLES="execParams["samples"] >> execDir "/" exportsFile
+	print "export SLAVES_COUNT="execParams["slaves"] >> execDir "/" exportsFile
 	#for (i in headers)
 	#	if (() || () | ())
 	#		print "FROM HEADERS: " headers[i]
 	if ("nrFiles" in execParams)
-		print "export NR_FILES="execParams["nrFiles"] >> exportsFile
+		print "export NR_FILES="execParams["nrFiles"] >> execDir "/" exportsFile
+	if ("log_num_mtt" in execParams)
+		print "export LOG_NUM_MTT="execParams["log_num_mtt"] >> execDir "/" exportsFile
+	if ("log_mtts_per_seg" in execParams)
+		print "export LOG_MTTS_PER_SEG="execParams["log_mtts_per_seg"] >> execDir "/" exportsFile
 
 	diskCount=split(execParams["dfs.data.dir"],srak,",")
-	print "export DISKS_COUNT="diskCount >> exportsFile
+	print "export DISKS_COUNT="diskCount >> execDir "/" exportsFile
 	if (execParams["mapred.reducetask.shuffle.consumer.plugin"] == "com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin")
-		print "export SHUFFLE_CONSUMER=1" >> exportsFile
+		print "export SHUFFLE_CONSUMER=1" >> execDir "/" exportsFile
 	else 
-		print "export SHUFFLE_CONSUMER=0" >> exportsFile
+		print "export SHUFFLE_CONSUMER=0" >> execDir "/" exportsFile
 
 	if (execParams["mapred.tasktracker.shuffle.provider.plugin"] == "com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin")
-		print "export SHUFFLE_PROVIDER=1" >> exportsFile
+		print "export SHUFFLE_PROVIDER=1" >> execDir "/" exportsFile
 	else
-		print "export SHUFFLE_PROVIDER=0" >> exportsFile
+		print "export SHUFFLE_PROVIDER=0" >> execDir "/" exportsFile
 	
 	if (execParams["mapred.compress.map.output"] == "true"){
-		print "export COMPRESSION=1" >> exportsFile
+		print "export COMPRESSION=1" >> execDir "/" exportsFile
 		if (execParams["mapred.map.output.compression.codec"] == "com.hadoop.compression.lzo.LzoCodec")
-			print "export COMPRESSION_TYPE=LZO" >> exportsFile
+			print "export COMPRESSION_TYPE=LZO" >> execDir "/" exportsFile
 		if (execParams["mapred.map.output.compression.codec"] == "org.apache.hadoop.io.compress.SnappyCodec")
-			print "export COMPRESSION_TYPE=SNAPPY" >> exportsFile
+			print "export COMPRESSION_TYPE=SNAPPY" >> execDir "/" exportsFile
 		
 	}
 	else {
-		print "export COMPRESSION=0" >> exportsFile
+		print "export COMPRESSION=0" >> execDir "/" exportsFile
 	}
 	
 
@@ -270,7 +264,7 @@ function manageAddParams()
 		randomTextWrite=0
 		
 		split(execParams["add_params"],params,/[[:space:]]*/)
-		print "export DATA_SET="params[1] >> exportsFile
+		print "export DATA_SET="params[1] >> execDir "/" exportsFile
 
 		for (p in params)
 		{
@@ -285,42 +279,42 @@ function manageAddParams()
 		}		
 
 		if (teraval == 1)
-			print "export TERAVALIDATE=1" >> exportsFile
+			print "export TERAVALIDATE=1" >> execDir "/" exportsFile
 		else
-			print "export TERAVALIDATE=0" >> exportsFile
+			print "export TERAVALIDATE=0" >> execDir "/" exportsFile
 		
 		if (teragen == 1)
 		{
 			if (lastTeragenParam != params[1])
-				print "export TERAGEN=2" >> exportsFile
+				print "export TERAGEN=2" >> execDir "/" exportsFile
 			else
-				print "export TERAGEN=1" >> exportsFile
+				print "export TERAGEN=1" >> execDir "/" exportsFile
 			lastTeragenParam=params[1]
 		}
 		else
-			print "export TERAGEN=0" >> exportsFile
+			print "export TERAGEN=0" >> execDir "/" exportsFile
 	
 		if (randomWrite == 1)
 		{
 			if (lastRandonWriteParam != params[1])
-				print "export RANDOM_WRITE=2" >> exportsFile
+				print "export RANDOM_WRITE=2" >> execDir "/" exportsFile
 			else
-				print "export RANDOM_WRITE=1" >> exportsFile
+				print "export RANDOM_WRITE=1" >> execDir "/" exportsFile
 			lastRandonWriteParam=params[1]
 		}
 		else
-			print "export RANDOM_WRITE=0" >> exportsFile
+			print "export RANDOM_WRITE=0" >> execDir "/" exportsFile
 	
 		if (randomTextWrite == 1)
 		{
 			if (lastRandonTextWriteParam != params[1])
-				print "export RANDOM_TEXT_WRITE=2" >> exportsFile
+				print "export RANDOM_TEXT_WRITE=2" >> execDir "/" exportsFile
 			else
-				print "export RANDOM_TEXT_WRITE=1" >> exportsFile
+				print "export RANDOM_TEXT_WRITE=1" >> execDir "/" exportsFile
 			lastRandonTextWriteParam=params[1]
 		}
 		else
-			print "export RANDOM_TEXT_WRITE=0" >> exportsFile
+			print "export RANDOM_TEXT_WRITE=0" >> execDir "/" exportsFile
 	}
 	else if (execParams["program"]~/pi/)
 	{
@@ -335,19 +329,18 @@ function manageAddParams()
 			piMappers=piMappersDefault
 			piSamples=piSamplesDefault
 		}
-		print "export PI_MAPPERS=" piMappers >> exportsFile
-		print "export PI_SAMPLES=" piSamples >> exportsFile
+		print "export PI_MAPPERS=" piMappers >> execDir "/" exportsFile
+		print "export PI_SAMPLES=" piSamples >> execDir "/" exportsFile
 	}
 }
 
-function restartHadoopHandler()
+function restartHandler()
 {
-		# cleanning the array	
 	split("", currentDMs)
 
 	for (j in DMprops)
 		currentDMs[j] = execParams[headers[j]]
-
+	
 	execInterface = manageInterface(execParams["mapred.tasktracker.dns.interface"])
 	if (execInterface ~ /[A-Za-z0-9_]+/)
 		execInterface= "-" execInterface
@@ -357,74 +350,14 @@ function restartHadoopHandler()
 	buildConfigurationFiles()
 }
 
-
-
-function resetSetupHandler()
+function valueInDict(key,dict)
 {
-	setupCountFormatted=formatNumber(setupsCounter,digitsCount)
-	setupDir=confsFolderDir "/"setupPrefix setupCountFormatted
-	system("mkdir " setupDir " ; mv " execDir " " setupDir)
-
-	closeSetup()
-	setupsCounter++
-}
-
-function closeSetup()
-{
-	generalFile=setupDir"/"generalFileName
-	system("echo '"bashScriptsHeadline "' > " generalFile)
-
-	if (isLZOExist == 1)
-		print "export LZO=1" >> generalFile
-	else
-		print "export LZO=0" >> generalFile
-	isLZOExist=0
-	
-	if (isSnappyExist == 1)
-		print "export SNAPPY=1"  >> generalFile
-	else
-		print "export SNAPPY=0"  >> generalFile
-	isSnappyExist=0
-	
-	if ((isLZOExist == 1) || (isSnappyExist == 1))
-		print "export COMPRESSION=1" >> generalFile
-	else
-		print "export COMPRESSION=0" >> generalFile
-	
-	if (maxSlaves > 0)
+	for (i in dict)
 	{
-		split(generalParams[glbSlaves], temp, commaDelimitedPropsDelimiter)
-		relevantSlavesSpace=temp[1]
-		relevantSlavesComma=temp[1]
-		for (i=2; i <= maxSlaves; i++)
-		{
-			relevantSlavesSpace=relevantSlavesSpace " " temp[i]
-			relevantSlavesComma=relevantSlavesComma "," temp[i]
-		}
+		if (dict[i] == key)
+			return 1
 	}
-	else
-	{
-		relevantSlavesSpace=""
-		relevantSlavesComma=""
-		errorDesc = errorDesc "error in general configuration - no slaves selected \n"
-	}
-	print "export RELEVANT_SLAVES_BY_SPACES='" relevantSlavesSpace "'" >> generalFile
-	print "export RELEVANT_SLAVES_BY_COMMAS='" relevantSlavesComma "'" >> generalFile
-	
-	dirsForCreationList=""
-	for (i in dirsForCreation)
-		dirsForCreationList = dirsForCreationList " " i
-	print "export DIRS_TO_CREATE='" dirsForCreationList  "'"  >> generalFile
-		# cleanning the array	
-	split("", dirsForCreation)	
-	
-	#if ("log_num_mtt" in execParams)
-	print "export LOG_NUM_MTT="execParams["log_num_mtt"] >> generalFile
-	#if ("log_mtts_per_seg" in execParams)
-	print "export LOG_MTTS_PER_SEG="execParams["log_mtts_per_seg"] >> generalFile
-	
-	print "export SETUP_TESTS_COUNT=" setupTestsCount >> generalFile
-	setupTestsCount=0
+	return 0
 }
 
 BEGIN{
@@ -497,26 +430,23 @@ BEGIN{
 	confFilesHeader="<?xml version=\"1.0\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>"
 	executionPrefix="bin/hadoop jar"
 	bashScriptsHeadline="#!/bin/sh"
-	setupsFileName="setupsExports.sh"
-	generalFileName="general.sh"
-	exportsFileName="exports.sh"
-	
+	testDirPrefix="test_"
+
 	isSnappyExist=0
 	isLZOExist=0
 	maxSlaves=0
 	addParamsTotalCount=3
-	totalTestsCount=0
-	setupTestsCount=0
+	testsCount=0
 	lastTeragenParam=-1
 	lastRandonWriteParam=-1
 	lastRandonTextWriteParam=-1
 	digitsCount=2 # that means thet the execution folders will contains 2 digits number. 2 -> 02 for instance
-	setupsCounter=1
 	errorDesc=""
 
 		# creating a file with the general exports of this session
-	setupsFile=confsFolderDir"/"setupsFileName
-	system("echo '"bashScriptsHeadline "' > " setupsFile)
+	exportsFile="exports.sh"
+	generalDir=confsFolderDir"/general.sh"
+	system("echo '"bashScriptsHeadline "' > " generalDir)
 	
 	#testLinkRearrange=confsFolderDir"/rearrangeDirsByTestLink.sh"
 	#system("echo '"bashScriptsHeadline "' > " testLinkRearrange)
@@ -527,7 +457,7 @@ BEGIN{
 	tmpVal=$2
 	gsub(commaDelimitedPropsDelimiter,FS,tmpVal)
 	generalParams[tmpProp]=$2		# for use in this script
-	print "export csv" tmpProp "='" tmpVal "'" >> setupsFile	# for use in runTest.sh
+	print "export csv" tmpProp "='" tmpVal "'" >> generalDir	# for use in runTest.sh
 }
 
 ($1 ~ /DEFAULT(|S)/){
@@ -548,31 +478,27 @@ BEGIN{
 		next
 
 	# ELSE:
-	restartHadoopFlag=0
-	resetSetupFlag=0
+	restartFlag=0
 	
 	getDefaultsIfNeeded()	# taking inputs from the DEFAULT line if neccesary 
 
 	if (execParams["slaves"] == 0)
 		next
 	
-	totalTestsCount++
-	setupTestsCount++
-	
+	testsCount++
 		# Creating the folder and exports file for the execution	
-	testCountFormatted=formatNumber(totalTestsCount,digitsCount)
+	testCountFormatted=formatNumber(testsCount,digitsCount)
 	dirName=testDirPrefix testCountFormatted
 	if ($1 ~ /[[:space:]]*/)
 		dirName=dirName "-" $1
 	execDir=confsFolderDir "/" dirName
-	exportsFile=execDir"/"exportsFileName
-	system("mkdir " execDir " ; echo '"bashScriptsHeadline "' > " exportsFile)
-	print "export EXEC_NAME='" $1 "'" >> exportsFile
+	system("mkdir " execDir " ; echo '"bashScriptsHeadline "' > "execDir"/"exportsFile)
+	print "export EXEC_NAME='" $1 "'" >> execDir"/"exportsFile
 
-	#if (execParams["TestLink_ID"] == "")
-	#	testLinkID=lastTestLinkID
-	#else
-	#	testLinkID=execParams["TestLink_ID"]
+	if (execParams["TestLink_ID"] == "")
+		testLinkID=lastTestLinkID
+	else
+		testLinkID=execParams["TestLink_ID"]
 	#print "mkdir " testLinkID "; mv " dirName " testLinkID >> testLinkRearrange
 	
 		# finding the maximun amount of slaves in the tests
@@ -591,12 +517,12 @@ BEGIN{
 	if (execParams["program"]~/wordcount/)
 	{
 		randomTextWriteDParams=manageRandomTextWriteGenerateProps(randomTextWriteGenerateProps)
-		print "export CMD_RANDOM_TEXT_WRITE_PARAMS='" randomTextWriteDParams "'" >> exportsFile
+		print "export CMD_RANDOM_TEXT_WRITE_PARAMS='" randomTextWriteDParams "'" >> execDir "/" exportsFile
 	}
 	else if (execParams["program"]~/sort/)
 	{
 		randomWriteDParams=manageRandomWriteGenerateProps(randomWriteGenerateProps)
-		print "export CMD_RANDOM_WRITE_PARAMS='" randomWriteDParams "'" >> exportsFile
+		print "export CMD_RANDOM_WRITE_PARAMS='" randomWriteDParams "'" >> execDir "/" exportsFile
 	}
 	
 		# managing the parameters for the execution
@@ -625,67 +551,98 @@ BEGIN{
 		}
 	}
 
-	print "export CMD_PREFIX='" executionPrefix "'" >> exportsFile
-	print "export CMD_JAR='" execParams["jar_dir"] "'" >> exportsFile
-	print "export CMD_PROGRAM='" execParams["program"] "'" >> exportsFile
-	print "export CMD_D_PARAMS='" confParams "'" >> exportsFile
-	print "export CMD_TEST_DFSIO_PARAMS='" TestDFSIOParams "'" >> exportsFile
+	print "export CMD_PREFIX='" executionPrefix "'" >> execDir "/" exportsFile
+	print "export CMD_JAR='" execParams["jar_dir"] "'" >> execDir "/" exportsFile
+	print "export CMD_PROGRAM='" execParams["program"] "'" >> execDir "/" exportsFile
+	print "export CMD_D_PARAMS='" confParams "'" >> execDir "/" exportsFile
+	print "export CMD_TEST_DFSIO_PARAMS='" TestDFSIOParams "'" >> execDir "/" exportsFile
 	
-	if (totalTestsCount==1)
-		print "export FIRST_STARTUP=1" >> exportsFile
-	else
-		print "export FIRST_STARTUP=0" >> exportsFile
-
-		# checking if there is a need to start/restart hadoop	
+		# checking if there is a need to start/restart hadoop
+		
 	if (lastSlavesCount != execParams["slaves"])
-		restartHadoopFlag=1
+		restartFlag=1
 	else # checking if there is changes is daemon-parameters since the last execution
 	{
 		for (i in DMprops)
 			if (execParams[headers[i]] != currentDMs[i]){
-				restartHadoopFlag=1
+				restartFlag=1
 				break
 			}
 	}
 
-	if (restartHadoopFlag==1)
+	if (restartFlag==1)
 	{
-		print "export RESTART_HADOOP=1" >> exportsFile
-		restartHadoopHandler()
+		print "export RESTART_HADOOP=1" >> execDir "/" exportsFile
+		restartHandler()
 	}
 	else
-		print "export RESTART_HADOOP=0" >> exportsFile
+		print "export RESTART_HADOOP=0" >> execDir "/" exportsFile
+
+	if (testsCount==1)
+		print "export FIRST_STARTUP=1" >> execDir "/" exportsFile
+	else
+		print "export FIRST_STARTUP=0" >> execDir "/" exportsFile
 
 	exportMenager()
-		
-		# checking the criterias of reseting the cluster's setup
-	if ((lastLogNumMttCount != execParams["log_num_mtt"]) || (lastLogMttsPerSegCount != execParams["log_mtts_per_seg"]))
-		resetSetupFlag=1
-		
-	if (resetSetupFlag==1)
-		resetSetupHandler()
-	else
-		system("mv " execDir " " setupDir)
-	
+
 	# check for errors
 	if (execParams["mapred.tasktracker.map.tasks.maximum"] < execParams["mapred.tasktracker.reduce.tasks.maximum"])
 		errorDesc = errorDesc "error in " $1 " - more reducers-slots than mappers-slots \n"
 
 		# saving parameters from the last execution, before starting new one
-	lastSlavesCount = execParams["slaves"]
-	lastLogNumMttCount = execParams["log_num_mtt"]
-	lastLogMttsPerSegCount = execParams["log_mtts_per_seg"]
-	#lastTestLinkID=execParams["TestLink_ID"]	
+	lastSlavesCount = execParams["slaves"]	
+	lastTestLinkID=execParams["TestLink_ID"]	
 		
 		# cleanning execParams for the next test	
 	split("", execParams)
 }
 
 END{
-	print "export TOTAL_TESTS_COUNT=" totalTestsCount >> setupsFile
-	print "export DEFAULT_RES_SERVER='" generalParams[glbMasters]  "'"  >> setupsFile
-	print "export SETUPS_COUNT=" setupsCounter >> setupsFile
+	if (maxSlaves > 0)
+	{
+		split(generalParams[glbSlaves], temp, commaDelimitedPropsDelimiter)
+		relevantSlavesSpace=temp[1]
+		relevantSlavesComma=temp[1]
+		for (i=2; i <= maxSlaves; i++)
+		{
+			relevantSlavesSpace=relevantSlavesSpace " " temp[i]
+			relevantSlavesComma=relevantSlavesComma "," temp[i]
+		}
+	}
+	else
+	{
+		relevantSlavesSpace=""
+		relevantSlavesComma=""
+		errorDesc = errorDesc "error in general configuration - no slaves selected \n"
+	}
 	
-	print "export ERRORS='" errorDesc "'" >> setupsFile
+	if ( isLZOExist==1 ){
+		print "export LZO=1" >> generalDir
+		print "export COMPRESSION=1" >> generalDir
+	}
+	else {
+		print "export LZO=0" >> generalDir
+		print "export COMPRESSION=0" >> generalDir
+	}
+	if ( isSnappyExist==1 ){
+		print "export SNAPPY=1"  >> generalDir
+		print "export COMPRESSION=1" >> generalDir
+	}
+	else{
+		print "export SNAPPY=0"  >> generalDir
+		print "export COMPRESSION=0" >> generalDir
+	}
+
+	dirsForCreationList=""
+	for (i in dirsForCreation)
+		dirsForCreationList = dirsForCreationList " " i
+	print "export DIRS_TO_CREATE='" dirsForCreationList  "'"  >> generalDir
+	
+	print "export RELEVANT_SLAVES_BY_SPACES='" relevantSlavesSpace "'" >> generalDir
+	print "export RELEVANT_SLAVES_BY_COMMAS='" relevantSlavesComma "'" >> generalDir
+	print "export TESTS_COUNT=" testsCount >> generalDir
+	print "export DEFAULT_RES_SERVER='" generalParams[glbMasters]  "'"  >> generalDir
+	
+	print "export ERRORS='" errorDesc "'" >> generalDir
 	print errorDesc
 }

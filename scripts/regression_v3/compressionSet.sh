@@ -13,7 +13,7 @@ is_LZO_in_Lib64=`whereis liblzo2 | awk \
 	
     if [ "$is_LZO_in_Lib64" == "good" ]; then
 		echo "---->>> lzo is in: /usr/lib64"
-		for slave in `cat $MY_HADOOP_HOME/$HADOOP_CONF_RELATIVE_PATH/slaves`
+		for slave in `cat $MY_HADOOP_HOME/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/slaves`
 			do
 				echo " $(basename $0) sudo scp /usr/lib64/liblzo2.* $slave:/usr/lib64/"
 				sudo scp /usr/lib64/liblzo2.* $slave:/usr/lib64/
@@ -35,7 +35,7 @@ is_LZO_in_Lib64=`whereis liblzo2 | awk \
 	
 		if [ "$is_LZO_in_usr_local_lib" == "good" ]; then
 			echo "---->>> lzo is in: /usr/local/lib"
-			for slave in `cat $MY_HADOOP_HOME/$HADOOP_CONF_RELATIVE_PATH/slaves`
+			for slave in `cat $MY_HADOOP_HOME/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/slaves`
 				do
 					echo " $(basename $0) scp /usr/local/lib/liblzo2.* $slave:/usr/lib64/"
 					sudo scp /usr/lib64/liblzo2.* $slave:/usr/lib64/

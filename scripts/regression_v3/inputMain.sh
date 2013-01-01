@@ -50,6 +50,8 @@ gitHadoopVersion=""
 gitMasterDir=""
 hugePagesCount=""
 currentRpmDir=""
+logNumMtt=""
+logMttsPerSeg=""
 
 # the defalut for logs.server is the master
 
@@ -264,7 +266,6 @@ if [ -z "$lzoJar" ];then
     lzoJar=$DEFAULT_LZO_JAR
 fi
 
-#hadoopVersion=`echo $(basename $hadoopHome) | sed s/[.]/_/g`
 echo "
 	#!/bin/sh
 	
@@ -288,17 +289,15 @@ echo "
 	export TRACE_JOB_FLAG=$traceJobFlag
 		# general envs
 	export MY_HADOOP_HOME='$hadoopHome'
+	export MY_HADOOP_HOME_CLIENT='$hadoopHome'
 	export CSV_FILE='$csvFile'
 	export CONF_FOLDER_DIR='$confFolderDir'
-	export CURRENT_TESTS_DIR='$currentConfDir'
+	export CURRENT_CONFS_DIR='$currentConfDir'
 	export LINE_TO_EXECUTE=$linesToExecute
 	export RES_SERVER='$resServer'
-	#export LOCAL_RESULTS_DIR='$localResultsDir'
 	export DATA_SET_TYPE='$dataSetType'
 	export NFS_RESULTS_DIR='$nfsResultsDir'
 	export SVN_HADOOP='$svnHadoop'
-	#export SVN_TRUNK='$svnTrunk'
-	#export TRUNK_RPM_BUILD_RELATIVE_PATH='$svnRpmBuild'
 	export SVN_REVISION='$svnRevision'
 	export RPM_JAR='$rpmJar'
 	export REPORT_MAILING_LIST='$reportMailingList'
@@ -307,12 +306,6 @@ echo "
 	export REPORT_INPUT='$reportInput'
 	export REPORT_SUBJECT='$reportSubject'
 	export RAM_SIZE=$ramSize
-	#export JAVA_HOME='$javaHome'
-	#export HADOOP_CLASSPATH='$hadoopClasspath' 
-	#export CORES_DIR='$coresDir'
-	#export CORES_PATTERN='$coresPattern'
-	#export RPMBUILD_DIR='$rpmBuildDir'
-	#export CURRENT_NFS_RESULTS_DIR=$currentNfsResultsDir
 	export GIT_HADOOPS_DIR='$gitHadoopsDir'
 	export GIT_HADOOP_VERSION='$gitHadoopVersion'
 	export GIT_MASTER_DIR='$gitMasterDir'

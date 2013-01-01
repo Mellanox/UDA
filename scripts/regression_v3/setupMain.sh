@@ -103,23 +103,87 @@ setHugePages ()
 	
 	echo "sudo echo $lastHugePagesCount > /proc/sys/vm/nr_hugepages;
 		echo $lastShmMax > /proc/sys/kernel/shmmax;
-		echo `eval $showHugePagesCmd`, shmmax is `eval $showShmMaxCmd`" > $slavesExitScript
+		echo `eval $showHugePagesCmd`, shmmax is `eval $showShmMaxCmd`" >> $slavesExitScript
 		
-	hugePagesFlag=1
+	restartClusterConfiguration=1
 }
 
-echoPrefix=$(basename $0)
+setRdmaMtt ()
+{
+	node=$1
+	showNumMttCmd="cat /sys/module/mlx4_core/parameters/log_num_mtt"
+	showMttsPerSegCmd="cat /sys/module/mlx4_core/parameters/log_mtts_per_seg"
+	if (($logNumMtt == `eval ssh $node $showNumMttCmd`)) && (($logMttsPerSeg == `eval ssh $node $showMttsPerSegCmd`));then
+		echo "$echoPrefix: no need to configure log_num_mtt and log_mtts_per_seg"
+		return 0;
+	fi
+
+	echo "$echoPrefix: setting log_num_mtt and log_mtts_per_seg:"
+	matchesCount=`ssh $node ls $MLNX_CONF_PATH | grep -c ""`
+	if (($matchesCount != 1));then
+			echo "$echoPrefix: found $matchesCount matches to {MELLANOX}.conf file. please check" | tee $ERROR_LOG
+			exit $EEC1
+	fi	
+	optionsLine=`ssh $node "grep '$MLNX_CONF_OPTIONS_LINE' $MLNX_CONF_PATH"`
+	if ((`echo $optionsLine | grep -c ""` != 1));then
+			echo "$echoPrefix: found $optionsLine matches to options line. please check" | tee $ERROR_LOG
+			exit $EEC1
+	fi
+	mlnxConfFileName=`basename $MLNX_CONF_PATH`
+	mlnxConfTmpFile=$TMP_DIR/$mlnxConfFileName
+	mlnxConfBackupFile=${mlnxConfTmpFile}${BACKUP_POSTFIX}
+		# saving the {MELLANOX}.conf file in order to return to the first configuration when finishing (in exitMain.sh)
+	if (($firstMttSetupFlag == 1));then
+		sudo ssh $node cp $MLNX_CONF_PATH $mlnxConfTmpFile
+		sudo ssh $node mv $mlnxConfTmpFile $mlnxConfBackupFile
+		echo "sudo mv $mlnxConfBackupFile $mlnxConfTmpFile;
+			sudo mv $mlnxConfTmpFile `dirname $MLNX_CONF_PATH`;
+			echo log_num_mtt is `eval $showNumMttCmd`, log_mtts_per_seg is `eval $showMttsPerSegCmd`" >> $slavesExitScript
+		firstMttSetupFlag=0
+	fi
+	
+	sudo ssh $node sed "'/$MLNX_CONF_OPTIONS_LINE/ c $optionsLine log_num_mtt=$LOG_NUM_MTT log_mtts_per_seg=$LOG_MTTS_PER_SEG' $MLNX_CONF_PATH > $mlnxConfTmpFile"
+	sudo ssh $node mv $mlnxConfTmpFile $MLNX_CONF_PATH
+	sudo ssh $node $OPENIBD_PATH restart
+	echo "$echoPrefix: log_num_mtt is `eval ssh $node $showNumMttCmd`, log_mtts_per_seg is `eval ssh $node $showMttsPerSegCmd`"
+
+	restartClusterConfiguration=1
+}
+
+setupConfsDir=$1
+echoPrefix=`eval $ECHO_PATTERN`
+
+firstMttSetupFlag=$FIRST_MTT_SETUP_FLAG
 headline=""
 urlLine=""
 kernelCorePattern="$KERNEL_CORE_PATTERN_PROPERTY = $CORES_DIR/$CORES_PATTERN"
-slavesExitScript=$STATUS_DIR/slavesExitScript.sh
-hugePagesFlag=""
+restartClusterConfiguration=""
 
+source $setupConfsDir/general.sh
+
+slavesExitScript=$STATUS_DIR/slavesExitScript.sh
+echo "" > $slavesExitScript
+if [[ -f $slavesExitScript ]];then
+	rm -f $slavesExitScript
+fi
 # preparing the master
 hadoopHome=$TMP_DIR
-echo "$echoPrefix: mkdir $hadoopHome"
-mkdir -p $hadoopHome
-sudo chown -R $USER $hadoopHome
+#echo "$echoPrefix: mkdir $hadoopHome"
+#mkdir -p $hadoopHome
+#sudo chown -R $USER $hadoopHome
+	# removing temp data between cluster-setup
+rm -rf $TMP_DIR/${HADOOP_HOME_DIR_PREFIX}*
+rm -rf $STATUS_DIR/*
+
+logNumMtt=$LOG_NUM_MTT
+if [ -z "$logNumMtt" ];then
+    logNumMtt=$DEFAULT_LOG_NUM_MTT
+fi
+
+logMttsPerSeg=$LOG_MTTS_PER_SEG
+if [ -z "$logMttsPerSeg" ];then
+    logMttsPerSeg=$DEFAULT_LOG_MTTS_PER_SEG
+fi
 
 # in case we're running something from trunk
 if (( $CO_FLAG == 1 ))
@@ -163,7 +227,7 @@ else  # in case we're running a totaly-build and ready hadoop from NFS
 		echo "$echoPrefix: MY_HADOOP_HOME must be set when working with local hadoop" | tee $ERROR_LOG
 		exit $EEC1
 	fi
-	workingFolder=$MY_HADOOP_HOME
+	workingFolder=$MY_HADOOP_HOME_CLIENT
 	lastChar=`echo $workingFolder | sed 's/^.*\(.\{1\}\)$/\1/'`
 	if [[ $lastChar == "/" ]]; then
 		workingFolder=${workingFolder%?}
@@ -184,35 +248,33 @@ if [[ $myHadoopHome == "/" ]];then
 	exit $EEC1
 fi
 
-source $TESTS_PATH/general.sh
-
 javaHomeLine="export JAVA_HOME=$JAVA_HOME"
-hadoopEnv=$myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
-hadoopEnvTemp=$myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
+hadoopEnv=$myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
+hadoopEnvTemp=$myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
 sed "/export JAVA_HOME=/ c $javaHomeLine" $hadoopEnv > $hadoopEnvTemp
 sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $hadoopEnvTemp > $hadoopEnv
 rm -f $hadoopEnvTemp
 
 if (( $LZO==1 )); then
-	echo "$echoPrefix: sed /export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}:${RPM_JAR}${LZO_JAR} $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh"
-	sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}:${LZO_JAR}" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
+	echo "$echoPrefix: sed /export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}:${RPM_JAR}${LZO_JAR} $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh > $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh"
+	sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}:${LZO_JAR}" $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
 	
-	echo "$echoPrefix: cat $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh"
-	mv $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+	echo "$echoPrefix: cat $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh"
+	mv $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
 
-	if [[ `cat $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh` == *JAVA_LIBRARY_PATH* ]]; then
+	if [[ `cat $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh` == *JAVA_LIBRARY_PATH* ]]; then
 		echo "$echoPrefix: Changing JAVA_LIBRARY_PATH in hadoop-env"
-		sed "/export JAVA_LIBRARY_PATH=/ c export JAVA_LIBRARY_PATH=/.autodirect/mtrswgwork/shania/hadoop/hortonworks-hadoop-lzo-cf4e7cb/build/native/Linux-amd64-64/.libs/" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
-		#mv $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+		sed "/export JAVA_LIBRARY_PATH=/ c export JAVA_LIBRARY_PATH=/.autodirect/mtrswgwork/shania/hadoop/hortonworks-hadoop-lzo-cf4e7cb/build/native/Linux-amd64-64/.libs/" $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
+		#mv $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
 	
 	else
 		echo "$echoPrefix: there's no JAVA_LIBRARY_PATH exported in hadoop-env.sh "
-		echo "export JAVA_LIBRARY_PATH=/.autodirect/mtrswgwork/shania/hadoop/hortonworks-hadoop-lzo-cf4e7cb/build/native/Linux-amd64-64/.libs/" >> $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+		echo "export JAVA_LIBRARY_PATH=/.autodirect/mtrswgwork/shania/hadoop/hortonworks-hadoop-lzo-cf4e7cb/build/native/Linux-amd64-64/.libs/" >> $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
 	fi
 #else
-	#sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
-	#mv $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
-	#rm -f $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
+	#sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
+	#mv $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
+	#rm -f $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
 fi
 
 if (( $SNAPPY==1 ))
@@ -232,29 +294,29 @@ then
 	fi
 fi	
 	
-if [[ `cat $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh` == *COVF* ]]; then
+if [[ `cat $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh` == *COVF* ]]; then
 	echo "Changing COVFILE in hadoop-env export COVFILE=${COVFILE}"
-	sed "/export COVFILE=/ c export COVFILE=${COVFILE}" $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
-	mv $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+	sed "/export COVFILE=/ c export COVFILE=${COVFILE}" $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
+	mv $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
 else
 	echo "there's no COVFILE exported in hadoop-evn.sh";
-	echo "export COVFILE=$COVFILE" >> $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
+	echo "export COVFILE=$COVFILE" >> $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
 fi
 
-#echo "export COVFILE=/$COVFILE" >> $DEFAULT_MY_HADOOP_HOME/$HADOOP_CONF_RELATIVE_PATH/hadoop-env.sh
-rm -f $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/hadoop-env2.sh
+#echo "export COVFILE=/$COVFILE" >> $DEFAULT_MY_HADOOP_HOME/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
+rm -f $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
 
 echo -e \\n
 echo "$echoPrefix: MY_HADOOP_HOME is $myHadoopHome"
 sudo chown -R $USER $myHadoopHome
-confDir=$myHadoopHome/$HADOOP_CONF_RELATIVE_PATH
-scp $TESTS_PATH/slaves $confDir # copy the general slaves file, whick contains all of the slaves in the configuration-csv file, for setting-up the cluster 
+#confDir=$myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH
+#scp $TESTS_DIR/slaves $confDir # copy the general slaves file, whick contains all of the slaves in the configuration-csv file, for setting-up the cluster 
 echo -e \\n
 
 echo "$echoPrefix: creating the needed directories"
 sudo mkdir -p $DIRS_TO_CREATE
 sudo chown -R $USER $DIRS_TO_CREATE 
-sudo chgrp -R $GROUP_USER $DIRS_TO_CREATE 
+sudo chgrp -R $GROUP_NAME $DIRS_TO_CREATE 
 
 if (($RPM_FLAG==1));then
 	if rpm -qa | grep -q libuda; then
@@ -292,7 +354,7 @@ if (($RPM_FLAG==1));then
 		cov01 -0  # 
 		echo "cov01 -s # shutting down bullseye Flag"
 		cov01 -s # shutting down bullseye Flag
-		for slave in `cat $myHadoopHome/$HADOOP_CONF_RELATIVE_PATH/slaves`
+		for slave in `cat $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/slaves`
 			do
 				ssh $slave sudo rm -rf /tmp/*.cov
 				echo "$COVFILE $slave:/tmp/"
@@ -312,11 +374,13 @@ if (($RPM_FLAG==1));then
 	fi
 fi	
 
+echo "$echoPrefix: $killing all java processes"
+sudo pkill -9 java
+
 echo "$echoPrefix: setting $kernelCorePattern on $SYSCTL_PATH"
 setCoreDir `hostname`
 
-echo "$echoPrefix: $killing all java processes"
-sudo pkill -9 java
+#setRdmaMtt `hostname`
 
 # preparing the slaves
 
@@ -336,6 +400,7 @@ do
 	sudo ssh $slave rm -rf $TMP_DIR/\*
 	sudo ssh $slave chown -R $USER $TMP_DIR
 	ssh $slave mkdir -p $STATUS_DIR
+	ssh $slave rm -rf $STATUS_DIR/\*
 	
 	echo "$echoPrefix: killing all java processes"
 	sudo ssh $slave pkill -9 java
@@ -364,26 +429,26 @@ do
 	echo "$echoPrefix: creating the needed directories"
 	sudo mkdir -p $DIRS_TO_CREATE
 	sudo chown -R $USER $DIRS_TO_CREATE
-	sudo chgrp -R $GROUP_USER $DIRS_TO_CREATE
+	sudo chgrp -R $GROUP_NAME $DIRS_TO_CREATE
 		
 	echo "$echoPrefix: setting $kernelCorePattern on $SYSCTL_PATH"
 	setCoreDir $slave
 	
-	if (($HUGE_PAGES_COUNT != -1));then
+	if (($HUGE_PAGES_COUNT != $DEFAULT_HUGE_PAGES_COUNT));then
 		echo "$echoPrefix: setting huge pages"
 		setHugePages $slave
 	fi
-	
-	
+	#setRdmaMtt $slave
+
 done
 echo -e \\n\\n
 
-sourceRpmDir=$TMP_DIR/$CURRENT_DATE
-destRpmDir=$RELEASE_DIR/$RELEASE_RPM_RELATIVE_DIR
-echo "$echoPrefix: copying the rpm to $destRpmDir"
-mkdir $sourceRpmDir
-cp $currentRpm $sourceRpmDir
-mv -r $sourceRpmDir $destRpmDir
+#sourceRpmDir=$TMP_DIR/$CURRENT_DATE
+#destRpmDir=$RELEASE_DIR/$RELEASE_RPM_RELATIVE_DIR
+#echo "$echoPrefix: copying the rpm to $destRpmDir"
+#mkdir $sourceRpmDir
+#cp $currentRpm $sourceRpmDir
+#mv -r $sourceRpmDir $destRpmDir
 
 echo "$echoPrefix: finishing setting-up the cluster, under $myHadoopHome"
 
@@ -395,5 +460,6 @@ echo "
 	#export CURRENT_DATE='$CURRENT_DATE'
 	export UDA_CORES_DIR='$udaCores'
 	export EXIT_SCRIPTS_SLAVES='$slavesExitScript'
-	export HUGE_PAGES_FLAG=$hugePagesFlag
+	export RESTART_CLUSTER_CONF_FLAG=$restartClusterConfiguration
+	export FIRST_MTT_SETUP_FLAG=$firstMttSetupFlag
 " > $TMP_DIR/setupExports.sh

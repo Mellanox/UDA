@@ -13,7 +13,7 @@ insertTableToReport()
 	echo "<br><br>" >> "$1"
 }
 
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 headLine=$HEADLINE
 reportComment=$REPORT_COMMENT
 hadoopVersion=$HADOOP_VERSION

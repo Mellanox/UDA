@@ -36,7 +36,7 @@ eval set -- "$OPTS"
 while true ; do
     case "$1" in
         --hadoop-conf-dir)
-        HADOOP_CONF_DIR=$2 ; shift 2
+        HADOOP_CONFIGURATION_DIR=$2 ; shift 2
         ;;
         --interface)
         INTERFACE_NAME=$2 ; shift 2
@@ -56,7 +56,7 @@ while true ; do
 done
 
 
-if [ -z "$(eval "echo \$HADOOP_CONF_DIR")" ]; 
+if [ -z "$(eval "echo \$HADOOP_CONFIGURATION_DIR")" ]; 
 then
     echo Missing param: hadoop-conf-dir
     usage
@@ -72,7 +72,7 @@ else
 	usage
 fi
 
-filename=$HADOOP_CONF_DIR/mapred-site.xml
+filename=$HADOOP_CONFIGURATION_DIR/mapred-site.xml
 element_name="slave.host.name"
 
 
