@@ -72,7 +72,7 @@ typedef struct data_from_java
 } data_from_java_t;
 
 
-void exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
+void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
 
 	log(lsERROR, "started");
 
@@ -283,7 +283,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 // BE CAREFUL:
 // - DON'T call this function more than once for the same thread!! - perhaps not critical!
 // - DON'T use the handle from one thread in context of another threads!
-JNIEnv *attachNativeThread()
+JNIEnv *UdaBridge_attachNativeThread()
 {
 	log(lsTRACE, "started");
     JNIEnv *env;

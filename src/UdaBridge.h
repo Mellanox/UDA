@@ -22,24 +22,29 @@
 
 #include <jni.h>
 
-class UdaException;
-void exceptionInNativeThread(JNIEnv *env, UdaException *ex);
 
 //forward declarations
 
 struct index_record;
+class UdaException;
 
-jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long capacity);
-void UdaBridge_invoke_fetchOverMessage_callback(JNIEnv * jniEnv);
-void UdaBridge_invoke_dataFromUda_callback(JNIEnv * jniEnv, jobject jbuf, int len);
+// wrappers arround java callbck methods
+void          UdaBridge_invoke_fetchOverMessage_callback(JNIEnv * jniEnv);
+void          UdaBridge_invoke_dataFromUda_callback(JNIEnv * jniEnv, jobject jbuf, int len);
 index_record* UdaBridge_invoke_getPathUda_callback (JNIEnv * jniEnv, const char* job_id, const char* map_id, int reduceId);
 
-// a utility function that attach the **current native thread** to the JVM and
-// return the JNIEnv interface pointer for this thread
-// BE CAREFUL:
-// - DON'T call this function more than once for the same thread!! - perhaps not critical!
-// - DON'T use the handle from one thread in context of another thread!
 
-JNIEnv *attachNativeThread();
+// UdaBridge utility functions
+
+/**
+ * a utility function that attach the **current native thread** to the JVM and
+ * return the JNIEnv interface pointer for this thread
+ * BE CAREFUL:
+ * - DON'T call this function more than once for the same thread!! - perhaps not critical!
+ * - DON'T use the handle from one thread in context of another thread!
+ */
+JNIEnv *UdaBridge_attachNativeThread();
+void    UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex);
+jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long capacity);
 
 #endif // ! UdaBridge__H___

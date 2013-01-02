@@ -201,7 +201,7 @@ void *merge_online (reduce_task_t *task)
 
 void *merge_thread_main (void *context)
 {
-    jniEnv = attachNativeThread();
+    jniEnv = UdaBridge_attachNativeThread();
     try{
 		reduce_task_t *task = (reduce_task_t *) context;
 		MergeManager *manager = task->merge_man;
@@ -226,11 +226,11 @@ void *merge_thread_main (void *context)
     }
     catch(UdaException *ex) {
 		log(lsERROR, "got UdaException!");
-    	exceptionInNativeThread(jniEnv, ex);
+		UdaBridge_exceptionInNativeThread(jniEnv, ex);
     }
     catch(...) {
 		log(lsERROR, "got general Exception!");
-    	exceptionInNativeThread(jniEnv, NULL);
+		UdaBridge_exceptionInNativeThread(jniEnv, NULL);
     }
     return NULL;
 }

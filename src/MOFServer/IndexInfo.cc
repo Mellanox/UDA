@@ -132,7 +132,7 @@ DataEngine::start()
 {
 	_aioHandler->start();
 
-	this->jniEnv = attachNativeThread();
+	this->jniEnv = UdaBridge_attachNativeThread();
 
     /* Wait on the arrival of new MOF files or shuffle requests */
     while (!this->stop) {
