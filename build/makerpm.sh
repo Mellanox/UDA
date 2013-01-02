@@ -6,10 +6,10 @@ cd `dirname $0`
 
 export JAVA_HOME=/usr/lib64/java/jdk1.6.0_25 
 make -C ../src 
-make -C ../plugins/mlx-CDH3u4 clean all 
-make -C ../plugins/mlx-0.20.2 clean all 
-make -C ../plugins/mlx-1.x clean all
-make -C ../plugins/mlx-3.x clean all
+make -C ../plugins/mlx-CDH3u4
+make -C ../plugins/mlx-0.20.2
+make -C ../plugins/mlx-1.x
+make -C ../plugins/mlx-3.x
 
 cp ../src/.libs/libuda.so .
 cp ../plugins/mlx-1.x/uda-hadoop-1.x.jar .
