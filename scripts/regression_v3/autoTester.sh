@@ -1,11 +1,5 @@
 #!/bin/bash
 
-source $SCRIPTS_DIR/defaultsConf.sh
-source $SCRIPTS_DIR/reportConf.sh
-source $SCRIPTS_DIR/namesConf.sh
-
-echoPrefix=$(basename $0)
-
 sourcing()
 {
 	if (($phaseError==0));then
@@ -17,10 +11,6 @@ sourcing()
 
 errorHandler ()
 {	
-	# there is a scenario that error occured but the return value will be 0 - 
-	# when start_hadoopExcel.sh or mkteragenExcel.sh prints their usage-print,
-	# (which it a unsuccessfull scenario for this script's purposes).
-	# in such case this script won't recognized the problem
 	phaseError=1
 	if (($1 == $SEC));then
 		exit 0
@@ -141,21 +131,31 @@ flowManager()
 	esac
 }
 
+source $SCRIPTS_DIR/defaultsConf.sh
+source $SCRIPTS_DIR/reportConf.sh
+source $SCRIPTS_DIR/namesConf.sh
+
+echoPrefix=$(basename $0)
+
 if [[ -z $TMP_DIR ]];then
 	echo "$echoPrefix: please export TMP_DIR"
 	exit 0
 fi
 
-if [[ -z $SCRIPTS_DIR ]] && [[ -z $SVN_SCRIPTS ]];then
-	echo "$echoPrefix: please export SCRIPTS_DIR or SVN_SCRIPTS"
+if [[ -z $SCRIPTS_DIR ]];then
+	echo "$echoPrefix: please export SCRIPTS_DIR"
 	exit 0
-	#export SCRIPTS_DIR="/labhome/oriz/scripts/commit2"
-elif [[ -n $SVN_SCRIPTS ]];then
-	export SCRIPTS_DIR=$TMP_DIR/scripts
-	mkdir $SCRIPTS_DIR
-	cd $SCRIPTS_DIR
-	svn co $SVN_HADOOP/*
 fi
+#if [[ -z $SCRIPTS_DIR ]] && [[ -z $SVN_SCRIPTS ]];then
+#	echo "$echoPrefix: please export SCRIPTS_DIR or SVN_SCRIPTS"
+#	exit 0
+	#export SCRIPTS_DIR="/labhome/oriz/scripts/commit2"
+#elif [[ -n $SVN_SCRIPTS ]];then
+#	export SCRIPTS_DIR=$TMP_DIR/scripts
+#	mkdir $SCRIPTS_DIR
+#	cd $SCRIPTS_DIR
+#	svn co $SVN_HADOOP/*
+#fi
 
 	# prepare phase
 echo "$echoPrefix: *** Prepare phase ***"
@@ -190,23 +190,32 @@ if (($controlVal==1));then
 	sourcing $TMP_DIR/configureExports.sh
 fi
 
-	# setup-cluster phase
-flowManager "setup"
-if (($controlVal==1));then
-	echo "$echoPrefix: *** Cluster-setup phase ***"
-	bash $SCRIPTS_DIR/setupMain.sh
-	errorHandler $? "setup"
-	sourcing $TMP_DIR/setupExports.sh
-fi
+export FIRST_MTT_SETUP_FLAG=1
+for setupName in `ls $CONFS_DIR | grep $SETUP_DIR_PREFIX`
+do
+	setupConfsDir=$CONFS_DIR/$setupName
+	if [ -f $setupConfsDir ];then # skip if its not a folder
+		continue
+	fi
+	
+		# setup-cluster phase
+	flowManager "setup"
+	if (($controlVal==1));then
+		echo "$echoPrefix: *** Cluster-setup phase ***"
+		bash $SCRIPTS_DIR/setupMain.sh $setupConfsDir
+		errorHandler $? "setup"
+		sourcing $TMP_DIR/setupExports.sh
+	fi
 
-	# execution phase
-flowManager "execute"
-if (($controlVal==1));then
-	echo "$echoPrefix: *** Execution phase ***"
-	bash $SCRIPTS_DIR/executeMain.sh
-	errorHandler $? "execute"
-	source $TMP_DIR/executeExports.sh
-fi
+		# execution phase
+	flowManager "execute"
+	if (($controlVal==1));then
+		echo "$echoPrefix: *** Execution phase ***"
+		bash $SCRIPTS_DIR/executeMain.sh $setupConfsDir
+		errorHandler $? "execute"
+		source $TMP_DIR/executeExports.sh
+	fi
+done
 
 	# data-collecting phase
 flowManager "collect"

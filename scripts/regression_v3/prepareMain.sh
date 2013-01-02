@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 inputFlag=1
 
 if ! sudo mkdir -p $TMP_DIR;then

@@ -41,12 +41,12 @@ if (($TEST_RUN_FLAG==1));then
 fi
 
 if (($CONFIGURE_FLAG == 0)) &&  (($EXECUTE_FLAG || $SETUP_FLAG));then
-	if [ -n "$CURRENT_TESTS_DIR" ];then 
-		path=$CURRENT_TESTS_DIR
-		echo -e "$(basename $0): the tests are taken from $path"
+	if [ -n "$CURRENT_CONFS_DIR" ];then 
+		confsDir=$CURRENT_CONFS_DIR
+		echo -e "$(basename $0): the tests are taken from $confsDir"
 	else
-		path=$CONF_FOLDER_DIR/`ls -t $CONF_FOLDER_DIR | grep -m 1 ""`
-		echo -e "$(basename $0): Warning: using the last folder created in the tests-folders directory, which is $path\n for entering explicit directory use the parameter tests.current"
+		confsDir=$CONF_FOLDER_DIR/`ls -t $CONF_FOLDER_DIR | grep -m 1 ""`
+		echo -e "$(basename $0): Warning: using the last folder created in the tests-folders directory, which is $confsDir\n for entering explicit directory use the parameter tests.current"
 		sleep $SLEEPING_FOR_READING
 	fi
 fi
@@ -67,5 +67,5 @@ echo "
 	export RPM_FLAG=$RPM_FLAG
 	export ZIP_FLAG=$ZIP_FLAG
 		# general envs
-	export TESTS_PATH='$path'
+	export CONFS_DIR='$confsDir'
 " > $TMP_DIR/controlExports.sh

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 allJobsDir=$1
 totalTests=0
 succeededTests=0

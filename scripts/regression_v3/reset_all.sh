@@ -7,9 +7,9 @@ then
         exit 1
 fi
 
-if [ -z "$HADOOP_CONF_DIR" ]
+if [ -z "$HADOOP_CONFIGURATION_DIR" ]
 then 
-	HADOOP_CONF_DIR=$MY_HADOOP_HOME/conf
+	HADOOP_CONFIGURATION_DIR=$MY_HADOOP_HOME/conf
 fi
 
 cd $MY_HADOOP_HOME

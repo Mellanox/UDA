@@ -3,6 +3,14 @@
 	# terasort
 export EXEC_DIR_PREFIX="exec_"
 export TEST_DIR_PREFIX="test_"
+export SETUP_DIR_PREFIX="setup_"
+export TEST_RUN_DIR_PREFIX="testRun_"
+export HADOOP_HOME_DIR_PREFIX="hadoop-"
+export SMOKE_RUN_DIR_PREFIX="smoke_"
+export TEST_DFSIO_WRITE_DIR_POSTFIX="_write"
+export TEST_DFSIO_READ_DIR_POSTFIX="_read"
+export PI_DIR_POSTFIX="_pi"
+export BACKUP_POSTFIX="_backup"
 export CONFS_DIR_NAME="confs"
 export LOGS_DIR_NAME="logs"
 export COVERITY_DIR_NAME="code_coverage"
@@ -24,18 +32,11 @@ export TEST_DFSIO_SUMMARY_TABLE_FILE_NAME="TestDFSIOSummary"
 export WORDCOUNT_OUTCOME_TABLE_FILE_NAME="wordcountOutcome"
 export WORDCOUNT_SUMMARY_TABLE_FILE_NAME="wordcountSummary"
 export TOTAL_OUTCOME_TABLE_FILE_NAME="totalSummary"
-export HADOOP_CONF_RELATIVE_PATH="conf"
+export HADOOP_CONFIGURATION_DIR_RELATIVE_PATH="conf"
 export USERLOGS_RELATIVE_PATH="logs/userlogs"
 export LOGS_HISTORY_RELATIVE_PATH="logs/history"
-export TEST_RUN_DIR_PREFIX="testRun_"
-export SMOKE_RUN_DIR_PREFIX="smoke_"
 export RECENT_JOB_DIR_NAME="recentJob"
 export GIT_CO_HADOOP_DIR_NAME="gitHadoopCO"
 export GIT_CO_MASTER_DIR_NAME="gitMasterCO"
-	
-	# TestDFSIO
-export TEST_DFSIO_WRITE_DIR_POSTFIX="_write"
-export TEST_DFSIO_READ_DIR_POSTFIX="_read"
 
-	# pi
-export PI_DIR_POSTFIX="_pi"
+

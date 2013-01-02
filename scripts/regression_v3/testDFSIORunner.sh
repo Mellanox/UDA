@@ -42,7 +42,7 @@ DFSIOread(){
 
 currentLogsDir=$1
 
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 mkdir -p $currentLogsDir
 cd $MY_HADOOP_HOME
 

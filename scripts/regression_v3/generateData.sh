@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 cmdBase=$1
 dataDir=$2
 

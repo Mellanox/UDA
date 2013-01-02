@@ -29,9 +29,9 @@ then
 	SCRIPTS_DIR=$(dirname $0)
 fi
 
-if [ -z "$HADOOP_CONF_DIR" ] 
+if [ -z "$HADOOP_CONFIGURATION_DIR" ] 
 then
-	HADOOP_CONF_DIR="$MY_HADOOP_HOME/conf"
+	HADOOP_CONFIGURATION_DIR="$MY_HADOOP_HOME/conf"
 fi
 
 if [ ! -z $1 ] && [ $1 -eq $1 2>/dev/null ] # check if $1 is a number
@@ -114,7 +114,7 @@ do
 
 
 	# count the number of unmarked hosts on slaves conf file 
-	expected_number_nodes=`cat "$HADOOP_CONF_DIR/slaves" | grep ^[[:alnum:]] -c`
+	expected_number_nodes=`cat "$HADOOP_CONFIGURATION_DIR/slaves" | grep ^[[:alnum:]] -c`
 
 	actual_number_nodes=0
 	attempt=0

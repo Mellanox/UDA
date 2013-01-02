@@ -51,7 +51,7 @@ then
 	exit 1
 fi
 
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 
 local_dir=$1
 collect_dir=$2
@@ -88,7 +88,7 @@ echo -e \\n\\n
 echo "$echoPrefix: running user command: $USER_CMD"
 echo -e \\n\\n
 
-echo "HADOOP_CONF_DIR=$HADOOP_CONF_DIR" >> $log
+echo "HADOOP_CONFIGURATION_DIR=$HADOOP_CONFIGURATION_DIR" >> $log
 echo "dir=$local_dir" >> $log
 echo "collect_dir=$collect_dir" >> $log
 echo "RES_SERVER=$RES_SERVER" >> $log
@@ -349,14 +349,16 @@ if [[ -n $coresNames ]];then
 fi
 
 ssh $RES_SERVER mkdir -p $collect_dir/master-`hostname`/
-#ssh $RES_SERVER chown -R $USER  $collect_dir/master-`hostname`/
+echo "$echoPrefix: scp -r $MY_HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/"
 scp -r $MY_HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/
+echo "$echoPrefix: scp -r $local_dir/* $RES_SERVER:$collect_dir/"
 scp -r $local_dir/* $RES_SERVER:$collect_dir/
 scp $fullConf $RES_SERVER:$collect_dir/
 
 $SLAVES ssh $RES_SERVER mkdir -p $collect_dir/slave-\`hostname\`/
-#$SLAVES chown -R $USER  $collect_dir/slave-\`hostname\`/
+echo "$echoPrefix: $SLAVES scp -r $MY_HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/"
 $SLAVES scp -r $MY_HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/
+echo "$echoPrefix: $SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/"
 $SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/
 
 sudo ssh $RES_SERVER chown -R $USER $collect_dir
@@ -369,8 +371,8 @@ echo "$echoPrefix: finished collecting statistics"
 ssh $RES_SERVER cat $collect_dir/\*.dstat.csv \| sort \| $SCRIPTS_DIR/reduce-dstat.awk \> $collect_dir/dstat-$job-cluster.csv
 
 echo "$echoPrefix: collecting hadoop master conf dir"
-echo "$echoPrefix: scp -r $HADOOP_CONF_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONF_DIR) > /dev/null"
-scp -r $HADOOP_CONF_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONF_DIR) > /dev/null
+echo "$echoPrefix: scp -r $HADOOP_CONFIGURATION_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONFIGURATION_DIR) > /dev/null"
+scp -r $HADOOP_CONFIGURATION_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONFIGURATION_DIR) > /dev/null
 
 #if ! tar zcf $collect.tgz $collect 2> /dev/null
 #then

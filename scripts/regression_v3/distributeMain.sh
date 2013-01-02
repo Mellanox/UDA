@@ -1,6 +1,6 @@
 #!/bin/bash
 #REPORT_MAILING_LIST="shania,oriz"
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 allContacts=`echo $REPORT_MAILING_LIST | awk 'BEGIN {RS=",";}{print  $1}'`;
 
 count=0

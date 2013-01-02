@@ -48,7 +48,7 @@ findMaxDuration()
 	getMaxDuration=$max
 }
 
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 allJobsDir=$1
 
 allTables=""

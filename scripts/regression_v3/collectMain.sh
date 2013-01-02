@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 
 reportSubject=$REPORT_SUBJECT
 if (($TEST_RUN_FLAG == 1));then
@@ -24,7 +24,7 @@ scp -r $RES_SERVER:$CURRENT_LOCAL_RESULTS_DIR/* $logsDestDir > /dev/null
 echo "$echoPrefix: collecting test-files"
 confsDestDir=$currentNfsResultsDir/$CONFS_DIR_NAME
 mkdir $confsDestDir
-cp -r $TESTS_PATH/* $confsDestDir > /dev/null
+cp -r $CONFS_DIR/* $confsDestDir > /dev/null
 	# copying the csv configuration file
 echo "$echoPrefix: collecting csv-configuration-file"
 cp $CSV_FILE $currentNfsResultsDir > /dev/null
@@ -65,7 +65,7 @@ fi
 
 
 
-chmod -R 775 $currentNfsResultsDir
+chmod -R $DIRS_PERMISSIONS $currentNfsResultsDir
 #$CURRENT_NFS_RESULTS_DIR/$LOGS_DIR_NAME
 echo "
 	#!/bin/sh

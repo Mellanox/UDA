@@ -90,7 +90,7 @@ echo "POSITION 6"
 currentLogsDir=$1
 outputDir=$2
 
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 clusterNodes=$SLAVES_COUNT
 mappers=$MAX_MAPPERS
 reducers=$MAX_REDUCERS

@@ -20,7 +20,7 @@
 #	 1) the script don't support execution with differant slaves count in the same
 #	    CSV-file - it couse problems with restarting the hadoop
 
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 
 errorHandler (){
 	# there is a scenario that error occured but the return value will be 0 - 
@@ -45,7 +45,7 @@ restartingHadoop (){
 copyConfFiles() {
 	echo "$echoPrefix: Copy conf dir to salves"
 	for slave in `cat $1`; do
-		scp -r $HADOOP_CONF_DIR/* $slave:$HADOOP_CONF_DIR > /dev/null
+		scp -r $HADOOP_CONFIGURATION_DIR/* $slave:$HADOOP_CONFIGURATION_DIR > /dev/null
 	done
 }
 
@@ -61,8 +61,9 @@ ceilingDivide()
 	fi
 }
 
+setupConfsDir=$1
 cd $MY_HADOOP_HOME
-export HADOOP_CONF_DIR="$MY_HADOOP_HOME/$HADOOP_CONF_RELATIVE_PATH"
+export HADOOP_CONFIGURATION_DIR="$MY_HADOOP_HOME/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH"
 hadoopVersion=`echo $(basename $MY_HADOOP_HOME) | sed s/[.]/_/g`
 if [ -z "$hadoopVersion" ];then
 	hadoopVersion="unknown-hadoop-version"
@@ -70,14 +71,14 @@ fi
 
 echo "$echoPrefix: VERSION:" $hadoopVersion
 
-source $TESTS_PATH/general.sh
+source $setupConfsDir/general.sh
 
 if [ -z "$RES_SERVER" ];then
     export RES_SERVER=$DEFAULT_RES_SERVER
 fi
 
-totalTests=$TESTS_COUNT
-if (($LINE_TO_EXECUTE > -1)) && (($LINE_TO_EXECUTE < $TESTS_COUNT));then
+totalTests=$SETUP_TESTS_COUNT
+if (($LINE_TO_EXECUTE > -1)) && (($LINE_TO_EXECUTE < $SETUP_TESTS_COUNT));then
 	totalTests=$LINE_TO_EXECUTE
 fi
 
@@ -86,21 +87,15 @@ currentResultsDir=$LOCAL_RESULTS_DIR/${LOGS_DIR_NAME}_${CURRENT_DATE}
 sudo ssh $RES_SERVER mkdir -p $currentResultsDir
 sudo ssh $RES_SERVER chown -R $USER $currentResultsDir
 
-for execName in `ls $TESTS_PATH | grep $TEST_DIR_PREFIX`
+for execName in `ls $setupConfsDir | grep $TEST_DIR_PREFIX`
 do
-	testDir=$TESTS_PATH/$execName
+	testDir=$setupConfsDir/$execName
 	if [ -f $testDir ];then # skip if its not a folder
 		continue
 	fi
-	source $testDir/exports.sh
-#for line in `seq 1 $totalTests`
-#do
-	# using the correct job file
-	#dirName=`ls $TESTS_PATH | grep test${line}`
-	#testDir=$TESTS_PATH/$dirName
-	#source $testDir/exports.sh
 	
-	# start processing test
+	source $testDir/exports.sh
+
 	echo -e \\n\\n "$echoPrefix: -->>> executing $execName" \\n\\n
 		
 	echo "------------------------------------------"
@@ -116,16 +111,16 @@ do
 	if (($RESTART_HADOOP==1))
 	then
 		if (($UNSPREAD_CONF_FLAG == 0));then
-			cp $testDir/*.xml ${HADOOP_CONF_DIR}/
-			cp $testDir/masters ${HADOOP_CONF_DIR}/
-			cp $testDir/slaves ${HADOOP_CONF_DIR}/
+			cp $testDir/*.xml ${HADOOP_CONFIGURATION_DIR}/
+			cp $testDir/masters ${HADOOP_CONFIGURATION_DIR}/
+			cp $testDir/slaves ${HADOOP_CONFIGURATION_DIR}/
 		fi
 		
-		host=`head -1 $HADOOP_CONF_DIR/slaves`
+		host=`head -1 $HADOOP_CONFIGURATION_DIR/slaves`
 		host_tail=`[[  $host =~ "-" ]] && echo $host | sed 's/.*-//' || echo lan`
-		for host in `cat $HADOOP_CONF_DIR/slaves`; do
+		for host in `cat $HADOOP_CONFIGURATION_DIR/slaves`; do
 				if [ $host_tail !=  `[[  $host =~ "-" ]] && echo $host | sed 's/.*-//' || echo lan` ];then
-					echo "$echoPrefix: slave\'s hostnames are not matching for the same network interface: `cat $HADOOP_CONF_DIR/slaves`" | tee $ERROR_LOG
+					echo "$echoPrefix: slave\'s hostnames are not matching for the same network interface: `cat $HADOOP_CONFIGURATION_DIR/slaves`" | tee $ERROR_LOG
 					exit $EEC1
 				fi
 		done
@@ -136,11 +131,13 @@ do
 		fi
 
 		if (($UNSPREAD_CONF_FLAG == 0));then
-			copyConfFiles $HADOOP_CONF_DIR/slaves
+			copyConfFiles $HADOOP_CONFIGURATION_DIR/slaves
 		fi
-		echo "$echoPrefix: Setting slave.host.name to slaves and master"
-		bash ${SCRIPTS_DIR}/set_hadoop_slave_property.sh --hadoop-conf-dir=${HADOOP_CONF_DIR} --host-suffix=${INTERFACE_ENDING}
-		bin/slaves.sh ${SCRIPTS_DIR}/set_hadoop_slave_property.sh --hadoop-conf-dir=${HADOOP_CONF_DIR} --host-suffix=${INTERFACE_ENDING}
+		echo "$echoPrefix: Setting slave.host.name on master"
+		echo bash ${SCRIPTS_DIR}/set_hadoop_slave_property.sh --hadoop-conf-dir=${HADOOP_CONFIGURATION_DIR} --host-suffix=${INTERFACE_ENDING}
+		bash ${SCRIPTS_DIR}/set_hadoop_slave_property.sh --hadoop-conf-dir=${HADOOP_CONFIGURATION_DIR} --host-suffix=${INTERFACE_ENDING}
+		echo "$echoPrefix: Setting slave.host.name on slaves"
+		bin/slaves.sh ${SCRIPTS_DIR}/set_hadoop_slave_property.sh --hadoop-conf-dir=${HADOOP_CONFIGURATION_DIR} --host-suffix=${INTERFACE_ENDING}
 
 		if (($FIRST_STARTUP == 1));then
 			restartParam=" -restart"
