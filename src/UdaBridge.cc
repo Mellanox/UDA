@@ -72,6 +72,11 @@ typedef struct data_from_java
 } data_from_java_t;
 
 
+void exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
+
+	log(lsERROR, "started");
+
+}
 
 void indicateUdaJniException(JNIEnv *env, UdaException *ex) {
 

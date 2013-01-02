@@ -22,6 +22,9 @@
 
 #include <jni.h>
 
+class UdaException;
+void exceptionInNativeThread(JNIEnv *env, UdaException *ex);
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -201,28 +201,37 @@ void *merge_online (reduce_task_t *task)
 
 void *merge_thread_main (void *context)
 {
-    reduce_task_t *task = (reduce_task_t *) context;
-    MergeManager *manager = task->merge_man;
-
-    int online = manager->online;
-    log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
-
     jniEnv = attachNativeThread();
+    try{
+		reduce_task_t *task = (reduce_task_t *) context;
+		MergeManager *manager = task->merge_man;
 
-	switch (online) {
-	case 0:
-		/* FIXME: on-disk merge*/
-		break;
-	case 1:
-		merge_online (task);
-		break;
-	case 2: default:
-		log(lsINFO, "using hybrid merge");
-//		merge_hybrid (task); //commenting: for now it is dead code
-		break;
-	}
+		int online = manager->online;
+		log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
 
-	log(lsDEBUG, "finished !!!");
+		switch (online) {
+		case 0:
+			/* FIXME: on-disk merge*/
+			break;
+		case 1:
+			merge_online (task);
+			break;
+		case 2: default:
+			log(lsINFO, "using hybrid merge");
+	//		merge_hybrid (task); //commenting: for now it is dead code
+			break;
+		}
+
+		log(lsDEBUG, "finished !!!");
+    }
+    catch(UdaException *ex) {
+		log(lsERROR, "got UdaException!");
+    	exceptionInNativeThread(jniEnv, ex);
+    }
+    catch(...) {
+		log(lsERROR, "got general Exception!");
+    	exceptionInNativeThread(jniEnv, NULL);
+    }
     return NULL;
 }
 
