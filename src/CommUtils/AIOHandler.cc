@@ -22,6 +22,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <UdaUtil.h>
+#include "UdaBridge.h"
 
 AIOHandler::AIOHandler(AioCallback callback, int ctx_maxevents, long min_nr, long nr, const timespec* timeout) : MAX_EVENTS(ctx_maxevents), MIN_NR(min_nr), NR(nr), GETEVENTS_TIMEOUT(*timeout)
 {
@@ -149,6 +150,9 @@ int AIOHandler::submit() {
 
 
 void AIOHandler::processEventsCallbacks() {
+JNIEnv *jniEnv = UdaBridge_attachNativeThread();
+try{
+
 	io_event eventArr[NR];
 	int rc=0;
 	int callback_rc;
@@ -232,6 +236,16 @@ void AIOHandler::processEventsCallbacks() {
 	}
 
 	log(lsINFO, "AIO: Events processor stopped");
+}
+catch(UdaException *ex) {
+	log(lsERROR, "got UdaException!");
+	UdaBridge_exceptionInNativeThread(jniEnv, ex);
+}
+catch(...) {
+	log(lsERROR, "got general Exception!");
+	UdaBridge_exceptionInNativeThread(jniEnv, NULL);
+}
+
 }
 
 #if LCOV_HYBRID_MERGE_DEAD_CODE
