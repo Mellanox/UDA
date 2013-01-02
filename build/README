@@ -32,8 +32,6 @@
 	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-1.x.jar
 	For CDH3u4 add:
 	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-CDH3u4.jar
-	For Hadoop 0.20.2 add:
-	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-0.20.2.jar
 
 #2. OPTIONAL: in case your IB interface is not the default one on your machine:
 #             run script set_hadoop_slave_property.sh located in /usr/lib64/uda on your slave nodes and on master node.

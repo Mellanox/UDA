@@ -24,7 +24,6 @@
 %define uda_hadoop_1x_jar    	uda-hadoop-1.x.jar
 %define uda_hadoop_3x_jar    	uda-hadoop-3.x.jar
 %define uda_CDH3u4_jar    		uda-CDH3u4.jar
-%define uda_0_20_2_jar    		uda-hadoop-0.20.2.jar
 %define uda_readme 				README
 %define uda_lic    				LICENSE.txt
 %define hadoop_prop_script    	set_hadoop_slave_property.sh
@@ -78,7 +77,6 @@ Source2:        %{uda_readme}
 Source3:        %{uda_lic}
 Source4:        %{hadoop_prop_script}
 Source5:        %{uda_CDH3u4_jar}
-Source6:        %{uda_0_20_2_jar}
 Source7:        %{uda_hadoop_3x_jar}
 Source8:        %{uda_source}
 Source9:        %{uda_journal}
@@ -118,7 +116,6 @@ install -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{doc_dir}/%{uda_readme}
 install -m 0644 %{SOURCE3} $RPM_BUILD_ROOT%{doc_dir}/%{uda_lic}
 install -m 0755 %{SOURCE4} $RPM_BUILD_ROOT%{uda_dir}/%{hadoop_prop_script}
 install -m 0644 %{SOURCE5} $RPM_BUILD_ROOT%{uda_dir}/%{uda_CDH3u4_jar}
-install -m 0644 %{SOURCE6} $RPM_BUILD_ROOT%{uda_dir}/%{uda_0_20_2_jar}
 install -m 0644 %{SOURCE7} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_3x_jar}
 install -m 0644 %{SOURCE8} $RPM_BUILD_ROOT%{doc_dir}/%{uda_source}
 install -m 0644 %{SOURCE9} $RPM_BUILD_ROOT%{doc_dir}/%{uda_journal}
@@ -136,7 +133,6 @@ rm -rf $RPM_BUILD_ROOT
 %doc
 %{uda_dir}/%{uda_lib}
 %{uda_dir}/%{uda_CDH3u4_jar}
-%{uda_dir}/%{uda_0_20_2_jar}
 %{uda_dir}/%{uda_hadoop_1x_jar}
 %{doc_dir}/%{uda_readme}
 %{doc_dir}/%{uda_lic}
