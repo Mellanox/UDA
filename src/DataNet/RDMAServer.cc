@@ -32,6 +32,8 @@
 #include "RDMAServer.h"
 #include "../MOFServer/MOFServlet.h"
 #include "../include/IOUtility.h"
+#include <IOUtility.h>
+#include <UdaUtil.h>
 
 using namespace std;
 
@@ -425,7 +427,7 @@ RdmaServer::start_server()
 
     pthread_attr_init(&th->attr);
     pthread_attr_setdetachstate(&th->attr, PTHREAD_CREATE_JOINABLE);
-    log(lsINFO, "CREATING THREAD"); pthread_create(&th->thread, &th->attr, event_processor, th);
+    uda_thread_create(&th->thread, &th->attr, event_processor, th);
 }
 
 RdmaServer::~RdmaServer()

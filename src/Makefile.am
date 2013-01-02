@@ -39,6 +39,7 @@ libuda_la_SOURCES = \
 						include/MemCache.h       \
 						include/NetlevComm.h     \
 						include/AIOHandler.h     \
+						include/UdaUtil.h     \
 						MOFServer/IndexInfo.h    \
 					   	MOFServer/MOFServlet.h \
 					   	MOFServer/IndexInfo.cc  \
@@ -56,6 +57,7 @@ libuda_la_SOURCES = \
                         CommUtils/atomic.cc \
                         CommUtils/C2JNexus.cc \
 						CommUtils/AIOHandler.cc    \
+						CommUtils/UdaUtil.cc    \
 					    Merger/MergeManager.h \
 					    Merger/MergeManager.cc \
 						Merger/StreamRW.h \

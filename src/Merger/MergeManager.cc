@@ -321,15 +321,6 @@ MergeManager::MergeManager(int threads, int online, struct reduce_task *task, in
             list_del(&merge_queue->staging_bufs[i]->list);
         }
         pthread_mutex_unlock(&task->kv_pool.lock);
-/*
-    	JNIEnv *jniEnv = attachNativeThread();
-        for (int i = 0; i < num_stage_mem; ++i) {
-        	mem_desc_t  *desc = merge_queue->staging_bufs[i];
-        	desc->jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
-        	log(lsINFO, "GOT: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
-
-        }
-//*/
     }
 }
 

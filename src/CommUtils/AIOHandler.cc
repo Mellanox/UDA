@@ -21,6 +21,7 @@
 #include "AIOHandler.h"
 #include <pthread.h>
 #include <errno.h>
+#include <UdaUtil.h>
 
 AIOHandler::AIOHandler(AioCallback callback, int ctx_maxevents, long min_nr, long nr, const timespec* timeout) : MAX_EVENTS(ctx_maxevents), MIN_NR(min_nr), NR(nr), GETEVENTS_TIMEOUT(*timeout)
 {
@@ -54,7 +55,7 @@ int AIOHandler::start() {
 		pthread_attr_t attr;
 		pthread_attr_init(&attr);
 		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-		log(lsINFO, "CREATING THREAD"); pthread_create(&_callbackProcessorThread, &attr,  thunk<AIOHandler, &AIOHandler::processEventsCallbacks>, this);
+		uda_thread_create(&_callbackProcessorThread, &attr,  thunk<AIOHandler, &AIOHandler::processEventsCallbacks>, this);
 	}
 
 	return rc;

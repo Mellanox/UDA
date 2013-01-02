@@ -25,7 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <unistd.h> //temp for sleep
+#include <UdaUtil.h>
 
 
 //
@@ -230,7 +230,7 @@ extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_star
 		log(lsINFO, "main initialization finished ret=%d", ret);
 		if (! is_net_merger) {
 			pthread_t thr;
-			log(lsINFO, "CREATING THREAD"); pthread_create(&thr, NULL, MOFSupplierRun, NULL);  // This is actual main of MOFSupplier
+			uda_thread_create(&thr, NULL, MOFSupplierRun, NULL);  // This is actual main of MOFSupplier
 		}
 
 		for (int i=0; i < argc; i++) {

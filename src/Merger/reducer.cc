@@ -39,6 +39,7 @@
 #include "IOUtility.h"
 #include "C2JNexus.h"
 #include "CompareFunc.h"
+#include <UdaUtil.h>
 
 using namespace std;
 
@@ -275,7 +276,7 @@ static void init_reduce_task(struct reduce_task *task)
     pthread_attr_init(&task->merge_thread.attr);
     pthread_attr_setdetachstate(&task->merge_thread.attr, 
                                 PTHREAD_CREATE_JOINABLE); 
-    log(lsINFO, "CREATING THREAD"); pthread_create(&task->merge_thread.thread,
+    uda_thread_create(&task->merge_thread.thread,
                    &task->merge_thread.attr, 
                    merge_thread_main, task);
 }

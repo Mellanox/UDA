@@ -30,7 +30,8 @@
 
 #include "RDMAClient.h"
 #include "../Merger/InputClient.h"
-#include "../include/IOUtility.h"
+#include <IOUtility.h>
+#include <UdaUtil.h>
 using namespace std;
 
 extern int netlev_dbg_flag;
@@ -388,7 +389,7 @@ RdmaClient::RdmaClient(int port, merging_state_t *state)
     th->pollfd = this->ctx.epoll_fd;
     pthread_attr_init(&th->attr);
     pthread_attr_setdetachstate(&th->attr, PTHREAD_CREATE_JOINABLE);
-    log(lsINFO, "CREATING THREAD"); pthread_create(&th->thread, &th->attr, event_processor, th);
+    uda_thread_create(&th->thread, &th->attr, event_processor, th);
 
     /* FIXME: 
      * When we consider disconnection we need to add 
