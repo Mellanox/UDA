@@ -44,7 +44,7 @@ class InputClient;
 
 
 extern merging_state_t merging_sm;
-extern JNIEnv *jniEnv;
+static JNIEnv *jniEnv;
 
         
 
