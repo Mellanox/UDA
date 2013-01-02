@@ -283,7 +283,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 // BE CAREFUL:
 // - DON'T call this function more than once for the same thread!! - perhaps not critical!
 // - DON'T use the handle from one thread in context of another threads!
-extern "C" JNIEnv *attachNativeThread()
+JNIEnv *attachNativeThread()
 {
 	log(lsTRACE, "started");
     JNIEnv *env;
@@ -303,7 +303,7 @@ extern "C" JNIEnv *attachNativeThread()
 
 // must be called with JNIEnv that matched the caller's thread - see attachNativeThread() above
 // - otherwise TOO BAD unexpected results are expected!
-extern "C" void UdaBridge_invoke_fetchOverMessage_callback(JNIEnv * jniEnv) {
+void UdaBridge_invoke_fetchOverMessage_callback(JNIEnv * jniEnv) {
 	log(lsTRACE, "before jniEnv->CallStaticVoidMethod...");
 	jniEnv->CallStaticVoidMethod(jclassUdaBridge, jmethodID_fetchOverMessage);
 	log(lsTRACE, "after  jniEnv->CallStaticVoidMethod...");
@@ -311,13 +311,13 @@ extern "C" void UdaBridge_invoke_fetchOverMessage_callback(JNIEnv * jniEnv) {
 
 // must be called with JNIEnv that matched the caller's thread - see attachNativeThread() above
 // - otherwise TOO BAD unexpected results are expected!
-extern "C" void UdaBridge_invoke_dataFromUda_callback(JNIEnv * jniEnv, jobject jbuf, int len) {
+void UdaBridge_invoke_dataFromUda_callback(JNIEnv * jniEnv, jobject jbuf, int len) {
 	log(lsTRACE, "before jniEnv->CallStaticVoidMethod jniEnv=%p, jbuf=%p, len=%d", jniEnv, jbuf, len);
 	jniEnv->CallStaticVoidMethod(jclassUdaBridge, jmethodID_dataFromUda, jbuf, len);
 	log(lsTRACE, "after  jniEnv->CallStaticVoidMethod...");
 }
 
-extern "C" index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* job_id, const char* map_id, int reduceId) {
+index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* job_id, const char* map_id, int reduceId) {
 	log(lsTRACE, "before jniEnv->CallStaticVoidMethod...");
 	jstring jstr_job, jstr_map;
 	jstr_job = jniEnv->NewStringUTF(job_id);
@@ -381,7 +381,7 @@ extern "C" index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, c
 
 // must be called with JNIEnv that matched the caller thread - see attachNativeThread() above
 // - otherwise TOO BAD unexpected results are expected!
-extern "C" jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long capacity) {
+jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long capacity) {
 
 	log(lsINFO, "registering native buffer for JAVA usage (address=%p, capacity=%ld) ...", address, capacity);
 	jobject jbuf = jniEnv->NewDirectByteBuffer(address, capacity);

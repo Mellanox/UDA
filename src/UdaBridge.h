@@ -25,11 +25,6 @@
 class UdaException;
 void exceptionInNativeThread(JNIEnv *env, UdaException *ex);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 //forward declarations
 
 struct index_record;
@@ -46,11 +41,5 @@ index_record* UdaBridge_invoke_getPathUda_callback (JNIEnv * jniEnv, const char*
 // - DON'T use the handle from one thread in context of another thread!
 
 JNIEnv *attachNativeThread();
-
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #endif // ! UdaBridge__H___
