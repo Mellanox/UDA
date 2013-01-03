@@ -157,32 +157,6 @@ extern "C" JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
 }
 
 
-
-struct Args{
-	main_t mainf;
-	int    argc;
-	char** argv;
-	Args(main_t _mainf, int _argc, char** _argv) : mainf(_mainf), argc(_argc), argv(_argv){}
-};
-
-void* mainThread(void* data)
-{
-	Args* pArgs = (Args*) data;
-
-	printf("In C++ main thread: calling: main\n");
-    int rc = pArgs->mainf(pArgs->argc, pArgs->argv);
-
-    printf("In C++ main thread: main returned %d\n", rc);
-    for (int i=0; i<pArgs->argc; i++) {
-        free (pArgs->argv[i]);
-    }
-    delete[] pArgs->argv;
-    delete pArgs;
-
-    return NULL;
-}
-
-
 // This is the implementation of the native method
 extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jboolean isNetMerger, jobjectArray stringArray) {
 	int ret = 0;
