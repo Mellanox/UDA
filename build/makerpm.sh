@@ -5,8 +5,7 @@ set -ex
 cd `dirname $0`
 
 export JAVA_HOME=/usr/lib64/java/jdk1.6.0_25 
-make -C ../src 
-make -C ../plugins/
+make -C ../
 
 cp ../src/.libs/libuda.so .
 cp ../plugins/mlx-1.x/uda-hadoop-1.x.jar .
