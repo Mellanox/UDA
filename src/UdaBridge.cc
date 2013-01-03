@@ -72,12 +72,6 @@ typedef struct data_from_java
 } data_from_java_t;
 
 
-void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
-
-	log(lsERROR, "started");
-
-}
-
 void indicateUdaJniException(JNIEnv *env, UdaException *ex) {
 
 	const char *JNI_EXCEPTION_CLASS_NAME = "com/mellanox/hadoop/mapred/UdaRuntimeException";
@@ -278,29 +272,6 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 	}
 }
 
-// a utility function that attaches the **current [native] thread** to the JVM and
-// return the JNIEnv interface pointer for this thread
-// BE CAREFUL:
-// - DON'T call this function more than once for the same thread!! - perhaps not critical!
-// - DON'T use the handle from one thread in context of another threads!
-JNIEnv *UdaBridge_attachNativeThread()
-{
-	log(lsTRACE, "started");
-    JNIEnv *env;
-	if (! cached_jvm) {
-		log(lsFATAL, "cached_jvm is NULL");
-		throw new UdaException("cached_jvm is NULL");
-	}
-    jint ret = cached_jvm->AttachCurrentThread((void **)&env, NULL);
-
-	if (ret < 0) {
-		log(lsFATAL, "cached_jvm->AttachCurrentThread failed ret=%d", ret);
-		throw new UdaException("cached_jvm->AttachCurrentThread failed");
-	}
-	log(lsTRACE, "completed successfully env=%p", env);
-    return env; // note: this handler is valid for all functions in this tread
-}
-
 // must be called with JNIEnv that matched the caller's thread - see attachNativeThread() above
 // - otherwise TOO BAD unexpected results are expected!
 void UdaBridge_invoke_fetchOverMessage_callback(JNIEnv * jniEnv) {
@@ -377,6 +348,36 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 
 	log(lsDEBUG, "after  jniEnv->CallStaticVoidMethod... ");
 	return data;
+}
+
+// a utility function that attaches the **current [native] thread** to the JVM and
+// return the JNIEnv interface pointer for this thread
+// BE CAREFUL:
+// - DON'T call this function more than once for the same thread!! - perhaps not critical!
+// - DON'T use the handle from one thread in context of another threads!
+JNIEnv *UdaBridge_attachNativeThread()
+{
+	log(lsTRACE, "started");
+    JNIEnv *env;
+	if (! cached_jvm) {
+		log(lsFATAL, "cached_jvm is NULL");
+		throw new UdaException("cached_jvm is NULL");
+	}
+    jint ret = cached_jvm->AttachCurrentThread((void **)&env, NULL);
+
+	if (ret < 0) {
+		log(lsFATAL, "cached_jvm->AttachCurrentThread failed ret=%d", ret);
+		throw new UdaException("cached_jvm->AttachCurrentThread failed");
+	}
+	log(lsTRACE, "completed successfully env=%p", env);
+    return env; // note: this handler is valid for all functions in this tread
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
+
+	log(lsERROR, "started");
+
 }
 
 // must be called with JNIEnv that matched the caller thread - see attachNativeThread() above
