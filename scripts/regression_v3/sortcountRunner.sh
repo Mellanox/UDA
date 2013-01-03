@@ -9,8 +9,9 @@ errorHandler (){
 
 teragenning (){
 	local nmaps=$((SLAVES_COUNT*MAX_MAPPERS))
-	local dataSize=$((FINAL_DATA_SET*TERAGEN_GIGA_MULTIPLIER))
-	#dataSize=`echo "$FINAL_DATA_SET*$TERAGEN_GIGA_MULTIPLIER" | bc`
+	#local dataSize=$((FINAL_DATA_SET*TERAGEN_GIGA_MULTIPLIER))
+	local dataSize=`echo "$FINAL_DATA_SET*$TERAGEN_GIGA_MULTIPLIER * 1.0" | bc`
+	dataSize=`echo "$dataSize" | sed s/.[^.]*$//`
 	local cmd="bin/hadoop jar $HADOOP_EXAMPLES_JAR teragen -Dmapred.map.tasks=${nmaps} ${dataSize}"
 	
 	echo "$echoPrefix: teragenning"
@@ -19,7 +20,9 @@ teragenning (){
 }
 
 randomTextWriting (){
-	local dataSize=$((FINAL_DATA_SET*RANDOM_TEXT_WRITE_GIGA_MULTIPLIER))
+	#local dataSize=$((FINAL_DATA_SET*RANDOM_TEXT_WRITE_GIGA_MULTIPLIER))
+	local dataSize=`echo "$FINAL_DATA_SET * $RANDOM_TEXT_WRITE_GIGA_MULTIPLIER" | bc`
+	dataSize=`echo "$dataSize" | sed s/.[^.]*$//`
 	local cmd="bin/hadoop jar $HADOOP_EXAMPLES_JAR randomtextwriter $CMD_RANDOM_TEXT_WRITE_PARAMS -Dtest.randomtextwrite.total_bytes=${dataSize}"
 
 	echo "$echoPrefix: randomTextWriting"
@@ -28,7 +31,9 @@ randomTextWriting (){
 }
 
 randomWriting (){
-	local dataSize=$((FINAL_DATA_SET*RANDOM_WRITE_GIGA_MULTIPLIER))
+	#local dataSize=$((FINAL_DATA_SET*RANDOM_WRITE_GIGA_MULTIPLIER))
+	local dataSize=`echo "$FINAL_DATA_SET * $RANDOM_WRITE_GIGA_MULTIPLIER" | bc`
+	dataSize=`echo "$dataSize" | sed s/.[^.]*$//`
 	local cmd="bin/hadoop jar $HADOOP_EXAMPLES_JAR randomwriter $CMD_RANDOM_WRITE_PARAMS -Dtest.randomwrite.total_bytes=${dataSize}"
 	
 	echo "$echoPrefix: randomWriting"
@@ -73,6 +78,7 @@ echo "POSITION 4"
 		randomTextWriting
 	elif (($RANDOM_WRITE == 2));then
 echo "POSITION 5"
+		cd $MY_HADOOP_HOME
 		bin/hadoop fs -rmr $RANDOM_WRITE_DIR
 		randomWriting
 	elif (($RANDOM_WRITE == 1)) && ((`bin/hadoop fs -ls $RANDOM_WRITE_DIR | grep -c $DATA_LABEL` == 0));then
