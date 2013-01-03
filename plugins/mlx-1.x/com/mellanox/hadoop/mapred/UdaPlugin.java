@@ -311,6 +311,13 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	}
 
 
+	// callback from C++
+	public void exceptionInNativeThread(){
+		throw new RuntimeException("Unimplemented yet"); //TODO: implement!		
+	}
+
+	
+	
 	/* kv buf object, j2c_queue uses 
  the kv object inside.
 	 */

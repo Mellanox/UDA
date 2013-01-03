@@ -309,6 +309,10 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		if (LOG.isDebugEnabled()) LOG.debug ("<<-- dataFromUda finished callback");
 	}
 
+	public void exceptionInNativeThread(){
+		throw new RuntimeException("Unimplemented yet"); //TODO: implement!		
+	}
+
 
 	/* kv buf object, j2c_queue uses 
  the kv object inside.

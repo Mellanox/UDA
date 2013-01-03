@@ -28,6 +28,7 @@ import org.apache.hadoop.util.StringUtils;
 interface UdaCallable {
 	public void fetchOverMessage();
 	public void dataFromUda(Object directBufAsObj, int len) throws Throwable;
+	public void exceptionInNativeThread();
 }
 
 public class UdaBridge {
@@ -82,6 +83,15 @@ public class UdaBridge {
 		if (LOG.isDebugEnabled()) LOG.debug("<<<+++ finished UdaBridge.getPathUda"); 
 		return d;
 	}	
+	
+	static public void exceptionInNativeThread()  {
+		if (LOG.isDebugEnabled()) LOG.debug("+++>>> started  exceptionInNativeThread");
+		callable.exceptionInNativeThread();
+		if (LOG.isDebugEnabled()) LOG.debug("<<<+++ finished exceptionInNativeThread"); 
+		
+	}	
+	
+
 	
 }
 

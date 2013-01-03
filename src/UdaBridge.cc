@@ -350,7 +350,32 @@ JNIEnv *UdaBridge_attachNativeThread()
 ////////////////////////////////////////////////////////////////////////////////
 void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
 
-	log(lsERROR, "started");
+	std::string msg = ex ? ex->getFullMessage() : string ("unexpected error");
+	log(lsERROR, "UDA has encountered a critical error MSG=%s", msg.c_str());
+
+
+	if (is_net_merger) {
+		// This handle remains valid until the java class is Unloaded
+		//fetchOverMessage callback
+		jmethodID jmethodID_exceptionInNativeThread = env->GetStaticMethodID(jclassUdaBridge, "exceptionInNativeThread", "()V");
+		if (jmethodID_exceptionInNativeThread == NULL) {
+			log(lsERROR, "UdaBridge.exceptionInNativeThread() callback method was NOT found");
+			return;
+		}
+
+
+		JNIEnv *jniEnv;
+		if (cached_jvm->GetEnv((void **)&jniEnv, JNI_VERSION_1_4)) {
+			return;
+		}
+
+		jniEnv->CallStaticVoidMethod(jclassUdaBridge, jmethodID_exceptionInNativeThread);
+
+
+	}
+	else {
+		//TODO: complete....
+	}
 
 }
 
