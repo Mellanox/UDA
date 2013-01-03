@@ -22,8 +22,9 @@ CPATH=hadoop-0.20.3-dev-core.jar:commons-logging-1.0.4.jar
 #CPATH=../hadoop-1.1.0-patched-v2/build/classes/:commons-logging-1.1.1.jar 
 #CPATH=/tmp/hadoop-0.20.2-patched-v2/build/classes/:commons-logging-1.0.4.jar
 
-FILES=com/mellanox/hadoop/mapred/*.java org/apache/hadoop/mapred/*.java ../shared/com/mellanox/hadoop/mapred/*.java ../shared/org/apache/hadoop/mapred/*.java
 TARGET=uda-hadoop-0.20.2.jar
+
+FILES=com/mellanox/hadoop/mapred/*.java org/apache/hadoop/mapred/*.java ../shared/com/mellanox/hadoop/mapred/*.java ../shared/org/apache/hadoop/mapred/*.java
 
 all: $(TARGET)
 

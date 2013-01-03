@@ -23,8 +23,9 @@ CPATH=hadoop-core-0.20.2-cdh3u4.jar:commons-logging-1.0.4.jar
 #CPATH=../../hadoop-0.20.2-patched-v2/build/classes/:commons-logging-1.0.4.jar
 #CPATH=/.autodirect/mtrswgwork/shania/hadoop-0.20.2-cdh3u4/build/classes/:commons-logging-1.0.4.jar
 
-FILES=com/mellanox/hadoop/mapred/*.java org/apache/hadoop/mapred/*.java ../shared/com/mellanox/hadoop/mapred/*.java ../shared/org/apache/hadoop/mapred/*.java
 TARGET=uda-CDH3u4.jar
+
+FILES=com/mellanox/hadoop/mapred/*.java org/apache/hadoop/mapred/*.java ../shared/com/mellanox/hadoop/mapred/*.java ../shared/org/apache/hadoop/mapred/*.java
 
 all: $(TARGET)
 
