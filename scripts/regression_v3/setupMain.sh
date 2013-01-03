@@ -283,15 +283,20 @@ then
 	ans=$?; 
 	if (( ans == 0 )); 
 	then 
-		echo "snappy here";
-		echo "scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/"
-		scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/
+		echo "Snappy is allready here...";
 	else 
 		echo "sudo yum -y install snappy snappy-devel snappy.i386 snappy-devel.i386"
 		sudo yum -y install snappy snappy-devel snappy.i386 snappy-devel.i386
-		echo "scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/"
-		scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/
 	fi
+	echo "scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/"
+	scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/
+	
+	echo "RELEVANT_SLAVES_BY_SPACES $RELEVANT_SLAVES_BY_SPACES"
+	for slave in $RELEVANT_SLAVES_BY_SPACES
+	do
+		echo "sudo scp /usr/lib64/libsnappy.so* $slave:/usr/lib64/"
+		sudo scp /usr/lib64/libsnappy.so* $slave:/usr/lib64/
+	done
 fi	
 	
 if [[ `cat $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh` == *COVF* ]]; then

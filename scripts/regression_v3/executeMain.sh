@@ -52,10 +52,11 @@ copyConfFiles() {
 ceilingDivide() 
 {
 	# Normal integer divide.
-	ceilingResult=$(($1/$2))
-	#ceilingResult=`echo "scale=0; $1/$2" | bc`
+	#ceilingResult=$(($1/$2))
+	ceilingResult=`echo "$1/$2" | bc`
 	# If there is any remainder...
-	if [ $(($1%$2)) -gt 0 ]; then
+	
+	if (( `echo  "($1%$2) > 0" | bc` ==1 )); then
 		# rount up to the next integer
 		ceilingResult=$((ceilingResult+1))
 	fi
@@ -160,12 +161,16 @@ do
 				# calculating the datasize of the input data that going to be generated and the count of it
 			DataSetCalculated=$DATA_SET
 			if [[ $DATA_SET_TYPE == "node" ]];then
-				DataSetCalculated=$((DATA_SET*SLAVES_COUNT))
-				#DataSetCalculated=`echo "scale=0; $DATA_SET*$SLAVES_COUNT" | bc`
+				#DataSetCalculated=$((DATA_SET*SLAVES_COUNT))
+				DataSetCalculated=`echo "$DATA_SET * $SLAVES_COUNT *1.0" | bc`
+				if (( `echo "$DataSetCalculated < 1" | bc` == 1 )); then
+					DataSetCalculated="0${DataSetCalculated}"
+				fi	
 			fi
 
 			ceilingDivide $totalClusterRam $DataSetCalculated 
-			generateDataCount=$((ceilingResult+1))
+			generateDataCount=`echo "$ceilingResult+1" | bc`
+			#generateDataCount=$((ceilingResult+1))
 				
 			export FINAL_DATA_SET=$DataSetCalculated
 			export GENERATE_COUNT=$generateDataCount
