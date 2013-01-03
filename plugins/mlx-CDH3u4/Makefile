@@ -23,12 +23,17 @@ CPATH=hadoop-core-0.20.2-cdh3u4.jar:commons-logging-1.0.4.jar
 #CPATH=../../hadoop-0.20.2-patched-v2/build/classes/:commons-logging-1.0.4.jar
 #CPATH=/.autodirect/mtrswgwork/shania/hadoop-0.20.2-cdh3u4/build/classes/:commons-logging-1.0.4.jar
 
-all:
+FILES=com/mellanox/hadoop/mapred/*.java org/apache/hadoop/mapred/*.java ../shared/com/mellanox/hadoop/mapred/*.java ../shared/org/apache/hadoop/mapred/*.java
+TARGET=uda-CDH3u4.jar
+
+all: $(TARGET)
+
+$(TARGET):$(FILES)
 	rm -rf out
 	mkdir -p out
-	CLASSPATH=$(CPATH) javac -d out -sourcepath ../shared/:. com/mellanox/hadoop/mapred/*.java org/apache/hadoop/mapred/*.java ../shared/com/mellanox/hadoop/mapred/*.java ../shared/org/apache/hadoop/mapred/*.java
-	jar -cvf uda-CDH3u4.jar -C out com -C out org
+	CLASSPATH=$(CPATH) javac -Xlint -d out -sourcepath ../shared/:. $(FILES)
+	jar -cvf $(TARGET) -C out com -C out org
 	rm -rf out
 
 clean:
-	rm -rf uda-CDH3u4.jar out
+	rm -rf $(TARGET) out
