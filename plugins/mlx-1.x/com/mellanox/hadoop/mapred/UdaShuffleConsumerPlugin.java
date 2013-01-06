@@ -108,17 +108,29 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	
 	ShuffleConsumerPlugin fallbackPlugin = null;
 	
-	
-void failureInUda() {
-		
-	doFallbackToVanilla(new RuntimeException("Uda Failure");
-	
-		// wake up fetchOutputs
-//		synchronized(this) { this.notify(); }
 
+	// called outside the mapred thread, usually by a UDA C++ thread
+	//TODO: this is still no called in purpose - Open it in UdaBridge.java
+	void failureInUda() {
+
+		try {
+			doFallbackToVanilla(new RuntimeException("Uda Failure"));
+			
+			// wake up fetchOutputs
+			synchronized(this) { 
+				this.notifyAll();
+			}
+
+		}
+		catch(Throwable t){
+			throw new UdaRuntimeException("Failure in UDA and failure when trying to fallback to vanilla", t);
+		}
 	}
 	
-	private void doFallbackToVanilla(Throwable t) throws IOException {
+	//TODO: currently this synced on this like fetchOutputs - TODO change it!
+	synchronized private void doFallbackToVanilla(Throwable t) throws IOException {
+		if (fallbackPlugin != null)
+			return;  // already done
 		
 		LOG.error("Critical failure has occured in UdaPlugin - We'll try to use vanilla as fallbackPlugin. \n\tException is:" + StringUtils.stringifyException(t));
 

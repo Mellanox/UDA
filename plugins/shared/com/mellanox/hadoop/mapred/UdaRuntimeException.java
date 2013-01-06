@@ -23,4 +23,7 @@ public class UdaRuntimeException extends RuntimeException {
 	UdaRuntimeException(String s){
 		super(s);
 	}
+	UdaRuntimeException(String s, Throwable t){
+		super(s, t);
+	}
 }
