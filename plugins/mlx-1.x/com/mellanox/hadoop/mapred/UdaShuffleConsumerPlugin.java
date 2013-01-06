@@ -55,6 +55,8 @@ import java.util.concurrent.ConcurrentHashMap;  // TODO: probably concurrency is
 
 
 import org.apache.hadoop.mapred.UdaMapredBridge;
+import org.apache.hadoop.fs.FSError;
+
 /**
 	* Abstraction to track a map-output.
 */
@@ -106,6 +108,30 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	
 	ShuffleConsumerPlugin fallbackPlugin = null;
 	
+	
+void failureInUda() {
+		
+		// wake up fetchOutputs
+//		synchronized(this) { this.notify(); }
+//		this.notify();
+
+	}
+	
+	private void doFallbackToVanilla(Throwable t) throws IOException {
+		
+		LOG.error("Critical failure has occured in UdaPlugin - We'll try to use vanilla as fallbackPlugin. \n\tException is:" + StringUtils.stringifyException(t));
+
+		try {
+			fallbackPlugin = UdaMapredBridge.getShuffleConsumerPlugin(null, reduceTask, umbilical, jobConf, reporter);
+		}
+		catch (ClassNotFoundException e) {
+			RuntimeException re = new RuntimeException("Failed to initialize UDA Shuffle and failed to fallback to vanilla Shuffle because of ClassNotFoundException", e);
+			re.setStackTrace(e.getStackTrace());
+			throw re;
+		}		
+	}
+	
+	
 	/**
 		* initialize this ShuffleConsumer instance.  The base class implementation will initialize its members and 
 		* then invoke init for plugin specific initiaiztion
@@ -117,6 +143,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		* @throws ClassNotFoundException
 		* @throws IOException
 	*/
+    @Override
 	public void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException {
 
 		try {
@@ -131,17 +158,8 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 			configureClasspath(jobConf);
 			this.rdmaChannel = new UdaPluginRT<K,V>(this, reduceTask, jobConf, reporter, reduceTask.getNumMaps());
 		}
-		catch (Throwable t) {		
-			LOG.error("Failed to initialize UdaPlugin - We'll use vanilla as fallbackPlugin. \n\tException is:" + StringUtils.stringifyException(t));
-
-			try {
-				fallbackPlugin = UdaMapredBridge.getShuffleConsumerPlugin(null, reduceTask, umbilical, conf, reporter);
-			}
-			catch (ClassNotFoundException e) {
-				RuntimeException re = new RuntimeException("Failed to initialize UDA Shuffle and failed to fallback to vanilla Shuffle because of ClassNotFoundException", e);
-				re.setStackTrace(e.getStackTrace());
-				throw re;
-			}
+		catch (Throwable t) {
+			doFallbackToVanilla(t);
 		}
 	}
 	
@@ -157,13 +175,8 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		* A flag to indicate when to exit getMapEvents thread 
 	*/
 	protected volatile boolean exitGetMapEvents = false; //TODO: no need volatile
-	
-	public boolean fetchOutputs() throws IOException {
-		if (fallbackPlugin != null) {
-			LOG.info("fetchOutputs: Using fallbackPlugin");
-			return fallbackPlugin.fetchOutputs();
-		}
-		
+
+	private boolean fetchOutputsInternal() throws IOException {
 		GetMapEventsThread getMapEventsThread = null;
 		// start the map events thread
 		getMapEventsThread = new GetMapEventsThread();
@@ -189,24 +202,70 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 			StringUtils.stringifyException(ie));
 		}
 		return true;
-	}   
-	
-	public RawKeyValueIterator createKVIterator(JobConf job, FileSystem fs, Reporter reporter) throws IOException {
-		if (fallbackPlugin != null) {
-			LOG.info("createKVIterator: Using fallbackPlugin");
-			return fallbackPlugin.createKVIterator(job, fs, reporter);
-		}
-		
-		return this.rdmaChannel.createKVIterator_rdma(job,fs,reporter);
 	}
 	
+    @Override
+	public boolean fetchOutputs() throws IOException {
+		
+		try {
+			if (fallbackPlugin == null) {
+				return fetchOutputsInternal();
+			}
+		}
+		catch (Throwable t) {		
+			doFallbackToVanilla(t);
+		}
+
+		LOG.info("fetchOutputs: Using fallbackPlugin");
+		return fallbackPlugin.fetchOutputs();		
+	}   
+	
+	private void playbackFetchOutputs() throws IOException {
+		
+		LOG.info("playbackFetchOutputs: Using fallbackPlugin");
+
+		// error handling code copied from ReduceTask.java
+		if (!fallbackPlugin.fetchOutputs()) {
+			
+/* - commented out till mergeThrowable is accessible - requires change in the patch								
+			if(fallbackPlugin.mergeThrowable instanceof FSError) {
+				throw (FSError)fallbackPlugin.mergeThrowable;
+			}
+			throw new IOException("Task: " + reduceTask.getTaskID() + 
+					" - The reduce copier failed", fallbackPlugin.mergeThrowable);
+//*/
+			throw new IOException("Task: " + reduceTask.getTaskID() + 
+					" - The reduce copier failed");
+			}
+	}   
+	
+    @Override
+	public RawKeyValueIterator createKVIterator(JobConf job, FileSystem fs, Reporter reporter) throws IOException {
+		
+		try {
+			if (fallbackPlugin == null) {
+				return this.rdmaChannel.createKVIterator_rdma(job,fs,reporter);
+			}
+		}
+		catch (Throwable t) {		
+			doFallbackToVanilla(t);
+			playbackFetchOutputs();
+		}
+
+		LOG.info("createKVIterator: Using fallbackPlugin");
+		return fallbackPlugin.createKVIterator(job, fs, reporter);
+	}
+	
+    @Override
 	public void close() {
-		if (fallbackPlugin != null) {
-			LOG.info("close: Using fallbackPlugin");
-			fallbackPlugin.close();
+		// try catch here is not needed since it is too late for new fallback to vanilla.
+		if (fallbackPlugin == null) {
+			this.rdmaChannel.close();
 			return;
 		}
-		this.rdmaChannel.close();
+
+		LOG.info("close: Using fallbackPlugin");
+		fallbackPlugin.close();		
 	}
 	
 	
