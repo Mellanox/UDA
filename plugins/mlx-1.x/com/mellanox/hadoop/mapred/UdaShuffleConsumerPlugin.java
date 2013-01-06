@@ -111,9 +111,10 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	
 void failureInUda() {
 		
+	doFallbackToVanilla(new RuntimeException("Uda Failure");
+	
 		// wake up fetchOutputs
 //		synchronized(this) { this.notify(); }
-//		this.notify();
 
 	}
 	
@@ -197,9 +198,9 @@ void failureInUda() {
 			//because we need this channel to return the values later.
 			getMapEventsThread.join();
 			LOG.info("getMapsEventsThread joined.");
-			} catch (InterruptedException ie) {
+		} catch (InterruptedException ie) {
 			LOG.info("getMapsEventsThread/rdmaChannelThread threw an exception: " +
-			StringUtils.stringifyException(ie));
+					StringUtils.stringifyException(ie));
 		}
 		return true;
 	}
