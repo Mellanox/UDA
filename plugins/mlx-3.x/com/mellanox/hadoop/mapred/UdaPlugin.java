@@ -309,7 +309,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		if (LOG.isDebugEnabled()) LOG.debug ("<<-- dataFromUda finished callback");
 	}
 
-	public void exceptionInNativeThread(){
+	public void failureInUda(){
 		throw new RuntimeException("Unimplemented yet"); //TODO: implement!		
 	}
 

@@ -312,7 +312,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
 
 	// callback from C++
-	public void exceptionInNativeThread(){
+	public void failureInUda(){
 		throw new RuntimeException("Unimplemented yet"); //TODO: implement!		
 	}
 
