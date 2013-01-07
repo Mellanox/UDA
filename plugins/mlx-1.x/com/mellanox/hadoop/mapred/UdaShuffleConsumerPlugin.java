@@ -109,21 +109,30 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	ShuffleConsumerPlugin fallbackPlugin = null;
 	
 
+	private Object fetchLock = new Object();
+	
+	void notifyFetchCompleted(){
+		synchronized(fetchLock) {
+			fetchLock.notify();
+		}		
+	}
+	
 	// called outside the mapred thread, usually by a UDA C++ thread
 	//TODO: this is still no called in purpose - Open it in UdaBridge.java
-	void failureInUda() {
+	void failureInUda(Throwable t) {
 
+		if (LOG.isDebugEnabled()) LOG.debug("failureInUda");
+		
 		try {
-			doFallbackToVanilla(new RuntimeException("Uda Failure"));
+			doFallbackToVanilla(t);
 			
 			// wake up fetchOutputs
-			synchronized(this) { 
-				this.notifyAll();
+			synchronized(fetchLock) { 
+				fetchLock.notify();
 			}
-
 		}
-		catch(Throwable t){
-			throw new UdaRuntimeException("Failure in UDA and failure when trying to fallback to vanilla", t);
+		catch(Throwable t2){
+			throw new UdaRuntimeException("Failure in UDA and failure when trying to fallback to vanilla", t2);
 		}
 	}
 	
@@ -136,9 +145,10 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 
 		try {
 			fallbackPlugin = UdaMapredBridge.getShuffleConsumerPlugin(null, reduceTask, umbilical, jobConf, reporter);
+			LOG.info("Succesfuly switched to Using fallbackPlugin");
 		}
 		catch (ClassNotFoundException e) {
-			RuntimeException re = new RuntimeException("Failed to initialize UDA Shuffle and failed to fallback to vanilla Shuffle because of ClassNotFoundException", e);
+			UdaRuntimeException re = new UdaRuntimeException("Failed to initialize UDA Shuffle and failed to fallback to vanilla Shuffle because of ClassNotFoundException", e);
 			re.setStackTrace(e.getStackTrace());
 			throw re;
 		}		
@@ -196,11 +206,15 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		getMapEventsThread.start();         
 		
 		LOG.info("UdaShuffleConsumerPlugin: Wait for fetching");
-		synchronized(this) {
+		synchronized(fetchLock) {
 			try {
-				this.wait(); 
+				fetchLock.wait(); 
 				} catch (InterruptedException e) {
 			}       
+		}
+		if (fallbackPlugin != null) {
+			LOG.warn("another thread has indicated Uda failure");
+			throw new UdaRuntimeException("another thread has indicated Uda failure");
 		}
 		LOG.info("UdaShuffleConsumerPlugin: Fetching is done"); 
 		// all done, inform the copiers to exit
