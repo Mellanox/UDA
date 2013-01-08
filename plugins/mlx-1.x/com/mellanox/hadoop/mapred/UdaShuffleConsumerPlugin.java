@@ -208,7 +208,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	/** 
 		* A flag to indicate when to exit getMapEvents thread 
 	*/
-	protected volatile boolean exitGetMapEvents = false; //TODO: no need volatile
+	protected volatile boolean exitGetMapEvents = false;
 
 	boolean fetchOutputsCompleted = false;
 	private boolean fetchOutputsInternal() throws IOException {
@@ -217,20 +217,21 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		getMapEventsThread = new GetMapEventsThread();
 		getMapEventsThread.start();         
 		
-		LOG.info("UdaShuffleConsumerPlugin: Wait for fetching");
+		LOG.debug("Wait for fetching");
 		synchronized(fetchLock) {
 			try {
 				fetchLock.wait(); 
 				} catch (InterruptedException e) {
 			}       
 		}
+		LOG.debug("Fetching finished"); 
+		// all done, inform the copiers to exit
+		exitGetMapEvents= true;
+
 		if (fallbackPlugin != null) {
 			LOG.warn("another thread has indicated Uda failure");
 			throw new UdaRuntimeException("another thread has indicated Uda failure");
 		}
-		LOG.info("UdaShuffleConsumerPlugin: Fetching is done"); 
-		// all done, inform the copiers to exit
-		exitGetMapEvents= true;
 		try {
 			//here only stop the thread, but don't close it, 
 			//because we need this channel to return the values later.
