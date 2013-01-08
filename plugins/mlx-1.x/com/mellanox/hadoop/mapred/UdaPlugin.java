@@ -311,7 +311,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
 	// callback from C++
 	public void failureInUda(){
-		udaShuffleConsumer.failureInUda(new RuntimeException("Uda Failure in a C++ thread"));		
+		udaShuffleConsumer.failureInUda(new UdaRuntimeException("Uda Failure in a C++ thread"));		
 	}
 
 	
