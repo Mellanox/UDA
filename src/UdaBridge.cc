@@ -196,7 +196,7 @@ extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_star
 
 		ret = my_main(argc, argv);
 		if (ret != 0) {
-			log(lsFATAL, "error in main");
+			log(lsERROR, "error in main");
 			throw new UdaException("error in main");
 		}
 
@@ -230,7 +230,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 
 		const char *str = env->GetStringUTFChars(s, NULL);
 		if (str == NULL) {
-			log(lsFATAL, "out of memory in JNI call to GetStringUTFChars");
+			log(lsERROR, "out of memory in JNI call to GetStringUTFChars");
 			throw new UdaException("Out of Memory");
 		}
 		std::string msg(str);
@@ -334,13 +334,13 @@ JNIEnv *UdaBridge_attachNativeThread()
 	log(lsTRACE, "started");
     JNIEnv *env;
 	if (! cached_jvm) {
-		log(lsFATAL, "cached_jvm is NULL");
+		log(lsERROR, "cached_jvm is NULL");
 		throw new UdaException("cached_jvm is NULL");
 	}
     jint ret = cached_jvm->AttachCurrentThread((void **)&env, NULL);
 
 	if (ret < 0) {
-		log(lsFATAL, "cached_jvm->AttachCurrentThread failed ret=%d", ret);
+		log(lsERROR, "cached_jvm->AttachCurrentThread failed ret=%d", ret);
 		throw new UdaException("cached_jvm->AttachCurrentThread failed");
 	}
 	log(lsTRACE, "completed successfully env=%p", env);

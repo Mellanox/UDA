@@ -69,7 +69,7 @@ hadoop_cmp_func get_compare_func(const char* java_comparator_type_name) {
 		return byte_compare;
 	}
 	else {
-		log(lsFATAL, "using compare function for unsupported type: '%s'", java_comparator_type_name);
+		log(lsERROR, "using compare function for unsupported type: '%s'", java_comparator_type_name);
 		throw new UdaException("using compare function for unsupported type");
 	}
 }

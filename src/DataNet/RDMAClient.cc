@@ -222,41 +222,48 @@ netlev_get_conn(unsigned long ipaddr, int port,
     sin.sin_port = htons(port);
 
     if (rdma_create_id(ctx->cm_channel, &cm_id, NULL, RDMA_PS_TCP) != 0) {
-    	log(lsFATAL, "rdma_create_id failed, (errno=%d %m)",errno);
+    	log(lsERROR, "rdma_create_id failed, (errno=%d %m)",errno);
+        throw new UdaException("rdma_create_id failed");
         return NULL;
     }
 
     if (rdma_resolve_addr(cm_id, NULL, (struct sockaddr*)&sin, NETLEV_TIMEOUT_MS)) {
-    	log(lsFATAL, "rdma_resolve_addr failed, (errno=%d %m)",errno);
+    	log(lsERROR, "rdma_resolve_addr failed, (errno=%d %m)",errno);
+        throw new UdaException("rdma_resolve_addr failed");
         return NULL;
     }
 
     if (rdma_get_cm_event(ctx->cm_channel, &event)) {
-    	log(lsFATAL, "rdma_get_cm_event failed, (errno=%d %m)",errno);
+    	log(lsERROR, "rdma_get_cm_event failed, (errno=%d %m)",errno);
+        throw new UdaException("rdma_get_cm_event failed");
         return NULL;
     }
 
 
     if (event->event != RDMA_CM_EVENT_ADDR_RESOLVED) {
         rdma_ack_cm_event(event);
-        log(lsFATAL, "unexpected CM event %d", event->event);
+        log(lsERROR, "unexpected CM event %d", event->event);
+        throw new UdaException("unexpected CM event ");
         return NULL;
     }
     rdma_ack_cm_event(event);
 
     if (rdma_resolve_route(cm_id, NETLEV_TIMEOUT_MS)) {
-    	log(lsFATAL, "rdma_resolve_route failed, (errno=%d %m)",errno);
+    	log(lsERROR, "rdma_resolve_route failed, (errno=%d %m)",errno);
+        throw new UdaException("rdma_resolve_route failed");
         return NULL;
     }
 
     if (rdma_get_cm_event(ctx->cm_channel, &event)) {
-    	log(lsFATAL, "rdma_get_cm_event failed, (errno=%d %m)",errno);
+    	log(lsERROR, "rdma_get_cm_event failed, (errno=%d %m)",errno);
+        throw new UdaException("rdma_get_cm_event failed");
         return NULL;
 	}
 
     if (event->event != RDMA_CM_EVENT_ROUTE_RESOLVED) {
         rdma_ack_cm_event(event);
-        log(lsERROR, "unexpected CM event %d", event->event);
+        log(lsWARN, "unexpected CM event %d", event->event);
+        //TODO: consider throw new UdaException("unexpected CM event ");
         return NULL;
     }
     rdma_ack_cm_event(event);
@@ -265,7 +272,8 @@ netlev_get_conn(unsigned long ipaddr, int port,
     if (!dev) {
         dev = (netlev_dev_t*) malloc(sizeof(netlev_dev_t));
         if (dev == NULL) {
-        	log(lsFATAL, "failed to allocate memory for netlev_dev");
+        	log(lsERROR, "failed to allocate memory for netlev_dev");
+            throw new UdaException("failed to allocate memory for netlev_dev");
             return NULL;
         }
         dev->ibv_ctx = cm_id->verbs; 
@@ -278,7 +286,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
         list_for_each_entry(mem_pool, registered_mem, register_mem_list) {
             rc = netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
             if (rc) {
-                log(lsFATAL, "FATAL ERROR: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
+                log(lsERROR, "UDA critical error: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
                 throw new UdaException("failure in netlev_init_rdma_mem");
             }
         }
@@ -338,7 +346,8 @@ netlev_get_conn(unsigned long ipaddr, int port,
         conn->returning = 0;
         rdma_ack_cm_event(event);
     } else {
-        log(lsFATAL, "client recv unknown event %d", event->event);
+        log(lsERROR, "client recv unknown event %d", event->event);
+        throw new UdaException("client recv unknown event");
         rdma_ack_cm_event(event);
         goto err_rdma_connect;
     }
@@ -373,13 +382,15 @@ RdmaClient::RdmaClient(int port, merging_state_t *state)
     this->ctx.cm_channel = rdma_create_event_channel();
 
     if (!this->ctx.cm_channel)  {
-        log(lsFATAL, "rdma_create_event_channel failed, (errno=%d %m)",errno);
+        log(lsERROR, "rdma_create_event_channel failed, (errno=%d %m)",errno);
+        throw new UdaException("rdma_create_event_channel failed");
     }
 
     this->ctx.epoll_fd = epoll_create(4096);
 
     if (this->ctx.epoll_fd < 0) {
-    	log(lsFATAL, "cannot create epoll fd, (errno=%d %m)",errno);
+    	log(lsERROR, "cannot create epoll fd, (errno=%d %m)",errno);
+        throw new UdaException("cannot create epoll fd");
     }
 
     /* Start a new thread */

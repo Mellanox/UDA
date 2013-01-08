@@ -454,8 +454,8 @@ int aio_lpq_write_completion_handler(void* data, int status) {
 		arg->fd = open(arg->filename, O_WRONLY);
 		if (arg->fd < 0)
 		{
-			log(lsFATAL, "Could not open file %s for writing last lpq output (without AIO), Aborting Task.", arg->filename);
-			throw "UDA Could not open file for writing";
+			log(lsERROR, "Could not open file %s for writing last lpq output (without AIO), Aborting Task.", arg->filename);
+			throw new UdaException("UDA Could not open file for writing");
 		}
 		lseek(arg->fd, arg->aligment_carry_fileOffset, SEEK_SET);
 		write(arg->fd, arg->aligment_carry_buff, arg->aligment_carry_size);
@@ -530,7 +530,7 @@ void merge_hybrid_lpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpq
 	int min_number_rdma_buffers = max(subsequent_fetch, num_to_fetch)*2;
 
     if (min_number_rdma_buffers > merging_sm.mop_pool.num){
-    	log(lsFATAL, "there are not enough rdma buffers! please allocate at least %d ", min_number_rdma_buffers);
+    	log(lsERROR, "there are not enough rdma buffers! please allocate at least %d ", min_number_rdma_buffers);
         throw new UdaException("there are not enough rdma buffers!");
     }
 
@@ -539,7 +539,7 @@ void merge_hybrid_lpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpq
     int total_stating_size = NUM_STAGE_MEM * LPQ_STAGE_MEM_SIZE;
     int rc = posix_memalign((void**)&staging_row_mem,  AIO_ALIGNMENT, total_stating_size);
     if (rc) {
-    	log(lsFATAL, "failed to allocate memory for LPQs stating buffer. posix_memalign failed: alignment=%d , total_size=%ll --> rc=%d %m", AIO_ALIGNMENT, total_stating_size, rc );
+    	log(lsERROR, "failed to allocate memory for LPQs stating buffer. posix_memalign failed: alignment=%d , total_size=%ll --> rc=%d %m", AIO_ALIGNMENT, total_stating_size, rc );
         throw new UdaException("failed to allocate memory for LPQs stating buffer. posix_memalign failed");
     }
 
