@@ -109,22 +109,21 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	ShuffleConsumerPlugin fallbackPlugin = null;
 	
 
+	// let other thread wake up fetchOutputs upon completion (either success of failure)
 	private Object fetchLock = new Object();
-	
 	void notifyFetchCompleted(){
 		synchronized(fetchLock) {
 			fetchLock.notify();
 		}		
 	}
 	
-	// called outside the mapred thread, usually by a UDA C++ thread
-	//TODO: this is still no called in purpose - Open it in UdaBridge.java
+	// called outside the RT thread, usually by a UDA C++ thread
 	void failureInUda(Throwable t) {
 
 		if (LOG.isDebugEnabled()) LOG.debug("failureInUda");
 		
 		try {
-			doFallbackToVanilla(t);
+			doFallbackInit(t);
 			
 			// wake up fetchOutputs
 			synchronized(fetchLock) { 
@@ -136,23 +135,35 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		}
 	}
 	
-	//TODO: currently this synced on this like fetchOutputs - TODO change it!
-	synchronized private void doFallbackToVanilla(Throwable t) throws IOException {
+	synchronized private void doFallbackInit(Throwable t) throws IOException {
 		if (fallbackPlugin != null)
 			return;  // already done
 		
-		LOG.error("Critical failure has occured in UdaPlugin - We'll try to use vanilla as fallbackPlugin. \n\tException is:" + StringUtils.stringifyException(t));
+		if (t != null) {
+			LOG.error("Critical failure has occured in UdaPlugin - We'll try to use vanilla as fallbackPlugin. \n\tException is:" + StringUtils.stringifyException(t));
+		}
 
 		try {
 			fallbackPlugin = UdaMapredBridge.getShuffleConsumerPlugin(null, reduceTask, umbilical, jobConf, reporter);
 			LOG.info("Succesfuly switched to Using fallbackPlugin");
 		}
 		catch (ClassNotFoundException e) {
-			UdaRuntimeException re = new UdaRuntimeException("Failed to initialize UDA Shuffle and failed to fallback to vanilla Shuffle because of ClassNotFoundException", e);
-			re.setStackTrace(e.getStackTrace());
-			throw re;
+			UdaRuntimeException ure = new UdaRuntimeException("Failed to initialize UDA Shuffle and failed to fallback to vanilla Shuffle because of ClassNotFoundException", e);
+			ure.setStackTrace(e.getStackTrace());
+			throw ure;
 		}		
 	}
+	
+	boolean fallbackFetchOutputsDone = false;
+	synchronized private boolean doFallbackFetchOutputs() throws IOException {
+		if (fallbackFetchOutputsDone) 
+			return true;  // already done
+		
+		doFallbackInit(null); // sanity
+		fallbackFetchOutputsDone = fallbackPlugin.fetchOutputs();
+		return fallbackFetchOutputsDone;
+	}
+	
 	
 	
 	/**
@@ -182,7 +193,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 			this.rdmaChannel = new UdaPluginRT<K,V>(this, reduceTask, jobConf, reporter, reduceTask.getNumMaps());
 		}
 		catch (Throwable t) {
-			doFallbackToVanilla(t);
+			doFallbackInit(t);
 		}
 	}
 	
@@ -199,6 +210,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	*/
 	protected volatile boolean exitGetMapEvents = false; //TODO: no need volatile
 
+	boolean fetchOutputsCompleted = false;
 	private boolean fetchOutputsInternal() throws IOException {
 		GetMapEventsThread getMapEventsThread = null;
 		// start the map events thread
@@ -228,6 +240,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 			LOG.info("getMapsEventsThread/rdmaChannelThread threw an exception: " +
 					StringUtils.stringifyException(ie));
 		}
+		fetchOutputsCompleted = true;
 		return true;
 	}
 	
@@ -240,19 +253,20 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 			}
 		}
 		catch (Throwable t) {		
-			doFallbackToVanilla(t);
+			doFallbackInit(t);
 		}
 
 		LOG.info("fetchOutputs: Using fallbackPlugin");
-		return fallbackPlugin.fetchOutputs();		
+		return doFallbackFetchOutputs();		
 	}   
 	
-	private void playbackFetchOutputs() throws IOException {
+    //playback of fetchOutputs from other thread - will handle error return to exception like RT does
+	private void doPlaybackFetchOutputs() throws IOException {
 		
-		LOG.info("playbackFetchOutputs: Using fallbackPlugin");
+		LOG.info("doPlaybackFetchOutputs: Using fallbackPlugin");
 
 		// error handling code copied from ReduceTask.java
-		if (!fallbackPlugin.fetchOutputs()) {
+		if (!doFallbackFetchOutputs()) {
 			
 /* - commented out till mergeThrowable is accessible - requires change in the patch								
 			if(fallbackPlugin.mergeThrowable instanceof FSError) {
@@ -270,14 +284,16 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	public RawKeyValueIterator createKVIterator(JobConf job, FileSystem fs, Reporter reporter) throws IOException {
 		
 		try {
-			if (fallbackPlugin == null) {
+			if (fetchOutputsCompleted) {
 				return this.rdmaChannel.createKVIterator_rdma(job,fs,reporter);
 			}
 		}
 		catch (Throwable t) {		
-			doFallbackToVanilla(t);
-			playbackFetchOutputs();
+			doFallbackInit(t);
 		}
+
+		if (! fallbackFetchOutputsDone) 
+			doPlaybackFetchOutputs();//this will also playback init - if needed
 
 		LOG.info("createKVIterator: Using fallbackPlugin");
 		return fallbackPlugin.createKVIterator(job, fs, reporter);
