@@ -45,7 +45,7 @@ void SnappyDecompressor::initDecompress(){
 
 decompressRetData_t* SnappyDecompressor::decompress(char* compressed_buff, char* uncompressed_buff, size_t compressed_buff_len, size_t uncompressed_buff_len,int offest){
 	//void* fptr = FUNC_PTR(decompressor_func_ptr);
-	log(lsDEBUG,"snappy decompress compressed_buff=%p uncompressed_buff=%p compressed_buff_len=%d uncompressed_buff_len=%d",compressed_buff,uncompressed_buff,compressed_buff_len,uncompressed_buff_len);
+	//log(lsDEBUG,"snappy decompress compressed_buff=%p uncompressed_buff=%p compressed_buff_len=%d uncompressed_buff_len=%d",compressed_buff,uncompressed_buff,compressed_buff_len,uncompressed_buff_len);
 	snappy_status ret = decompressor_func_ptr(compressed_buff, compressed_buff_len, uncompressed_buff, &uncompressed_buff_len);
 	if (ret == SNAPPY_BUFFER_TOO_SMALL){
 		log(lsERROR,  "Could not decompress snappy data. Buffer length is too small.");
@@ -64,8 +64,8 @@ decompressRetData_t* SnappyDecompressor::decompress(char* compressed_buff, char*
 }
 
 decompressRetData_t* SnappyDecompressor::get_next_block_length(char* buf) {
-	uint tmp[2];
-	memcpy(&tmp, buf, 8);
+	uint32_t tmp[2];
+	memcpy(&tmp, buf, getBlockSizeOffset());
 	decompressRetData_t* ret = new decompressRetData_t();
 
 	ret->num_uncompressed_bytes=((tmp[0] & 0xFF000000)>>24);

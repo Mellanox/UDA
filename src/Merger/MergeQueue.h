@@ -77,7 +77,6 @@ typedef struct mem_desc {
     //the following variables are for cyclic buffer
     int32_t 			start; //index of the oldest element
     int32_t				end; //index at which to write new element
-    int32_t 			free_bytes; //represents the current number of free bytes
 
 } mem_desc_t;
 
@@ -375,7 +374,9 @@ protected:
     			}
     			break;
     		}
+    		break;
     	}
+
     	}
     }
 

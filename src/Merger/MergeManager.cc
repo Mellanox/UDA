@@ -396,6 +396,10 @@ int MergeManager::mark_req_as_ready(client_part_req_t *req)
 
 	pthread_mutex_lock(&req->mop->lock);
     req->mop->mop_bufs[req->mop->staging_mem_idx]->status = MERGE_READY;
+	if (req->mop->fetch_count != 0){
+		log(lsTRACE, "broadcasting id=%d", req->mop->mop_id);
+        pthread_cond_broadcast(&req->mop->cond);
+	}
     pthread_mutex_unlock(&req->mop->lock);
 
 	if (req->mop->fetch_count == 0) {
@@ -405,9 +409,8 @@ int MergeManager::mark_req_as_ready(client_part_req_t *req)
         this->fetched_mops.push_back(req->mop);
         pthread_cond_broadcast(&this->cond);
         pthread_mutex_unlock(&this->lock);
-    } else {
-        pthread_cond_broadcast(&req->mop->cond);
-    }
+	}
+
 
     return 1;
 }

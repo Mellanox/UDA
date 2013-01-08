@@ -51,17 +51,18 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     log(lsINFO, ">>>> started");
 
     int i = 0;
-    while (records->next()) {
 
-    	if (records->min_segment->get_task()->isCompressionOn()){
-    		MapOutput *mop = dynamic_cast<MapOutput*>(records->min_segment->getKVOUutput());
+    while (records->next()) {
+    	 if (records->min_segment->get_task()->isCompressionOn()){
+			MapOutput *mop = dynamic_cast<MapOutput*>(records->min_segment->getKVOUutput());
 			if (mop == NULL) {
 				log(lsFATAL, "problem?");
 				exit (1);
 			}
 			//passing NULL and 0 since those variables are needed for RDMA client and not decomressore wrapper
+			log(lsERROR, "write_kv_to_stream start_fetch_req mof=%d", mop->mop_id);
 			records->min_segment->get_task()->client->start_fetch_req(mop->part_req, NULL, 0);
-    	}
+		}
 
         //log(lsTRACE, "in loop i=%d", i++);
         DataStream *k = records->getKey();
@@ -411,10 +412,21 @@ bool BaseSegment::reset_data() {;
 					//no new data was added: must sleep
 					log(lsDEBUG, "there is no data in cyclic buffer [%p]: wait for fetch. start=%d, end=%d, count=%d, pos=%d. total_len_part is %d",
 							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), this->kv_output->total_len_part);
+
+					MapOutput *mop = dynamic_cast<MapOutput*>(kv_output);
+					get_task()->client->start_fetch_req(mop->part_req, NULL, 1);
+
 					pthread_mutex_lock(&kv_output->lock);
-					pthread_cond_wait(&kv_output->cond, &kv_output->lock);
+					end = staging_mem->end;
+					difference = end - staging_mem->start;
+					if (this->in_mem_data->getLength()- this->in_mem_data->getPosition() >= difference) {
+						// DEBUG!!!
+						log(lsERROR, "going to sleep mop id=%d",mop->mop_id);
+						// DEBUG!!!
+						pthread_cond_wait(&kv_output->cond, &kv_output->lock);
+					}
 					pthread_mutex_unlock(&kv_output->lock);
-					log(lsDEBUG, "after wait for fetch");
+					log(lsERROR, "after wait for fetch");
 					return true;
 				}
 			}

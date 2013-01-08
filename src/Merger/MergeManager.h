@@ -101,8 +101,8 @@ typedef struct client_part_req
     MapOutput        *mop;         /* A pointer to mop */
     char             recvd_msg[64];
 
-    bool			request_in_air;
-    int 			bytes_in_air; //represents (for compression #of bytes that will be decompressed by the decompressor thread once he will remove this req from queue
+ //   int 			bytes_in_air; //represents (for compression #of bytes that will be decompressed by the decompressor thread once he will remove this req from queue
+    bool 				request_in_queue;
 } client_part_req_t;
 
 
@@ -153,7 +153,7 @@ public:
     int                     mop_id; 
 
     /* used for testing */
-    volatile int            fetch_count;
+    volatile uint64_t  fetch_count;
 };
 
 

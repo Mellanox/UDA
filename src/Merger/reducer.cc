@@ -218,9 +218,8 @@ void reduce_downcall_handler(const string & msg)
 //		req->total_len = 0;
 //		req->last_fetched = 0;
 		req->mop = NULL;
-		req->request_in_air = false;
-		req->bytes_in_air = 0;
-
+	//	req->bytes_in_air = 0;
+		req->request_in_queue = false;
 		pthread_mutex_lock(&g_task->merge_man->lock);
 		g_task->merge_man->fetch_list.push_back(req);
 
@@ -279,7 +278,7 @@ void init_mem_desc(mem_desc_t *desc, char *addr, int32_t buf_len){
         desc->status = INIT;
         desc->start = 0;
         desc->end = 0;
-        desc->free_bytes = buf_len;
+       // desc->free_bytes = buf_len;
         pthread_mutex_init(&desc->lock, NULL);
         pthread_cond_init(&desc->cond, NULL);
 
