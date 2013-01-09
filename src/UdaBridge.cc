@@ -55,6 +55,7 @@ const char * mof_downcall_handler(const std::string & msg); // #include ...
 int MOFSupplier_main(int argc, char* argv[]);
 extern "C" void * MOFSupplierRun(void *);
 
+
 typedef const char * (*downcall_handler_t) (const std::string & msg);
 typedef int (*main_t)(int argc, char* argv[]);
 static downcall_handler_t my_downcall_handler;
@@ -71,12 +72,21 @@ typedef struct data_from_java
 	std::string path;
 } data_from_java_t;
 
+////////////////////////////////////////////////////////////////////////////////
+// this does nothing
+// serve as sanity in case C++ failed and Java remains up (fallback)
+static const char * null_downcall_handler(const std::string & msg){
 
-void indicateUdaJniException(JNIEnv *env, UdaException *ex) {
+	//log(lsWARN, "got command after C++ termination"); //TODO: check if logger is safe and then open it!
+}
+
+////////////////////////////////////////////////////////////////////////////////
+static void exceptionInJniThread(JNIEnv *env, UdaException *ex) {
 
 	const char *JNI_EXCEPTION_CLASS_NAME = "com/mellanox/hadoop/mapred/UdaRuntimeException";
-	//	log_func(func, file, line, lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, info);
 	log(lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, ex->_info);
+
+	my_downcall_handler = null_downcall_handler; // don't handle incoming commands any more
 
 
 	//Find the exception class.
@@ -216,7 +226,7 @@ extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_star
 
 	}
 	catch (UdaException *ex) {
-		indicateUdaJniException(env, ex);
+		exceptionInJniThread(env, ex);
 	}
 
     return ret;
@@ -242,7 +252,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 		log(lsTRACE, "<<< finished");
 	}
 	catch (UdaException *ex) {
-		indicateUdaJniException(env, ex);
+		exceptionInJniThread(env, ex);
 	}
 }
 
@@ -353,6 +363,7 @@ void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
 	std::string msg = ex ? ex->getFullMessage() : string ("unexpected error");
 	log(lsERROR, "UDA has encountered a critical error and will try to fallback to vanilla MSG=%s", msg.c_str());
 
+	my_downcall_handler = null_downcall_handler; // don't handle incoming commands any more
 
 	if (is_net_merger) {
 		// This handle remains valid until the java class is Unloaded
