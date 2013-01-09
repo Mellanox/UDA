@@ -185,7 +185,7 @@ do
 				currentExecDir=$currentResultsDir/$WORDCOUNT_JOBS_DIR_NAME/$details
 				outputDir=$WORDCOUNT_DIR
 			fi
-			echo "$echoPrefix: running $PROGRAM"
+			echo "$echoPrefix: running $PROGRAM $currentExecDir $outputDir"
 			bash ${SCRIPTS_DIR}/sortcountRunner.sh $currentExecDir $outputDir
 		;;
 		"TestDFSIO"	) 
