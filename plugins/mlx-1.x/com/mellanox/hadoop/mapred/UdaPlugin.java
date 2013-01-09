@@ -17,6 +17,7 @@
 **
 */
 package com.mellanox.hadoop.mapred;
+
 import org.apache.hadoop.mapred.*;
 
 import java.io.File;
@@ -51,9 +52,12 @@ import org.apache.hadoop.io.WritableUtils;
 
 import org.apache.hadoop.fs.Path;
 
+
 abstract class UdaPlugin {
-	static protected final Log LOG = LogFactory.getLog(UdaPlugin.class.getName());
 	protected List<String> mCmdParams = new ArrayList<String>();
+	protected static Log LOG;
+	protected static int log_level;
+
 	protected static JobConf mjobConf;
 	
 	public UdaPlugin(JobConf jobConf) {
@@ -62,6 +66,25 @@ abstract class UdaPlugin {
 	
 	//* build arguments to lunchCppSide 
 	protected abstract void buildCmdParams();
+
+	
+	//* sets the logger properly as configured in log4j conf file
+	private static void setLog(String logging_name){
+		LOG = LogFactory.getLog(logging_name);
+	}
+	
+	//* retrieve and set the logging level
+	private static void calcLogLevel(){
+		log_level = (LOG.isFatalEnabled() ? 1 : 0) + (LOG.isErrorEnabled() ? 1 : 0) +  
+					(LOG.isWarnEnabled() ? 1 : 0) +(LOG.isInfoEnabled() ? 1 : 0) + 
+					(LOG.isDebugEnabled() ? 1 : 0) + (LOG.isTraceEnabled() ? 1 : 0);
+	}
+	
+	//* configuring all that is needed for logging
+	protected static void prepareLog(String logging_name){
+		setLog(logging_name);
+		calcLogLevel();
+	}
 	
 	protected void launchCppSide(boolean isNetMerger, UdaCallable _callable) {
 		
@@ -70,9 +93,12 @@ abstract class UdaPlugin {
 
 		LOG.info("going to execute C++ thru JNI with argc=: " + mCmdParams.size() + " cmd: " + mCmdParams);    	  
 		String[] stringarray = mCmdParams.toArray(new String[0]);
+		
+		// if parameter is set to "true", UDA will log into its own files.
+		Boolean log_to_uda_file = mjobConf.getBoolean("mapred.uda.log.to.unique.file", false);
 
 		try {
-			UdaBridge.start(isNetMerger, stringarray, LOG, _callable);
+			UdaBridge.start(isNetMerger, stringarray, LOG, log_level, log_to_uda_file, _callable);
 
 		} catch (UnsatisfiedLinkError e) {
 			LOG.warn("UDA: Exception when launching child");    	  
@@ -86,6 +112,11 @@ abstract class UdaPlugin {
 
 class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
+	static{
+		String logging_name = UdaPlugin.class.getName() + ".Consumer";
+		prepareLog(logging_name);
+	}
+	
 	final UdaShuffleConsumerPlugin udaShuffleConsumer;
 	final ReduceTask reduceTask;
 
@@ -134,8 +165,6 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		
 		mCmdParams.add("-s");
 		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
-		mCmdParams.add("-t");
-		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "2"));
 
 	}
 
@@ -452,7 +481,12 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
 
 //*  The following is for MOFSupplier JavaSide. 
-class UdaPluginTT extends UdaPlugin {    
+class UdaPluginTT extends UdaPlugin {  
+	
+	static{
+		String logging_name = UdaPlugin.class.getName() + ".Provider";
+		prepareLog(logging_name);
+	}
 
 	private static TaskTracker taskTracker;
 	private Vector<String>     mParams       = new Vector<String>();
@@ -491,8 +525,6 @@ class UdaPluginTT extends UdaPlugin {
 		
 		mCmdParams.add("-s");
 		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
-		mCmdParams.add("-t");
-		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "2"));
 
 	}
 

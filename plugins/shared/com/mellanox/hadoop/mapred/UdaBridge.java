@@ -43,13 +43,13 @@ public class UdaBridge {
 
 	// Native methods and their wrappers start here
 	
-	private static native int startNative(boolean isNetMerger, String args[]);
-	static void start(boolean isNetMerger, String[] args, Log _LOG, UdaCallable _callable) {
+	private static native int startNative(boolean isNetMerger, String args[], int log_level, boolean log_to_uda_file);
+	static void start(boolean isNetMerger, String[] args, Log _LOG, int log_level, Boolean log_to_uda_file, UdaCallable _callable) {
 		LOG = _LOG;
 		callable = _callable;
 
 		LOG.info(" +++>>> invoking UdaBridge.startNative: isNetMerger=" + isNetMerger);
-		int ret = startNative(isNetMerger, args);
+		int ret = startNative(isNetMerger, args, log_level, log_to_uda_file);
 		LOG.info(" <<<+++ after UdaBridge.startNative ret=" + ret);
 	}
 	
@@ -83,6 +83,35 @@ public class UdaBridge {
 		return d;
 	}	
 	
+	
+	// this method is called by JNI in order to log messages by Hadoop's infrastructure
+	static public void logToJava(String log_message, int severity) {
+		
+		switch (severity){
+		
+			case 6: LOG.trace(log_message);
+					break;
+						
+			case 5: LOG.debug(log_message);
+					break;
+									
+			case 4: LOG.info(log_message);
+					break;
+									
+			case 3: LOG.warn(log_message);
+					break;
+									
+			case 2: LOG.error(log_message);
+					break;
+			
+			case 1: LOG.fatal(log_message);
+					break;
+										
+			default: LOG.info(log_message);
+					 break;
+					 
+		 }
+	}
 }
 
 class DataPassToJni{

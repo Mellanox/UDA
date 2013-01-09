@@ -103,7 +103,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 				g_task->local_dirs.resize(num_dirs);
 				for (int i = 0; i < num_dirs; ++i) {
 					g_task->local_dirs[i].assign(hadoop_cmd->params[DIRS_START + 1 + i]);
-					log(lsINFO, " -> dir[%d]=%s", i, g_task->local_dirs[i].c_str());
+					log(lsDEBUG, " -> dir[%d]=%s", i, g_task->local_dirs[i].c_str());
 				}
 			}
 		}
@@ -347,8 +347,8 @@ void finalize_reduce_task(reduce_task_t *task)
     pthread_cond_broadcast(&task->merge_man->cond);
     pthread_mutex_unlock(&task->merge_man->lock);
 	log(lsDEBUG, "<< before joining merge_thread");
-    pthread_join(task->merge_thread.thread, NULL); log(lsINFO, "THREAD JOINED");
-	log(lsINFO, "-------------->>> merge_thread has joined <<<<------------");
+    pthread_join(task->merge_thread.thread, NULL); log(lsDEBUG, "THREAD JOINED");
+	log(lsDEBUG, "-------------->>> merge_thread has joined <<<<------------");
 
     delete task->merge_man;
    

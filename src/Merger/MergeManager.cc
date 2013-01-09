@@ -164,7 +164,7 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *mer
 	// register our staging_buf as DirectByteBuffer for sharing with Java
 	mem_desc_t  *desc = merge_queue->staging_bufs[0];  // we only need 1 staging_bufs: TODO: remove the array
 	jobject jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
-	log(lsINFO, "GOT: desc=%p, jbuf=%p, address=%p, capacity=%d", desc, jbuf, desc->buff, desc->buf_len);
+	log(lsDEBUG, "GOT: desc=%p, jbuf=%p, address=%p, capacity=%d", desc, jbuf, desc->buff, desc->buf_len);
 
 
 	bool b = false;

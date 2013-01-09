@@ -25,7 +25,7 @@ int uda_thread_create (pthread_t * __newthread,
 			   void *(*__start_routine) (void *),
 			   void *__arg) __THROW {
 
-	log(lsINFO, "CREATING THREAD");
+	log(lsDEBUG, "CREATING THREAD");
 	return pthread_create(__newthread, __attr, __start_routine, __arg);
 }
 

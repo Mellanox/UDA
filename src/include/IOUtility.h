@@ -153,7 +153,6 @@ enum log_severity_t {
 	lsINFO,
 	lsDEBUG,
 	lsTRACE,
-	lsALL,
 };
 
 
@@ -179,6 +178,7 @@ public:
 const log_severity_t DEFAULT_LOG_THRESHOLD = lsINFO; // temporary backward compatibility for other developers...
 extern log_severity_t g_log_threshold;
 void log_set_threshold(log_severity_t _threshold);
+void log_set_logging_mode(bool _log_to_uda_file);
 void log_func(const char * func, const char * file, int line, log_severity_t severity, const char *fmt, ...); // should not be called directly
 
 void startLogNetMerger();

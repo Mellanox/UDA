@@ -327,7 +327,7 @@ server_cm_handler(progress_event_t *pevent, void *data)
             if (ret) { log(lsWARN, "ack cm event failed"); }
             conn->bad_conn = true;
             if (!conn->received_counter){
-				log(lsINFO, "freeing connection (all related chunks are released)");
+				log(lsDEBUG, "freeing connection (all related chunks are released)");
 				pthread_mutex_lock(&ctx->lock);
 				list_del(&conn->list);
 				pthread_mutex_unlock(&ctx->lock);
@@ -453,7 +453,7 @@ RdmaServer::stop_server()
 
     while (!list_empty(&this->ctx.hdr_conn_list)) {
         conn = list_entry(this->ctx.hdr_conn_list.next, typeof(*conn), list);
-        log(lsINFO,"DD Server conn->credits is %d", conn->credits);
+        log(lsDEBUG,"DD Server conn->credits is %d", conn->credits);
         list_del(&conn->list);
         netlev_conn_free(conn);
     }
@@ -473,7 +473,7 @@ RdmaServer::stop_server()
 
     this->helper.stop = 1;
     pthread_attr_destroy(&this->helper.attr);
-    pthread_join(this->helper.thread, &pstatus); log(lsINFO, "THREAD JOINED");
+    pthread_join(this->helper.thread, &pstatus); log(lsDEBUG, "THREAD JOINED");
 
     close(this->ctx.epoll_fd);
     rdma_destroy_event_channel(this->ctx.cm_channel);

@@ -48,7 +48,7 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
 
     bytes_write = 0;
     key_len = val_len = kbytes = vbytes = 0;
-    log(lsINFO, ">>>> started");
+    log(lsDEBUG, ">>>> started");
 
     int i = 0;
     while (records->next()) {
@@ -72,7 +72,7 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
         if ( record_len + bytes_write > len ) {
             total_write = bytes_write;
             records->mergeq_flag = 1;
-            log(lsINFO, "return false because record_len + bytes_write > len");
+            log(lsDEBUG, "return false because record_len + bytes_write > len");
             return false;
         }
 
@@ -92,7 +92,7 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     if (record_len + bytes_write > len) {
         total_write = bytes_write;
         records->mergeq_flag = 1;
-        log(lsINFO, "return false because record_len + bytes_write > len");
+        log(lsDEBUG, "return false because record_len + bytes_write > len");
         return false;
     }
 
@@ -103,7 +103,7 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
 	bytes_write += record_len;
 
 	total_write = bytes_write;
-    log(lsINFO, "<<<< finished");
+    log(lsDEBUG, "<<<< finished");
     return true;
 }
 

@@ -41,6 +41,7 @@ static jclass jclassUdaBridge; // just casted ref to above jweakUdaBridge. Hence
 static jmethodID jmethodID_fetchOverMessage; // handle to java cb method
 static jmethodID jmethodID_dataFromUda; // handle to java cb method
 static jmethodID jmethodID_getPathUda; // handle to java cb method
+static jmethodID jmethodID_logToJava; // handle to java cb method
 static jfieldID fidOffset;
 static jfieldID fidRawLength;
 static jfieldID fidPartLength;
@@ -144,6 +145,14 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
 		printf("-->> In C++ java UdaBridge.jmethodID_getPathUda() callback method was NOT found\n");
 		return JNI_ERR;
 	}
+
+	//logToJava callback
+	jmethodID_logToJava = env->GetStaticMethodID(jclassUdaBridge, "logToJava", "(Ljava/lang/String;I)V");
+	if (jmethodID_logToJava == NULL) {
+		printf("-->> In C++ java UdaBridge.logToJava() callback method was NOT found\n");
+		return JNI_ERR;
+	}
+
 	printf("-->> In C++ java callback methods were found and cached\n");
 	return JNI_VERSION_1_4;  //direct buffer requires java 1.4
 }
@@ -190,10 +199,16 @@ void* mainThread(void* data)
 
 
 // This is the implementation of the native method
-extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jboolean isNetMerger, jobjectArray stringArray) {
+extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jboolean isNetMerger, jobjectArray stringArray, jint log_level, jboolean log_to_uda_file) {
 	int ret = 0;
 	try{
 		errno = 0; // we don't want the value from JVM
+
+		//set the global log's threshold
+		log_set_threshold((log_severity_t)log_level);
+
+		log_set_logging_mode(log_to_uda_file);
+
 		printf("-->> In C++ Java_com_mellanox_hadoop_mapred_UdaBridge_startNative\n");
 
 		int argc = env->GetArrayLength(stringArray);
@@ -379,11 +394,26 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 	return data;
 }
 
+
+void UdaBridge_invoke_logToJava_callback(const char* log_message, int severity) {
+	JNIEnv *env;
+	if (cached_jvm->GetEnv((void **)&env, JNI_VERSION_1_4)) {
+		printf("-->> Error getting JNIEnv In C++ JNI_logToJava when trying to log message - %s\n", log_message);
+		return;
+	}
+
+	jstring j_message = env->NewStringUTF(log_message);
+	env->CallStaticVoidMethod(jclassUdaBridge, jmethodID_logToJava, j_message, severity);
+	env->DeleteLocalRef(j_message);
+
+}
+
+
 // must be called with JNIEnv that matched the caller thread - see attachNativeThread() above
 // - otherwise TOO BAD unexpected results are expected!
 jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long capacity) {
 
-	log(lsINFO, "registering native buffer for JAVA usage (address=%p, capacity=%ld) ...", address, capacity);
+	log(lsDEBUG, "registering native buffer for JAVA usage (address=%p, capacity=%ld) ...", address, capacity);
 	jobject jbuf = jniEnv->NewDirectByteBuffer(address, capacity);
 
 	if (jbuf) {
@@ -397,5 +427,7 @@ jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long
 
 	return jbuf;
 }
+
+
 
 

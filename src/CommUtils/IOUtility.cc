@@ -398,6 +398,7 @@ int StreamUtility::decodeVIntSize(int byteValue) {
 const char *rdmalog_dir = "default";
 static FILE *log_file = NULL;
 log_severity_t g_log_threshold = DEFAULT_LOG_THRESHOLD;
+static bool log_to_unique_file = false;
 
 //------------------------------------------------------------------------------
 void startLogNetMerger()
@@ -481,7 +482,13 @@ std::string print_backtrace(const char *label, log_severity_t severity)
 //------------------------------------------------------------------------------
 void log_set_threshold(log_severity_t _threshold)
 {
-	g_log_threshold = (lsNONE <= _threshold && _threshold <= lsALL) ? _threshold : DEFAULT_LOG_THRESHOLD;
+	g_log_threshold = (lsNONE <= _threshold && _threshold <= lsTRACE) ? _threshold : DEFAULT_LOG_THRESHOLD;
+}
+
+//
+void log_set_logging_mode(bool _log_to_unique_file)
+{
+	log_to_unique_file = _log_to_unique_file;
 }
 
 //------------------------------------------------------------------------------
@@ -489,40 +496,43 @@ void log_func(const char * func, const char * file, int line, log_severity_t sev
 {
 	if (severity <= lsNONE) return; //sanity (no need to check upper bound since we already checked threshold )
 
-    static const char *severity_string[] = {
-		"NONE",
-		"FATAL",
-		"ERROR",
-		"WARN",
-		"INFO",
-		"DEBUG",
-		"TRACE",
-		"ALL"
-    };
-
-    time_t _time = time(0);
-    struct tm _tm;
-    localtime_r(&_time, &_tm);
-
     const int SIZE = 1024;
     char s1[SIZE];
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(s1, SIZE, fmt, ap);
     va_end(ap);
-    s1[SIZE-1] = '\0';
 
-  fprintf(log_file, "%02d:%02d:%02d %-5s [thr=%x %s() %s:%d] %s\n",
-		  _tm.tm_hour,
-		  _tm.tm_min,
-		  _tm.tm_sec,
+    if(!log_to_unique_file)
+    {
+    	// log to the java
+        sprintf(s1, "%s (%s:%d)" ,s1, file, line);
+        s1[SIZE-1] = '\0';
+    	UdaBridge_invoke_logToJava_callback(s1, severity);
+    }
+    else
+    {
+    	time_t _time = time(0);
+    	struct tm _tm;
+    	localtime_r(&_time, &_tm);
 
-		  severity_string[severity],
+    	// log to uda's files
+        static const char *severity_string[] = {
+    		"NONE",
+    		"FATAL",
+    		"ERROR",
+    		"WARN",
+    		"INFO",
+    		"DEBUG",
+    		"TRACE"
+        };
+		fprintf(log_file, "%02d:%02d:%02d %-5s [thr=%x %s() %s:%d] %s\n",
+				  _tm.tm_hour, _tm.tm_min, _tm.tm_sec,
+				  severity_string[severity],
+				  (int)pthread_self(), func, file, line, s1);
 
-		  (int)pthread_self(), func, file, line,
-
-		  s1);
-    fflush(log_file);
+		fflush(log_file);
+    }
 }
 
 //------------------------------------------------------------------------------

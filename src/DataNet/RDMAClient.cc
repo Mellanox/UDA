@@ -425,7 +425,7 @@ RdmaClient::~RdmaClient()
 
     this->helper.stop = 1;
     pthread_attr_destroy(&this->helper.attr);
-    pthread_join(this->helper.thread, NULL); log(lsINFO, "THREAD JOINED");
+    pthread_join(this->helper.thread, NULL); log(lsDEBUG, "THREAD JOINED");
     //DBGPRINT(DBG_CLIENT, "RDMAClient is shut down \n");
 
     rdma_destroy_event_channel(this->ctx.cm_channel);

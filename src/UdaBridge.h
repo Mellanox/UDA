@@ -31,6 +31,7 @@ class UdaException;
 // wrappers arround java callbck methods
 void          UdaBridge_invoke_fetchOverMessage_callback(JNIEnv * jniEnv);
 void          UdaBridge_invoke_dataFromUda_callback(JNIEnv * jniEnv, jobject jbuf, int len);
+void          UdaBridge_invoke_logToJava_callback(const char* log_message, int severity);
 index_record* UdaBridge_invoke_getPathUda_callback (JNIEnv * jniEnv, const char* job_id, const char* map_id, int reduceId);
 
 
