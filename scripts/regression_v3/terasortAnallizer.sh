@@ -98,14 +98,16 @@ do
 	
 	compression=$FAILURE_CODE
 	if (($COMPRESSION == 1));then
-		compression="$SUCCESS_CODE &nbsp $COMPRESSION_TYPE"  
+		compression="Compression:&nbsp $SUCCESS_CODE &nbsp $COMPRESSION_TYPE,"  
+	else 
+		compression=""
 	fi
 
 	totalMappers=`echo "${DESIRED_MAPPERS}*${SLAVES_COUNT}" | bc`
 	totalReducers=`echo "${DESIRED_REDUCERS}*${SLAVES_COUNT}" | bc`
 	jobHeader="
 			<tr bgcolor='$FILL_COLOR_1'>
-				<td colspan='6'>$exec - Shuffle-Pro. $shuffP, Shuffle-Con. $shuffC, Compression. $compression, #Slaves: $SLAVES_COUNT, Data-set: ${tslDATA_SET}Gb, #Disks: $DISKS_COUNT, #Samples: ${tslSAMPLES} <br> \
+				<td colspan='6'>$exec - Shuffle-Pro. $shuffP, Shuffle-Con. $shuffC,  $compression #Slaves: $SLAVES_COUNT, Data-set: ${tslDATA_SET}Gb, #Disks: $DISKS_COUNT, #Samples: ${tslSAMPLES} <br> \
 				Max tasks per node: ${MAX_MAPPERS} M, ${MAX_REDUCERS} R. Desired tasks per node: ${DESIRED_MAPPERS} M, ${DESIRED_REDUCERS} R. Totally desired tasks per execution: ${totalMappers} M, ${totalReducers} R</td>
 			</tr>"
 		

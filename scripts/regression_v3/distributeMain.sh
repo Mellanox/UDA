@@ -40,7 +40,7 @@ then
 	covTotal=`covdir -f $COVERAGE_DEST_DIR/total_cov.cov | tail -1 | awk 'BEGIN {FS=" "}; {a = $6} {b= $11}{print "function:", a, "blocks:", b}'`
 	covMessage="<html> <body> <p><h1>RUNNING WITH BULLSEYE!!<h1\><p\> <p><h2> $covTotal <h2\><p\> <p> <h3>You can find the full report here: $COVERAGE_DEST_DIR/total_cov.cov <h3\><p\> <body\> <html\>"
 	echo "/.autodirect/mswg/utils/bin/coverage/commit_cov_files.sh -B master -P UDA -V 3.0 -T UDA -p $COVERAGE_DEST_DIR"
-	/.autodirect/mswg/utils/bin/coverage/commit_cov_files.sh -B master -P UDA -V 3.0 -T UDA -p $COVERAGE_DEST_DIR 
+	/.autodirect/mswg/utils/bin/coverage/commit_cov_files.sh -B master -P UDA -V 3.1 -T UDA -p $COVERAGE_DEST_DIR 
 	message="${covMessage} ${message} "
 	
 	CURRENT_DATE=`date +"%Y-%m-%d_%H.%M.%S"`
