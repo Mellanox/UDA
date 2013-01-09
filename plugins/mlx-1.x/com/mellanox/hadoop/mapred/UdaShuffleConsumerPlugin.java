@@ -393,12 +393,18 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 					" GetMapEventsThread returning after an " +
 					" interrupted exception");
 					return;
+					//TODO: do we want fallback to vanilla??
 				}
 				catch (Throwable t) {
+/*					
 					String msg = reduceTask.getTaskID()
 					+ " GetMapEventsThread Ignoring exception : " 
 					+ StringUtils.stringifyException(t);
 					pluginReportFatalError(reduceTask, reduceTask.getTaskID(), t, msg);
+//*/					
+					LOG.error("error in GetMapEventsThread");
+					failureInUda(t);
+					break;
 				}
 			} while (!exitGetMapEvents);
 			
