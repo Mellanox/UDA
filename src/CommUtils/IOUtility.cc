@@ -403,6 +403,10 @@ static bool log_to_unique_file = false;
 //------------------------------------------------------------------------------
 void startLogNetMerger()
 {
+	// do not create unique log files if user configured standard Hadoop logging
+	if(!log_to_unique_file)
+		return;
+
 	log_file = NULL;
     char full_path[PATH_MAX];
 
@@ -424,6 +428,10 @@ void startLogNetMerger()
 //------------------------------------------------------------------------------
 void startLogMOFSupplier()
 {
+	// do not create unique log files if user configured standard Hadoop logging
+	if(!log_to_unique_file)
+		return;
+
 	log_file = NULL;
     char full_path[PATH_MAX];
 
