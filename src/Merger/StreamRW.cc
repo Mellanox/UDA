@@ -60,7 +60,6 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
 				exit (1);
 			}
 			//passing NULL and 0 since those variables are needed for RDMA client and not decomressore wrapper
-			log(lsERROR, "write_kv_to_stream start_fetch_req mof=%d", mop->mop_id);
 			records->min_segment->get_task()->client->start_fetch_req(mop->part_req, NULL, 0);
 		}
 
