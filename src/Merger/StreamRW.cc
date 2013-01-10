@@ -419,13 +419,9 @@ bool BaseSegment::reset_data() {;
 					end = staging_mem->end;
 					difference = end - staging_mem->start;
 					if (this->in_mem_data->getLength()- this->in_mem_data->getPosition() >= difference) {
-						// DEBUG!!!
-						log(lsERROR, "going to sleep mop id=%d",mop->mop_id);
-						// DEBUG!!!
 						pthread_cond_wait(&kv_output->cond, &kv_output->lock);
 					}
 					pthread_mutex_unlock(&kv_output->lock);
-					log(lsERROR, "after wait for fetch");
 					return true;
 				}
 			}
