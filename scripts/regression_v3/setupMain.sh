@@ -48,6 +48,9 @@ coHadoopFromGit()
 		mkdir $workingFolder
 		mv $gitHadoopTempDir/* $workingFolder # move regular files
 		mv $gitHadoopTempDir/.* $workingFolder # move hidden files
+		echo "$echoPrefix: rm -rf $gitHadoopTempDir"
+		sudo rm -rf $gitHadoopTempDir
+		
 	fi
 }
 
@@ -271,6 +274,13 @@ if (( $LZO==1 )); then
 		echo "$echoPrefix: there's no JAVA_LIBRARY_PATH exported in hadoop-env.sh "
 		echo "export JAVA_LIBRARY_PATH=/.autodirect/mtrswgwork/shania/hadoop/hortonworks-hadoop-lzo-cf4e7cb/build/native/Linux-amd64-64/.libs/" >> $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
 	fi
+	
+	echo "$echoPrefix: sed /JAVA_LIBRARY_PATH=''/ c #JAVA_LIBRARY_PATH=''  $myHadoopHome/bin/hadoop > $myHadoopHome/bin/hadoop2"
+	sed "/JAVA_LIBRARY_PATH=''/ c #JAVA_LIBRARY_PATH='' " $myHadoopHome/bin/hadoop > $myHadoopHome/bin/hadoop2
+	echo "$echoPrefix: mv $myHadoopHome/bin/hadoop2 $myHadoopHome/bin/hadoop"
+	mv $myHadoopHome/bin/hadoop2 $myHadoopHome/bin/hadoop
+	chmod 777  $myHadoopHome/bin/hadoop
+	
 #else
 	#sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
 	#mv $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
@@ -283,15 +293,20 @@ then
 	ans=$?; 
 	if (( ans == 0 )); 
 	then 
-		echo "snappy here";
-		echo "scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/"
-		scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/
+		echo "Snappy is allready here...";
 	else 
 		echo "sudo yum -y install snappy snappy-devel snappy.i386 snappy-devel.i386"
 		sudo yum -y install snappy snappy-devel snappy.i386 snappy-devel.i386
-		echo "scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/"
-		scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/
 	fi
+	echo "scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/"
+	scp /usr/lib64/libsnappy.so* $workingFolder/build/native/*/lib/
+	
+	echo "RELEVANT_SLAVES_BY_SPACES $RELEVANT_SLAVES_BY_SPACES"
+	for slave in $RELEVANT_SLAVES_BY_SPACES
+	do
+		echo "sudo scp /usr/lib64/libsnappy.so* $slave:/usr/lib64/"
+		sudo scp /usr/lib64/libsnappy.so* $slave:/usr/lib64/
+	done
 fi	
 	
 if [[ `cat $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh` == *COVF* ]]; then
@@ -354,7 +369,7 @@ if (($RPM_FLAG==1));then
 		cov01 -0  # 
 		echo "cov01 -s # shutting down bullseye Flag"
 		cov01 -s # shutting down bullseye Flag
-		for slave in `cat $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/slaves`
+	for slave in $RELEVANT_SLAVES_BY_SPACES
 			do
 				ssh $slave sudo rm -rf /tmp/*.cov
 				echo "$COVFILE $slave:/tmp/"

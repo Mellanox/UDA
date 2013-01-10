@@ -22,13 +22,18 @@ CBASE=../hadoop-dist/target/hadoop-3.0.0-SNAPSHOT/share/hadoop/
 #CPATH=.:$(CBASE)/common/hadoop-common-3.0.0-SNAPSHOT.jar:$(CBASE)/common/lib/commons-logging-1.1.1.jar:$(CBASE)/mapreduce/hadoop-mapreduce-client-core-3.0.0-SNAPSHOT.jar:$(CBASE)/mapreduce/hadoop-yarn-server-nodemanager-3.0.0-SNAPSHOT.jar:$(CBASE)/mapreduce/hadoop-yarn-common-3.0.0-SNAPSHOT.jar:$(CBASE)/mapreduce/hadoop-yarn-api-3.0.0-SNAPSHOT.jar:$(CBASE)/mapreduce/hadoop-mapreduce-client-core-3.0.0-SNAPSHOT.jar
 CPATH=.:hadoop-common-3.0.0-SNAPSHOT.jar:commons-logging-1.1.1.jar:hadoop-mapreduce-client-core-3.0.0-SNAPSHOT.jar:hadoop-yarn-server-nodemanager-3.0.0-SNAPSHOT.jar:hadoop-yarn-common-3.0.0-SNAPSHOT.jar:hadoop-yarn-api-3.0.0-SNAPSHOT.jar:hadoop-mapreduce-client-core-3.0.0-SNAPSHOT.jar
 
-all:
+TARGET=uda-hadoop-3.x.jar
+
+FILES=com/mellanox/hadoop/mapred/*.java org/apache/hadoop/mapred/*.java ../shared/com/mellanox/hadoop/mapred/*.java ../shared/org/apache/hadoop/mapred/*.java
+
+all: $(TARGET)
+
+$(TARGET):$(FILES)
 	rm -rf out
 	mkdir -p out
-	CLASSPATH=$(CPATH) javac -d out -sourcepath ../shared/:. com/mellanox/hadoop/mapred/*.java org/apache/hadoop/mapred/*.java ../shared/com/mellanox/hadoop/mapred/*.java ../shared/org/apache/hadoop/mapred/*.java
-	
-	jar -cvf uda-hadoop-3.x.jar -C out com -C out org
+	CLASSPATH=$(CPATH) javac -d out -sourcepath ../shared/:. $(FILES)
+	jar -cvf $(TARGET) -C out com -C out org
 	rm -rf out
 
 clean:
-	rm -rf uda-hadoop-3.x.jar out
+	rm -rf $(TARGET) out

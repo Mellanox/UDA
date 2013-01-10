@@ -68,8 +68,8 @@ netlev_init_rdma_mem(void *mem, uint64_t total_size,
 
     rdma_mem = (netlev_rdma_mem_t *) malloc(sizeof(netlev_rdma_mem_t));
     if (!rdma_mem) {
-        output_stderr("[%s,%d] malloc struct netlev_rdma_mem failed",
-                      __FILE__,__LINE__);
+    	log(lsERROR, "malloc struct netlev_rdma_mem failed");
+        throw new UdaException("malloc failure");
         return -1;
     }
 
@@ -77,6 +77,7 @@ netlev_init_rdma_mem(void *mem, uint64_t total_size,
     rdma_mem->mr = ibv_reg_mr(dev->pd, mem, total_size, NETLEV_MEM_ACCESS_PERMISSION);
     if (!rdma_mem->mr) {
         log(lsERROR,"ibv_reg_mr failed for memory of total_size=%llu  , MSG=%m (errno=%d)", total_size, errno);
+        throw new UdaException("ibv_reg_mr failure");
         free(rdma_mem);
         return -1;
     }
@@ -104,8 +105,7 @@ netlev_init_conn_mem(struct netlev_conn *conn)
     //alloc dev_mem struct
     dev_mem = (netlev_mem_t *) malloc(sizeof(netlev_mem_t));
     if (!dev_mem) {
-        output_stderr("[%s,%d] malloc netlev_mem_t failed",
-                      __FILE__,__LINE__);
+    	log(lsERROR, "malloc failed");
         goto error_dev;
     }
     memset(dev_mem, 0, sizeof(struct netlev_mem));
@@ -113,8 +113,7 @@ netlev_init_conn_mem(struct netlev_conn *conn)
     //alloc wqes
     wqe_mem = memalign(wqe_align, num_wqes * sizeof(netlev_wqe_t));
     if (!wqe_mem) {
-        output_stderr("[%s,%d] malloc netlev_wqe_t failed",
-                     __FILE__,__LINE__);
+    	log(lsERROR, "memalign failed");
         goto error_wqe;
     }
     memset(wqe_mem, 0, num_wqes * sizeof (netlev_wqe_t));
@@ -122,8 +121,7 @@ netlev_init_conn_mem(struct netlev_conn *conn)
     // alloc memory buffer for wqes
     dma_mem = memalign(dma_align, data_size);
     if (!dma_mem) {
-        output_stderr("[%s,%d] malloc data buffer failed",
-                     __FILE__,__LINE__);
+    	log(lsERROR, "memalign failed");
         goto error_dma;
     }
     memset(dma_mem, 0, data_size);
@@ -132,7 +130,7 @@ netlev_init_conn_mem(struct netlev_conn *conn)
     dev_mem->wqe_buff_start = dma_mem;
     dev_mem->mr = ibv_reg_mr(conn->dev->pd, dma_mem, data_size, NETLEV_MEM_ACCESS_PERMISSION);
     if (!dev_mem->mr) {
-    	log(lsFATAL, "register mem failed");
+    	log(lsERROR, "register mem failed");
         goto error_register;
     }
     conn->mem = dev_mem;
@@ -145,6 +143,7 @@ error_dma:
 error_wqe:
     free(dev_mem);
 error_dev:
+	throw new UdaException("error when allocating/registering rdma memory");
     return -1;
 }
 
@@ -187,14 +186,14 @@ netlev_dev_init(struct netlev_dev *dev)
 
     dev->pd = ibv_alloc_pd(dev->ibv_ctx);
     if (!dev->pd) {
-        output_stderr("[%s,%d] ibv_alloc_pd failed",
-                      __FILE__,__LINE__);
+    	log(lsERROR, "ibv_alloc_pd failed");
+    	throw new UdaException("ibv_alloc_pd failed");
         return -1;
     }
 
     if (ibv_query_device(dev->ibv_ctx, &device_attr) != 0) {
-        output_stderr("[%s,%d] ibv_query_device",
-                     __FILE__,__LINE__);
+    	log(lsERROR, "ibv_query_device failed");
+    	throw new UdaException("ibv_query_device failed");
         return -1;
     }
 
@@ -203,22 +202,22 @@ netlev_dev_init(struct netlev_dev *dev)
 
     dev->cq_channel = ibv_create_comp_channel(dev->ibv_ctx);
     if (!dev->cq_channel) {
-        output_stderr("[%s,%d] ibv_create_comp_channel failed",
-                      __FILE__,__LINE__);
+    	log(lsERROR, "ibv_create_comp_channel failed");
+    	throw new UdaException("ibv_create_comp_channel failed");
         return -1;
     }
 
     dev->cq = ibv_create_cq(dev->ibv_ctx, cqe_num, NULL, dev->cq_channel, 0);
     if (!dev->cq) {
-        output_stderr("[%s,%d] ibv_create_cq failed",
-                      __FILE__,__LINE__);
+    	log(lsERROR, "ibv_create_cq failed");
+    	throw new UdaException("ibv_create_cq failed");
         return -1;
     }
     log (lsDEBUG, "device_attr.max_cqe is %d, cqe_num is %d, actual cqe is %d, ", device_attr.max_cqe, cqe_num, dev->cq->cqe);
 
     if (ibv_req_notify_cq(dev->cq, 0) != 0) {
-        output_stderr("[%s,%d] ibv_req_notify failed",
-                     __FILE__,__LINE__);
+    	log(lsERROR, "ibv_req_notify failed");
+    	throw new UdaException("ibv_req_notify failed");
         return -1;
     }
 
@@ -315,7 +314,8 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     }
 
     if (rdma_create_qp(conn->cm_id, dev->pd, &qp_init_attr) != 0) {
-        output_stderr("Create qp failed - %m");
+    	log(lsERROR, "rdma_create_qp failed");
+    	throw new UdaException("rdma_create_qp failed");
         pthread_mutex_destroy(&conn->lock);
         netlev_dealloc_conn_mem(conn->mem);
         if (rdma_destroy_id(cm_id)){
@@ -344,7 +344,8 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     	wqe->data = (char *)(conn->mem->wqe_buff_start) + (i * sizeof(netlev_msg_t));
         init_wqe_recv(wqe, sizeof(netlev_msg_t), conn->mem->mr->lkey, conn);
         if (ibv_post_recv(conn->qp_hndl, &wqe->desc.rr, &bad_wr) != 0) {
-            output_stderr("ibv_post_recv failed");
+        	log(lsERROR, "ibv_post_recv failed");
+        	throw new UdaException("ibv_post_recv failed");
             netlev_conn_free(conn);
             return NULL;
         }
@@ -390,7 +391,7 @@ init_backlog_data(uint8_t type, uint32_t len, uint64_t src_req, void *context, c
 {
 	netlev_msg_backlog_t *back = (netlev_msg_backlog_t*)malloc (sizeof(netlev_msg_backlog_t));
     if (back == NULL) {
-    	log(lsFATAL, "failed to allocate memory for netlev_msg_backlog");
+    	log(lsERROR, "failed to allocate memory for netlev_msg_backlog");
     	throw new UdaException("failed to allocate memory for netlev_msg_backlog");
     }
 	back->type = type;
@@ -517,8 +518,7 @@ netlev_init_conn(struct rdma_cm_event *event,
 
     /* accept the connection */
     if (rdma_accept(conn->cm_id, &conn_param) != 0) {
-        output_stderr("[%s,%d] rdma_accept failed",
-                      __FILE__,__LINE__);
+    	log(lsERROR, "rdma_accept failed");
         goto err_rdma_conn;
     }
     return conn;
@@ -527,9 +527,9 @@ err_rdma_conn:
     netlev_conn_free(conn);
 err_alloc_dev:
     if (rdma_reject(event->id, NULL, 0) != 0) {
-        output_stderr("[%s,%d] rdma_reject failed",
-                      __FILE__,__LINE__);
+    	log(lsERROR, "rdma_reject failed");
     }
+	throw new UdaException("rdma connection failure");
     return NULL;
 }
 
@@ -549,8 +549,9 @@ netlev_conn_established(struct rdma_cm_event *event,
     }
 
     if (!found) {
-        output_stderr("event=%p id=%p qp_num=%d not found", 
+    	log(lsERROR, "event=%p id=%p qp_num=%d not found",
                       event, event->id, event->id->qp->qp_num);
+    	throw new UdaException("event-id was not found");
         return NULL;
     } else {
         conn->state = NETLEV_CONN_READY;

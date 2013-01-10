@@ -70,7 +70,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 	g_cmp_func = get_compare_func(hadoop_cmd->params[6]); // set compare func using Java's key type name
 
 	if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minBuffer) ) {
-		log(lsFATAL, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minBuffer);
+		log(lsERROR, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minBuffer);
 		throw new UdaException("RDMA Buffer is too small");
 	}
 
@@ -82,7 +82,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 	if (create_mem_pool(g_task->buffer_size,
 					numBuffers,
 					&merging_sm.mop_pool)) {
-		log(lsFATAL, "failed to create Map Output memory pool");
+		log(lsERROR, "failed to create Map Output memory pool");
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
 		throw new UdaException("failed to create Map Output memory pool");
@@ -296,7 +296,7 @@ void spawn_reduce_task()
     memset(&g_task->kv_pool, 0, sizeof(memory_pool_t));
     netlev_kv_pool_size  = 1 << NETLEV_KV_POOL_EXPO;
     if (create_mem_pool(netlev_kv_pool_size, NUM_STAGE_MEM, &g_task->kv_pool)) {
-    	log(lsFATAL, "failed to create memory pool for reduce g_task for merged kv buffer");
+    	log(lsERROR, "failed to create memory pool for reduce g_task for merged kv buffer");
     	throw new UdaException("failed to create memory pool for reduce g_task for merged kv buffer");
     }
 

@@ -44,7 +44,8 @@ int AIOHandler::start() {
 	{
 
 		if ((rc=io_setup(MAX_EVENTS, &_context))) {
-			log(lsFATAL, "io_setup failure: rc=%d (errno=%m)", rc);
+			log(lsERROR, "io_setup failure: rc=%d (errno=%m)", rc);
+	        throw new UdaException("io_setup failure");
 			return rc;
 		}
 
@@ -172,22 +173,22 @@ try{
 			
 			switch (rc) {
 				case EFAULT:
-					log(lsFATAL, "io_getevents error: EFAULT Either events or timeout is an invalid pointer");
+					log(lsERROR, "io_getevents error: EFAULT Either events or timeout is an invalid pointer");
 					break;
 				case EINVAL:
-					log(lsFATAL, "io_getevents error: EINVAL ctx_id is invalid.  min_nr is out of range or nr is out of range");
+					log(lsERROR, "io_getevents error: EINVAL ctx_id is invalid.  min_nr is out of range or nr is out of range");
 					break;
 				case EINTR:
-					log(lsFATAL, "io_getevents error: EINTR  Interrupted by a signal handler; see signal(7)");
+					log(lsERROR, "io_getevents error: EINTR  Interrupted by a signal handler; see signal(7)");
 					break;
 				case ENOSYS:
-					log(lsFATAL, "io_getevents error: EENOSYS io_getevents() is not implemented on this architecture");
+					log(lsERROR, "io_getevents error: EENOSYS io_getevents() is not implemented on this architecture");
 					break;
 				default:
-					log(lsERROR,"io_getevents error: unexpected return code -%d %m",rc);		
+					log(lsERROR,"io_getevents error: unexpected return code -%d %m",rc); 
 			}
 			
-			// TODO: Notify TT for error
+			throw new UdaException("io_getevents error");
 		}
 		else if (rc > 0) {
 
@@ -200,17 +201,17 @@ try{
 				aio_status = 0;
 				res=(long long)eventArr[i].res;
 				if (res < 0) {
-					log(lsFATAL,"aio event: completion with error, errno=%lld %m",res);
+					log(lsERROR,"aio event: completion with error, errno=%lld %m",res);
 					aio_status = 1;
-					// TODO: Notify TT for error
+	        throw new UdaException("aio event: completion with error");
 				}
 				else if ((uint64_t)res != cb->u.c.nbytes ) { // res is the actual read/writen bytes  , u.c.nbytes is the requested bytes to read/write
 					if ((cb->u.c.nbytes - eventArr[i].res) > 2*AIO_ALIGNMENT) {
 						// if sub is less then 2*AIO_ALIGNMENT then it is probably as a reasult of alignment and EOF
 						// else , it is unexpected.
-						log(lsFATAL, "aio event: unexpected number of bytes was read/written. requested=%lld actaul=%lld",cb->u.c.nbytes, res);
+						log(lsERROR, "aio event: unexpected number of bytes was read/written. requested=%lld actaul=%lld",cb->u.c.nbytes, res);
 						aio_status = 1;
-						// TODO: Notify TT for error
+		        throw new UdaException("aio event: unexpected number of bytes was read/written");
 					}
 				}
 

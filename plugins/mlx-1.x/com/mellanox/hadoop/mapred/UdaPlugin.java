@@ -294,9 +294,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		if (mMapsCount >= this.mMapsNeed) {
 			/* wake up UdaShuffleConsumerPlugin */
 			if (LOG.isInfoEnabled()) LOG.info("fetchOverMessage: reached desired num of maps, waking up UdaShuffleConsumerPlugin"); 
-			synchronized(udaShuffleConsumer) {
-				udaShuffleConsumer.notify();
-			}
+				udaShuffleConsumer.notifyFetchCompleted();
 		}
 		if (LOG.isDebugEnabled()) LOG.debug("<< out fetchOverMessage"); 
 	}
@@ -340,6 +338,13 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	}
 
 
+	// callback from C++
+	public void failureInUda(){
+		udaShuffleConsumer.failureInUda(new UdaRuntimeException("Uda Failure in a C++ thread"));		
+	}
+
+	
+	
 	/* kv buf object, j2c_queue uses 
  the kv object inside.
 	 */

@@ -162,13 +162,15 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
         if (ne) {
             if (desc.status != IBV_WC_SUCCESS) {
                 if (desc.status == IBV_WC_WR_FLUSH_ERR) {
-                    log(lsFATAL, "Operation: %s. Dev %p wr (0x%llx) flush err. quitting...",
+                    log(lsERROR, "Operation: %s. Dev %p wr (0x%llx) flush err. quitting...",
                                   netlev_stropcode(desc.opcode), dev, 
                                   (unsigned long long)desc.wr_id);
+                    throw new UdaException("IBV - Bad WC status");
                 } else {
-                	log(lsFATAL, "Operation: %s. Bad WC status %d for wr_id 0x%llx\n",
+                	log(lsERROR, "Operation: %s. Bad WC status %d for wr_id 0x%llx\n",
                                   netlev_stropcode(desc.opcode), desc.status, 
                                   (unsigned long long) desc.wr_id);
+                    throw new UdaException("IBV - Bad WC status");
                 }
                 //even if there was an error, must release the chunk
                 type = (uint32_t*) (long2ptr(desc.wr_id));
@@ -235,6 +237,7 @@ server_cm_handler(progress_event_t *pevent, void *data)
     if (rdma_get_cm_event(cm_channel, &cm_event)) {
         output_stderr("[%s:%d] rdma_get_cm_event err",
                       __FILE__, __LINE__);
+        //TODO: consider throw exception
         return;
     }
 
@@ -253,6 +256,7 @@ server_cm_handler(progress_event_t *pevent, void *data)
                     if (dev == NULL) {
                         output_stderr("[%s,%d] alloc dev failed",
                                      __FILE__,__LINE__);
+                        //TODO: consider throw exception
                         return;
                     }
                     memset(dev, 0, sizeof(struct netlev_dev));
@@ -360,7 +364,7 @@ server_cm_handler(progress_event_t *pevent, void *data)
             break;
 
         default:
-            log(lsFATAL, "Server got unknown event %d, bailing out", cm_event->event);
+            log(lsERROR, "Server got unknown event %d, bailing out", cm_event->event);
             if (cm_event->id) {
                 if (rdma_destroy_id(cm_event->id)){
                     log(lsERROR, "rdma_destroy_id failed");
@@ -400,8 +404,8 @@ RdmaServer::RdmaServer(int port, int rdma_buf_size, void *state)
 
     this->rdma_mem = (void *) memalign(rdma_align, this->rdma_total_len);
     if (!this->rdma_mem) {
-        output_stderr("[%s,%d] alloc rdma buf failed",
-                      __FILE__,__LINE__);
+        log(lsERROR, "memalign failed");
+        throw new UdaException("memalign failed");
     }
     log(lsDEBUG, "memalign successed - %llu bytes", this->rdma_total_len);
 
@@ -415,7 +419,8 @@ RdmaServer::start_server()
 
     this->ctx.epoll_fd = epoll_create(4096);
     if (this->ctx.epoll_fd < 0) {
-        log(lsFATAL, "cannot create epoll fd, (errno=%d %m)",errno);
+        log(lsERROR, "cannot create epoll fd, (errno=%d %m)",errno);
+        throw new UdaException("cannot create epoll fd");
     }
 
     /* Start a new thread */
@@ -457,7 +462,7 @@ RdmaServer::stop_server()
         list_del(&conn->list);
         netlev_conn_free(conn);
     }
-    output_stdout("all connections are released");
+    log(lsDEBUG, "all connections are released");
 
     while (!list_empty(&this->ctx.hdr_dev_list)) {
         dev = list_entry(this->ctx.hdr_dev_list.next, typeof(*dev), list);
@@ -467,7 +472,7 @@ RdmaServer::stop_server()
         netlev_dev_release(dev);
         free(dev);
     }
-    output_stdout("all devices are released");
+    log(lsDEBUG, "all devices are released");
 
     pthread_mutex_unlock(&this->ctx.lock);
 
@@ -489,14 +494,14 @@ RdmaServer::create_listener ()
 
     this->ctx.cm_channel = rdma_create_event_channel();
     if (!this->ctx.cm_channel) {
-        log(lsFATAL, "rdma_create_event_channel failed, (errno=%d %m)",errno);
+        log(lsERROR, "rdma_create_event_channel failed, (errno=%d %m)",errno);
         goto err_listener;
     }
 
     if (rdma_create_id(this->ctx.cm_channel, 
                        &this->ctx.cm_id, 
                        NULL, RDMA_PS_TCP)) {
-        output_stderr("rdma_create_id failed");
+        log(lsERROR, "rdma_create_id failed, (errno=%d %m)",errno);
         goto err_listener;
     }
 
@@ -506,18 +511,17 @@ RdmaServer::create_listener ()
     sin.sin_addr.s_addr = INADDR_ANY; /* any device */
 
     if (rdma_bind_addr(this->ctx.cm_id, (struct sockaddr *) &sin)) {
-        output_stderr("rdma_bind_addr failed");
+        log(lsERROR, "rdma_bind_addr failed, (errno=%d %m)",errno);
         goto err_listener;
     }
 
     /* 0 == maximum backlog. XXX: not yet bind to any device */
     if (rdma_listen(this->ctx.cm_id, NETLEV_LISTENER_BACKLOG)) {
-        output_stderr("rdma_listen failed");
+        log(lsERROR, "rdma_listen failed, (errno=%d %m)",errno);
         goto err_listener;
     }
 
-    output_stdout("Server listens on cm_channel=%p",
-                  this->ctx.cm_channel);
+    log(lsDEBUG, "Server listens on cm_channel=%p", this->ctx.cm_channel);
 
     /* XXX: add the cm_event channel to the epoll descriptor */
     pthread_mutex_lock(&this->ctx.lock);
@@ -529,13 +533,14 @@ RdmaServer::create_listener ()
     return 0;
 
 err_listener:
+	throw new UdaException("error on create rdma listener");
     return -1;
 }
 
 int 
 RdmaServer::destroy_listener()
 {
-    output_stdout("Closing server fd=%d cm_channel=%p",
+    log(lsDEBUG, "Closing server fd=%d cm_channel=%p",
                   this->ctx.cm_id->channel->fd, 
                   this->ctx.cm_channel);
 

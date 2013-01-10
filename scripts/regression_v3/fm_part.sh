@@ -33,7 +33,7 @@ for part in $partitions; do
 		part=${part%?}
 	fi
 	minus=`expr length ${part##*/}`
-	ll=`expr length $part`; dir=${part:0:($ll-$minus)}; mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir"; exit 5; else rm -rf $dir/test; fi;
+	ll=`expr length $part`; dir=${part:0:($ll-$minus)}; mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir"; rm -rf $dir/test; exit 5; else rm -rf $dir/test; fi;
 done
 
 slaves=`cat $MY_HADOOP_HOME/conf/slaves`
@@ -46,7 +46,7 @@ for slave in $slaves; do
                 	part=${part%?}
         	fi
         	minus=`expr length ${part##*/}`
-        	ll=`expr length $part`; dir=${part:0:($ll-$minus)}; ssh $slave mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir in $slave" ; exit 5; else ssh $slave rm -rf $dir/test; fi;
+        	ll=`expr length $part`; dir=${part:0:($ll-$minus)}; ssh $slave mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir in $slave" ; ssh $slave rm -rf $dir/test; exit 5; else ssh $slave rm -rf $dir/test; fi;
 	done
 
 done
@@ -87,7 +87,7 @@ for slave in $slaves; do
                         part=${part%?}
                 fi
                 minus=`expr length ${part##*/}`
-                ll=`expr length $part`; dir=${part:0:($ll-$minus)}; ssh $slave mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir in $slave"; exit 5; else ssh $slave rm -rf $dir/test; fi;
+                ll=`expr length $part`; dir=${part:0:($ll-$minus)}; ssh $slave mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir in $slave"; ssh $slave rm -rf $dir/test; exit 5; else ssh $slave rm -rf $dir/test; fi;
         done
 
 done
@@ -128,7 +128,7 @@ for slave in $slaves; do
                         part=${part%?}
                 fi
                 minus=`expr length ${part##*/}`
-                ll=`expr length $part`; dir=${part:0:($ll-$minus)}; ssh $slave mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir in $slave"; exit 0; else ssh $slave rm -rf $dir/test; fi;
+                ll=`expr length $part`; dir=${part:0:($ll-$minus)}; ssh $slave mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir in $slave"; ssh $slave rm -rf $dir/test;  exit 0; else ssh $slave rm -rf $dir/test; fi;
         done
 
 done

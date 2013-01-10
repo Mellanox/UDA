@@ -462,7 +462,7 @@ void merge_lpq_to_aio_file(reduce_task* task, MergeQueue<BaseSegment*> *records,
 
 	int fd = open(file_name, O_DIRECT | O_RDWR | O_TRUNC | O_CREAT);
 	if (fd < 0) {
-		log(lsFATAL, "Fail to open file %s\t(errno=%m)",file_name);
+		log(lsERROR, "Fail to open file %s\t(errno=%m)",file_name);
 		throw new UdaException("Fail to open file");
 	}
 
@@ -670,7 +670,7 @@ bool write_kv_to_file(MergeQueue<BaseSegment*> *records, const char *file_name,
 		int32_t &total_write) {
     FILE *file = fopen(file_name, "wb");
     if (!file) {
-    	log(lsFATAL, "[pid=%d] fail to open file(errno=%d: %m)\n", getpid(), errno);
+    	log(lsERROR, "[pid=%d] fail to open file(errno=%d: %m)\n", getpid(), errno);
 		throw new UdaException("Fail to open file");
     }
 

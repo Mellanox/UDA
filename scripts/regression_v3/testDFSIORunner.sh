@@ -2,7 +2,13 @@
 
 teragenning (){
 	nmaps=$((SLAVES_COUNT*MAX_MAPPERS))
-	size=$((RAM_SIZE*SLAVES_COUNT*TERAGEN_GIGA_MULTIPLIER))
+	#size=$((RAM_SIZE*SLAVES_COUNT*TERAGEN_GIGA_MULTIPLIER))
+	size=`echo "$RAM_SIZE * $SLAVES_COUNT * $TERAGEN_GIGA_MULTIPLIER * 1.0" | bc`
+	echo "size $size"
+	if (( `echo " ($size != 0 )" | bc` == 1 )); then
+		size=`echo "$size" | sed s/.[^.]*$//`
+	fi
+	echo "size $size"
 	cmd="bin/hadoop jar $HADOOP_EXAMPLES_JAR teragen -Dmapred.map.tasks=${nmaps} ${size}"
 	
 	echo "$echoPrefix: teragenning"

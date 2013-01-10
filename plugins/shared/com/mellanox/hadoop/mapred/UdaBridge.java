@@ -28,6 +28,7 @@ import org.apache.hadoop.util.StringUtils;
 interface UdaCallable {
 	public void fetchOverMessage();
 	public void dataFromUda(Object directBufAsObj, int len) throws Throwable;
+	public void failureInUda();
 }
 
 public class UdaBridge {
@@ -112,6 +113,14 @@ public class UdaBridge {
 					 
 		 }
 	}
+
+	static public void failureInUda()  {
+		if (LOG.isDebugEnabled()) LOG.debug("+++>>> started  failureInUda");
+		callable.failureInUda();
+		if (LOG.isDebugEnabled()) LOG.debug("<<<+++ finished failureInUda"); 
+		
+	}	
+
 }
 
 class DataPassToJni{

@@ -245,9 +245,13 @@ function exportMenager()
 		print "export COMPRESSION=1" >> exportsFile
 		if (execParams["mapred.map.output.compression.codec"] == "com.hadoop.compression.lzo.LzoCodec")
 			print "export COMPRESSION_TYPE=LZO" >> exportsFile
-		if (execParams["mapred.map.output.compression.codec"] == "org.apache.hadoop.io.compress.SnappyCodec")
-			print "export COMPRESSION_TYPE=SNAPPY" >> exportsFile
-		
+		else{
+		split(execParams["mapred.map.output.compression.codec"], CodecArray, ".")
+		print CodecArray[6] 
+		print "export COMPRESSION_TYPE="CodecArray[6]  >> exportsFile
+		split("", CodecArray)
+		}
+	
 	}
 	else {
 		print "export COMPRESSION=0" >> exportsFile
@@ -363,28 +367,21 @@ function resetSetupHandler()
 {
 	setupCountFormatted=formatNumber(setupsCounter,digitsCount)
 	setupDir=confsFolderDir "/"setupPrefix setupCountFormatted
+	
+	restartHadoopHandler()
 	system("mkdir " setupDir " ; mv " execDir " " setupDir)
 
-	closeSetup()
+	setSetupExports()
 	setupsCounter++
 }
 
-function closeSetup()
+function setSetupExports()
 {
 	generalFile=setupDir"/"generalFileName
 	system("echo '"bashScriptsHeadline "' > " generalFile)
 
-	if (isLZOExist == 1)
-		print "export LZO=1" >> generalFile
-	else
-		print "export LZO=0" >> generalFile
-	isLZOExist=0
-	
-	if (isSnappyExist == 1)
-		print "export SNAPPY=1"  >> generalFile
-	else
-		print "export SNAPPY=0"  >> generalFile
-	isSnappyExist=0
+	print "export LZO="isLZOExist >> generalFile
+	print "export SNAPPY="isSnappyExist  >> generalFile
 	
 	if ((isLZOExist == 1) || (isSnappyExist == 1))
 		print "export COMPRESSION=1" >> generalFile
@@ -501,6 +498,7 @@ BEGIN{
 	generalFileName="general.sh"
 	exportsFileName="exports.sh"
 	
+	resetSetupFlag=1
 	isSnappyExist=0
 	isLZOExist=0
 	maxSlaves=0
@@ -510,6 +508,10 @@ BEGIN{
 	lastTeragenParam=-1
 	lastRandonWriteParam=-1
 	lastRandonTextWriteParam=-1
+	lastLogNumMttCount=-1
+	lastLogMttsPerSegCount=-1
+	lastLzo=-1
+	lastSnappy=-1
 	digitsCount=2 # that means thet the execution folders will contains 2 digits number. 2 -> 02 for instance
 	setupsCounter=1
 	errorDesc=""
@@ -549,7 +551,8 @@ BEGIN{
 
 	# ELSE:
 	restartHadoopFlag=0
-	resetSetupFlag=0
+	isSnappyExist=0
+	isLZOExist=0
 	
 	getDefaultsIfNeeded()	# taking inputs from the DEFAULT line if neccesary 
 
@@ -618,9 +621,9 @@ BEGIN{
 			else
 				confParams = confParams "-D" propName "=" propValue " "
 			
-			if (match(propValue, /com.hadoop.compression.lzo.LzoCodec/) ==1)
+			if (match(propValue, /com.hadoop.compression.lzo.LzoCodec/) == 1)
 				isLZOExist=1
-			if (match(propValue, /org.apache.hadoop.io.compress.SnappyCodec/) == 1)
+			if (match(propValue, /org.apache.hadoop.io.compress/) == 1)
 				isSnappyExist=1
 		}
 	}
@@ -648,25 +651,32 @@ BEGIN{
 			}
 	}
 
-	if (restartHadoopFlag==1)
-	{
-		print "export RESTART_HADOOP=1" >> exportsFile
-		restartHadoopHandler()
-	}
-	else
-		print "export RESTART_HADOOP=0" >> exportsFile
-
-	exportMenager()
-		
 		# checking the criterias of reseting the cluster's setup
-	if ((lastLogNumMttCount != execParams["log_num_mtt"]) || (lastLogMttsPerSegCount != execParams["log_mtts_per_seg"]))
+	if ((lastLogNumMttCount != execParams["log_num_mtt"]) || (lastLogMttsPerSegCount != execParams["log_mtts_per_seg"])) # restarting setup because mtt
 		resetSetupFlag=1
+	else if ((lastLzo != isLZOExist) || (lastSnappy != isSnappyExist)) # restarting setup because compression
+		resetSetupFlag=1
+	
 		
 	if (resetSetupFlag==1)
+	{
+		print "export RESTART_HADOOP=1" >> exportsFile
 		resetSetupHandler()
+	}
 	else
-		system("mv " execDir " " setupDir)
+	{
+		if (restartHadoopFlag==1)
+		{
+			print "export RESTART_HADOOP=1" >> exportsFile
+			restartHadoopHandler()
+		}
+		else
+			print "export RESTART_HADOOP=0" >> exportsFile
+			system("mv " execDir " " setupDir)
+	}
 	
+	exportMenager()
+		
 	# check for errors
 	if (execParams["mapred.tasktracker.map.tasks.maximum"] < execParams["mapred.tasktracker.reduce.tasks.maximum"])
 		errorDesc = errorDesc "error in " $1 " - more reducers-slots than mappers-slots \n"
@@ -675,10 +685,14 @@ BEGIN{
 	lastSlavesCount = execParams["slaves"]
 	lastLogNumMttCount = execParams["log_num_mtt"]
 	lastLogMttsPerSegCount = execParams["log_mtts_per_seg"]
+	lastLzo = isLZOExist
+	lastSnappy = isSnappyExist
 	#lastTestLinkID=execParams["TestLink_ID"]	
 		
 		# cleanning execParams for the next test	
 	split("", execParams)
+	
+	resetSetupFlag=0
 }
 
 END{

@@ -72,18 +72,21 @@ typedef struct data_from_java
 	std::string path;
 } data_from_java_t;
 
+////////////////////////////////////////////////////////////////////////////////
+// this does nothing
+// serve as sanity in case C++ failed and Java remains up (fallback)
+static const char * null_downcall_handler(const std::string & msg){
 
-void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
-
-	log(lsERROR, "started");
-
+	//log(lsWARN, "got command after C++ termination"); //TODO: check if logger is safe and then open it!
 }
 
-void indicateUdaJniException(JNIEnv *env, UdaException *ex) {
+////////////////////////////////////////////////////////////////////////////////
+static void exceptionInJniThread(JNIEnv *env, UdaException *ex) {
 
 	const char *JNI_EXCEPTION_CLASS_NAME = "com/mellanox/hadoop/mapred/UdaRuntimeException";
-	//	log_func(func, file, line, lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, info);
 	log(lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, ex->_info);
+
+	my_downcall_handler = null_downcall_handler; // don't handle incoming commands any more
 
 
 	//Find the exception class.
@@ -172,32 +175,6 @@ extern "C" JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
 }
 
 
-
-struct Args{
-	main_t mainf;
-	int    argc;
-	char** argv;
-	Args(main_t _mainf, int _argc, char** _argv) : mainf(_mainf), argc(_argc), argv(_argv){}
-};
-
-void* mainThread(void* data)
-{
-	Args* pArgs = (Args*) data;
-
-	printf("In C++ main thread: calling: main\n");
-    int rc = pArgs->mainf(pArgs->argc, pArgs->argv);
-
-    printf("In C++ main thread: main returned %d\n", rc);
-    for (int i=0; i<pArgs->argc; i++) {
-        free (pArgs->argv[i]);
-    }
-    delete[] pArgs->argv;
-    delete pArgs;
-
-    return NULL;
-}
-
-
 // This is the implementation of the native method
 extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_startNative  (JNIEnv *env, jclass cls, jboolean isNetMerger, jobjectArray stringArray, jint log_level, jboolean log_to_uda_file) {
 	int ret = 0;
@@ -243,7 +220,7 @@ extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_star
 
 		ret = my_main(argc, argv);
 		if (ret != 0) {
-			log(lsFATAL, "error in main");
+			log(lsERROR, "error in main");
 			throw new UdaException("error in main");
 		}
 
@@ -263,7 +240,7 @@ extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_star
 
 	}
 	catch (UdaException *ex) {
-		indicateUdaJniException(env, ex);
+		exceptionInJniThread(env, ex);
 	}
 
     return ret;
@@ -277,7 +254,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 
 		const char *str = env->GetStringUTFChars(s, NULL);
 		if (str == NULL) {
-			log(lsFATAL, "out of memory in JNI call to GetStringUTFChars");
+			log(lsERROR, "out of memory in JNI call to GetStringUTFChars");
 			throw new UdaException("Out of Memory");
 		}
 		std::string msg(str);
@@ -289,31 +266,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 		log(lsTRACE, "<<< finished");
 	}
 	catch (UdaException *ex) {
-		indicateUdaJniException(env, ex);
+		exceptionInJniThread(env, ex);
 	}
-}
-
-// a utility function that attaches the **current [native] thread** to the JVM and
-// return the JNIEnv interface pointer for this thread
-// BE CAREFUL:
-// - DON'T call this function more than once for the same thread!! - perhaps not critical!
-// - DON'T use the handle from one thread in context of another threads!
-JNIEnv *UdaBridge_attachNativeThread()
-{
-	log(lsTRACE, "started");
-    JNIEnv *env;
-	if (! cached_jvm) {
-		log(lsFATAL, "cached_jvm is NULL");
-		throw new UdaException("cached_jvm is NULL");
-	}
-    jint ret = cached_jvm->AttachCurrentThread((void **)&env, NULL);
-
-	if (ret < 0) {
-		log(lsFATAL, "cached_jvm->AttachCurrentThread failed ret=%d", ret);
-		throw new UdaException("cached_jvm->AttachCurrentThread failed");
-	}
-	log(lsTRACE, "completed successfully env=%p", env);
-    return env; // note: this handler is valid for all functions in this tread
 }
 
 // must be called with JNIEnv that matched the caller's thread - see attachNativeThread() above
@@ -395,6 +349,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 }
 
 
+
 void UdaBridge_invoke_logToJava_callback(const char* log_message, int severity) {
 	JNIEnv *env;
 	if (cached_jvm->GetEnv((void **)&env, JNI_VERSION_1_4)) {
@@ -405,6 +360,63 @@ void UdaBridge_invoke_logToJava_callback(const char* log_message, int severity) 
 	jstring j_message = env->NewStringUTF(log_message);
 	env->CallStaticVoidMethod(jclassUdaBridge, jmethodID_logToJava, j_message, severity);
 	env->DeleteLocalRef(j_message);
+
+}
+
+
+// a utility function that attaches the **current [native] thread** to the JVM and
+// return the JNIEnv interface pointer for this thread
+// BE CAREFUL:
+// - DON'T call this function more than once for the same thread!! - perhaps not critical!
+// - DON'T use the handle from one thread in context of another threads!
+JNIEnv *UdaBridge_attachNativeThread()
+{
+	log(lsTRACE, "started");
+    JNIEnv *env;
+	if (! cached_jvm) {
+		log(lsERROR, "cached_jvm is NULL");
+		throw new UdaException("cached_jvm is NULL");
+	}
+    jint ret = cached_jvm->AttachCurrentThread((void **)&env, NULL);
+
+	if (ret < 0) {
+		log(lsERROR, "cached_jvm->AttachCurrentThread failed ret=%d", ret);
+		throw new UdaException("cached_jvm->AttachCurrentThread failed");
+	}
+	log(lsTRACE, "completed successfully env=%p", env);
+    return env; // note: this handler is valid for all functions in this tread
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
+
+	std::string msg = ex ? ex->getFullMessage() : string ("unexpected error");
+	log(lsERROR, "UDA has encountered a critical error and will try to fallback to vanilla MSG=%s", msg.c_str());
+
+	my_downcall_handler = null_downcall_handler; // don't handle incoming commands any more
+
+	if (is_net_merger) {
+		// This handle remains valid until the java class is Unloaded
+		//fetchOverMessage callback
+		jmethodID jmethodID_failureInUda = env->GetStaticMethodID(jclassUdaBridge, "failureInUda", "()V");
+		if (jmethodID_failureInUda == NULL) {
+			log(lsERROR, "UdaBridge.failureInUda() callback method was NOT found");
+			return;
+		}
+
+
+		JNIEnv *jniEnv;
+		if (cached_jvm->GetEnv((void **)&jniEnv, JNI_VERSION_1_4)) {
+			return;
+		}
+
+		jniEnv->CallStaticVoidMethod(jclassUdaBridge, jmethodID_failureInUda);
+
+
+	}
+	else {
+		//TODO: complete....
+	}
 
 }
 
