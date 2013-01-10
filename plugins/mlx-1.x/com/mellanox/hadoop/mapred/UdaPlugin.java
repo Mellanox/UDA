@@ -143,8 +143,8 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		this.udaShuffleConsumer = udaShuffleConsumer;
 		this.reduceTask = reduceTask;
 		
-		int maxRdmaBufferSize= jobConf.getInt("mapred.rdma.buf.size", 1024);
-		int minRdmaBufferSize=jobConf.getInt("mapred.rdma.buf.size.min", 16);
+		long maxRdmaBufferSize= jobConf.getInt("mapred.rdma.buf.size", 1024);
+		long minRdmaBufferSize=jobConf.getInt("mapred.rdma.buf.size.min", 16);
 		long maxHeapSize = Runtime.getRuntime().maxMemory();
 		float shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", 0.7f);
 		long shuffleMemorySize = (long)(maxHeapSize * shuffleInputBufferPercent);
@@ -159,9 +159,9 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		LOG.info("UDA: user prefer rdma.buf.size=" + maxRdmaBufferSize + "KB");
 		LOG.info("UDA: minimum rdma.buf.size=" + minRdmaBufferSize + "KB");
 
-		int rdmaBufferSize=maxRdmaBufferSize * 1024; // for comparing rdmaBuffSize to shuffleMemorySize in Bytes
+		long rdmaBufferSize=maxRdmaBufferSize * 1024; // for comparing rdmaBuffSize to shuffleMemorySize in Bytes
 		if (shuffleMemorySize < numMaps * rdmaBufferSize * 2 ) { // double buffer
-			rdmaBufferSize= (int)(shuffleMemorySize / (numMaps * 2) );
+			rdmaBufferSize= (shuffleMemorySize / (numMaps * 2) );
 			//*** Can't get pagesize from java, avoid using hardcoded pagesize, c will make the alignment */ 
 		
 			if (rdmaBufferSize < minRdmaBufferSize * 1024) {
@@ -190,8 +190,8 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(reduceId.getJobID().toString());
 		mParams.add(reduceId.toString());
 		mParams.add(jobConf.get("mapred.netmerger.hybrid.lpq.size", "0"));
-		mParams.add(Integer.toString(rdmaBufferSize)); // in Bytes
-		mParams.add(Integer.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment 
+		mParams.add(Long.toString(rdmaBufferSize)); // in Bytes
+		mParams.add(Long.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment 
 		
 	
 		String [] dirs = jobConf.getLocalDirs();
