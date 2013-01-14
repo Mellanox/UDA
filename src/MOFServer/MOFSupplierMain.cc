@@ -89,7 +89,8 @@ int MOFSupplier_main(int argc, char *argv[])
     ret = parse_options(argc, argv, &op);
     
     startLogMOFSupplier();
-  
+    
+    /* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
     log (lsINFO, "The version is %s",STR(VERSION_UDA));
     log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
 
