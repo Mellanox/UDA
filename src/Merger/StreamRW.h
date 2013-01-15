@@ -50,7 +50,7 @@ public:
     virtual bool        switch_mem();
     virtual void        close();
     virtual void        send_request() = 0;
-    virtual reduce_task *get_task() {return kv_output->task;}
+    //virtual reduce_task *get_task() {return kv_output->task;}	NEEDED FOR COMPRESSION, WILL BE CLOSED UNTIL MERGE WITH MASTER
 
     bool operator<(BaseSegment &seg) { 	return ( (g_cmp_func(key.getData(), key.getLength(), seg.key.getData(), seg.key.getLength())) < 0 ); }
 

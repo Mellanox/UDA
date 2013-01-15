@@ -88,6 +88,7 @@ public:
         upHeap();
     }
 
+#if 0
     /**
      * Adds element to the PriorityQueue in log(size) time if either
      * the PriorityQueue is not full, or not lessThan(element, top()).
@@ -108,6 +109,7 @@ public:
             return false;
         }
     }
+#endif
 
     /** 
      * Returns the least element of the PriorityQueue in constant time. 
@@ -210,7 +212,10 @@ public:
     mem_desc_t*  staging_bufs[NUM_STAGE_MEM];
     PriorityQueue<T> core_queue;
 public: 
-    size_t getQueueSize() { return num_of_segments; }
+	#if LCOV_HYBRID_MERGE_DEAD_CODE
+    	size_t getQueueSize() { return num_of_segments; }
+	#endif
+
     virtual ~MergeQueue(){}
     int        mergeq_flag;  /* flag to check the former k,v */
     RawKeyValueIterator* merge(int factor, int inMem, std::string &tmpDir);
@@ -292,10 +297,12 @@ public:
         
     }
 
-    MergeQueue(std::list<T> *segments){
-        this->mSegments = segments;
-        this->min_segment = NULL;
-    }
+#if 0
+		MergeQueue(std::list<T> *segments){
+			this->mSegments = segments;
+			this->min_segment = NULL;
+		}
+#endif
 
 
 
