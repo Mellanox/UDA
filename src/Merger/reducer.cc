@@ -90,7 +90,8 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 
     // register RDMA buffers
 	merging_sm.client->rdma->register_mem(&merging_sm.mop_pool);
-	log(lsINFO, " After RDMA buffers registration (%d buffers X %d bytes = total %lld bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
+	/* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
+    log(lsINFO, " After RDMA buffers registration (%d buffers X %d bytes = total %lld bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
 
 	if (hadoop_cmd->count -1  > DIRS_START) {
 		assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug

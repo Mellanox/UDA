@@ -51,6 +51,7 @@ int MergeManager_main(int argc, char* argv[])
 
 	log(lsDEBUG, "======== pid=%d ========", getpid() );
 
+    /* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
     log (lsINFO, "UDA version is %s",STR(VERSION_UDA));
     log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
 
