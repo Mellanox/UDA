@@ -50,7 +50,6 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     key_len = val_len = kbytes = vbytes = 0;
     log(lsDEBUG, ">>>> started");
 
-    int i = 0;
     while (records->next()) {
         //log(lsTRACE, "in loop i=%d", i++);
         DataStream *k = records->getKey();

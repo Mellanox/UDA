@@ -185,8 +185,8 @@ bool parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
      * format of command from hadoop:
      * "no of (header+params):header:param1:param2:..."
      */
-    size_t start;
-    int i, end;
+    size_t start, end;
+    int i;
 
     start = end = i = 0;
     cmd_struct.params = NULL;
