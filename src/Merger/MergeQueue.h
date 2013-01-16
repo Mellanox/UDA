@@ -297,13 +297,17 @@ public:
         
     }
 
-BULLSEYE_EXCLUDE_BLOCK_START
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
 		MergeQueue(std::list<T> *segments){
 			this->mSegments = segments;
 			this->min_segment = NULL;
 		}
-BULLSEYE_EXCLUDE_BLOCK_END
 
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
 
 
 protected:
