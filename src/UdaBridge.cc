@@ -76,7 +76,8 @@ typedef struct data_from_java
 // this does nothing
 // serve as sanity in case C++ failed and Java remains up (fallback)
 static const char * null_downcall_handler(const std::string & msg){
-
+	// return value in order to remove warning from compilation.
+	return NULL;
 	//log(lsWARN, "got command after C++ termination"); //TODO: check if logger is safe and then open it!
 }
 
@@ -430,8 +431,9 @@ jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long
 
 	if (jbuf) {
 		jbuf = (jobject) jniEnv->NewWeakGlobalRef(jbuf); // Don't let GC to reclaim it while we need it
-		if (!jbuf)
+		if (!jbuf){
 			log(lsERROR, "failed NewWeakGlobalRef");
+		}
 	}
 	else {
 		log(lsERROR, "failed NewDirectByteBuffer");
