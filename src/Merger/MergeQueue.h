@@ -26,7 +26,7 @@
 #include <vector>
 #include <list>
 #include <string>
-
+#include "bullseye.h"
 #include <LinkList.h>
 #include <NetlevComm.h>
 
@@ -297,12 +297,12 @@ public:
         
     }
 
-#if 0
+BULLSEYE_EXCLUDE_BLOCK_START
 		MergeQueue(std::list<T> *segments){
 			this->mSegments = segments;
 			this->min_segment = NULL;
 		}
-#endif
+BULLSEYE_EXCLUDE_BLOCK_END
 
 
 
