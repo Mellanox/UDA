@@ -47,7 +47,6 @@ private:
 class InputClient 
 {
 public:
-    InputClient() {};
     InputClient(int data_port, int mode, struct merging_state *state);
     ~InputClient();
 
