@@ -52,7 +52,6 @@ shuffle_req_t * get_shuffle_req(const string &param);
 class OutputServer 
 {
 public:
-    OutputServer() {};
     OutputServer(int data_port, int mode, int rdma_buf_size,
                  supplier_state_t *state);
 
