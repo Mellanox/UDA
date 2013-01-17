@@ -100,8 +100,9 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	protected TaskUmbilicalProtocol umbilical; // Reference to the umbilical object
 	protected JobConf jobConf;
 	protected Reporter reporter;
+	protected static String logging_name = "com.mellanox.hadoop.mapred.UdaPlugin.Consumer";
 	
-	private static final Log LOG = LogFactory.getLog(UdaShuffleConsumerPlugin.class.getName());
+	private static final Log LOG = LogFactory.getLog(logging_name);
 	
 	// This is the channel used to transfer the data between RDMA C++ and Hadoop
 	private UdaPluginRT rdmaChannel;

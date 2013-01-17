@@ -56,14 +56,12 @@ import org.apache.hadoop.mapreduce.security.token.JobTokenIdentifier;
 
 public class UdaShuffleHandler extends AbstractService implements AuxServices.AuxiliaryService {
 	
-
-  private static final Log LOG = LogFactory.getLog(UdaShuffleHandler.class);
-
+  protected static String logging_name = "com.mellanox.hadoop.mapred.UdaPlugin.Provider";
+  private static final Log LOG = LogFactory.getLog(logging_name);
  
-
   private UdaPluginSH rdmaChannel;
 
- private Configuration config;
+  private Configuration config;
 
   
   public static final String MAPREDUCE_RDMA_SHUFFLE_SERVICEID =
