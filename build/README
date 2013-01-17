@@ -88,13 +88,6 @@ Required options:
 			<value>ib0</value>
 		</property>
 		
-		<property>
-			<name>mapred.uda.log.to.unique.file</name>
-				<description>if set to true, uda will log to unique logging files else will log to hadoop log files 
-                                </description>
-                        <value>true</value>
-                </property>
-				
 	</configuration>
 
 
