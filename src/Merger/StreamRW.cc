@@ -184,10 +184,7 @@ BaseSegment::~BaseSegment() {
 	if (this->kv_output)
 		delete this->kv_output;
 
-    if (this->in_mem_data != NULL) {
-        delete this->in_mem_data;
-        this->in_mem_data = NULL;
-    }
+	close();
 
     if (this->temp_kv != NULL) {
         free(this->temp_kv);
