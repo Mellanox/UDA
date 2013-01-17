@@ -64,8 +64,8 @@ const char * mof_downcall_handler(const std::string & msg)
 
     	/* Stop all threads */
 
-         /* rdma listening thread*/
-         state_mac.mover->rdma->helper.stop = 1;
+		/* rdma listening thread*/
+        state_mac.mover->stop_server();
 
          /* the DataEngine threads */
          state_mac.data_mac->stop = 1;

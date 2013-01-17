@@ -88,21 +88,6 @@ Required options:
 			<value>ib0</value>
 		</property>
 		
-		<property>
-			<name>mapred.uda.log.tracelevel</name>
-				<description>level of debug prints in uda logs:
-					NONE -> 0,
-					FATAL -> 1,
-					ERROR -> 2,
-					WARN -> 3,
-					INFO -> 4,
-					DEBUG -> 5,
-					TRACE -> 6,
-					ALL -> 7,         
-				</description>
-			<value>2</value>
-		</property>
-				
 	</configuration>
 
 
