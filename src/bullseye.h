@@ -26,4 +26,18 @@
 #endif
 
 
+/* HOW TO EXCLUDE FUNCTION:
+ *
+ 	#if _BullseyeCoverage
+ 		#pragma BullseyeCoverage off
+ 	#endif
+
+ 	FUNCTION
+
+ 	#if _BullseyeCoverage
+ 		#pragma BullseyeCoverage on
+    #endif
+ *
+ * */
+
 #endif /* BULLSEYE_H_ */

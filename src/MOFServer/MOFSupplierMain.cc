@@ -36,6 +36,9 @@ uint32_t wqes_perconn = 256;
 supplier_state_t state_mac;
 
 
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
 const char * mof_downcall_handler(const std::string & msg)
 {
 
@@ -82,6 +85,9 @@ const char * mof_downcall_handler(const std::string & msg)
     free_hadoop_cmd(hadoop_cmd);
     return NULL;
 }
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
 
 int MOFSupplier_main(int argc, char *argv[])
 {
