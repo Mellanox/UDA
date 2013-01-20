@@ -31,6 +31,7 @@
 #include "UdaBridge.h"
 #include "AIOHandler.h"
 #include "InputClient.h"
+#include "bullseye.h"
 
 class InputClient;
 
@@ -380,12 +381,14 @@ int MergeManager::update_fetch_req(client_part_req_t *req)
 
 void MergeManager::allocate_rdma_buffers(client_part_req_t *req)
 {
+	BULLSEYE_EXCLUDE_BLOCK_START
     if (!req->mop) {
     	req->mop = new MapOutput(this->task);
         req->mop->part_req = req;
         req->mop->fetch_count = 0;
         task->total_first_fetch += 1;
     }
+    BULLSEYE_EXCLUDE_BLOCK_END
 }
 
 
@@ -426,20 +429,22 @@ MergeManager::~MergeManager()
     pthread_mutex_destroy(&lock);
     pthread_cond_destroy(&cond);
     
+    BULLSEYE_EXCLUDE_BLOCK_START
     if (merge_queue != NULL ) {
         pthread_mutex_lock(&task->kv_pool.lock);
         for (int i = 0; i < NUM_STAGE_MEM; ++i) {
-            mem_desc_t *desc = 
+            mem_desc_t *desc =
                 merge_queue->staging_bufs[i];
-            pthread_cond_broadcast(&desc->cond); 
+            pthread_cond_broadcast(&desc->cond);
             list_add_tail(&desc->list,
                           &task->kv_pool.free_descs);
         }
         pthread_mutex_unlock(&task->kv_pool.lock);
 
         merge_queue->core_queue.clear(); //TODO: this should be moved into ~MergeQueue()
-        delete merge_queue; 
+        delete merge_queue;
     }
+    BULLSEYE_EXCLUDE_BLOCK_END
 }
 
 #if LCOV_HYBRID_MERGE_DEAD_CODE

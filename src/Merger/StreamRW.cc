@@ -37,6 +37,7 @@
 #include "StreamRW.h"
 #include "IOUtility.h"
 #include "reducer.h"
+#include "bullseye.h"
 
 using namespace std;
 
@@ -58,10 +59,12 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
 		key_len = records->get_key_len();
 		val_len = records->get_val_len();
 
+		BULLSEYE_EXCLUDE_BLOCK_START
         if (key_len < 0 || val_len < 0) {
             log(lsERROR, "key_len or val_len < 0");
             return true;
         }
+        BULLSEYE_EXCLUDE_BLOCK_END
 
 		/* check if the entire <k,v> can be written into mem */
         kbytes = records->get_key_bytes();
@@ -122,11 +125,12 @@ bool write_kv_to_mem(MergeQueue<BaseSegment*> *records, char *src, int32_t len,
 Segment::Segment(MapOutput *mapOutput) :
 	BaseSegment(mapOutput) {
 	this->map_output = mapOutput;
+	BULLSEYE_EXCLUDE_BLOCK_START
 	if (mapOutput) {
 		mem_desc_t *mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
 		this->in_mem_data->reset(mem->buff, mapOutput->part_req->last_fetched);
 	}
-
+	BULLSEYE_EXCLUDE_BLOCK_END
 }
 /*  The following is for class Segment */
 BaseSegment::BaseSegment(KVOutput *kvOutput) {
@@ -181,14 +185,14 @@ Segment::Segment(const string &path)
 
 BaseSegment::~BaseSegment() {
 	log(lsDEBUG, "BaseSegment DTOR this=%llu", (uint64_t)this);
+	BULLSEYE_EXCLUDE_BLOCK_START
 	if (this->kv_output)
 		delete this->kv_output;
-
 	close();
-
     if (this->temp_kv != NULL) {
         free(this->temp_kv);
     }
+	BULLSEYE_EXCLUDE_BLOCK_END
 }
 
 Segment::~Segment() {
@@ -311,20 +315,24 @@ int BaseSegment::nextKV() {
 
 
 void BaseSegment::close() {
+	BULLSEYE_EXCLUDE_BLOCK_START
     if (this->in_mem_data != NULL) {
         this->in_mem_data->close();
         delete this->in_mem_data;
         this->in_mem_data = NULL;
 	}
+	BULLSEYE_EXCLUDE_BLOCK_END
 }
 
 void Segment::send_request() {
 	if (map_output->total_fetched == map_output->total_len) {
 		return; // TODO: probably the segment was switched while it was already reached the total_len
+	BULLSEYE_EXCLUDE_BLOCK_START
 	} else if (map_output->total_fetched > map_output->total_len) {
 		log(lsERROR, "Unexpectedly send_request called while total_fetched(%lld) >  total_len(%lld)", map_output->total_fetched, map_output->total_len);
         return;
     }
+	BULLSEYE_EXCLUDE_BLOCK_END
 
 	/* switch to new staging buffer */
     pthread_mutex_lock(&map_output->lock);
@@ -342,7 +350,9 @@ void Segment::send_request() {
 }
 
 bool BaseSegment::switch_mem() {
+	BULLSEYE_EXCLUDE_BLOCK_START
 	if (kv_output != NULL) {
+	BULLSEYE_EXCLUDE_BLOCK_END
 		mem_desc_t *staging_mem =
 				kv_output->mop_bufs[kv_output->staging_mem_idx];
 

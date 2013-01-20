@@ -137,6 +137,7 @@ const char * reduce_downcall_handler(const string & msg)
 			handle_init_msg(hadoop_cmd);
 			free_hadoop_cmd(*hadoop_cmd);
 			free(hadoop_cmd);
+		BULLSEYE_EXCLUDE_BLOCK_START
 		}
 		catch (UdaException *ex) {
 			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to Hadoop's default shuffle plugin (with exMsg=%s)", ex->_info);
@@ -147,7 +148,7 @@ const char * reduce_downcall_handler(const string & msg)
 			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to mapred default shuffle plugin");
 			throw new UdaException("Failure during UDA Initialization");
 		}
-
+		BULLSEYE_EXCLUDE_BLOCK_END
 		break;
 	}
 	case FETCH_MSG:
@@ -193,12 +194,13 @@ const char * reduce_downcall_handler(const string & msg)
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
 		break;
-
+	BULLSEYE_EXCLUDE_BLOCK_START
 	default:
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
 		break;
 	}
+	BULLSEYE_EXCLUDE_BLOCK_END
 
 	log(lsDEBUG, "<<<=== HANDLED COMMAND FROM JAVA SIDE");
 	return NULL;
@@ -223,10 +225,13 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool)
     log (lsDEBUG, "pool->total_size is %d\n", pool->total_size);
     
     rc = posix_memalign((void**)&pool->mem,  pagesize, pool->total_size);
+
+    BULLSEYE_EXCLUDE_BLOCK_START
     if (rc) {
     	log(lsERROR, "Failed to memalign. aligment=%d size=%ll , rc=%d", pagesize ,pool->total_size, rc );
         return -1;
     }
+    BULLSEYE_EXCLUDE_BLOCK_END
 
     log(lsDEBUG,"memalign successed - %lld bytes", pool->total_size);
     memset(pool->mem, 0, pool->total_size);
@@ -296,11 +301,13 @@ void spawn_reduce_task()
     /* init large memory pool for merged kv buffer */
     memset(&g_task->kv_pool, 0, sizeof(memory_pool_t));
     netlev_kv_pool_size  = 1 << NETLEV_KV_POOL_EXPO;
+
+    BULLSEYE_EXCLUDE_BLOCK_START
     if (create_mem_pool(netlev_kv_pool_size, NUM_STAGE_MEM, &g_task->kv_pool)) {
     	log(lsERROR, "failed to create memory pool for reduce g_task for merged kv buffer");
     	throw new UdaException("failed to create memory pool for reduce g_task for merged kv buffer");
     }
-
+    BULLSEYE_EXCLUDE_BLOCK_END
     /* report success spawn to java */
 //    g_task->nexus->send_int((int)RT_LAUNCHED);
 }
