@@ -480,9 +480,7 @@ RdmaServer::stop_server()
     this->helper.stop = 1;
     pthread_attr_destroy(&this->helper.attr);
     pthread_join(this->helper.thread, &pstatus); log(lsDEBUG, "THREAD JOINED");
-
     close(this->ctx.epoll_fd);
-    rdma_destroy_event_channel(this->ctx.cm_channel);
     log(lsDEBUG,"RDMA server stopped");
 }
 

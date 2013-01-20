@@ -52,6 +52,7 @@ DataEngine::DataEngine(void *mem,
     timeout.tv_sec=0;
 	log(lsDEBUG, "AIO: creating new AIOHandler with maxevents=%d , min_nr=%d, nr=%d timeout=%ds %lus",AIOHANDLER_CTX_MAXEVENTS, AIOHANDLER_MIN_NR, AIOHANDLER_NR , timeout.tv_sec, timeout.tv_nsec );
 	_aioHandler = new AIOHandler(aio_completion_handler, AIOHANDLER_CTX_MAXEVENTS, AIOHANDLER_MIN_NR , AIOHANDLER_NR, &timeout );
+	_thread_id=0;
 
 
 }
@@ -130,6 +131,7 @@ DataEngine::~DataEngine()
 void 
 DataEngine::start()
 {
+	_thread_id = pthread_self();
 	_aioHandler->start();
 
 	this->jniEnv = UdaBridge_attachNativeThread();

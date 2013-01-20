@@ -165,9 +165,12 @@ public:
     /* XXX:Start the data engine thread for new requests and MOFs */
     void start();
 
+    pthread_t get_engine_pthread() { return _thread_id; }
+
 
 private:
-	AIOHandler* 		_aioHandler;
+    pthread_t 			_thread_id;
+    AIOHandler* 		_aioHandler;
     struct list_head    _free_chunks_list;
     chunk_t*			_chunks;
     pthread_cond_t      _chunk_cond;

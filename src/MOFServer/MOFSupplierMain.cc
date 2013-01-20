@@ -66,12 +66,17 @@ const char * mof_downcall_handler(const std::string & msg)
 
 		/* rdma listening thread*/
         state_mac.mover->stop_server();
+        log(lsDEBUG, "after output server stop");
 
          /* the DataEngine threads */
          state_mac.data_mac->stop = 1;
          pthread_mutex_lock(&state_mac.mover->in_lock);
          pthread_cond_broadcast(&state_mac.mover->in_cond);
          pthread_mutex_unlock(&state_mac.mover->in_lock);
+
+         pthread_t th_id = state_mac.data_mac->get_engine_pthread();
+         if (th_id)
+        	 pthread_join(th_id, NULL);
     }
 
     free_hadoop_cmd(hadoop_cmd);
