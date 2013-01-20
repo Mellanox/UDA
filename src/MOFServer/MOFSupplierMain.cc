@@ -69,11 +69,9 @@ const char * mof_downcall_handler(const std::string & msg)
 
          /* the DataEngine threads */
          state_mac.data_mac->stop = 1;
-         pthread_mutex_lock(&state_mac.sm_lock);
-         pthread_cond_broadcast(&state_mac.cond);
-         pthread_mutex_unlock(&state_mac.sm_lock);
-
+         pthread_mutex_lock(&state_mac.mover->in_lock);
          pthread_cond_broadcast(&state_mac.mover->in_cond);
+         pthread_mutex_unlock(&state_mac.mover->in_lock);
     }
 
     free_hadoop_cmd(hadoop_cmd);
@@ -109,8 +107,6 @@ int MOFSupplier_main(int argc, char *argv[])
 	}
 
     memset(&state_mac, 0, sizeof(supplier_state_t));
-    pthread_mutex_init(&state_mac.sm_lock, NULL);
-    pthread_cond_init(&state_mac.cond, NULL);
 
     /* Create an OutputServer
      * -- an event-driven thread responsible for
@@ -151,9 +147,6 @@ try{
     // cleanup code starts here (after thread termination)
     delete state_mac.mover;
     delete state_mac.data_mac;
-
-    pthread_mutex_destroy(&state_mac.sm_lock);
-    pthread_cond_destroy(&state_mac.cond);
 
     log (lsINFO, "==================  C++ 'main' thread exited ======================");
     closeLog();
