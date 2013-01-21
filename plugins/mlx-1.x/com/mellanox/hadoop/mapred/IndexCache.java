@@ -41,7 +41,8 @@ class IndexCache {
   private final JobConf conf;
   private final int totalMemoryAllowed;
   private AtomicInteger totalMemoryUsed = new AtomicInteger();
-  private static final Log LOG = LogFactory.getLog(IndexCache.class);
+  protected static String logging_name = "com.mellanox.hadoop.mapred.UdaPlugin.Provider";
+  private static final Log LOG = LogFactory.getLog(logging_name);
 
   private final ConcurrentHashMap<String,IndexInformation> cache =
     new ConcurrentHashMap<String,IndexInformation>();
