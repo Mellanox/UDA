@@ -20,13 +20,14 @@
 #include "UdaBridge.h"
 #include "IOUtility.h"
 #include "MOFServer/IndexInfo.h"
+#include "MOFServer/MOFSupplierMain.h"
 
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 #include <UdaUtil.h>
-
+#include "Merger/reducer.h"
 
 //
 // We cache all needed Java handles, for best performance of C++ -> Java calls.
@@ -49,14 +50,9 @@ static jfieldID fidPathMOF;
 
 
 //forward declarion until in H file...
-const char * reduce_downcall_handler(const std::string & msg); // #include "reducer.h"
 int MergeManager_main(int argc, char* argv[]);
 
-const char * mof_downcall_handler(const std::string & msg); // #include ...
-int MOFSupplier_main(int argc, char* argv[]);
-extern "C" void * MOFSupplierRun(void *);
-
-typedef const char * (*downcall_handler_t) (const std::string & msg);
+typedef void (*downcall_handler_t) (const std::string & msg);
 typedef int (*main_t)(int argc, char* argv[]);
 static downcall_handler_t my_downcall_handler;
 static main_t my_main;
@@ -75,17 +71,19 @@ typedef struct data_from_java
 ////////////////////////////////////////////////////////////////////////////////
 // this does nothing
 // serve as sanity in case C++ failed and Java remains up (fallback)
-static const char * null_downcall_handler(const std::string & msg){
-	// return value in order to remove warning from compilation.
-	return NULL;
+static void null_downcall_handler(const std::string & msg){
+
 	//log(lsWARN, "got command after C++ termination"); //TODO: check if logger is safe and then open it!
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 static void exceptionInJniThread(JNIEnv *env, UdaException *ex) {
 
+	const char * info = ex ? ex->_info : "unexpected failure";
+	const char * full_message = ex ? ex->getFullMessage().c_str() : "unexpected failure";
+
 	const char *JNI_EXCEPTION_CLASS_NAME = "com/mellanox/hadoop/mapred/UdaRuntimeException";
-	log(lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, ex->_info);
+	log(lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, info);
 
 	my_downcall_handler = null_downcall_handler; // don't handle incoming commands any more
 
@@ -97,7 +95,7 @@ static void exceptionInJniThread(JNIEnv *env, UdaException *ex) {
 		return;
 	}
 	//Indicate the exception with error message to JNI - NOTE: exception will occur after C++ terminates
-	env->ThrowNew(exClass, ex->getFullMessage().c_str());
+	env->ThrowNew(exClass, full_message);
 	env->DeleteLocalRef(exClass);
 }
 
@@ -243,6 +241,10 @@ extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_star
 	catch (UdaException *ex) {
 		exceptionInJniThread(env, ex);
 	}
+    catch(...) {
+		log(lsERROR, "got general Exception!");
+		exceptionInJniThread(env, NULL);
+    }
 
     return ret;
 }
@@ -269,6 +271,10 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 	catch (UdaException *ex) {
 		exceptionInJniThread(env, ex);
 	}
+    catch(...) {
+		log(lsERROR, "got general Exception!");
+		exceptionInJniThread(env, NULL);
+    }
 }
 
 // must be called with JNIEnv that matched the caller's thread - see attachNativeThread() above
