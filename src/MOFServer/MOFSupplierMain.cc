@@ -31,10 +31,10 @@ using namespace std;
 supplier_state_t state_mac;
 
 
-void mof_downcall_handler(const std::string & msg)
 #if _BullseyeCoverage
 	#pragma BullseyeCoverage off
 #endif
+void mof_downcall_handler(const std::string & msg)
 {
 
     /* 1. Extract the command from Java */
