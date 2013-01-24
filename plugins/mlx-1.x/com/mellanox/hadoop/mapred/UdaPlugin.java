@@ -52,12 +52,16 @@ import org.apache.hadoop.io.WritableUtils;
 
 import org.apache.hadoop.fs.Path;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
+
 
 abstract class UdaPlugin {
 	protected List<String> mCmdParams = new ArrayList<String>();
 	protected static Log LOG;
-	protected static int log_level;
-
+	protected static int log_level = -1; // Initialisation value for calcAndCompareLogLevel() first run
+	
 	protected static JobConf mjobConf;
 	
 	public UdaPlugin(JobConf jobConf) {
@@ -73,20 +77,36 @@ abstract class UdaPlugin {
 		LOG = LogFactory.getLog(logging_name);
 	}
 	
-	//* retrieve and set the logging level
-	private static void calcLogLevel(){
-		log_level = (LOG.isFatalEnabled() ? 1 : 0) + (LOG.isErrorEnabled() ? 1 : 0) +  
-					(LOG.isWarnEnabled() ? 1 : 0) +(LOG.isInfoEnabled() ? 1 : 0) + 
-					(LOG.isDebugEnabled() ? 1 : 0) + (LOG.isTraceEnabled() ? 1 : 0);
+	//* retrieves and sets the logging level, if log_level was changed return true, else return false.
+	private static boolean calcAndCompareLogLevel(){
+		int curr_log_level = (LOG.isFatalEnabled() ? 1 : 0) + (LOG.isErrorEnabled() ? 1 : 0) +  
+						 	 (LOG.isWarnEnabled() ? 1 : 0) +(LOG.isInfoEnabled() ? 1 : 0) + 
+						 	 (LOG.isDebugEnabled() ? 1 : 0) + (LOG.isTraceEnabled() ? 1 : 0);
+		if(curr_log_level == log_level)
+			return false;
+		else
+		{
+			log_level = curr_log_level;
+			return true;
+		}
 	}
 	
 	//* configuring all that is needed for logging
 	protected static void prepareLog(String logging_name){
 		setLog(logging_name);
-		calcLogLevel();
-	}
+		calcAndCompareLogLevel();	
+		}
 	
 	protected void launchCppSide(boolean isNetMerger, UdaCallable _callable) {
+		
+		
+		//only if this is the provider, start the periodic log check task.
+		if(!isNetMerger)
+		{
+			LOG.debug("starting periodic log check task");
+			Timer timer = new Timer();
+			timer.schedule(new TaskLogLevel(), 0, 1000);
+		}
 		
 		LOG.info("UDA: Launching C++ thru JNI");
 		buildCmdParams();
@@ -105,6 +125,20 @@ abstract class UdaPlugin {
 			LOG.warn("java.library.path=" + System.getProperty("java.library.path"));
 			LOG.warn(StringUtils.stringifyException(e));
 			throw (e);
+		}
+	}
+	
+	// Class represents the period task of log-level checking & setting in C++ 
+	class TaskLogLevel extends TimerTask{
+		public void run()
+		{
+			// check if log level has changed
+			if(calcAndCompareLogLevel())
+			{
+				// set log level in C++
+				UdaBridge.setLogLevel(log_level);
+				LOG.info("Logging level was cahanged");
+			}
 		}
 	}
 

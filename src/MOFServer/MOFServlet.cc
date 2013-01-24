@@ -87,6 +87,9 @@ OutputServer::OutputServer(int data_port, int mode, int rdma_buf_size,
     } */
 }
 
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
 OutputServer::~OutputServer()
 {
 	output_stdout("OutputServer: D'tor");
@@ -94,6 +97,10 @@ OutputServer::~OutputServer()
     pthread_mutex_destroy(&this->out_lock);
     pthread_cond_destroy(&this->in_cond);
 }
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
+
 
 
 void OutputServer::start_server()
@@ -102,11 +109,18 @@ void OutputServer::start_server()
     this->rdma->start_server();
 }
 
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
 void OutputServer::stop_server()
 {
     this->rdma->stop_server();
     delete this->rdma;
 }
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
+
 
 void OutputServer::insert_incoming_req(shuffle_req_t *req)
 {

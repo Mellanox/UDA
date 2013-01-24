@@ -165,7 +165,13 @@ public:
     /* XXX:Start the data engine thread for new requests and MOFs */
     void start();
 
-    pthread_t get_engine_pthread() { return _thread_id; }
+	#if _BullseyeCoverage
+		#pragma BullseyeCoverage off
+	#endif
+	pthread_t get_engine_pthread() { return _thread_id; }
+	#if _BullseyeCoverage
+		#pragma BullseyeCoverage on
+	#endif
 
 
 private:

@@ -32,6 +32,9 @@ supplier_state_t state_mac;
 
 
 void mof_downcall_handler(const std::string & msg)
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
 {
 
     /* 1. Extract the command from Java */
@@ -76,6 +79,9 @@ void mof_downcall_handler(const std::string & msg)
 
     free_hadoop_cmd(hadoop_cmd);
 }
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
 
 int MOFSupplier_main(int argc, char *argv[])
 {

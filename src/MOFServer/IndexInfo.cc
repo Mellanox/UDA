@@ -57,8 +57,10 @@ DataEngine::DataEngine(void *mem,
 
 }
 
-
-void 
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
+void
 DataEngine::cleanup_tables()
 {
     pthread_mutex_lock(&_data_lock);
@@ -88,6 +90,9 @@ DataEngine::cleanup_tables()
     pthread_mutex_destroy(&this->_chunk_mutex);
     pthread_cond_destroy(&this->_chunk_cond);
 }
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
 
 void 
 DataEngine::prepare_tables(void *mem, 
@@ -116,12 +121,17 @@ DataEngine::prepare_tables(void *mem,
 
 }
 
-
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
 DataEngine::~DataEngine()
 {
     cleanup_tables();
     delete _aioHandler;
 }
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
 
 /**
  * 1. DataEngine pops out requests from global queue 

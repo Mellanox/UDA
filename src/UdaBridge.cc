@@ -277,6 +277,13 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
     }
 }
 
+
+// This is the implementation of the native method
+extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_setLogLevelNative  (jclass cls, jint log_level) {
+	log_set_threshold((log_severity_t)log_level);
+}
+
+
 // must be called with JNIEnv that matched the caller's thread - see attachNativeThread() above
 // - otherwise TOO BAD unexpected results are expected!
 void UdaBridge_invoke_fetchOverMessage_callback(JNIEnv * jniEnv) {
