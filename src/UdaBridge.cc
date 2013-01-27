@@ -274,7 +274,17 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 
 // This is the implementation of the native method
 extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_setLogLevelNative  (jclass cls, jint log_level) {
-	log_set_threshold((log_severity_t)log_level);
+	try {
+		log_set_threshold((log_severity_t)log_level);
+	}
+	// Exception in this method will not cause a fallback,
+	// so WE DO NOT call exceptionInJniThread(env, ex) here.
+    catch (UdaException *ex) {
+    	log(lsWARN, "failed to set log level: info=%s, full-message=%s ", ex->_info, ex->getFullMessage().c_str());
+    }
+    catch (exception *ex) {
+    	log(lsWARN, "failed to set log level: Exception : %s ", ex->what());
+    }
 }
 
 
