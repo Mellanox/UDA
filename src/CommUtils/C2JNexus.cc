@@ -39,27 +39,6 @@
 extern char *rdmalog_dir;
 extern uint32_t wqes_perconn;
 
-static void usage(const char *cmd)
-{
-    printf("\nUsage: %s [<options> ... ]\n\n", cmd);
-    printf("<options> are the following:\n");
-    printf("  -r | --dataport    <port> "
-                   "  port to do rdma connection \n");
-    printf("  -a | --online      <online>"
-                   " If it is online merge\n");
-    printf("  -m | --mode        <mode>"
-                   "   Stand alone mode or integrated mode\n");
-    printf("  -g | --log               "
-                   "   Log directory for NetMerger and MOFSupplier\n");
-    printf("  -t | --trace-level       "
-                   "   threshold for log level for NetMerger and MOFSupplier\n");
-    printf("  -v | --version           "
-                       "    Display the version of the file and exit\n");
-    printf("  -h | --help              "
-                   "    Display this help and exit\n\n");
-   
-	throw new UdaException("bad usage");
-}
 
 int parse_options(int argc, char *argv[], netlev_option_t *op) 
 {
@@ -144,8 +123,6 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         	printf("Version is %s\n",STR(VERSION_UDA));
         	printf("Compiled on %s, %s\n", __DATE__, __TIME__);
         	exit (0);
-        case 'h':
-            usage(argv[0]);
         default: 
         	printf("got invalid command line option choice=%c [%d] \n", choice, choice);
             break;
@@ -162,7 +139,6 @@ err_options:
     	printf("DEBUG: argv[%d] = %s\n", i, argv[i]);
     }
 
-    usage(argv[0]);
     return 1;
 }
 
