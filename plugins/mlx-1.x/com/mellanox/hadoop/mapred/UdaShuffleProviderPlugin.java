@@ -38,9 +38,8 @@ import org.apache.hadoop.mapred.TaskAttemptID;
 public class UdaShuffleProviderPlugin implements ShuffleProviderPlugin{
 
 	protected TaskTracker taskTracker; //handle to parent object
-	protected static String logging_name = "com.mellanox.hadoop.mapred.UdaPlugin.Provider";
 
-	private static final Log LOG = LogFactory.getLog(logging_name);
+	private static final Log LOG = LogFactory.getLog("org.apache.hadoop.mapred.ShuffleProviderPlugin");
 
 	// This is the channel used to transfer the data between RDMA C++ and Hadoop
 	private UdaPluginTT rdmaChannel;
