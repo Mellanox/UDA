@@ -323,7 +323,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 	jniEnv->DeleteLocalRef(jstr_map);
 
 	if (jdata==NULL){
-		log(lsERROR, "-->> In C++ java UdaBridge.getPathUda returned null!");
+		log(lsERROR, "java_UdaBridge.getPathUda returned null! for job_id=%s, map_id=%s, reduceId=%d", job_id, map_id, reduceId);
 		return NULL;
 	}
 	
@@ -332,7 +332,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 	if (fidOffset == NULL) {
 		fidOffset = jniEnv->GetFieldID(cls_data, "startOffset", "J");
 		 if (fidOffset == NULL) {
-			 log(lsERROR, "-->> In C++ java UdaBridge.GetFieldID() callback method for startOffset was NOT found");
+			 log(lsERROR, "java_UdaBridge.GetFieldID() callback method for startOffset was NOT found");
 			 return NULL;
 		 }
 	 }
@@ -340,7 +340,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 	if (fidRawLength == NULL) {
 		fidRawLength = jniEnv->GetFieldID(cls_data, "rawLength", "J");
 		 if (fidRawLength == NULL) {
-			 log(lsERROR, "-->> In C++ java UdaBridge.GetFieldID() callback method for rawLength was NOT found");
+			 log(lsERROR, "java_UdaBridge.GetFieldID() callback method for rawLength was NOT found");
 			 return NULL;
 		 }
 	 }
@@ -349,7 +349,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 	if (fidPartLength == NULL) {
 		fidPartLength = jniEnv->GetFieldID(cls_data, "partLength", "J");
 		 if (fidPartLength == NULL) {
-			 log(lsERROR, "-->> In C++ java UdaBridge.GetFieldID() callback method for partLength was NOT found");
+			 log(lsERROR, "java_UdaBridge.GetFieldID() callback method for partLength was NOT found");
 			 return NULL;
 		 }
 	 }
@@ -357,7 +357,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 	if (fidPathMOF == NULL) {
 		fidPathMOF = jniEnv->GetFieldID(cls_data, "pathMOF", "Ljava/lang/String;");
 		 if (fidPathMOF == NULL) {
-			 log(lsERROR, "-->> In C++ java UdaBridge.GetFieldID() callback method for pathMOF was NOT found");
+			 log(lsERROR, "java_UdaBridge.GetFieldID() callback method for pathMOF was NOT found");
 			 return NULL;
 		 }
 	 }
