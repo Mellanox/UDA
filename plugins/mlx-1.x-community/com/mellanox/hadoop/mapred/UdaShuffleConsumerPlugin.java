@@ -145,7 +145,7 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 		}
 
 		try {
-			fallbackPlugin = UdaMapredBridge.getShuffleConsumerPlugin(null, reduceTask, umbilical, jobConf, reporter);
+			fallbackPlugin = UdaMapredBridge.getShuffleConsumerPlugin(ReduceTask.ReduceCopier.class, reduceTask, umbilical, jobConf, reporter);
 			LOG.info("Succesfuly switched to Using fallbackPlugin");
 		}
 		catch (ClassNotFoundException e) {
