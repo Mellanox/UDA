@@ -61,7 +61,7 @@ abstract class UdaPlugin {
 	protected List<String> mCmdParams = new ArrayList<String>();
 	protected static Log LOG;
 	protected static int log_level = -1; // Initialisation value for calcAndCompareLogLevel() first run
-	
+	protected static String logging_package_name = "org.apache.hadoop.mapred";
 	protected static JobConf mjobConf;
 	
 	public UdaPlugin(JobConf jobConf) {
@@ -147,8 +147,7 @@ abstract class UdaPlugin {
 class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
 	static{
-		String logging_name = UdaPlugin.class.getName() + ".Consumer";
-		prepareLog(logging_name);
+		prepareLog(logging_package_name + ".ShuffleConsumerPlugin");
 	}
 	
 	final UdaShuffleConsumerPlugin udaShuffleConsumer;
@@ -523,8 +522,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 class UdaPluginTT extends UdaPlugin {  
 	
 	static{
-		String logging_name = UdaPlugin.class.getName() + ".Provider";
-		prepareLog(logging_name);
+		prepareLog(logging_package_name + ".ShuffleProviderPlugin");
 	}
 
 	private static TaskTracker taskTracker;

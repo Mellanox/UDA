@@ -291,6 +291,9 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_setL
     catch (exception *ex) {
     	log(lsWARN, "failed to set log level: Exception : %s ", ex->what());
     }
+    catch (...) {
+    	log(lsWARN, "failed to set log level : unexpected error");
+    }
 }
 
 

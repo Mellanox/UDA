@@ -1,16 +1,40 @@
+# Object files
 *.o
-*.so
 *.lo
 *.la
+
+# Libraries
+*.lib
+*.a
+.libs
+
+# Shared objects
+*.so
+*.so.*
+
+# Dependencies
 .dirstamp
 .deps
-.libs
-uda*.jar
+
+# Automake
 Makefile.in
+Makefile
 aclocal.m4
 autom4te.cache
+config.h
+config.h.in
 config.guess
 config.log
 config.status
-config.sub
+config/
+configure
+libtool
+src/config.sub
+
+# Project/Eclipse
+.cproject
+.project
+
+# UDA specific
 /ver.txt
+uda*.jar
