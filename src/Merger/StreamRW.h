@@ -29,7 +29,7 @@ class MapOutput;
 class RawKeyValueIterator;
 #include "MergeQueue.h"
 #include "AIOHandler.h"
-
+#include "CompareFunc.h"
 
 class BaseSegment
 {
@@ -54,6 +54,7 @@ public:
     virtual reduce_task *get_task() {return kv_output->task;}
 	bool operator<(BaseSegment &seg) { return  (memcmp(key.getData(), seg.key.getData(), key.getLength())  <  0)  ;    }
 	virtual KVOutput * getKVOUutput() {return kv_output;}
+
 
     DataStream  key;
     DataStream  val;
@@ -138,12 +139,12 @@ public:
      * the original position
      */
     virtual int  nextKV();
-    virtual bool join (char *src, int32_t src_len){output_stderr("shouldn't reach here"); throw "shouldn't reach here"; return true;} //TODO
-    virtual bool switch_mem() {output_stderr("shouldn't reach here"); throw "shouldn't reach here"; return true;} //TODO
+    virtual bool join (char *src, int32_t src_len){log(lsERROR, "shouldn't reach here"); throw new UdaException("shouldn't reach here"); return true;}
+    virtual bool switch_mem() {log(lsERROR, "shouldn't reach here"); throw new UdaException("shouldn't reach here"); return true;}
 
     virtual void close() {return this->Segment::close();}
 //    virtual void send_request() {} // nothing to do in derived class
-    virtual void send_request() {output_stderr("shouldn't reach here"); throw "shouldn't reach here";} //AVNER: TODO
+    virtual void send_request() {log(lsERROR, "shouldn't reach here"); throw new UdaException("shouldn't reach here");}
     virtual reduce_task *get_task() {return task;}
 
     reduce_task *task;

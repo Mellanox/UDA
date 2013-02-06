@@ -20,7 +20,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <fcntl.h>
-
+#include "bullseye.h"
 #include "InputClient.h"
 
 using namespace std;
@@ -31,14 +31,14 @@ InputClient::InputClient(int data_port, int mode, merging_state_t *state)
 {
     this->data_port = data_port;
     this->rdma  = NULL; 
-    this->tcp   = NULL;
+//    this->tcp   = NULL; AUBURN_DEAD_CODE
     this->state = state;
 }
 
 InputClient::~InputClient()
 {
     this->rdma  = NULL; 
-    this->tcp   = NULL;
+//    this->tcp   = NULL; AUBURN_DEAD_CODE
     this->state = NULL;
     this->data_port = -1;
 }
@@ -62,13 +62,16 @@ int InputClient::start_fetch_req(client_part_req_t *req)
 
 void InputClient::comp_fetch_req(client_part_req_t *req)
 {
+	BULLSEYE_EXCLUDE_BLOCK_START
 	if (req->mop){
 		MergeManager *merge_man = req->mop->task->merge_man;
 		merge_man->update_fetch_req(req);
-	}else{
-		log(lsFATAL, "req->mop is null!"); //TODO might be related to key/value size bigger than rdma buffer size. see bug 89763
-		exit (-1);
 	}
+	else{
+		log(lsERROR, "req->mop is null!"); //TODO might be related to key/value size bigger than rdma buffer size. see bug 89763
+		throw new UdaException("req->mop is null!");
+	}
+	BULLSEYE_EXCLUDE_BLOCK_END
 }
 */
 /*

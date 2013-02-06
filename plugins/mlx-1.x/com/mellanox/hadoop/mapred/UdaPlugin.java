@@ -17,12 +17,14 @@
 **
 */
 package com.mellanox.hadoop.mapred;
+
 import org.apache.hadoop.mapred.*;
 
 import java.io.File;
 import java.io.IOException;
 import java.lang.management.MemoryType;
 import java.lang.management.MemoryUsage;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -50,9 +52,12 @@ import org.apache.hadoop.io.WritableUtils;
 
 import org.apache.hadoop.fs.Path;
 
+
 abstract class UdaPlugin {
-	static protected final Log LOG = LogFactory.getLog(UdaPlugin.class.getName());
 	protected List<String> mCmdParams = new ArrayList<String>();
+	protected static Log LOG;
+	protected static int log_level;
+
 	protected static JobConf mjobConf;
 	
 	public UdaPlugin(JobConf jobConf) {
@@ -61,6 +66,25 @@ abstract class UdaPlugin {
 	
 	//* build arguments to lunchCppSide 
 	protected abstract void buildCmdParams();
+
+	
+	//* sets the logger properly as configured in log4j conf file
+	private static void setLog(String logging_name){
+		LOG = LogFactory.getLog(logging_name);
+	}
+	
+	//* retrieve and set the logging level
+	private static void calcLogLevel(){
+		log_level = (LOG.isFatalEnabled() ? 1 : 0) + (LOG.isErrorEnabled() ? 1 : 0) +  
+					(LOG.isWarnEnabled() ? 1 : 0) +(LOG.isInfoEnabled() ? 1 : 0) + 
+					(LOG.isDebugEnabled() ? 1 : 0) + (LOG.isTraceEnabled() ? 1 : 0);
+	}
+	
+	//* configuring all that is needed for logging
+	protected static void prepareLog(String logging_name){
+		setLog(logging_name);
+		calcLogLevel();
+	}
 	
 	protected void launchCppSide(boolean isNetMerger, UdaCallable _callable) {
 		
@@ -69,9 +93,12 @@ abstract class UdaPlugin {
 
 		LOG.info("going to execute C++ thru JNI with argc=: " + mCmdParams.size() + " cmd: " + mCmdParams);    	  
 		String[] stringarray = mCmdParams.toArray(new String[0]);
+		
+		// if parameter is set to "true", UDA will log into its own files.
+		Boolean log_to_uda_file = mjobConf.getBoolean("mapred.uda.log.to.unique.file", false);
 
 		try {
-			UdaBridge.start(isNetMerger, stringarray, LOG, _callable);
+			UdaBridge.start(isNetMerger, stringarray, LOG, log_level, log_to_uda_file, _callable);
 
 		} catch (UnsatisfiedLinkError e) {
 			LOG.warn("UDA: Exception when launching child");    	  
@@ -85,6 +112,11 @@ abstract class UdaPlugin {
 
 class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
+	static{
+		String logging_name = UdaPlugin.class.getName() + ".Consumer";
+		prepareLog(logging_name);
+	}
+	
 	final UdaShuffleConsumerPlugin udaShuffleConsumer;
 	final ReduceTask reduceTask;
 
@@ -97,7 +129,6 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	private final int         mReportCount  = 20;
 	private J2CQueue<K,V>     j2c_queue     = null;
 
-
 	//* kv buf status 
 	private final int         kv_buf_recv_ready = 1;
 	private final int         kv_buf_redc_ready = 2;
@@ -105,6 +136,8 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	private final int         kv_buf_size = 1 << 20;   /* 1 MB */
 	private final int         kv_buf_num = 2;
 	private KVBuf[]           kv_bufs = null;
+	
+	private final static float 	  DEFAULT_SHUFFLE_INPUT_PERCENT = 0.7f;
 
 	private void init_kv_bufs() {
 		kv_bufs = new KVBuf[kv_buf_num];
@@ -132,9 +165,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		
 		mCmdParams.add("-s");
 		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
-		mCmdParams.add("-t");
-		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "2"));
-		
+
 	}
 
 	public UdaPluginRT(UdaShuffleConsumerPlugin udaShuffleConsumer, ReduceTask reduceTask, JobConf jobConf, Reporter reporter,
@@ -143,10 +174,14 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		this.udaShuffleConsumer = udaShuffleConsumer;
 		this.reduceTask = reduceTask;
 		
-		long maxRdmaBufferSize= jobConf.getInt("mapred.rdma.buf.size", 1024);
-		long minRdmaBufferSize=jobConf.getInt("mapred.rdma.buf.size.min", 16);
+		long maxRdmaBufferSize= jobConf.getLong("mapred.rdma.buf.size", 1024);
+		long minRdmaBufferSize=jobConf.getLong("mapred.rdma.buf.size.min", 16);
 		long maxHeapSize = Runtime.getRuntime().maxMemory();
-		float shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", 0.7f);
+		double shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", DEFAULT_SHUFFLE_INPUT_PERCENT);
+		if ((shuffleInputBufferPercent < 0) || (shuffleInputBufferPercent > 1)) {
+			LOG.warn("UDA: mapred.job.shuffle.input.buffer.percent is out of range - set to default: " + DEFAULT_SHUFFLE_INPUT_PERCENT);
+			shuffleInputBufferPercent = DEFAULT_SHUFFLE_INPUT_PERCENT;
+		}
 		long shuffleMemorySize = (long)(maxHeapSize * shuffleInputBufferPercent);
 		
 		LOG.debug("UDA: numMaps=" + numMaps + 
@@ -160,17 +195,17 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		LOG.info("UDA: minimum rdma.buf.size=" + minRdmaBufferSize + "KB");
 
 		long rdmaBufferSize=maxRdmaBufferSize * 1024; // for comparing rdmaBuffSize to shuffleMemorySize in Bytes
-		if (shuffleMemorySize < numMaps * rdmaBufferSize * 2 ) { // double buffer
-			rdmaBufferSize= (shuffleMemorySize / (numMaps * 2) );
+		if (shuffleMemorySize <  numMaps * rdmaBufferSize * 2) { // 2 for double buffer
+			rdmaBufferSize= shuffleMemorySize / (numMaps * 2);
 			//*** Can't get pagesize from java, avoid using hardcoded pagesize, c will make the alignment */ 
 		
 			if (rdmaBufferSize < minRdmaBufferSize * 1024) {
 				throw new OutOfMemoryError("UDA: Not enough memory for rdma buffers: shuffleMemorySize=" + shuffleMemorySize + "B, mapred.rdma.buf.size.min=" + minRdmaBufferSize + "KB");
 			}
-			LOG.warn("UDA: Not enough memory for rdma.buf.size=" + maxRdmaBufferSize + "KB");
+			LOG.warn("UDA: using calulated RDMA buffer size=" + rdmaBufferSize + "B (not aligned yet) instead of max size=" + maxRdmaBufferSize + "KB");
 		}		
 		LOG.info("UDA: number of segments to fetch: " + numMaps);
-		LOG.info("UDA: Passing to MofSupplier rdma.buf.size=" + rdmaBufferSize + "B  (not aligned to pagesize)");
+		LOG.info("UDA: Passing to C rdma.buf.size=" + rdmaBufferSize + "B  (before alignment to pagesize)");
 		
 		/* init variables */
 		init_kv_bufs(); 
@@ -191,7 +226,8 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(reduceId.toString());
 		mParams.add(jobConf.get("mapred.netmerger.hybrid.lpq.size", "0"));
 		mParams.add(Long.toString(rdmaBufferSize)); // in Bytes
-		mParams.add(Long.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment 
+		mParams.add(Long.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment			 
+		mParams.add(jobConf.getOutputKeyClass().getName());
 		
 	
 		String [] dirs = jobConf.getLocalDirs();
@@ -217,35 +253,28 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
             alg = jobConf.get("mapred.map.output.compression.codec", null);
 		}
 
-		LOG.info("dhi1. compression is " + compression);
-		LOG.info("dhi2. alg is " + alg);
+		LOG.info("compression is " + compression);
+		LOG.info("compression alg is " + alg);
 		mParams.add(alg); 
-//		mParams.add("bla"); 
-		
-//		String bufferSize="0";
 		
 		String bufferSize=Integer.toString(256*1024);
 		
 		if(alg!=null){
              if(alg.contains("lzo.LzoCodec")){
-                LOG.debug("dhi3. lzo");
                 bufferSize = jobConf.get("io.compression.codec.lzo.buffersize", bufferSize);
             }else if(alg.contains("SnappyCodec")){
-                LOG.debug("dhi3. snappy");
                 bufferSize = jobConf.get("io.compression.codec.snappy.buffersize", bufferSize);
-            }else{
-                LOG.debug("dhi3. default");
             }
         }
 		
 		mParams.add(bufferSize);
-		LOG.info("dhi3. bufferSize is " + bufferSize);
-		LOG.info("dhi4. array is " + mParams);
+		LOG.info("compression bufferSize is " + bufferSize);
+		LOG.info("mParams array is " + mParams);
 		LOG.info("UDA: sending INIT_COMMAND");    	  
 		String msg = UdaCmd.formCmd(UdaCmd.INIT_COMMAND, mParams);
 		UdaBridge.doCommand(msg);
 		this.mProgress = new Progress(); 
-		this.mProgress.set((float)(1/2));
+		this.mProgress.set(0.5f);
 	}
 
 //	public void sendFetchReq (MapOutputLocation loc) {
@@ -288,9 +317,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		if (mMapsCount >= this.mMapsNeed) {
 			/* wake up UdaShuffleConsumerPlugin */
 			if (LOG.isInfoEnabled()) LOG.info("fetchOverMessage: reached desired num of maps, waking up UdaShuffleConsumerPlugin"); 
-			synchronized(udaShuffleConsumer) {
-				udaShuffleConsumer.notify();
-			}
+				udaShuffleConsumer.notifyFetchCompleted();
 		}
 		if (LOG.isDebugEnabled()) LOG.debug("<< out fetchOverMessage"); 
 	}
@@ -340,6 +367,13 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		return mjobConf.get(paramName,defaultParam);
 	}
 
+	// callback from C++
+	public void failureInUda(){
+		udaShuffleConsumer.failureInUda(new UdaRuntimeException("Uda Failure in a C++ thread"));		
+	}
+
+	
+	
 	/* kv buf object, j2c_queue uses 
  the kv object inside.
 	 */
@@ -481,7 +515,12 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
 
 //*  The following is for MOFSupplier JavaSide. 
-class UdaPluginTT extends UdaPlugin {    
+class UdaPluginTT extends UdaPlugin {  
+	
+	static{
+		String logging_name = UdaPlugin.class.getName() + ".Provider";
+		prepareLog(logging_name);
+	}
 
 	private static TaskTracker taskTracker;
 	private Vector<String>     mParams       = new Vector<String>();
@@ -520,8 +559,6 @@ class UdaPluginTT extends UdaPlugin {
 		
 		mCmdParams.add("-s");
 		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
-		mCmdParams.add("-t");
-		mCmdParams.add(mjobConf.get("mapred.uda.log.tracelevel", "2"));
 
 	}
 
@@ -615,6 +652,13 @@ class UdaPluginTT extends UdaPlugin {
 	
 	
 
+}
+
+// Starting to unify code between all our plugins...
+class UdaPluginSH {
+	static DataPassToJni getPathIndex(String jobId, String mapId, int reduce){
+		return UdaPluginTT.getPathIndex(jobId, mapId, reduce);
+	}
 }
 
 

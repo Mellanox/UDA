@@ -6,7 +6,7 @@
 cd `dirname $0` # allow running the script from other dirs
 
 ver=`cat release | tr -d '\n'`
-revision=`svnversion -n`
+revision=`git rev-list HEAD | wc -l`
 if [  "`echo $revision | egrep ^[[:digit:]]+$`" = ""  ]; then
 	revision=`echo $revision | sed 's/\([0-9]*\).*/\1/'`d
 fi

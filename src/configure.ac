@@ -24,11 +24,11 @@ AC_PREFIX_DEFAULT([`pwd`/bin])
 AC_PROG_LIBTOOL
 AM_PROG_LIBTOOL
 
-USE_HADOOP_UTILS
+#USE_HADOOP_UTILS
 #HADOOP_RDMA_SETUP
-CHECK_INSTALL_CFLAG
+#CHECK_INSTALL_CFLAG
 
-define(ver_svn, esyscmd(svnversion -n .. ))
+define(ver_svn, esyscmd(git rev-list HEAD | wc -l ))
 define(vers, esyscmd(cat ../release | tr -d '\n'))
 syscmd(echo "version:"vers  > ../ver.txt)
 syscmd(echo "revison:"ver_svn >> ../ver.txt)

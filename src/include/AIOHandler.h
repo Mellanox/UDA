@@ -103,11 +103,6 @@ public:
 	 */
 	void setCompletionCallback(AioCallback callback);
 
-	/*
-	 * return the current number of submitted AIOs that wasn't completed yet AND it's callback wasn't processed yet
-	 */
-	int getOnAir() { return _onAirCounter; }
-
 
 };
 

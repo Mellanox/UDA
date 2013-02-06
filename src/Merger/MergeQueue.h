@@ -26,7 +26,7 @@
 #include <vector>
 #include <list>
 #include <string>
-
+#include "bullseye.h"
 #include <LinkList.h>
 #include <NetlevComm.h>
 
@@ -131,6 +131,7 @@ public:
         upHeap();
     }
 
+#if 0
     /**
      * Adds element to the PriorityQueue in log(size) time if either
      * the PriorityQueue is not full, or not lessThan(element, top()).
@@ -151,6 +152,7 @@ public:
             return false;
         }
     }
+#endif
 
     /** 
      * Returns the least element of the PriorityQueue in constant time. 
@@ -253,7 +255,10 @@ public:
     PriorityQueue<T> core_queue;
     T min_segment;
 public: 
-    size_t getQueueSize() { return num_of_segments; }
+	#if LCOV_HYBRID_MERGE_DEAD_CODE
+    	size_t getQueueSize() { return num_of_segments; }
+	#endif
+
     virtual ~MergeQueue(){}
     int        mergeq_flag;  /* flag to check the former k,v */
     RawKeyValueIterator* merge(int factor, int inMem, std::string &tmpDir);
@@ -336,11 +341,17 @@ public:
         
     }
 
-    MergeQueue(std::list<T> *segments){
-        this->mSegments = segments;
-        this->min_segment = NULL;
-    }
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
+		MergeQueue(std::list<T> *segments){
+			this->mSegments = segments;
+			this->min_segment = NULL;
+		}
 
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
 
 
 protected:

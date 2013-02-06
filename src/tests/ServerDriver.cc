@@ -21,6 +21,7 @@
 #include <pthread.h>
 #include "SenderModule/RoceRdmaServer.h"
 #include "MofSupplierModule/MofSupplier.h"
+#include <UdaUtil.h>
 
 typedef  void* (*threadFunc) (void *class_ptr);
 
@@ -55,7 +56,7 @@ void launchThread(pthread_t *t, threadFunc func, void *classPtr)
     pthread_attr_t attr;
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-    log(lsINFO, "CREATING THREAD"); pthread_create(t, &attr, func, classPtr);
+    uda_thread_create(t, &attr, func, classPtr);
 }
 
 int main()

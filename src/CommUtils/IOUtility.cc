@@ -29,6 +29,7 @@
 
 
 #include "IOUtility.h"
+#include "UdaBridge.h"
 
 
 using namespace std;
@@ -92,7 +93,6 @@ size_t DataStream::read(void *des, size_t len)
 {
     if ((this->pos + len) > this->count) {
         log(lsERROR,"DataStream: read out of bound");
-        print_backtrace("IDAN_StreamOutOfBound");
         return -1;
     }
     if (len == 0) return 0;
@@ -272,21 +272,21 @@ bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret,
 
 
 /**
-    * Serializes a long to a binary stream with zero-compressed encoding.
-    * For -112 <= i <= 127, only one byte is used with the actual value.
-    * For other values of i, the first byte value indicates whether the
-    * long is positive or negative, and the number of bytes that follow.
-    * If the first byte value v is between -113 and -120, the following long
-    * is positive, with number of bytes that follow are -(v+112).
-    * If the first byte value v is between -121 and -128, the following long
-    * is negative, with number of bytes that follow are -(v+120). Bytes are
-    * stored in the high-non-zero-byte-first order.
-    * */
+   * Serializes a long to a binary stream with zero-compressed encoding.
+   * For -112 <= i <= 127, only one byte is used with the actual value.
+   * For other values of i, the first byte value indicates whether the
+   * long is positive or negative, and the number of bytes that follow.
+   * If the first byte value v is between -113 and -120, the following long
+   * is positive, with number of bytes that follow are -(v+112).
+   * If the first byte value v is between -121 and -128, the following long
+   * is negative, with number of bytes that follow are -(v+120). Bytes are
+   * stored in the high-non-zero-byte-first order.
+   * */
 bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret, int *br) {
-    if (!stream.hasMore(1))
-       return false;
+	if (!stream.hasMore(1))
+		return false;
 
-    int digested = 0;
+	int digested = 0;
     int8_t b;
     if ((size_t)(-1) == stream.read(&b, 1)) {
         return false;
@@ -307,11 +307,10 @@ bool StreamUtility::deserializeLong(InStream &stream, int64_t &ret, int *br) {
         len = -112 - b;
     }
 
-    if (!stream.hasMore(len)) {
-    	stream.rewind(digested);
-    	return false;
-    }
-
+	if (!stream.hasMore(len)) {
+        stream.rewind(digested);
+		return false;
+	}
 
     uint8_t barr[len];
     if ((size_t)(-1) == stream.read(barr, len)) {
@@ -380,15 +379,34 @@ int StreamUtility::getVIntSize(int64_t i)
     return (dataBits + 7) / 8 + 1;
 }
 
+/**
+ * Parse the first byte of a vint/vlong to determine the number of bytes
+ * byteValue: value of the first byte of the vint/vlong
+ * return the total number of bytes (1 to 9)
+ */
+int StreamUtility::decodeVIntSize(int byteValue) {
+    if (byteValue >= -112)
+        return 1;
+    else if (byteValue < -120)
+        return -119 - byteValue;
+    else
+        return -111 - byteValue;
+}
+
 
 //------------------------------------------------------------------------------
 const char *rdmalog_dir = "default";
 static FILE *log_file = NULL;
 log_severity_t g_log_threshold = DEFAULT_LOG_THRESHOLD;
+static bool log_to_unique_file = false;
 
 //------------------------------------------------------------------------------
 void startLogNetMerger()
 {
+	// do not create unique log files if user configured standard Hadoop logging
+	if(!log_to_unique_file)
+		return;
+
 	log_file = NULL;
     char full_path[PATH_MAX];
 
@@ -410,6 +428,10 @@ void startLogNetMerger()
 //------------------------------------------------------------------------------
 void startLogMOFSupplier()
 {
+	// do not create unique log files if user configured standard Hadoop logging
+	if(!log_to_unique_file)
+		return;
+
 	log_file = NULL;
     char full_path[PATH_MAX];
 
@@ -443,26 +465,38 @@ void closeLog()
 }
 
 //------------------------------------------------------------------------------
-void print_backtrace(const char *label)
+std::string print_backtrace(const char *label, log_severity_t severity)
 {
 	char **strings;
 	void* _backtrace[25];
 	int backtrace_size = backtrace(_backtrace, 25);
 	strings = backtrace_symbols(_backtrace, backtrace_size);
-//	log(lsTRACE, "=== backtrace label=%s: size=%d caller=%s ", label, backtrace_size, strings[1]); // will catch even caller of inline functions too
-//*
-	log(lsTRACE, "=== label=%s: printing backtrace with size=%d", label, backtrace_size);
-	for (int i = 0; i < backtrace_size; i++)
-		log(lsTRACE, "=== label=%s: [%i] %s", label, i, strings[i]);
-//*/
+
+	string bt;
+	log(severity, "=== label=%s: printing backtrace with size=%d", label, backtrace_size);
+	for (int i = 1; i < backtrace_size; i++) {
+		log(severity, "=== label=%s: [%i] %s", label, i, strings[i]);
+
+		bt += "\n\t\t"; // this style will show fine in java log
+		bt += strings[i];
+	}
+
 	free(strings);
+	log(severity, "======== \n%s", bt.c_str());
+	return bt;
 }
 
 
 //------------------------------------------------------------------------------
 void log_set_threshold(log_severity_t _threshold)
 {
-	g_log_threshold = (lsNONE <= _threshold && _threshold <= lsALL) ? _threshold : DEFAULT_LOG_THRESHOLD;
+	g_log_threshold = (lsNONE <= _threshold && _threshold <= lsTRACE) ? _threshold : DEFAULT_LOG_THRESHOLD;
+}
+
+//
+void log_set_logging_mode(bool _log_to_unique_file)
+{
+	log_to_unique_file = _log_to_unique_file;
 }
 
 //------------------------------------------------------------------------------
@@ -470,41 +504,55 @@ void log_func(const char * func, const char * file, int line, log_severity_t sev
 {
 	if (severity <= lsNONE) return; //sanity (no need to check upper bound since we already checked threshold )
 
-    static const char *severity_string[] = {
-		"NONE",
-		"FATAL",
-		"ERROR",
-		"WARN",
-		"INFO",
-		"DEBUG",
-		"TRACE",
-		"ALL"
-    };
-
-    time_t _time = time(0);
-    struct tm _tm;
-    localtime_r(&_time, &_tm);
-
     const int SIZE = 1024;
     char s1[SIZE];
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(s1, SIZE, fmt, ap);
     va_end(ap);
-    s1[SIZE-1] = '\0';
 
-  fprintf(log_file, "%02d:%02d:%02d %-5s [thr=%x %s() %s:%d] %s\n",
-		  _tm.tm_hour,
-		  _tm.tm_min,
-		  _tm.tm_sec,
+    if(!log_to_unique_file)
+    {
+    	// log to the java
+        sprintf(s1, "%s (%s:%d)" ,s1, file, line);
+        s1[SIZE-1] = '\0';
+    	UdaBridge_invoke_logToJava_callback(s1, severity);
+    }
+    else
+    {
+    	time_t _time = time(0);
+    	struct tm _tm;
+    	localtime_r(&_time, &_tm);
 
-		  severity_string[severity],
+    	// log to uda's files
+        static const char *severity_string[] = {
+    		"NONE",
+    		"FATAL",
+    		"ERROR",
+    		"WARN",
+    		"INFO",
+    		"DEBUG",
+    		"TRACE"
+        };
+		fprintf(log_file, "%02d:%02d:%02d %-5s [thr=%x %s() %s:%d] %s\n",
+				  _tm.tm_hour, _tm.tm_min, _tm.tm_sec,
+				  severity_string[severity],
+				  (int)pthread_self(), func, file, line, s1);
 
-		  (int)pthread_self(), func, file, line,
-
-		  s1);
-    fflush(log_file);
+		fflush(log_file);
+    }
 }
+
+//------------------------------------------------------------------------------
+UdaException::UdaException(const char *info): _info(info){
+
+	string bt = print_backtrace(NULL, lsNONE);// no print - only return the bt
+	_fullMessage = "This is an UDA exception invoked from C++ with the following info: ";
+	_fullMessage += _info;
+	_fullMessage += "\n\tAnd with the following C++ stacktrace:";
+	_fullMessage += bt.c_str();
+}
+
 
 #if LCOV_AUBURN_DEAD_CODE
 /* FileStream class */

@@ -27,8 +27,7 @@ using namespace std;
 /* Parse param into a shuffle_req_t */
 shuffle_req_t* get_shuffle_req(const string &param)
 {
-    size_t start;
-    int end;
+    size_t start, end;
     shuffle_req_t *sreq = new shuffle_req_t();
     auto_ptr<shuffle_req_t> my_auto_ptr ( sreq );
 
@@ -76,7 +75,7 @@ OutputServer::OutputServer(int data_port, int mode, int rdma_buf_size,
 	this->data_port = data_port;
     this->rdma = NULL; 
     this->rdma_buf_size = rdma_buf_size;
-    this->tcp  = NULL;
+    //this->tcp  = NULL;    AUBURN_DEAD_CODE
     this->state = state;
     INIT_LIST_HEAD(&this->incoming_req_list);
 
@@ -88,6 +87,9 @@ OutputServer::OutputServer(int data_port, int mode, int rdma_buf_size,
     } */
 }
 
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
 OutputServer::~OutputServer()
 {
 	output_stdout("OutputServer: D'tor");
@@ -95,6 +97,10 @@ OutputServer::~OutputServer()
     pthread_mutex_destroy(&this->out_lock);
     pthread_cond_destroy(&this->in_cond);
 }
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
+
 
 
 void OutputServer::start_server()
@@ -103,11 +109,18 @@ void OutputServer::start_server()
     this->rdma->start_server();
 }
 
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
 void OutputServer::stop_server()
 {
     this->rdma->stop_server();
     delete this->rdma;
 }
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
+
 
 void OutputServer::insert_incoming_req(shuffle_req_t *req)
 {

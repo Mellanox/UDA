@@ -19,12 +19,18 @@
 CPATH=hadoop-core-1.1.0-SNAPSHOT.jar:commons-logging-1.1.1.jar 
 #CPATH=../hadoop-1.1.0-patched-v2/build/classes/:commons-logging-1.1.1.jar 
 
-all:
+TARGET=uda-hadoop-1.x.jar
+
+FILES=com/mellanox/hadoop/mapred/*.java org/apache/hadoop/mapred/*.java ../shared/com/mellanox/hadoop/mapred/*.java ../shared/org/apache/hadoop/mapred/*.java
+
+all: $(TARGET)
+
+$(TARGET):$(FILES)
 	rm -rf out
 	mkdir -p out
-	CLASSPATH=$(CPATH) javac -d out com/mellanox/hadoop/mapred/*.java
-	jar -cvf uda-hadoop-1.x.jar -C out com
+	CLASSPATH=$(CPATH) javac -d out -sourcepath ../shared/:. $(FILES)
+	jar -cvf $(TARGET) -C out com -C out org
 	rm -rf out
 
 clean:
-	rm -rf uda-hadoop-1.x.jar out
+	rm -rf $(TARGET) out

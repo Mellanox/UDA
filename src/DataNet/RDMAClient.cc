@@ -29,7 +29,9 @@
 #include <rdma/rdma_cma.h>
 
 #include "RDMAClient.h"
-#include "../include/IOUtility.h"
+#include "../Merger/InputClient.h"
+#include <IOUtility.h>
+#include <UdaUtil.h>
 using namespace std;
 
 extern int netlev_dbg_flag;
@@ -222,41 +224,48 @@ netlev_get_conn(unsigned long ipaddr, int port,
     sin.sin_port = htons(port);
 
     if (rdma_create_id(ctx->cm_channel, &cm_id, NULL, RDMA_PS_TCP) != 0) {
-    	log(lsFATAL, "rdma_create_id failed, (errno=%d %m)",errno);
+    	log(lsERROR, "rdma_create_id failed, (errno=%d %m)",errno);
+        throw new UdaException("rdma_create_id failed");
         return NULL;
     }
 
     if (rdma_resolve_addr(cm_id, NULL, (struct sockaddr*)&sin, NETLEV_TIMEOUT_MS)) {
-    	log(lsFATAL, "rdma_resolve_addr failed, (errno=%d %m)",errno);
+    	log(lsERROR, "rdma_resolve_addr failed, (errno=%d %m)",errno);
+        throw new UdaException("rdma_resolve_addr failed");
         return NULL;
     }
 
     if (rdma_get_cm_event(ctx->cm_channel, &event)) {
-    	log(lsFATAL, "rdma_get_cm_event failed, (errno=%d %m)",errno);
+    	log(lsERROR, "rdma_get_cm_event failed, (errno=%d %m)",errno);
+        throw new UdaException("rdma_get_cm_event failed");
         return NULL;
     }
 
 
     if (event->event != RDMA_CM_EVENT_ADDR_RESOLVED) {
         rdma_ack_cm_event(event);
-        log(lsFATAL, "unexpected CM event %d", event->event);
+        log(lsERROR, "unexpected CM event %d", event->event);
+        throw new UdaException("unexpected CM event ");
         return NULL;
     }
     rdma_ack_cm_event(event);
 
     if (rdma_resolve_route(cm_id, NETLEV_TIMEOUT_MS)) {
-    	log(lsFATAL, "rdma_resolve_route failed, (errno=%d %m)",errno);
+    	log(lsERROR, "rdma_resolve_route failed, (errno=%d %m)",errno);
+        throw new UdaException("rdma_resolve_route failed");
         return NULL;
     }
 
     if (rdma_get_cm_event(ctx->cm_channel, &event)) {
-    	log(lsFATAL, "rdma_get_cm_event failed, (errno=%d %m)",errno);
+    	log(lsERROR, "rdma_get_cm_event failed, (errno=%d %m)",errno);
+        throw new UdaException("rdma_get_cm_event failed");
         return NULL;
 	}
 
     if (event->event != RDMA_CM_EVENT_ROUTE_RESOLVED) {
         rdma_ack_cm_event(event);
-        log(lsERROR, "unexpected CM event %d", event->event);
+        log(lsWARN, "unexpected CM event %d", event->event);
+        //TODO: consider throw new UdaException("unexpected CM event ");
         return NULL;
     }
     rdma_ack_cm_event(event);
@@ -265,7 +274,8 @@ netlev_get_conn(unsigned long ipaddr, int port,
     if (!dev) {
         dev = (netlev_dev_t*) malloc(sizeof(netlev_dev_t));
         if (dev == NULL) {
-        	log(lsFATAL, "failed to allocate memory for netlev_dev");
+        	log(lsERROR, "failed to allocate memory for netlev_dev");
+            throw new UdaException("failed to allocate memory for netlev_dev");
             return NULL;
         }
         dev->ibv_ctx = cm_id->verbs; 
@@ -278,8 +288,8 @@ netlev_get_conn(unsigned long ipaddr, int port,
         list_for_each_entry(mem_pool, registered_mem, register_mem_list) {
             rc = netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
             if (rc) {
-                log(lsFATAL, "FATAL ERROR: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
-                exit(rc);
+                log(lsERROR, "UDA critical error: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
+                throw new UdaException("failure in netlev_init_rdma_mem");
             }
         }
 
@@ -338,7 +348,8 @@ netlev_get_conn(unsigned long ipaddr, int port,
         conn->returning = 0;
         rdma_ack_cm_event(event);
     } else {
-        log(lsFATAL, "client recv unknown event %d", event->event);
+        log(lsERROR, "client recv unknown event %d", event->event);
+        throw new UdaException("client recv unknown event");
         rdma_ack_cm_event(event);
         goto err_rdma_connect;
     }
@@ -373,13 +384,15 @@ RdmaClient::RdmaClient(int port, reduce_task_t* reduce_task)
     this->ctx.cm_channel = rdma_create_event_channel();
 
     if (!this->ctx.cm_channel)  {
-        log(lsFATAL, "rdma_create_event_channel failed, (errno=%d %m)",errno);
+        log(lsERROR, "rdma_create_event_channel failed, (errno=%d %m)",errno);
+        throw new UdaException("rdma_create_event_channel failed");
     }
 
     this->ctx.epoll_fd = epoll_create(4096);
 
     if (this->ctx.epoll_fd < 0) {
-    	log(lsFATAL, "cannot create epoll fd, (errno=%d %m)",errno);
+    	log(lsERROR, "cannot create epoll fd, (errno=%d %m)",errno);
+        throw new UdaException("cannot create epoll fd");
     }
 
     /* Start a new thread */
@@ -389,7 +402,7 @@ RdmaClient::RdmaClient(int port, reduce_task_t* reduce_task)
     th->pollfd = this->ctx.epoll_fd;
     pthread_attr_init(&th->attr);
     pthread_attr_setdetachstate(&th->attr, PTHREAD_CREATE_JOINABLE);
-    log(lsINFO, "CREATING THREAD"); pthread_create(&th->thread, &th->attr, event_processor, th);
+    uda_thread_create(&th->thread, &th->attr, event_processor, th);
 
     /* FIXME: 
      * When we consider disconnection we need to add 
@@ -425,7 +438,7 @@ RdmaClient::~RdmaClient()
 
     this->helper.stop = 1;
     pthread_attr_destroy(&this->helper.attr);
-    pthread_join(this->helper.thread, NULL); log(lsINFO, "THREAD JOINED");
+    pthread_join(this->helper.thread, NULL); log(lsDEBUG, "THREAD JOINED");
     //DBGPRINT(DBG_CLIENT, "RDMAClient is shut down \n");
 
     rdma_destroy_event_channel(this->ctx.cm_channel);
@@ -510,17 +523,12 @@ RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf_len
     uint64_t        addr;
     netlev_conn_t  *conn;
 
-//    int idx = freq->mop->staging_mem_idx;
-//    int idx = 0;
-
-
- //   addr = (uint64_t)((uintptr_t)(freq->mop->mop_bufs[idx]->buff));
     addr = (uint64_t)((uintptr_t)(buff));
 
     netlev_msg_t h;
 
     /* jobid:mapid:mop_offset:reduceid:mem_addr:req_prt:chunk_size */
-    msg_len = sprintf(h.msg,"%s:%s:%lld:%s:%llu:%llu:%ld",
+    msg_len = sprintf(h.msg,"%s:%s:%ld:%s:%lu:%lu:%d",
                       freq->info->params[1],
                       freq->info->params[2],
                       freq->mop->total_fetched_raw,
@@ -528,7 +536,6 @@ RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf_len
                       addr,
                       (uint64_t) freq,
                       buf_len);
-//                      freq->mop->mop_bufs[idx]->buf_len);
 
     conn = connect(freq->info->params[0], svc_port);
     if (!conn) return -1; //log was already issued inside connect

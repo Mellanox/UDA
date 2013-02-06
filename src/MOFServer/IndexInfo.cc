@@ -50,14 +50,17 @@ DataEngine::DataEngine(void *mem,
     timespec timeout;
     timeout.tv_nsec=AIOHANDLER_TIMEOUT_IN_NSEC;
     timeout.tv_sec=0;
-	output_stdout("AIO: creating new AIOHandler with maxevents=%d , min_nr=%d, nr=%d timeout=%ds %lus",AIOHANDLER_CTX_MAXEVENTS, AIOHANDLER_MIN_NR, AIOHANDLER_NR , timeout.tv_sec, timeout.tv_nsec );
+	log(lsDEBUG, "AIO: creating new AIOHandler with maxevents=%d , min_nr=%d, nr=%d timeout=%ds %lus",AIOHANDLER_CTX_MAXEVENTS, AIOHANDLER_MIN_NR, AIOHANDLER_NR , timeout.tv_sec, timeout.tv_nsec );
 	_aioHandler = new AIOHandler(aio_completion_handler, AIOHANDLER_CTX_MAXEVENTS, AIOHANDLER_MIN_NR , AIOHANDLER_NR, &timeout );
+	_thread_id=0;
 
 
 }
 
-
-void 
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
+void
 DataEngine::cleanup_tables()
 {
     pthread_mutex_lock(&_data_lock);
@@ -87,6 +90,9 @@ DataEngine::cleanup_tables()
     pthread_mutex_destroy(&this->_chunk_mutex);
     pthread_cond_destroy(&this->_chunk_cond);
 }
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
 
 void 
 DataEngine::prepare_tables(void *mem, 
@@ -115,12 +121,17 @@ DataEngine::prepare_tables(void *mem,
 
 }
 
-
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
 DataEngine::~DataEngine()
 {
     cleanup_tables();
     delete _aioHandler;
 }
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
 
 /**
  * 1. DataEngine pops out requests from global queue 
@@ -130,9 +141,10 @@ DataEngine::~DataEngine()
 void 
 DataEngine::start()
 {
+	_thread_id = pthread_self();
 	_aioHandler->start();
 
-	this->jniEnv = attachNativeThread();
+	this->jniEnv = UdaBridge_attachNativeThread();
 
     /* Wait on the arrival of new MOF files or shuffle requests */
     while (!this->stop) {

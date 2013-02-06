@@ -1,6 +1,37 @@
+#
+# UDA Change Log
+#
 
 
 ================================
-Version: 3.0.6-2 - 2013-01-10
+Version: 3.1.2-0 - 2013-01-17
 ================================
- [journal starts here]
+
+IMPROVEMENTS: 
+	#741: UDA log integration into Hadoop framework
+	#112510: fallback to vanilla on unsupported configuration, or on ANY error (before we started to load merged data)
+
+================================
+Version: 3.1.1-0 - 2012-12-18
+================================
+
+BUG FIXES: 
+	#111319 - posix_memalign failure on 1TB terasort because of int32 overrun calculation of total memory to use for shuffle
+
+
+================================
+Version: 3.1.0-0 - 2012-12-11
+================================
+
+IMPROVEMENTS: 
+	#104619 - Support HDP with UDA using a dedicated plugin-ability patch with UDA's existing hadoop-1.x plugin
+
+BUG FIXES: 
+	#98595 - TestDFSIO fails under UDA because of bug in compare function that happend with keys of different length
+
+
+================================
+Version: 3.0.6-0 - 2012-09-13
+================================
+[journal starts here]
+>>>>>>> master

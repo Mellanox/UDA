@@ -30,6 +30,7 @@
 #include "C2JNexus.h"
 #include "UdaBridge.h"
 #include "AIOHandler.h"
+#include "bullseye.h"
 
 
 
@@ -42,7 +43,7 @@
 
 
 extern merging_state_t merging_sm;
-extern JNIEnv *jniEnv;
+static JNIEnv *jniEnv;
 
         
 
@@ -167,7 +168,7 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *mer
 	// register our staging_buf as DirectByteBuffer for sharing with Java
 	mem_desc_t  *desc = merge_queue->staging_bufs[0];  // we only need 1 staging_bufs: TODO: remove the array
 	jobject jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
-	log(lsINFO, "GOT: desc=%p, jbuf=%p, address=%p, capacity=%d", desc, jbuf, desc->buff, desc->buf_len);
+	log(lsDEBUG, "GOT: desc=%p, jbuf=%p, address=%p, capacity=%d", desc, jbuf, desc->buff, desc->buf_len);
 
 
 	bool b = false;
@@ -204,28 +205,37 @@ void *merge_online (reduce_task_t *task)
 
 void *merge_thread_main (void *context)
 {
-    reduce_task_t *task = (reduce_task_t *) context;
-    MergeManager *manager = task->merge_man;
+    jniEnv = UdaBridge_attachNativeThread();
+    try{
+		reduce_task_t *task = (reduce_task_t *) context;
+		MergeManager *manager = task->merge_man;
 
-    int online = manager->online;
-    log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
+		int online = manager->online;
+		log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
 
-    jniEnv = attachNativeThread();
+		switch (online) {
+		case 0:
+			/* FIXME: on-disk merge*/
+			break;
+		case 1:
+			merge_online (task);
+			break;
+		case 2: default:
+			log(lsINFO, "using hybrid merge");
+	//		merge_hybrid (task); //commenting: for now it is dead code
+			break;
+		}
 
-	switch (online) {
-	case 0:
-		/* FIXME: on-disk merge*/
-		break;
-	case 1:
-		merge_online (task);
-		break;
-	case 2: default:
-		log(lsINFO, "using hybrid merge");
-//		merge_hybrid (task); //commenting: for now it is dead code
-		break;
-	}
-
-	log(lsDEBUG, "finished !!!");
+		log(lsDEBUG, "finished !!!");
+    }
+    catch(UdaException *ex) {
+		log(lsERROR, "got UdaException!");
+		UdaBridge_exceptionInNativeThread(jniEnv, ex);
+    }
+    catch(...) {
+		log(lsERROR, "got general Exception!");
+		UdaBridge_exceptionInNativeThread(jniEnv, NULL);
+    }
     return NULL;
 }
 
@@ -347,15 +357,6 @@ MergeManager::MergeManager(int threads, int online, struct reduce_task *task, in
             list_del(&merge_queue->staging_bufs[i]->list);
         }
         pthread_mutex_unlock(&task->kv_pool.lock);
-/*
-    	JNIEnv *jniEnv = attachNativeThread();
-        for (int i = 0; i < num_stage_mem; ++i) {
-        	mem_desc_t  *desc = merge_queue->staging_bufs[i];
-        	desc->jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
-        	log(lsINFO, "GOT: desc=%p, desc->jbuf=%p, address=%p, capacity=%d", desc, desc->jbuf, desc->buff, desc->buf_len);
-
-        }
-//*/
     }
 }
 
@@ -417,12 +418,14 @@ int MergeManager::mark_req_as_ready(client_part_req_t *req)
 
 void MergeManager::allocate_rdma_buffers(client_part_req_t *req)
 {
+	BULLSEYE_EXCLUDE_BLOCK_START
     if (!req->mop) {
     	req->mop = new MapOutput(this->task);
         req->mop->part_req = req;
         req->mop->fetch_count = 0;
         task->total_first_fetch += 1;
     }
+    BULLSEYE_EXCLUDE_BLOCK_END
 }
 
 
@@ -440,7 +443,6 @@ int MergeManager::start_fetch_req(client_part_req_t *req)
 		ret = task->client->start_fetch_req(req, req->mop->mop_bufs[req->mop->staging_mem_idx]->buff, req->mop->mop_bufs[req->mop->staging_mem_idx]->buf_len);
 	}
 
- //   int ret = task->client->start_fetch_req(req);
     if ( ret == 0 ) {
         if (req->mop->fetch_count == 0) {
             write_log(task->reduce_log, DBG_CLIENT,
@@ -472,6 +474,7 @@ MergeManager::~MergeManager()
     pthread_mutex_destroy(&lock);
     pthread_cond_destroy(&cond);
     
+    BULLSEYE_EXCLUDE_BLOCK_START
     if (merge_queue != NULL ) {
         pthread_mutex_lock(&task->kv_pool.lock);
         for (int i = 0; i < NUM_STAGE_MEM; ++i) {
@@ -486,6 +489,7 @@ MergeManager::~MergeManager()
         merge_queue->core_queue.clear(); //TODO: this should be moved into ~MergeQueue()
         delete merge_queue; 
     }
+    BULLSEYE_EXCLUDE_BLOCK_END
 }
 
 #if LCOV_HYBRID_MERGE_DEAD_CODE
@@ -500,8 +504,8 @@ int aio_lpq_write_completion_handler(void* data, int status) {
 		arg->fd = open(arg->filename, O_WRONLY);
 		if (arg->fd < 0)
 		{
-			log(lsFATAL, "Could not open file %s for writing last lpq output (without AIO), Aborting Task.", arg->filename);
-			throw "UDA Could not open file for writing";
+			log(lsERROR, "Could not open file %s for writing last lpq output (without AIO), Aborting Task.", arg->filename);
+			throw new UdaException("UDA Could not open file for writing");
 		}
 		lseek(arg->fd, arg->aligment_carry_fileOffset, SEEK_SET);
 		write(arg->fd, arg->aligment_carry_buff, arg->aligment_carry_size);
@@ -576,8 +580,8 @@ void merge_hybrid_lpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpq
 	int min_number_rdma_buffers = max(subsequent_fetch, num_to_fetch)*2;
 
     if (min_number_rdma_buffers > merging_sm.mop_pool.num){
-    	log(lsFATAL, "there are not enough rdma buffers! please allocate at least %d ", min_number_rdma_buffers);
-    	exit(-1);
+    	log(lsERROR, "there are not enough rdma buffers! please allocate at least %d ", min_number_rdma_buffers);
+        throw new UdaException("there are not enough rdma buffers!");
     }
 
     // allocating aligned buffer for staging mem
@@ -585,8 +589,8 @@ void merge_hybrid_lpq_phase(AIOHandler* aio, MergeQueue<BaseSegment*>* merge_lpq
     int total_stating_size = NUM_STAGE_MEM * LPQ_STAGE_MEM_SIZE;
     int rc = posix_memalign((void**)&staging_row_mem,  AIO_ALIGNMENT, total_stating_size);
     if (rc) {
-    	log(lsFATAL, "failed to allocate memory for LPQs stating buffer. posix_memalign failed: alignment=%d , total_size=%ll --> rc=%d %m", AIO_ALIGNMENT, total_stating_size, rc );
-        exit(-1);
+    	log(lsERROR, "failed to allocate memory for LPQs stating buffer. posix_memalign failed: alignment=%d , total_size=%ll --> rc=%d %m", AIO_ALIGNMENT, total_stating_size, rc );
+        throw new UdaException("failed to allocate memory for LPQs stating buffer. posix_memalign failed");
     }
 
     // creating one set of staging mem for all LPQs - TODO: on future non-blocking LPQs, will need a set of stating mem for each LPQ

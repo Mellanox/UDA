@@ -139,19 +139,9 @@ public:
                                 int &idx, int *br);
     static bool deserializeString(std::string &t, InStream &stream);
     static int  getVIntSize(int64_t );
+    static int 	decodeVIntSize(int byteValue);
+
 };
-
-/*log functions */ 
-void startLogNetMerger();
-void startLogMOFSupplier();
-void closeLog();
-#define output_stderr(...) log(lsERROR, __VA_ARGS__) // support for deprecated code
-#define output_stdout(...) log(lsINFO,  __VA_ARGS__) // support for deprecated code
-#define write_log(f, dbg, ...) log(lsDEBUG,  __VA_ARGS__) // support for deprecated code
-
-
-
-void print_backtrace(const char *label = NULL);
 
 // -- Avner: Here we start a fully fledged log facility --
 
@@ -164,20 +154,42 @@ enum log_severity_t {
 	lsINFO,
 	lsDEBUG,
 	lsTRACE,
-	lsALL,
 };
 
 
+/*log functions */
+// THE log macro that should be used everywhere...
+#define log(severity, ...) if (severity <= g_log_threshold) log_func(__func__, __FILE__, __LINE__, severity, __VA_ARGS__); else
 
 
+// log backtrace at the desired severity + 'return' value is the backtrace
+// TIP: use severity=lsNONE to skip log and only get ret value
+std::string print_backtrace(const char *label = NULL, log_severity_t severity = lsTRACE);
+
+
+
+class UdaException{
+	std::string _fullMessage;
+public:
+	const char *_info;
+	std::string & getFullMessage() {return _fullMessage;}
+	UdaException(const char *info);
+};
 
 const log_severity_t DEFAULT_LOG_THRESHOLD = lsINFO; // temporary backward compatibility for other developers...
 extern log_severity_t g_log_threshold;
 void log_set_threshold(log_severity_t _threshold);
+void log_set_logging_mode(bool _log_to_uda_file);
 void log_func(const char * func, const char * file, int line, log_severity_t severity, const char *fmt, ...); // should not be called directly
 
-// THE log macro that should be used everywhere...
-#define log(severity, ...) if (severity <= g_log_threshold) log_func(__func__, __FILE__, __LINE__, severity, __VA_ARGS__); else
+void startLogNetMerger();
+void startLogMOFSupplier();
+void closeLog();
+
+
+#define output_stderr(...) log(lsERROR, __VA_ARGS__) // support for deprecated code
+#define output_stdout(...) log(lsINFO,  __VA_ARGS__) // support for deprecated code
+#define write_log(f, dbg, ...) log(lsDEBUG,  __VA_ARGS__) // support for deprecated code
 
 
 #endif

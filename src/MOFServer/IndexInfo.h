@@ -84,8 +84,6 @@ typedef struct comp_mof_info
 } comp_mof_info_t;
 
 typedef struct supplier_state {
-    pthread_mutex_t  sm_lock;  /* lock for the global state machine */
-    pthread_cond_t   cond; ;   /* conditional signal for thread activation */
     DataEngine      *data_mac; /* data machine    */
     OutputServer    *mover;    /* Transport */
 } supplier_state_t;
@@ -167,9 +165,18 @@ public:
     /* XXX:Start the data engine thread for new requests and MOFs */
     void start();
 
+	#if _BullseyeCoverage
+		#pragma BullseyeCoverage off
+	#endif
+	pthread_t get_engine_pthread() { return _thread_id; }
+	#if _BullseyeCoverage
+		#pragma BullseyeCoverage on
+	#endif
+
 
 private:
-	AIOHandler* 		_aioHandler;
+    pthread_t 			_thread_id;
+    AIOHandler* 		_aioHandler;
     struct list_head    _free_chunks_list;
     chunk_t*			_chunks;
     pthread_cond_t      _chunk_cond;

@@ -316,7 +316,7 @@ void DecompressorWrapper::comp_fetch_req(client_part_req_t *req)
 
 
 void DecompressorWrapper::initJniEnv(){
-	this->jniEnv = attachNativeThread();
+	this->jniEnv = UdaBridge_attachNativeThread();
 
 }
 

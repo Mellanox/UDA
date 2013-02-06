@@ -36,7 +36,10 @@ uint32_t wqes_perconn = 256;
 supplier_state_t state_mac;
 
 
-void mof_downcall_handler(const std::string & msg)
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage off
+#endif
+const char * mof_downcall_handler(const std::string & msg)
 {
 
     /* 1. Extract the command from Java */
@@ -46,7 +49,7 @@ void mof_downcall_handler(const std::string & msg)
 	if(!(parse_hadoop_cmd(msg, hadoop_cmd)))
 	{
 		log(lsWARN, "Hadoop's command  - %s could not be parsed", msg.c_str());
-		return;
+		return "C++ could not parse Hadoop command";
 	}
 
     log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd.count - 1, (int)hadoop_cmd.header);
@@ -64,20 +67,27 @@ void mof_downcall_handler(const std::string & msg)
 
     	/* Stop all threads */
 
-         /* rdma listening thread*/
-         state_mac.mover->rdma->helper.stop = 1;
+		/* rdma listening thread*/
+        state_mac.mover->stop_server();
+        log(lsDEBUG, "after output server stop");
 
          /* the DataEngine threads */
          state_mac.data_mac->stop = 1;
-         pthread_mutex_lock(&state_mac.sm_lock);
-         pthread_cond_broadcast(&state_mac.cond);
-         pthread_mutex_unlock(&state_mac.sm_lock);
-
+         pthread_mutex_lock(&state_mac.mover->in_lock);
          pthread_cond_broadcast(&state_mac.mover->in_cond);
+         pthread_mutex_unlock(&state_mac.mover->in_lock);
+
+         pthread_t th_id = state_mac.data_mac->get_engine_pthread();
+         if (th_id)
+        	 pthread_join(th_id, NULL);
     }
 
     free_hadoop_cmd(hadoop_cmd);
+    return NULL;
 }
+#if _BullseyeCoverage
+	#pragma BullseyeCoverage on
+#endif
 
 int MOFSupplier_main(int argc, char *argv[])
 {
@@ -88,7 +98,8 @@ int MOFSupplier_main(int argc, char *argv[])
     ret = parse_options(argc, argv, &op);
     
     startLogMOFSupplier();
-  
+    
+    /* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
     log (lsINFO, "The version is %s",STR(VERSION_UDA));
     log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
 
@@ -107,8 +118,6 @@ int MOFSupplier_main(int argc, char *argv[])
 	}
 
     memset(&state_mac, 0, sizeof(supplier_state_t));
-    pthread_mutex_init(&state_mac.sm_lock, NULL);
-    pthread_cond_init(&state_mac.cond, NULL);
 
     /* Create an OutputServer
      * -- an event-driven thread responsible for
@@ -140,6 +149,9 @@ int MOFSupplier_main(int argc, char *argv[])
 
 extern "C" void * MOFSupplierRun(void *) {
 
+JNIEnv *jniEnv = UdaBridge_attachNativeThread();
+try{
+
     log (lsDEBUG, "state_mac.data_mac->rdma_buf_size is %d", state_mac.data_mac->rdma_buf_size);
     state_mac.data_mac->start();
 
@@ -147,15 +159,18 @@ extern "C" void * MOFSupplierRun(void *) {
     delete state_mac.mover;
     delete state_mac.data_mac;
 
-    pthread_mutex_destroy(&state_mac.sm_lock);
-    pthread_cond_destroy(&state_mac.cond);
-
     log (lsINFO, "==================  C++ 'main' thread exited ======================");
     closeLog();
 
-    /* if (op.base_path) { 
-        free(op.base_path);
-    } */
+}
+catch(UdaException *ex) {
+	log(lsERROR, "got UdaException!");
+	UdaBridge_exceptionInNativeThread(jniEnv, ex);
+}
+catch(...) {
+	log(lsERROR, "got general Exception!");
+	UdaBridge_exceptionInNativeThread(jniEnv, NULL);
+}
 
     return 0;
 }

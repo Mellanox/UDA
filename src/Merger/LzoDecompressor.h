@@ -13,6 +13,7 @@
 #include "../DataNet/RDMAClient.h"
 #include <dlfcn.h>
 #include "../DataNet/RDMAComm.h"
+#include "DecompressorWrapper.h"
 
 #include <lzo/lzo1.h>
 #include <lzo/lzo1a.h>

@@ -58,7 +58,7 @@ static void usage(const char *cmd)
     printf("  -h | --help              "
                    "    Display this help and exit\n\n");
    
-    exit(1);
+	throw new UdaException("bad usage");
 }
 
 int parse_options(int argc, char *argv[], netlev_option_t *op) 
@@ -143,7 +143,7 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         case 'v':
         	printf("Version is %s\n",STR(VERSION_UDA));
         	printf("Compiled on %s, %s\n", __DATE__, __TIME__);
-        	exit (1);
+        	exit (0);
         case 'h':
             usage(argv[0]);
         default: 
@@ -185,8 +185,8 @@ bool parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
      * format of command from hadoop:
      * "no of (header+params):header:param1:param2:..."
      */
-    size_t start;
-    int i, end;
+    size_t start, end;
+    int i;
 
     start = end = i = 0;
     cmd_struct.params = NULL;
@@ -235,6 +235,10 @@ bool parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
 
 void *event_processor(void *context)
 {
+
+JNIEnv *jniEnv = UdaBridge_attachNativeThread();
+try{
+
     int i, nevents, timeout = RDMA_TIMEOUT * 1000;
     struct epoll_event events[32];
 
@@ -252,7 +256,7 @@ void *event_processor(void *context)
         if (nevents < 0) {
             if (errno != EINTR) {
             	log(lsERROR, "pollfd=%d: epoll_wait failed for with ret=%d (errno=%d: %m)", th->pollfd, nevents, errno);
-                pthread_exit(NULL);  // TODO: consider exit
+                pthread_exit(NULL);  // TODO: consider exit, OR throw new UdaException("failure in epoll_wait");
             }
         } else if (nevents) {
             for (i = 0; i < nevents; i++) {
@@ -265,6 +269,16 @@ void *event_processor(void *context)
         } 
     }
 	log(lsINFO, "-------->>>>> event_processor thread stopped <<<<<--------");
+}
+catch(UdaException *ex) {
+	log(lsERROR, "got UdaException!");
+	UdaBridge_exceptionInNativeThread(jniEnv, ex);
+}
+catch(...) {
+	log(lsERROR, "got general Exception!");
+	UdaBridge_exceptionInNativeThread(jniEnv, NULL);
+}
+
     return NULL; //quite the compiler
 }
 

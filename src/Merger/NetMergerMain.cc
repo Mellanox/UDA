@@ -28,37 +28,35 @@
 #include "Merger/DummyDecompressor.cc"
 #include "Merger/reducer.h"
 #include "include/IOUtility.h"
-
+#include "CompareFunc.h"
 using namespace std;
 
 
 int netlev_dbg_flag = 0;
 uint32_t wqes_perconn = 256;
 
-JNIEnv *jniEnv;
-
 
 /* merger state machine */
 merging_state_t merging_sm;
 
+hadoop_cmp_func g_cmp_func;
 
 
 int MergeManager_main(int argc, char* argv[])
 {
-    log (lsDEBUG, "TEST early print should go to 'real' stderr");
-
 	int  ret;
     struct netlev_option op;
     ret = parse_options(argc, argv, &op);
 
     startLogNetMerger();
 
-	log(lsINFO, "======== pid=%d ========", getpid() );
+	log(lsDEBUG, "======== pid=%d ========", getpid() );
 
+    /* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
     log (lsINFO, "UDA version is %s",STR(VERSION_UDA));
     log (lsINFO, "Compiled on the %s, %s\n", __DATE__, __TIME__);
 
-    log (lsDEBUG, "size of rdma buffer as passed from java is %d\n", op.buf_size);
+    log (lsINFO, "size of rdma buffer as passed from java is %d\n", op.buf_size);
 
     /* initalize merging_sm */
     memset(&merging_sm, 0, sizeof(merging_state_t));

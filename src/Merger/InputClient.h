@@ -53,12 +53,6 @@ public:
     virtual void comp_fetch_req(struct client_part_req *req) = 0;
     virtual RdmaClient* getRdmaClient() = 0;
 
-    /* port for data movement between client and server.  */
-//    int                     data_port;
-
-//    RdmaClient             *rdma;
-//    TcpClient              *tcp;
- //   struct merging_state   *state;
 
 };
 #endif

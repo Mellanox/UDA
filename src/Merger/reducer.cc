@@ -38,9 +38,10 @@
 #include "IOUtility.h"
 #include "C2JNexus.h"
 #include "../DataNet/RDMAClient.h"
-#include "DummyDecompressor.cc"
 #include "LzoDecompressor.cc"
 #include "SnappyDecompressor.cc"
+#include "CompareFunc.h"
+#include <UdaUtil.h>
 
 using namespace std;
 
@@ -54,43 +55,28 @@ static void init_reduce_task(struct reduce_task *task);
 
 reduce_task_t * g_task;
 
-void reduce_downcall_handler(const string & msg)
+void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 {
-	client_part_req_t   *req;
-	hadoop_cmd_t        *hadoop_cmd;
+	static const int DIRS_START = 7;
 	int rc;
 
-	hadoop_cmd = (hadoop_cmd_t*) malloc(sizeof(hadoop_cmd_t));
-	memset(hadoop_cmd, 0, sizeof(hadoop_cmd_t));
+	assert (hadoop_cmd->count -1 > 2); // sanity under debug
+	g_task->num_maps = atoi(hadoop_cmd->params[0]);
+	g_task->job_id = strdup(hadoop_cmd->params[1]);
+	g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
+	g_task->lpq_size = atoi(hadoop_cmd->params[3]);
+	int buffer_size_from_java = atoi(hadoop_cmd->params[4]); // unaligned to pagesize
+	g_task->buffer_size = buffer_size_from_java - buffer_size_from_java % getpagesize(); // alignment to pagesize
+	int minBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
+	log(lsINFO, "set C compare function according to java key class: %s",  hadoop_cmd->params[6]);
+	g_cmp_func = get_compare_func(hadoop_cmd->params[6]); // set compare func using Java's key type name
 
-	/* if hadoop command could not be parsed correctly */
-	if(!parse_hadoop_cmd(msg, *hadoop_cmd))
-	{
-		log(lsWARN, "Hadoop's command  - %s could not be parsed", msg.c_str());
-		free_hadoop_cmd(*hadoop_cmd);
-		free(hadoop_cmd);
-		return;
+	if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minBuffer) ) {
+		log(lsERROR, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minBuffer);
+		throw new UdaException("RDMA Buffer is too small");
 	}
-	log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd->count - 1, (int)hadoop_cmd->header);
 
-	static const int DIRS_START = 6;
-	switch (hadoop_cmd->header) {
-	case INIT_MSG: {
-		assert (hadoop_cmd->count -1 > 2); // sanity under debug
-		g_task->num_maps = atoi(hadoop_cmd->params[0]);
-		g_task->job_id = strdup(hadoop_cmd->params[1]);
-		g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
-		g_task->lpq_size = atoi(hadoop_cmd->params[3]);
-		int buffer_size_from_java = atoi(hadoop_cmd->params[4]); // unaligned to pagesize
-		g_task->buffer_size = buffer_size_from_java - buffer_size_from_java % getpagesize(); // alignment to pagesize
-		int minBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
-
-		if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minBuffer) ) {
-			log(lsFATAL, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minBuffer);
-			exit(-1);
-		}
-
-		int num_dirs =DIRS_START;
+int num_dirs =DIRS_START;
 
 		if (hadoop_cmd->count -1  > DIRS_START) {
 			assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
@@ -109,7 +95,7 @@ void reduce_downcall_handler(const string & msg)
 			}
 		}
 
-		char* comp = strdup(hadoop_cmd->params[DIRS_START + 1 + num_dirs]);
+    char* comp = strdup(hadoop_cmd->params[DIRS_START + 1 + num_dirs]);
 		if(strcmp(comp,"com.hadoop.compression.lzo.LzoCodec")==0){
 			g_task->compr_alg = compLzo;
 		}else if(strcmp(comp,"org.apache.hadoop.io.compress.SnappyCodec")==0){
@@ -118,39 +104,35 @@ void reduce_downcall_handler(const string & msg)
 			g_task->compr_alg = compOff;
 		}else{
 			log(lsERROR, "compression not supported");
-			throw "compression not supported";
+			throw new UdaException("compression not supported");
 		}
 
 		g_task->block_size = atoi(hadoop_cmd->params[DIRS_START + 2 + num_dirs]);
 
-		log(lsDEBUG, " block_size for compression is %d", g_task->block_size);
+		log(lsINFO, " block_size for compression is %d", g_task->block_size);
 
 		createCompressionClient();
 
 		g_task->client->start_client();
 		log(lsINFO, " AFTER INPUT CLIENT CREATION");
 
-		// init map output memory pool
-		memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
-		int numBuffers = g_task->num_maps + EXTRA_RDMA_BUFFERS; //the buffers will be allocated in pairs
+	// init map output memory pool
+    memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
+	int numBuffers = g_task->num_maps + EXTRA_RDMA_BUFFERS; //the buffers will be allocated in pairs
 		log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
 
-		//TODO: katya what if it is gzip??? add what if buffer size is smaller than block size*1.25
-		if (!g_task->isCompressionOn()) {//if not compression
+	if (!g_task->isCompressionOn()) {//if not compression
 			log(lsINFO, "init compression not configured: allocating 2 buffers of same size = %d",g_task->buffer_size);
 			rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,
 										numBuffers,
 										&merging_sm.mop_pool);
-
-		}else{
+	}else{
 			log(lsINFO, "init compression configured: allocating 2 buffers of different size");
 			int tempComp = g_task->block_size*2;
 			int tempRdma = g_task->buffer_size*2;
 			if(tempRdma - minBuffer - tempComp <= 0)
 			{
 				log(lsERROR, "not enough memory to allocate buffers. rdma buffer size=%d, comp block size=%d",g_task->block_size,g_task->buffer_size);
-				throw "not enough memory to allocate buffers";
-
 			}else if(g_task->buffer_size>=tempComp){
 				rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,
 											numBuffers,
@@ -162,26 +144,59 @@ void reduce_downcall_handler(const string & msg)
 										&merging_sm.mop_pool);
 				log(lsINFO, "init compression configured. allocating rdma buff=%d, cyclic buff=%d",tempRdma-tempComp,tempComp);
 			}
-		}
-
-		if (rc) {
-			log(lsFATAL, "failed to create Map Output memory pool");
+	}
+	if(rc){
+			log(lsERROR, "failed to create Map Output memory pool");
 			free_hadoop_cmd(*hadoop_cmd);
 			free(hadoop_cmd);
-			exit(-1);
+			throw new UdaException("failed to create Map Output memory pool");
 		}
 
-		// register RDMA buffers
-		g_task->client->getRdmaClient()->register_mem(&merging_sm.mop_pool);
-	//	log(lsINFO, " After RDMA buffers registration (%d buffer pairs X (%d + %d) bytes each pair= total %lld bytes)", numBuffers, g_task->block_size, g_task->buffer_size*2 - g_task->block_size, merging_sm.mop_pool.total_size);
+    // register RDMA buffers
+	g_task->client->getRdmaClient()->register_mem(&merging_sm.mop_pool);
+	/* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
+    log(lsINFO, " After RDMA buffers registration (%d buffers X %d bytes = total %lld bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
 
+	init_reduce_task(g_task);
+}
 
+const char * reduce_downcall_handler(const string & msg)
+{
+	client_part_req_t   *req;
+	hadoop_cmd_t        *hadoop_cmd;
+	
 
+	hadoop_cmd = (hadoop_cmd_t*) malloc(sizeof(hadoop_cmd_t));
+	memset(hadoop_cmd, 0, sizeof(hadoop_cmd_t));
 
-
-		init_reduce_task(g_task);
+	/* if hadoop command could not be parsed correctly */
+	if(!parse_hadoop_cmd(msg, *hadoop_cmd))
+	{
+		log(lsWARN, "Hadoop's command  - %s could not be parsed", msg.c_str());
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
+		return "C++ could not parse Hadoop command";
+	}
+	log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd->count - 1, (int)hadoop_cmd->header);
+
+	switch (hadoop_cmd->header) {
+	case INIT_MSG: {
+		try {
+			handle_init_msg(hadoop_cmd);
+			free_hadoop_cmd(*hadoop_cmd);
+			free(hadoop_cmd);
+		BULLSEYE_EXCLUDE_BLOCK_START
+		}
+		catch (UdaException *ex) {
+			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to Hadoop's default shuffle plugin (with exMsg=%s)", ex->_info);
+			throw ex; //re-throw
+		}
+
+		catch (...) {
+			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to mapred default shuffle plugin");
+			throw new UdaException("Failure during UDA Initialization");
+		}
+		BULLSEYE_EXCLUDE_BLOCK_END
 		break;
 	}
 	case FETCH_MSG:
@@ -190,55 +205,17 @@ void reduce_downcall_handler(const string & msg)
 		 * 2. map from the hostid to its request list
 		 * 3. lock the list and insert the new request
 		 */
-		//string hostid = hadoop_cmd->params[0];
-
-		/* map<string, host_list_t *>::iterator iter;
-        host = NULL;
-        bool is_new = false;
-
-            pthread_mutex_lock(&g_task->lock);
-            iter = g_task->hostmap->find(hostid);
-            if (iter == g_task->hostmap->end()) {
-            host = (host_list_t *) malloc(sizeof(host_list_t));
-            pthread_mutex_init(&host->lock, NULL);
-            INIT_LIST_HEAD(&host->todo_fetch_list);
-            host->hostid = strdup(hostid.c_str());
-                (*(g_task->hostmap))[hostid] = host;
-            is_new = true;
-        } else {
-            host = iter->second;
-        }
-            pthread_mutex_unlock(&g_task->lock); */
 
 		/* Insert a segment request into the list */
 		req = (client_part_req_t *) malloc(sizeof(client_part_req_t));
 		memset(req, 0, sizeof(client_part_req_t));
 		req->info = hadoop_cmd;
-		/* req->host = host; */
-//		req->total_len = 0;
-//		req->last_fetched = 0;
 		req->mop = NULL;
-	//	req->bytes_in_air = 0;
-		req->request_in_queue = false;
 		pthread_mutex_lock(&g_task->merge_man->lock);
 		g_task->merge_man->fetch_list.push_back(req);
 
 		pthread_cond_broadcast(&g_task->merge_man->cond);
 		pthread_mutex_unlock(&g_task->merge_man->lock);
-
-		/* pthread_mutex_lock(&host->lock);
-        list_add_tail(&req->list, &host->todo_fetch_list);
-        pthread_mutex_unlock(&host->lock);
-
-            pthread_mutex_lock(&g_task->fetch_man->send_req_lock);
-        if (is_new) {
-                list_add_tail(&host->list, &g_task->fetch_man->send_req_list);
-        }
-            g_task->fetch_man->send_req_count++;
-            pthread_mutex_unlock(&g_task->fetch_man->send_req_lock);*/
-
-		/* wake up fetch thread */
-		//pthread_cond_broadcast(&g_task->cond);
 
 		write_log(g_task->reduce_log, DBG_CLIENT,
 				"Got 1 more fetch request, total is %d",
@@ -261,14 +238,16 @@ void reduce_downcall_handler(const string & msg)
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
 		break;
-
+	BULLSEYE_EXCLUDE_BLOCK_START
 	default:
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
 		break;
 	}
+	BULLSEYE_EXCLUDE_BLOCK_END
 
 	log(lsDEBUG, "<<<=== HANDLED COMMAND FROM JAVA SIDE");
+	return NULL;
 }
 
 
@@ -278,10 +257,8 @@ void init_mem_desc(mem_desc_t *desc, char *addr, int32_t buf_len){
         desc->status = INIT;
         desc->start = 0;
         desc->end = 0;
-       // desc->free_bytes = buf_len;
         pthread_mutex_init(&desc->lock, NULL);
         pthread_cond_init(&desc->cond, NULL);
-
 }
 
 
@@ -302,10 +279,12 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool) //similar to the ol
     log (lsDEBUG, "buffer length is %d, pool->total_size is %d\n", buf_len, pool->total_size);
     
     int rc = posix_memalign((void**)&pool->mem,  pagesize, pool->total_size);
-    if (rc) {
+    BULLSEYE_EXCLUDE_BLOCK_START
+	if (rc) {
     	log(lsERROR, "Failed to memalign. aligment=%d size=%ll , rc=%d", pagesize ,pool->total_size, rc );
         return -1;
     }
+    BULLSEYE_EXCLUDE_BLOCK_END
 
     log(lsDEBUG,"memalign successed - %lld bytes", pool->total_size);
     memset(pool->mem, 0, pool->total_size);
@@ -395,7 +374,7 @@ static void init_reduce_task(struct reduce_task *task)
     pthread_attr_init(&task->merge_thread.attr);
     pthread_attr_setdetachstate(&task->merge_thread.attr, 
                                 PTHREAD_CREATE_JOINABLE); 
-    log(lsINFO, "CREATING THREAD"); pthread_create(&task->merge_thread.thread,
+    uda_thread_create(&task->merge_thread.thread,
                    &task->merge_thread.attr, 
                    merge_thread_main, task);
 }
@@ -414,11 +393,13 @@ void spawn_reduce_task()
     /* init large memory pool for merged kv buffer */
     memset(&g_task->kv_pool, 0, sizeof(memory_pool_t));
     netlev_kv_pool_size  = 1 << NETLEV_KV_POOL_EXPO;
-    if (create_mem_pool(netlev_kv_pool_size, NUM_STAGE_MEM, &g_task->kv_pool)) {
-    	log(lsFATAL, "failed to create memory pool for reduce g_task for merged kv buffer");
-    	exit(-1);
-    }
 
+    BULLSEYE_EXCLUDE_BLOCK_START
+    if (create_mem_pool(netlev_kv_pool_size, NUM_STAGE_MEM, &g_task->kv_pool)) {
+    	log(lsERROR, "failed to create memory pool for reduce g_task for merged kv buffer");
+    	throw new UdaException("failed to create memory pool for reduce g_task for merged kv buffer");
+    }
+    BULLSEYE_EXCLUDE_BLOCK_END
     /* report success spawn to java */
 //    g_task->nexus->send_int((int)RT_LAUNCHED);
 }
@@ -443,12 +424,6 @@ void final_cleanup(){
     free(merging_sm.mop_pool.mem);
     log (lsDEBUG, "mop pool is freed");
 
-//    merging_sm.client->stop_client();
-//    log (lsDEBUG, "RDMA client is stoped");
-
-//    delete merging_sm.client;
- //   log (lsDEBUG, "RDMA client is deleted");
-
     log (lsDEBUG, "finished all C++ threads");
 }
 
@@ -458,19 +433,6 @@ void finalize_reduce_task(reduce_task_t *task)
    /* for measurement please enable the codes and set up your directory */
 	log(lsINFO, "-------------- STOPING REDUCER ---------");
 
-/*
- Avner: no one has ever updated this counters
-
-    write_log(task->reduce_log, DBG_CLIENT, 
-              "Total merge time: %d",  
-              task->total_merge_time);
-    write_log(task->reduce_log, DBG_CLIENT, 
-              "Total upload time: %d", 
-              task->total_upload_time);
-    write_log(task->reduce_log, DBG_CLIENT, 
-              "Total fetch time: %d",
-              task->total_fetch_time);
-//*/
     write_log(task->reduce_log, DBG_CLIENT,
               "Total wait  time: %d", 
               task->total_wait_mem_time);
@@ -481,22 +443,11 @@ void finalize_reduce_task(reduce_task_t *task)
     pthread_cond_broadcast(&task->merge_man->cond);
     pthread_mutex_unlock(&task->merge_man->lock);
 	log(lsDEBUG, "<< before joining merge_thread");
-    pthread_join(task->merge_thread.thread, NULL); log(lsINFO, "THREAD JOINED");
-	log(lsINFO, "-------------->>> merge_thread has joined <<<<------------");
+    pthread_join(task->merge_thread.thread, NULL); log(lsDEBUG, "THREAD JOINED");
+	log(lsDEBUG, "-------------->>> merge_thread has joined <<<<------------");
 
     delete task->merge_man;
    
-    /* delete map */
-    /* map <string, host_list_t*>::iterator iter =
-        task->hostmap->begin();
-    while (iter != task->hostmap->end()) {
-        free((iter->second)->hostid);
-        free(iter->second);
-        iter++;
-    }
-    delete task->hostmap;
-    DBGPRINT(DBG_CLIENT, "host lists and map are freed\n"); */
-
     /* free large pool */
 	int rc=0;
     log(lsTRACE, ">> before free pool loop");

@@ -24,7 +24,7 @@ AM_LDFLAGS = -rdynamic
 JDK = $(JAVA_HOME)
 AM_CPPFLAGS = $(INCLUDE_DIR) -I$(top_srcdir) -I. -I$(top_srcdir)/include \
 			  -I$(JDK)/include -I$(JDK)/include/linux \
-			  -Wall -O3 -g -D_GNU_SOURCE
+			  -Wall -Wno-invalid-offsetof -O3 -g -D_GNU_SOURCE
 
 # Specify the source files for a library
 # Append additional directory to the end of this list
@@ -39,6 +39,7 @@ libuda_la_SOURCES = \
 						include/MemCache.h       \
 						include/NetlevComm.h     \
 						include/AIOHandler.h     \
+						include/UdaUtil.h     \
 						MOFServer/IndexInfo.h    \
 					   	MOFServer/MOFServlet.h \
 					   	MOFServer/IndexInfo.cc  \
@@ -56,6 +57,7 @@ libuda_la_SOURCES = \
                         CommUtils/atomic.cc \
                         CommUtils/C2JNexus.cc \
 						CommUtils/AIOHandler.cc    \
+						CommUtils/UdaUtil.cc    \
 					    Merger/MergeManager.h \
 					    Merger/MergeManager.cc \
 						Merger/StreamRW.h \
@@ -67,6 +69,8 @@ libuda_la_SOURCES = \
                         Merger/NetMergerMain.cc \
 						Merger/DecompressorWrapper.h \
 						Merger/DecompressorWrapper.cc \
+						Merger/CompareFunc.h \
+                        Merger/CompareFunc.cc \
                         UdaBridge.cc 
 
 libuda_la_LIBADD =  -lpthread -libverbs -lrdmacm -laio

@@ -37,6 +37,7 @@
 #include "StreamRW.h"
 #include "IOUtility.h"
 #include "reducer.h"
+#include "bullseye.h"
 
 using namespace std;
 
@@ -48,9 +49,7 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
 
     bytes_write = 0;
     key_len = val_len = kbytes = vbytes = 0;
-    log(lsINFO, ">>>> started");
-
-    int i = 0;
+    log(lsDEBUG, ">>>> started");
 
     while (records->next()) {
     	 if (records->min_segment->get_task()->isCompressionOn()){
@@ -70,10 +69,12 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
 		key_len = records->get_key_len();
 		val_len = records->get_val_len();
 
+		BULLSEYE_EXCLUDE_BLOCK_START
         if (key_len < 0 || val_len < 0) {
             log(lsERROR, "key_len or val_len < 0");
             return true;
         }
+        BULLSEYE_EXCLUDE_BLOCK_END
 
 		/* check if the entire <k,v> can be written into mem */
         kbytes = records->get_key_bytes();
@@ -83,7 +84,7 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
         if ( record_len + bytes_write > len ) {
             total_write = bytes_write;
             records->mergeq_flag = 1;
-            log(lsINFO, "return false because record_len + bytes_write > len");
+            log(lsDEBUG, "return false because record_len + bytes_write > len");
             return false;
         }
 
@@ -103,7 +104,7 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     if (record_len + bytes_write > len) {
         total_write = bytes_write;
         records->mergeq_flag = 1;
-        log(lsINFO, "return false because record_len + bytes_write > len");
+        log(lsDEBUG, "return false because record_len + bytes_write > len");
         return false;
     }
 
@@ -114,7 +115,7 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
 	bytes_write += record_len;
 
 	total_write = bytes_write;
-    log(lsINFO, "<<<< finished");
+    log(lsDEBUG, "<<<< finished");
     return true;
 }
 
@@ -134,6 +135,7 @@ bool write_kv_to_mem(MergeQueue<BaseSegment*> *records, char *src, int32_t len,
 Segment::Segment(MapOutput *mapOutput) :
 	BaseSegment(mapOutput) {
 	this->map_output = mapOutput;
+	BULLSEYE_EXCLUDE_BLOCK_START
 	if (mapOutput) {
 		mem_desc_t *mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
 
@@ -143,11 +145,11 @@ Segment::Segment(MapOutput *mapOutput) :
 			this->in_mem_data->reset(mem->buff, mapOutput->last_fetched);
 		}
 	}
-
+	BULLSEYE_EXCLUDE_BLOCK_END
 }
 /*  The following is for class Segment */
 BaseSegment::BaseSegment(KVOutput *kvOutput) {
-	log(lsDEBUG, "IDAN BaseSegment CTOR this=%llu", (uint64_t)this);
+	log(lsDEBUG, "BaseSegment CTOR this=%llu", (uint64_t)this);
     this->eof = false;
     this->temp_kv = NULL;
     this->temp_kv_len = 0;
@@ -169,7 +171,7 @@ BaseSegment::BaseSegment(KVOutput *kvOutput) {
     else {
     	this->in_mem_data = NULL;
     }
-	log(lsDEBUG, "IDAN BaseSegment CTOR finished this=%llu", (uint64_t)this);
+	log(lsDEBUG, "BaseSegment CTOR finished this=%llu", (uint64_t)this);
 }
 
 
@@ -198,18 +200,15 @@ Segment::Segment(const string &path)
 #endif
 
 BaseSegment::~BaseSegment() {
-	log(lsDEBUG, "IDAN BaseSegment DTOR this=%llu", (uint64_t)this);
+	log(lsDEBUG, "BaseSegment DTOR this=%llu", (uint64_t)this);
+	BULLSEYE_EXCLUDE_BLOCK_START
 	if (this->kv_output)
 		delete this->kv_output;
-
-    if (this->in_mem_data != NULL) {
-        delete this->in_mem_data;
-        this->in_mem_data = NULL;
-    }
-
+	close();
     if (this->temp_kv != NULL) {
         free(this->temp_kv);
     }
+	BULLSEYE_EXCLUDE_BLOCK_END
 }
 
 Segment::~Segment() {
@@ -236,6 +235,7 @@ int BaseSegment::nextKVInternal(InStream *stream) {
 	}
     
     int digested = 0;
+
     /* key length */
 
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
@@ -344,21 +344,25 @@ int BaseSegment::nextKV() {
 
 
 void BaseSegment::close() {
+	BULLSEYE_EXCLUDE_BLOCK_START
     if (this->in_mem_data != NULL) {
         this->in_mem_data->close();
         delete this->in_mem_data;
         this->in_mem_data = NULL;
 	}
+	BULLSEYE_EXCLUDE_BLOCK_END
 }
 
 void Segment::send_request() {
 	//compression is not calling this function: chekcing only total_fetched_raw
 	if (map_output->total_fetched_raw == map_output->total_len_part) {
 		return; // TODO: probably the segment was switched while it was already reached the total_len
+		BULLSEYE_EXCLUDE_BLOCK_START
 	} else if (map_output->total_fetched_raw > map_output->total_len_part) {
 		log(lsERROR, "Unexpectedly send_request called while total_fetched_raw(%lld) >  total_len(%lld)", map_output->total_fetched_raw, map_output->total_len_part);
         return;
     }
+		BULLSEYE_EXCLUDE_BLOCK_END
 
 	/* switch to new staging buffer */
     pthread_mutex_lock(&map_output->lock);
@@ -437,7 +441,10 @@ bool BaseSegment::reset_data() {;
 //called by adjustPriorityQueue
 bool BaseSegment::switch_mem() {
 
+	BULLSEYE_EXCLUDE_BLOCK_START
+
 	if (kv_output != NULL) {
+	BULLSEYE_EXCLUDE_BLOCK_END
 		mem_desc_t *staging_mem =
 				kv_output->mop_bufs[kv_output->staging_mem_idx];
 
@@ -461,6 +468,7 @@ bool BaseSegment::switch_mem() {
 
 		kv_output->task->total_wait_mem_time += ((int) (ed - st));
 
+
 		if (this->get_task()->isCompressionOn()) {
 			int32_t	end = staging_mem->end; // no need for lock as long as we refer to same 'end' value
 			//there is a partial key-value pair: must do join
@@ -471,13 +479,12 @@ bool BaseSegment::switch_mem() {
 		}
 		else{
 			// restore break record
-			log(lsTRACE, "IDAN before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched_raw, kv_output->last_fetched);
+			log(lsTRACE, "before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched_raw, kv_output->last_fetched);
 			bool b = join(staging_mem->buff, kv_output->last_fetched);
 			// to check if we need more data from map output
 			this->send_request();
 			return b;
 		}
-
 	}
 
 	return false;
@@ -564,8 +571,8 @@ void merge_lpq_to_aio_file(reduce_task* task, MergeQueue<BaseSegment*> *records,
 
 	int fd = open(file_name, O_DIRECT | O_RDWR | O_TRUNC | O_CREAT);
 	if (fd < 0) {
-		log(lsFATAL, "Fail to open file %s\t(errno=%m)",file_name);
-		exit(-1); //TODO
+		log(lsERROR, "Fail to open file %s\t(errno=%m)",file_name);
+		throw new UdaException("Fail to open file");
 	}
 
 	bool finish = false;
@@ -636,7 +643,7 @@ void merge_lpq_to_aio_file(reduce_task* task, MergeQueue<BaseSegment*> *records,
 AioSegment::AioSegment(KVOutput* kvOutput, AIOHandler* aio,
 	const char* filename) :
 	BaseSegment(kvOutput) {
-	log(lsDEBUG, "IDAN AioSegment CTOR this=%llu , filename=%s", (uint64_t)this, filename);
+	log(lsDEBUG, "AioSegment CTOR this=%llu , filename=%s", (uint64_t)this, filename);
 	this->aio = aio;
 	this->fd = open(filename, O_DIRECT | O_RDONLY);
 	if (this->fd < 0) {
@@ -647,15 +654,15 @@ AioSegment::AioSegment(KVOutput* kvOutput, AIOHandler* aio,
 		struct stat st;
 		fstat(fd, &st);
 		this->kv_output->total_len = st.st_size;
-		log(lsTRACE, "IDAN lpq output file %s is open - size=%lld", filename, st.st_size)
+		log(lsTRACE, "lpq output file %s is open - size=%lld", filename, st.st_size)
 
-		log(lsDEBUG, "IDAN AioSegment CTOR finish this=%llu , filename=%s", (uint64_t)this, filename);
+		log(lsDEBUG, "AioSegment CTOR finish this=%llu , filename=%s", (uint64_t)this, filename);
 	}
 }
 
 void AioSegment::send_request() {
 	int rc;
-	log(lsTRACE, " IDAN ENTERED func  - total_len=%lld , total_fetched=%lld", kv_output->total_len , kv_output->total_fetched);
+	log(lsTRACE, " ENTERED func  - total_len=%lld , total_fetched=%lld", kv_output->total_len , kv_output->total_fetched);
 	if (kv_output->total_fetched > kv_output->total_len) {
 		log(lsERROR, "Unexpectedly send_request called while total_fetched(%lld) >  total_len(%lld)", kv_output->total_fetched, kv_output->total_len);
 	}
@@ -700,7 +707,7 @@ void AioSegment::send_request() {
 
 AioSegment::~AioSegment() {
 	::close(this->fd);
-	log(lsDEBUG, "IDAN AioSegment DTOR this=%llu", (uint64_t)this)
+	log(lsDEBUG, "AioSegment DTOR this=%llu", (uint64_t)this)
 ;}
 
 SuperSegment::SuperSegment(reduce_task *_task, const std::string &_path) :
@@ -772,8 +779,8 @@ bool write_kv_to_file(MergeQueue<BaseSegment*> *records, const char *file_name,
 		int32_t &total_write) {
     FILE *file = fopen(file_name, "wb");
     if (!file) {
-    	log(lsFATAL, "[pid=%d] fail to open file(errno=%d: %m)\n", getpid(), errno);
-    	exit(-1); //temp TODO
+    	log(lsERROR, "[pid=%d] fail to open file(errno=%d: %m)\n", getpid(), errno);
+		throw new UdaException("Fail to open file");
     }
 
     bool ret = write_kv_to_file(records, file, total_write);

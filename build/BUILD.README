@@ -97,6 +97,5 @@ The rpm contains the following files:
 	/usr/lib64/uda/set_hadoop_slave_property.sh
 	/usr/lib64/uda/source.tgz
 	/usr/lib64/uda/uda-CDH3u4.jar
-	/usr/lib64/uda/uda-hadoop-0.20.2.jar
 	/usr/lib64/uda/uda-hadoop-1.x.jar
 	/usr/lib64/uda/uda-hadoop-3.x.jar
