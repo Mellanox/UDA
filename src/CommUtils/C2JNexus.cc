@@ -232,14 +232,12 @@ try{
         if (nevents < 0) {
             if (errno != EINTR) {
             	log(lsERROR, "pollfd=%d: epoll_wait failed for with ret=%d (errno=%d: %m)", th->pollfd, nevents, errno);
-                pthread_exit(NULL);  // TODO: consider exit, OR throw new UdaException("failure in epoll_wait");
+                throw new UdaException("failure in epoll_wait");
             }
         } else if (nevents) {
             for (i = 0; i < nevents; i++) {
                 progress_event_t *pevent;
                 pevent = (progress_event_t *)events[i].data.ptr;
-                //avner - TODO: remove this log line it is extra verbose....
-                //log(lsTRACE, "EVENT calling handler=0x%x with data=0x%x; result of: th->pollfd=%d; nevents=%d", pevent->handler, pevent->data, th->pollfd, nevents);
                 pevent->handler(pevent, pevent->data);
             }
         } 
