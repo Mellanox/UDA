@@ -25,7 +25,6 @@
 
 #include "C2JNexus.h"
 #include "DataNet/RDMAClient.h"
-#include "Merger/DummyDecompressor.cc"
 #include "Merger/reducer.h"
 #include "include/IOUtility.h"
 #include "CompareFunc.h"

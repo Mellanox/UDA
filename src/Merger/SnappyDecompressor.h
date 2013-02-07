@@ -21,20 +21,16 @@ class SnappyDecompressor : public DecompressorWrapper
 	public:
 		SnappyDecompressor(int port, reduce_task_t* reduce_task);
 		void initDecompress();
-		void decompress (char* compressed, int length);
 		decompressRetData_t* get_next_block_length(char* buf);
-		int getBlockSizeOffset ();
+		uint32_t getBlockSizeOffset ();
 		decompressRetData_t* decompress(char* compressed_buff, char* uncompressed_buff, size_t compressed_buff_len, size_t uncompressed_buff_len,int offest);
 
 
 	private:
 		void *libsnappy;
 		int snappy_loaded ;
-		//void *decompressor_func_ptr;
-
 		void init();
 		void loadDecompressorFunc();
-		//void* loadSymbol(void *handle, char *symbol );
 };
 
 #endif /* SNAPPYDECOMPRESSOR_H_ */

@@ -36,25 +36,18 @@ class LzoDecompressor : public DecompressorWrapper
 public:
 
 	void initDecompress();
-	void decompress (char* compressed, int length);
 	LzoDecompressor(int port, reduce_task_t* reduce_task);
 	decompressRetData_t* get_next_block_length(char* buf);
-	int getBlockSizeOffset ();
+	uint32_t getBlockSizeOffset ();
 	decompressRetData_t* decompress(char* compressed_buff, char* uncompressed_buff, size_t compressed_buff_len, size_t uncompressed_buff_len,int offest);
 
 
 private:
 	void init();
 	void loadDecompressorFunc();
-//	void* loadSymbol(void *handle, char *symbol );
-
-	char* decompressionParamName;
-	int numOfDecompressFuncs;
-	//char* decompressorFuncs[][2];
+	void *decompressor_func_ptr;
 	void *liblzo2;
 	int lzo_loaded ;
-	void *decompressor_func_ptr;
-
 };
 
 

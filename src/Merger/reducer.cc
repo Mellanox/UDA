@@ -58,7 +58,7 @@ reduce_task_t * g_task;
 void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 {
 	static const int DIRS_START = 7;
-	int rc;
+	int rc=0;
 
 	assert (hadoop_cmd->count -1 > 2); // sanity under debug
 	g_task->num_maps = atoi(hadoop_cmd->params[0]);

@@ -4,7 +4,7 @@ using namespace std;
 
 // [decompress func type, decompress function for this type]
 //!!! IMPORTANT if adding new element to array or removing one - need to change numOfDecompressFuncs var
-char* decompressorFuncs[][2] = {
+string decompressorFuncs[][2] = {
 {"LZO1","lzo1_decompress"},
 {"LZO1A","lzo1a_decompress"},
 {"LZO1B","lzo1b_decompress"},
@@ -35,14 +35,14 @@ char* decompressorFuncs[][2] = {
 {"LZO2A_SAFE","lzo2a_decompress_safe"}
 };
 
+const char* decompressionParamName = "io.compression.codec.lzo.decompressor";
+int numOfDecompressFuncs = 28;
+
 
 LzoDecompressor::LzoDecompressor(int port, reduce_task_t* reduce_task):DecompressorWrapper (port, reduce_task){
-	log(lsDEBUG,"CONSTRACTOR!");
-	decompressionParamName = "io.compression.codec.lzo.decompressor";
-	numOfDecompressFuncs = 28;
+	log(lsDEBUG,"LzoDecompressor constractor");
 	liblzo2 = NULL;
 	lzo_loaded = 0;
-	//initDecompress();
 }
 
 
@@ -50,7 +50,6 @@ LzoDecompressor::LzoDecompressor(int port, reduce_task_t* reduce_task):Decompres
  * call to lzo init func and loads decompression function
  */
 void LzoDecompressor::init(){
-	log(lsDEBUG,"INIT!!!!!!!!!!!!!!!!!!");
 	dlerror();
 
 	typedef int (__LZO_CDECL *lzo_init_t) (unsigned,int,int,int,int,int,int,int,int,int);
@@ -59,7 +58,7 @@ void LzoDecompressor::init(){
 	lzo_init_func_ptr = loadSymbol(liblzo2, "__lzo_init_v2");
 
 	if(lzo_init_func_ptr==NULL) return;
-	log(lsDEBUG,"LOADED __lzo_init_v2!!!!!!!!!!!!!!!!!!");
+	log(lsDEBUG,"LOADED __lzo_init_v2");
 	lzo_init_t lzo_init_func = (lzo_init_t)(lzo_init_func_ptr);
 	int rv = lzo_init_func(LZO_VERSION, (int)sizeof(short), (int)sizeof(int),
 			  (int)sizeof(long), (int)sizeof(lzo_uint32), (int)sizeof(lzo_uint),
@@ -67,7 +66,7 @@ void LzoDecompressor::init(){
 			  (int)sizeof(lzo_callback_t));
 	if (rv != LZO_E_OK) {
 		log(lsERROR,"Error calling lzo_init");
-		exit (1);
+		throw new UdaException("Error calling lzo_init");
 	}
 
 	loadDecompressorFunc();
@@ -80,17 +79,16 @@ void LzoDecompressor::init(){
  * if doesn't exist in conf then loads LZO1X by default
  */
 void LzoDecompressor::loadDecompressorFunc(){
-	log(lsDEBUG,"getDecompressorFunc!!!!!!!!!!!!!!!!!!");
 	initJniEnv();
 	decompressor_func_ptr = NULL;
 	char *lzo_decompressor_function =  UdaBridge_invoke_getConfData_callback(this->jniEnv, decompressionParamName, "LZO1X");//LZO1X_SAFE");
-	log(lsDEBUG,lzo_decompressor_function);
+	log(lsDEBUG,"lzo_decompressor_function: %s",lzo_decompressor_function);
 	int i;
 
 	for(i=0; i< numOfDecompressFuncs; i++){
-		if(strcmp(decompressorFuncs[i][0],lzo_decompressor_function)==0){
-			log(lsDEBUG,"found name!!!!!!!!!!!!!!!!!!");
-			decompressor_func_ptr = loadSymbol(liblzo2,decompressorFuncs[i][1]);
+		if(decompressorFuncs[i][0].compare(lzo_decompressor_function)==0){
+			log(lsDEBUG,"lzo found function name");
+			decompressor_func_ptr = loadSymbol(liblzo2,decompressorFuncs[i][1].c_str());
 			break;
 		}
 	}
@@ -98,8 +96,8 @@ void LzoDecompressor::loadDecompressorFunc(){
 	free(lzo_decompressor_function);
 
 	if (i==numOfDecompressFuncs){
-		log(lsFATAL,"can't find lzo decompress function");
-		exit (1);
+		log(lsERROR,"can't find lzo decompress function");
+		throw new UdaException("can't find lzo decompress function");
 	}
 }
 
@@ -107,14 +105,12 @@ void LzoDecompressor::loadDecompressorFunc(){
  * loads lzo library
  */
 void LzoDecompressor::initDecompress(){
-	log(lsDEBUG,"initDecompress!!!!!!!!!!!!!!!!!!");
 	if(!lzo_loaded){
 		// Load liblzo2.so
-		log(lsDEBUG,"loading!!!!!!!!!!!!!!!!!!");
 		liblzo2 = dlopen("liblzo2.so", RTLD_LAZY | RTLD_GLOBAL);
 		if (!liblzo2) {
 			log(lsERROR,"Error loading lzo library ");
-			exit (1);
+			throw new UdaException("Error loading lzo library");
 		}
 		lzo_loaded = 1;
 	}
@@ -137,7 +133,7 @@ decompressRetData_t* LzoDecompressor::decompress
 		return ret;
 	} else {
 		log(lsERROR,"Error=%d in lzo decompress function ", rv);
-		exit (1);
+		throw new UdaException("Error in lzo decompress function");
 	}
 }
 
@@ -156,39 +152,10 @@ decompressRetData_t* LzoDecompressor::get_next_block_length(char* buf) {
 	ret->num_compressed_bytes+=((tmp[1] & 0xFF00)<<8);
 	ret->num_compressed_bytes+=((tmp[1] & 0xFF)<<24);
 
-//	log(lsTRACE,"num_uncompressed_bytes: %d num_compressed_bytes: %d",ret->num_uncompressed_bytes, ret->num_compressed_bytes);
-
 	return ret;
 
-
-
-	/* java read function
-	 * int b1 = in.read();
-    int b2 = in.read();
-    int b3 = in.read();
-    int b4 = in.read();
-    if ((b1 | b2 | b3 | b4) < 0)
-      throw new EOFException();
-    return ((b1 << 24) + (b2 << 16) + (b3 << 8) + (b4 << 0));
-	 */
-
-	/*
-	 * java write function
-	 *  private void rawWriteInt(int v) throws IOException {
-    out.write((v >>> 24) & 0xFF);
-    out.write((v >>> 16) & 0xFF);
-    out.write((v >>>  8) & 0xFF);
-    out.write((v >>>  0) & 0xFF);
-  }
-	 */
-
-
 }
 
-int LzoDecompressor::getBlockSizeOffset (){ return 8;}
+uint32_t LzoDecompressor::getBlockSizeOffset (){ return 8;}
 
-void LzoDecompressor::decompress (char* compressed, int length){
-	memcpy (this->buffer, compressed, length);
-	log(lsDEBUG, "bugg lll1 finished successfully");
-}
 

@@ -20,8 +20,8 @@
 #include <dlfcn.h>
 
 typedef struct decompressRetData {
-	    int   num_uncompressed_bytes;
-	    int   num_compressed_bytes;
+	    uint32_t   num_uncompressed_bytes;
+	    uint32_t   num_compressed_bytes;
 } decompressRetData_t;
 
 class DecompressorWrapper : public InputClient
@@ -44,9 +44,9 @@ public:
     int start_fetch_req(struct client_part_req *req,  char * buff, int32_t buf_len);
     void comp_fetch_req(struct client_part_req *req);
     RdmaClient* getRdmaClient();
-    virtual int getBlockSizeOffset() = 0; //For LZO will return the number of bytes of the block length. for non block alg's will return 0
+    virtual uint32_t getBlockSizeOffset() = 0; //For LZO will return the number of bytes of the block length. for non block alg's will return 0
     void initJniEnv();
-    void* loadSymbol(void *handle, char *symbol);
+    void* loadSymbol(void *handle, const char* symbol);
 
     bool library_loaded;
     char* library_name; //to be passed in the c-tor?

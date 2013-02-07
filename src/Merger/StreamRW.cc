@@ -54,10 +54,6 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     while (records->next()) {
     	 if (records->min_segment->get_task()->isCompressionOn()){
 			MapOutput *mop = dynamic_cast<MapOutput*>(records->min_segment->getKVOUutput());
-			if (mop == NULL) {
-				log(lsFATAL, "problem?");
-				exit (1);
-			}
 			//passing NULL and 0 since those variables are needed for RDMA client and not decomressore wrapper
 			records->min_segment->get_task()->client->start_fetch_req(mop->part_req, NULL, 0);
 		}
@@ -404,7 +400,7 @@ bool BaseSegment::reset_data() {;
 				}
 			}
 			else {
-				if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < difference){
+				if ((int)(this->in_mem_data->getLength()-this->in_mem_data->getPosition())< difference){
 					//there is new data
 					log(lsDEBUG, "since last time more data was fetched/decompressed. resetting cyclic buffer [%p] to start=%d end=%d count=%d pos=%d",
 							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
@@ -422,7 +418,7 @@ bool BaseSegment::reset_data() {;
 					pthread_mutex_lock(&kv_output->lock);
 					end = staging_mem->end;
 					difference = end - staging_mem->start;
-					if (this->in_mem_data->getLength()- this->in_mem_data->getPosition() >= difference) {
+					if ((int)(this->in_mem_data->getLength()- this->in_mem_data->getPosition()) >= difference) {
 						pthread_cond_wait(&kv_output->cond, &kv_output->lock);
 					}
 					pthread_mutex_unlock(&kv_output->lock);

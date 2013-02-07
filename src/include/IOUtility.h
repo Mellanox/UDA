@@ -114,8 +114,8 @@ public:
     bool     close();
     size_t   write (const void *buf, size_t len);
     char*    getData()    {return this->buf;}
-    int32_t  getPosition(){return this->pos;}
-    int32_t  getLength()  {return this->count;}
+    uint32_t  getPosition(){return this->pos;}
+    uint32_t  getLength()  {return this->count;}
 };
 
 /**********************************************

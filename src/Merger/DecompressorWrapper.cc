@@ -52,7 +52,7 @@ DecompressorWrapper::~DecompressorWrapper()
 
 
 
-void copy_from_side_buffer_to_actual_buffer(mem_desc_t * dest, char *side_buffer, int length)
+void copy_from_side_buffer_to_actual_buffer(mem_desc_t * dest, char *side_buffer, uint32_t length)
 {
 	//write in a single step
 	if (length <= dest->buf_len - dest->end){
@@ -191,6 +191,8 @@ void *decompressMainThread(void* wrapper)
 			pthread_mutex_unlock(&decompWrapper->lock);
 		}
 	}
+
+	return 0;
 }
 
 
@@ -277,7 +279,7 @@ int DecompressorWrapper::start_fetch_req(client_part_req_t *req, char * buff, in
 		}
 		delete (next_block_length);
 	}
-//	 TODO: return ?;
+	return 0;
 }
 
 
@@ -324,12 +326,12 @@ void DecompressorWrapper::initJniEnv(){
 /**
  * loads symbols from handle library
  */
-void* DecompressorWrapper::loadSymbol(void *handle, char *symbol ){
+void* DecompressorWrapper::loadSymbol(void *handle, const char* symbol ){
 	char *error = NULL;
 	void* func_ptr = dlsym(handle, symbol);
 	if ((error = dlerror()) != NULL) {
 		log(lsERROR,"error loading %s, %s",symbol,error);
-		exit (1);
+		throw new UdaException("Error in loadSymbol");
 	}
 	return func_ptr;
 }

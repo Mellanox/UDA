@@ -54,7 +54,7 @@ typedef struct mem_desc {
 		return free_bytes;
 	}
 
-	void incStart(int32_t bytesToAdd)
+	void incStart(uint32_t bytesToAdd)
 	{
 		uint32_t oldStart = start;
 		if (oldStart + bytesToAdd < buf_len) {
@@ -67,7 +67,7 @@ typedef struct mem_desc {
 
     struct list_head     list;
     char                *buff;
-    int32_t              buf_len;
+    uint32_t              buf_len;
     int32_t              act_len;
     volatile int         status; /* available or invalid*/
 //    struct memory_pool  *owner;  /* owner pool */
@@ -75,8 +75,8 @@ typedef struct mem_desc {
     pthread_cond_t       cond;
 
     //the following variables are for cyclic buffer
-    int32_t 			start; //index of the oldest element
-    int32_t				end; //index at which to write new element
+    uint32_t 			start; //index of the oldest element
+    uint32_t				end; //index at which to write new element
 
 } mem_desc_t;
 

@@ -10,7 +10,7 @@
 snappy_status (*decompressor_func_ptr)(const char*, size_t, char*, size_t*);
 
 SnappyDecompressor::SnappyDecompressor(int port, reduce_task_t* reduce_task):DecompressorWrapper (port, reduce_task){
-	log(lsDEBUG,"CONSTRACTOR");
+	log(lsDEBUG,"SnappyDecompressor CONSTRACTOR");
 	snappy_loaded=0;
 	libsnappy = NULL;
 }
@@ -28,7 +28,6 @@ void SnappyDecompressor::init(){
  * loads snappy library
  */
 void SnappyDecompressor::initDecompress(){
-	log(lsDEBUG,"initDecompress");
 	if(!snappy_loaded){
 		dlerror();
 		// Load libsnappy.so
@@ -36,7 +35,7 @@ void SnappyDecompressor::initDecompress(){
 		void *libsnappy = dlopen("libsnappy.so", RTLD_LAZY | RTLD_GLOBAL);
 		if (!libsnappy) {
 			log(lsERROR,"Error loading snappy library ,%s",dlerror());
-			exit(1);
+			throw new UdaException("Error loading snappy library");
 		}
 		snappy_loaded = 1;
 	}
@@ -60,7 +59,9 @@ decompressRetData_t* SnappyDecompressor::decompress(char* compressed_buff, char*
 		ret->num_uncompressed_bytes=uncompressed_buff_len;
 		return ret;
 	}
-	throw "SNAPPY error";
+
+	log(lsERROR,"Error=%d in snappy decompress function ", ret);
+	throw new UdaException("Error in snappy decompress function");
 }
 
 decompressRetData_t* SnappyDecompressor::get_next_block_length(char* buf) {
@@ -78,16 +79,9 @@ decompressRetData_t* SnappyDecompressor::get_next_block_length(char* buf) {
 	ret->num_compressed_bytes+=((tmp[1] & 0xFF00)<<8);
 	ret->num_compressed_bytes+=((tmp[1] & 0xFF)<<24);
 
-	//log(lsDEBUG,"num_uncompressed_bytes: %d num_compressed_bytes: %d",ret->num_uncompressed_bytes,ret->num_compressed_bytes);
-
 	return ret;
 
 }
 
-int SnappyDecompressor::getBlockSizeOffset (){ return 8;}
-
-void SnappyDecompressor::decompress (char* compressed, int length){
-	memcpy (this->buffer, compressed, length);
-	log(lsDEBUG, "bugg lll1 finished successfully");
-}
+uint32_t SnappyDecompressor::getBlockSizeOffset (){ return 8;}
 
