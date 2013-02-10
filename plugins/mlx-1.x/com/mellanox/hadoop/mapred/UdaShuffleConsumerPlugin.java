@@ -181,7 +181,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	public void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException {
 
 		try {
-			LOG.warn("Using UdaShuffleConsumerPlugin");
+			LOG.info("init - Using UdaShuffleConsumerPlugin");
 			this.reduceTask = reduceTask;
 			this.reduceId = reduceTask.getTaskID();
 			
@@ -199,12 +199,6 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	
     
 	
-	/*
-		public long getMaxInMemReduce() {
-		return maxInMemReduce;
-		}
-	//*/		
-	
 	/** 
 		* A flag to indicate when to exit getMapEvents thread 
 	*/
@@ -217,16 +211,16 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		getMapEventsThread = new GetMapEventsThread();
 		getMapEventsThread.start();         
 		
-		LOG.debug("Wait for fetching");
+		LOG.info("fetchOutputs - Using UdaShuffleConsumerPlugin");
 		synchronized(fetchLock) {
 			try {
 				fetchLock.wait(); 
 				} catch (InterruptedException e) {
 			}       
 		}
-		LOG.debug("Fetching finished"); 
 		// all done, inform the copiers to exit
 		exitGetMapEvents= true;
+		if (LOG.isDebugEnabled()) LOG.debug("Fetching finished"); 
 
 		if (fallbackPlugin != null) {
 			LOG.warn("another thread has indicated Uda failure");
@@ -286,6 +280,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		
 		try {
 			if (fetchOutputsCompleted) {
+				LOG.info("createKVIterator - Using UdaShuffleConsumerPlugin");
 				return this.rdmaChannel.createKVIterator_rdma(job,fs,reporter);
 			}
 		}
@@ -304,6 +299,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	public void close() {
 		// try catch here is not needed since it is too late for new fallback to vanilla.
 		if (fallbackPlugin == null) {
+			LOG.info("close - Using UdaShuffleConsumerPlugin");
 			this.rdmaChannel.close();
 			return;
 		}
