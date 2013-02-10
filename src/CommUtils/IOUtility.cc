@@ -508,18 +508,22 @@ void log_func(const char * func, const char * file, int line, log_severity_t sev
     char s1[SIZE];
     va_list ap;
     va_start(ap, fmt);
-    vsnprintf(s1, SIZE, fmt, ap);
+    int n = vsnprintf(s1, SIZE, fmt, ap);
     va_end(ap);
+    if (n < 0) return; //error
 
     if(!log_to_unique_file)
     {
     	// log to the java
-        sprintf(s1, "%s (%s:%d)" ,s1, file, line);
+    	if (n < SIZE) {
+    		snprintf(s1+n, SIZE-n, " (%s:%d)", file, line);
+    	}
         s1[SIZE-1] = '\0';
     	UdaBridge_invoke_logToJava_callback(s1, severity);
     }
     else
     {
+        s1[SIZE-1] = '\0';
     	time_t _time = time(0);
     	struct tm _tm;
     	localtime_r(&_time, &_tm);
