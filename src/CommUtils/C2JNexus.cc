@@ -55,7 +55,7 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
     };
     int buf_size;
 	errno = 0; // reset before we check!
-	while ((choice = getopt_long(argc, argv, "w:r:a:m:g:t:b:s",
+	while ((choice = getopt_long(argc, argv, "w:r:a:m:g:t:b:s:",
 
                             longopts, NULL)) != -1) {
         switch (choice) {
