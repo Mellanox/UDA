@@ -133,22 +133,9 @@ void reduce_downcall_handler(const string & msg)
 
 	switch (hadoop_cmd->header) {
 	case INIT_MSG: {
-		try {
-			handle_init_msg(hadoop_cmd);
-			free_hadoop_cmd(*hadoop_cmd);
-			free(hadoop_cmd);
-		BULLSEYE_EXCLUDE_BLOCK_START
-		}
-		catch (UdaException *ex) {
-			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to Hadoop's default shuffle plugin (with exMsg=%s)", ex->_info);
-			throw ex; //re-throw
-		}
-
-		catch (...) {
-			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to mapred default shuffle plugin");
-			throw new UdaException("Failure during UDA Initialization");
-		}
-		BULLSEYE_EXCLUDE_BLOCK_END
+		handle_init_msg(hadoop_cmd);
+		free_hadoop_cmd(*hadoop_cmd);
+		free(hadoop_cmd);
 		break;
 	}
 	case FETCH_MSG:
