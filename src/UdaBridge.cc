@@ -424,7 +424,6 @@ void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
 
 	if (is_net_merger) {
 		// This handle remains valid until the java class is Unloaded
-		//fetchOverMessage callback
 		jmethodID jmethodID_failureInUda = env->GetStaticMethodID(jclassUdaBridge, "failureInUda", "()V");
 		if (jmethodID_failureInUda == NULL) {
 			log(lsERROR, "UdaBridge.failureInUda() callback method was NOT found");
