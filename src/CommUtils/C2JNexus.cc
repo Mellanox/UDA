@@ -51,13 +51,11 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         {"log",           1, NULL, 'g'},
         {"trace-level",   1, NULL, 't'},
         {"rdmabufsize",   1, NULL, 's'},
-        {"version",       0, NULL, 'v'},
-        {"help",          0, NULL, 'h'},
         {NULL,            0, NULL,  0 }
     };
     int buf_size;
 	errno = 0; // reset before we check!
-	while ((choice = getopt_long(argc, argv, "w:r:a:m:g:t:b:s:v:h",
+	while ((choice = getopt_long(argc, argv, "w:r:a:m:g:t:b:s",
 
                             longopts, NULL)) != -1) {
         switch (choice) {
@@ -119,10 +117,6 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
 				goto err_options;
 			}
             break;
-        case 'v':
-        	printf("Version is %s\n",STR(VERSION_UDA));
-        	printf("Compiled on %s, %s\n", __DATE__, __TIME__);
-        	exit (0);
         default: 
         	printf("got invalid command line option choice=%c [%d] \n", choice, choice);
             break;
