@@ -446,6 +446,7 @@ void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
 	my_downcall_handler = null_downcall_handler; // don't handle incoming commands any more
 
 	if (is_net_merger) {
+
 		// This handle remains valid until the java class is Unloaded
 		jmethodID jmethodID_failureInUda = env->GetStaticMethodID(jclassUdaBridge, "failureInUda", "()V");
 		if (jmethodID_failureInUda == NULL) {
@@ -453,13 +454,7 @@ void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
 			return;
 		}
 
-
-		JNIEnv *jniEnv;
-		if (cached_jvm->GetEnv((void **)&jniEnv, JNI_VERSION_1_4)) {
-			return;
-		}
-
-		jniEnv->CallStaticVoidMethod(jclassUdaBridge, jmethodID_failureInUda);
+		env->CallStaticVoidMethod(jclassUdaBridge, jmethodID_failureInUda);
 
 
 	}
