@@ -143,9 +143,6 @@ int MOFSupplier_main(int argc, char *argv[])
 
 extern "C" void * MOFSupplierRun(void *) {
 
-JNIEnv *jniEnv = UdaBridge_attachNativeThread();
-try{
-
     log (lsDEBUG, "state_mac.data_mac->rdma_buf_size is %d", state_mac.data_mac->rdma_buf_size);
     state_mac.data_mac->start();
 
@@ -155,17 +152,6 @@ try{
 
     log (lsINFO, "==================  C++ 'main' thread exited ======================");
     closeLog();
-
-}
-catch(UdaException *ex) {
-	log(lsERROR, "got UdaException!");
-	UdaBridge_exceptionInNativeThread(jniEnv, ex);
-}
-catch(...) {
-	log(lsERROR, "got general Exception!");
-	UdaBridge_exceptionInNativeThread(jniEnv, NULL);
-}
-
     return 0;
 }
 

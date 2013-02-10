@@ -82,21 +82,27 @@ static void exceptionInJniThread(JNIEnv *env, UdaException *ex) {
 	const char * info = ex ? ex->_info : "unexpected failure";
 	const char * full_message = ex ? ex->getFullMessage().c_str() : "unexpected failure";
 
-	const char *JNI_EXCEPTION_CLASS_NAME = "com/mellanox/hadoop/mapred/UdaRuntimeException";
-	log(lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, info);
-
 	my_downcall_handler = null_downcall_handler; // don't handle incoming commands any more
 
+	if (is_net_merger) {
 
-	//Find the exception class.
-	jclass exClass = env->FindClass(JNI_EXCEPTION_CLASS_NAME);
-	if (exClass == NULL) {
-		log(lsERROR, "Not found %s",JNI_EXCEPTION_CLASS_NAME);
-		return;
+		const char *JNI_EXCEPTION_CLASS_NAME = "com/mellanox/hadoop/mapred/UdaRuntimeException";
+		log(lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, info);
+
+		//Find the exception class.
+		jclass exClass = env->FindClass(JNI_EXCEPTION_CLASS_NAME);
+		if (exClass == NULL) {
+			log(lsERROR, "Not found %s",JNI_EXCEPTION_CLASS_NAME);
+			return;
+		}
+		//Indicate the exception with error message to JNI - NOTE: exception will occur after C++ terminates
+		env->ThrowNew(exClass, full_message);
+		env->DeleteLocalRef(exClass);
 	}
-	//Indicate the exception with error message to JNI - NOTE: exception will occur after C++ terminates
-	env->ThrowNew(exClass, full_message);
-	env->DeleteLocalRef(exClass);
+	else {
+		log(lsERROR, "unexpected error info=%s, full-message=%s", info, full_message);
+		// TODO ...
+	}
 }
 
 //direct buffer requires java 1.4
@@ -241,6 +247,10 @@ extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_star
 	catch (UdaException *ex) {
 		exceptionInJniThread(env, ex);
 	}
+    catch (exception *ex) {
+		log(lsERROR, "got STL exception: %s", ex->what());
+		exceptionInJniThread(env, NULL);
+    }
     catch(...) {
 		log(lsERROR, "got general Exception!");
 		exceptionInJniThread(env, NULL);
@@ -271,6 +281,10 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 	catch (UdaException *ex) {
 		exceptionInJniThread(env, ex);
 	}
+    catch (exception *ex) {
+		log(lsERROR, "got STL exception: %s", ex->what());
+		exceptionInJniThread(env, NULL);
+    }
     catch(...) {
 		log(lsERROR, "got general Exception!");
 		exceptionInJniThread(env, NULL);
@@ -394,7 +408,6 @@ void UdaBridge_invoke_logToJava_callback(const char* log_message, int severity) 
 // a utility function that attaches the **current [native] thread** to the JVM and
 // return the JNIEnv interface pointer for this thread
 // BE CAREFUL:
-// - DON'T call this function more than once for the same thread!! - perhaps not critical!
 // - DON'T use the handle from one thread in context of another threads!
 JNIEnv *UdaBridge_attachNativeThread()
 {
@@ -413,6 +426,16 @@ JNIEnv *UdaBridge_attachNativeThread()
 	log(lsTRACE, "completed successfully env=%p", env);
     return env; // note: this handler is valid for all functions in this tread
 }
+
+JNIEnv *UdaBridge_threadGetEnv()
+{
+	JNIEnv *jniEnv;
+	if (cached_jvm->GetEnv((void **)&jniEnv, JNI_VERSION_1_4)) {
+		throw new UdaException("GetEnv failed");
+	}
+	return jniEnv;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {

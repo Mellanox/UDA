@@ -205,10 +205,6 @@ bool parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
 
 void *event_processor(void *context)
 {
-
-JNIEnv *jniEnv = UdaBridge_attachNativeThread();
-try{
-
     int i, nevents, timeout = RDMA_TIMEOUT * 1000;
     struct epoll_event events[32];
 
@@ -237,16 +233,6 @@ try{
         } 
     }
 	log(lsINFO, "-------->>>>> event_processor thread stopped <<<<<--------");
-}
-catch(UdaException *ex) {
-	log(lsERROR, "got UdaException!");
-	UdaBridge_exceptionInNativeThread(jniEnv, ex);
-}
-catch(...) {
-	log(lsERROR, "got general Exception!");
-	UdaBridge_exceptionInNativeThread(jniEnv, NULL);
-}
-
     return NULL; //quite the compiler
 }
 

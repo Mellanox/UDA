@@ -45,7 +45,7 @@ class InputClient;
 
 
 extern merging_state_t merging_sm;
-static JNIEnv *jniEnv;
+static JNIEnv *s_jniEnv;
 
         
 
@@ -131,7 +131,7 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 				if (manager->progress_count == PROGRESS_REPORT_LIMIT
 				 || manager->total_count == task->num_maps) {
 					log(lsDEBUG, "JNI sending fetchOverMessage...");
-					UdaBridge_invoke_fetchOverMessage_callback(jniEnv);
+					UdaBridge_invoke_fetchOverMessage_callback(s_jniEnv);
 
 					manager->progress_count = 0;
 				}
@@ -164,7 +164,7 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *mer
 	/* merging phase */
 	// register our staging_buf as DirectByteBuffer for sharing with Java
 	mem_desc_t  *desc = merge_queue->staging_bufs[0];  // we only need 1 staging_bufs: TODO: remove the array
-	jobject jbuf = UdaBridge_registerDirectByteBuffer(jniEnv, desc->buff, desc->buf_len);
+	jobject jbuf = UdaBridge_registerDirectByteBuffer(s_jniEnv, desc->buff, desc->buf_len);
 	log(lsDEBUG, "GOT: desc=%p, jbuf=%p, address=%p, capacity=%d", desc, jbuf, desc->buff, desc->buf_len);
 
 
@@ -176,11 +176,11 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *mer
 		b = write_kv_to_mem(merge_queue, desc->buff, desc->buf_len, desc->act_len);
 
     	log(lsDEBUG, "MERGER: invoking java callback: desc=%p, desc->jbuf=%p, address=%p, capacity=%d act_len=%d", desc, jbuf, desc->buff, desc->buf_len, desc->act_len);
-		UdaBridge_invoke_dataFromUda_callback(jniEnv, jbuf, desc->act_len);
+		UdaBridge_invoke_dataFromUda_callback(s_jniEnv, jbuf, desc->act_len);
 	}
 
 	log(lsDEBUG, "invoking DeleteWeakGlobalRef: desc=%p, jbuf=%p, address=%p, capacity=%d", desc, jbuf, desc->buff, desc->buf_len);
-	jniEnv->DeleteWeakGlobalRef(jbuf);
+	s_jniEnv->DeleteWeakGlobalRef(jbuf);
 	log(lsDEBUG, "After DeleteWeakGlobalRef");
 
 	log(lsINFO, "----- merger thread completed ------");
@@ -202,37 +202,27 @@ void *merge_online (reduce_task_t *task)
 
 void *merge_thread_main (void *context)
 {
-    jniEnv = UdaBridge_attachNativeThread();
-    try{
-		reduce_task_t *task = (reduce_task_t *) context;
-		MergeManager *manager = task->merge_man;
+	s_jniEnv = UdaBridge_threadGetEnv();
+	reduce_task_t *task = (reduce_task_t *) context;
+	MergeManager *manager = task->merge_man;
 
-		int online = manager->online;
-		log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
+	int online = manager->online;
+	log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
 
-		switch (online) {
-		case 0:
-			/* FIXME: on-disk merge*/
-			break;
-		case 1:
-			merge_online (task);
-			break;
-		case 2: default:
-			log(lsINFO, "using hybrid merge");
-	//		merge_hybrid (task); //commenting: for now it is dead code
-			break;
-		}
+	switch (online) {
+	case 0:
+		/* FIXME: on-disk merge*/
+		break;
+	case 1:
+		merge_online (task);
+		break;
+	case 2: default:
+		log(lsINFO, "using hybrid merge");
+//		merge_hybrid (task); //commenting: for now it is dead code
+		break;
+	}
 
-		log(lsDEBUG, "finished !!!");
-    }
-    catch(UdaException *ex) {
-		log(lsERROR, "got UdaException!");
-		UdaBridge_exceptionInNativeThread(jniEnv, ex);
-    }
-    catch(...) {
-		log(lsERROR, "got general Exception!");
-		UdaBridge_exceptionInNativeThread(jniEnv, NULL);
-    }
+	log(lsDEBUG, "finished !!!");
     return NULL;
 }
 

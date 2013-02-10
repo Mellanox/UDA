@@ -36,15 +36,8 @@ index_record* UdaBridge_invoke_getPathUda_callback (JNIEnv * jniEnv, const char*
 
 
 // UdaBridge utility functions
-
-/**
- * a utility function that attach the **current native thread** to the JVM and
- * return the JNIEnv interface pointer for this thread
- * BE CAREFUL:
- * - DON'T call this function more than once for the same thread!! - perhaps not critical!
- * - DON'T use the handle from one thread in context of another thread!
- */
 JNIEnv *UdaBridge_attachNativeThread();
+JNIEnv *UdaBridge_threadGetEnv();
 void    UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex);
 jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long capacity);
 
