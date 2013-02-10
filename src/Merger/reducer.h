@@ -110,7 +110,7 @@ typedef struct reduce_task {
 
 } reduce_task_t;
 
-const char * reduce_downcall_handler(const std::string & msg);
+void reduce_downcall_handler(const std::string & msg);
 extern reduce_task_t * g_task; // we only support 1 reducer per process
 void spawn_reduce_task();
 void finalize_reduce_task(reduce_task_t *task);

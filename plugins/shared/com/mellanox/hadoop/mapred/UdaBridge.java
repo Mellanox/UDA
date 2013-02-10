@@ -63,6 +63,14 @@ public class UdaBridge {
     	doCommandNative(s);
     	if (LOG.isDebugEnabled()) LOG.debug(" <<<+++ after UdaBridge.doCommandNative");
     }
+    
+    
+    private static native void setLogLevelNative(int level);
+    public static void setLogLevel(int level) {
+    	if (LOG.isDebugEnabled()) LOG.debug(" +++>>> invoking UdaBridge.setLogLeveNative");
+    	setLogLevelNative(level);
+    	if (LOG.isDebugEnabled()) LOG.debug(" <<<+++ after UdaBridge.setLogLeveNative");
+    }
 
     //callbacks from C++ start here	
 

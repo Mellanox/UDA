@@ -20,13 +20,14 @@
 #include "UdaBridge.h"
 #include "IOUtility.h"
 #include "MOFServer/IndexInfo.h"
+#include "MOFServer/MOFSupplierMain.h"
 
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 #include <UdaUtil.h>
-
+#include "Merger/reducer.h"
 
 //
 // We cache all needed Java handles, for best performance of C++ -> Java calls.
@@ -50,14 +51,9 @@ static jfieldID fidPathMOF;
 
 
 //forward declarion until in H file...
-const char * reduce_downcall_handler(const std::string & msg); // #include "reducer.h"
 int MergeManager_main(int argc, char* argv[]);
 
-const char * mof_downcall_handler(const std::string & msg); // #include ...
-int MOFSupplier_main(int argc, char* argv[]);
-extern "C" void * MOFSupplierRun(void *);
-
-typedef const char * (*downcall_handler_t) (const std::string & msg);
+typedef void (*downcall_handler_t) (const std::string & msg);
 typedef int (*main_t)(int argc, char* argv[]);
 static downcall_handler_t my_downcall_handler;
 static main_t my_main;
@@ -76,30 +72,38 @@ typedef struct data_from_java
 ////////////////////////////////////////////////////////////////////////////////
 // this does nothing
 // serve as sanity in case C++ failed and Java remains up (fallback)
-static const char * null_downcall_handler(const std::string & msg){
-	// return value in order to remove warning from compilation.
-	return NULL;
+static void null_downcall_handler(const std::string & msg){
+
 	//log(lsWARN, "got command after C++ termination"); //TODO: check if logger is safe and then open it!
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 static void exceptionInJniThread(JNIEnv *env, UdaException *ex) {
 
-	const char *JNI_EXCEPTION_CLASS_NAME = "com/mellanox/hadoop/mapred/UdaRuntimeException";
-	log(lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, ex->_info);
+	const char * info = ex ? ex->_info : "unexpected failure";
+	const char * full_message = ex ? ex->getFullMessage().c_str() : "unexpected failure";
 
 	my_downcall_handler = null_downcall_handler; // don't handle incoming commands any more
 
+	if (is_net_merger) {
 
-	//Find the exception class.
-	jclass exClass = env->FindClass(JNI_EXCEPTION_CLASS_NAME);
-	if (exClass == NULL) {
-		log(lsERROR, "Not found %s",JNI_EXCEPTION_CLASS_NAME);
-		return;
+		const char *JNI_EXCEPTION_CLASS_NAME = "com/mellanox/hadoop/mapred/UdaRuntimeException";
+		log(lsERROR, "raising %s to java side, with info=%s", JNI_EXCEPTION_CLASS_NAME, info);
+
+		//Find the exception class.
+		jclass exClass = env->FindClass(JNI_EXCEPTION_CLASS_NAME);
+		if (exClass == NULL) {
+			log(lsERROR, "Not found %s",JNI_EXCEPTION_CLASS_NAME);
+			return;
+		}
+		//Indicate the exception with error message to JNI - NOTE: exception will occur after C++ terminates
+		env->ThrowNew(exClass, full_message);
+		env->DeleteLocalRef(exClass);
 	}
-	//Indicate the exception with error message to JNI - NOTE: exception will occur after C++ terminates
-	env->ThrowNew(exClass, ex->getFullMessage().c_str());
-	env->DeleteLocalRef(exClass);
+	else {
+		log(lsERROR, "unexpected error info=%s, full-message=%s", info, full_message);
+		// TODO ...
+	}
 }
 
 //direct buffer requires java 1.4
@@ -251,6 +255,14 @@ extern "C" JNIEXPORT jint JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_star
 	catch (UdaException *ex) {
 		exceptionInJniThread(env, ex);
 	}
+    catch (exception *ex) {
+		log(lsERROR, "got STL exception: %s", ex->what());
+		exceptionInJniThread(env, NULL);
+    }
+    catch(...) {
+		log(lsERROR, "got general Exception!");
+		exceptionInJniThread(env, NULL);
+    }
 
     return ret;
 }
@@ -277,7 +289,35 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 	catch (UdaException *ex) {
 		exceptionInJniThread(env, ex);
 	}
+    catch (exception *ex) {
+		log(lsERROR, "got STL exception: %s", ex->what());
+		exceptionInJniThread(env, NULL);
+    }
+    catch(...) {
+		log(lsERROR, "got general Exception!");
+		exceptionInJniThread(env, NULL);
+    }
 }
+
+
+// This is the implementation of the native method
+extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_setLogLevelNative  (jclass cls, jint log_level) {
+	try {
+		log_set_threshold((log_severity_t)log_level);
+	}
+	// Exception in this method will not cause a fallback,
+	// so WE DO NOT call exceptionInJniThread(env, ex) here.
+    catch (UdaException *ex) {
+    	log(lsWARN, "failed to set log level: info=%s, full-message=%s ", ex->_info, ex->getFullMessage().c_str());
+    }
+    catch (exception *ex) {
+    	log(lsWARN, "failed to set log level: Exception : %s ", ex->what());
+    }
+    catch (...) {
+    	log(lsWARN, "failed to set log level : unexpected error");
+    }
+}
+
 
 // must be called with JNIEnv that matched the caller's thread - see attachNativeThread() above
 // - otherwise TOO BAD unexpected results are expected!
@@ -308,7 +348,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 	jniEnv->DeleteLocalRef(jstr_map);
 
 	if (jdata==NULL){
-		log(lsERROR, "-->> In C++ java UdaBridge.getPathUda returned null!");
+		log(lsERROR, "java_UdaBridge.getPathUda returned null! for job_id=%s, map_id=%s, reduceId=%d", job_id, map_id, reduceId);
 		return NULL;
 	}
 
@@ -317,7 +357,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 	if (fidOffset == NULL) {
 		fidOffset = jniEnv->GetFieldID(cls_data, "startOffset", "J");
 		 if (fidOffset == NULL) {
-			 log(lsERROR, "-->> In C++ java UdaBridge.GetFieldID() callback method for startOffset was NOT found");
+			 log(lsERROR, "java_UdaBridge.GetFieldID() callback method for startOffset was NOT found");
 			 return NULL;
 		 }
 	 }
@@ -325,7 +365,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 	if (fidRawLength == NULL) {
 		fidRawLength = jniEnv->GetFieldID(cls_data, "rawLength", "J");
 		 if (fidRawLength == NULL) {
-			 log(lsERROR, "-->> In C++ java UdaBridge.GetFieldID() callback method for rawLength was NOT found");
+			 log(lsERROR, "java_UdaBridge.GetFieldID() callback method for rawLength was NOT found");
 			 return NULL;
 		 }
 	 }
@@ -334,7 +374,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 	if (fidPartLength == NULL) {
 		fidPartLength = jniEnv->GetFieldID(cls_data, "partLength", "J");
 		 if (fidPartLength == NULL) {
-			 log(lsERROR, "-->> In C++ java UdaBridge.GetFieldID() callback method for partLength was NOT found");
+			 log(lsERROR, "java_UdaBridge.GetFieldID() callback method for partLength was NOT found");
 			 return NULL;
 		 }
 	 }
@@ -342,7 +382,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 	if (fidPathMOF == NULL) {
 		fidPathMOF = jniEnv->GetFieldID(cls_data, "pathMOF", "Ljava/lang/String;");
 		 if (fidPathMOF == NULL) {
-			 log(lsERROR, "-->> In C++ java UdaBridge.GetFieldID() callback method for pathMOF was NOT found");
+			 log(lsERROR, "java_UdaBridge.GetFieldID() callback method for pathMOF was NOT found");
 			 return NULL;
 		 }
 	 }
@@ -402,7 +442,6 @@ void UdaBridge_invoke_logToJava_callback(const char* log_message, int severity) 
 // a utility function that attaches the **current [native] thread** to the JVM and
 // return the JNIEnv interface pointer for this thread
 // BE CAREFUL:
-// - DON'T call this function more than once for the same thread!! - perhaps not critical!
 // - DON'T use the handle from one thread in context of another threads!
 JNIEnv *UdaBridge_attachNativeThread()
 {
@@ -421,6 +460,16 @@ JNIEnv *UdaBridge_attachNativeThread()
     return env; // note: this handler is valid for all functions in this tread
 }
 
+JNIEnv *UdaBridge_threadGetEnv()
+{
+	JNIEnv *jniEnv;
+	if (cached_jvm->GetEnv((void **)&jniEnv, JNI_VERSION_1_4)) {
+		throw new UdaException("GetEnv failed");
+	}
+	return jniEnv;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
 
@@ -430,21 +479,15 @@ void UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex) {
 	my_downcall_handler = null_downcall_handler; // don't handle incoming commands any more
 
 	if (is_net_merger) {
+
 		// This handle remains valid until the java class is Unloaded
-		//fetchOverMessage callback
 		jmethodID jmethodID_failureInUda = env->GetStaticMethodID(jclassUdaBridge, "failureInUda", "()V");
 		if (jmethodID_failureInUda == NULL) {
 			log(lsERROR, "UdaBridge.failureInUda() callback method was NOT found");
 			return;
 		}
 
-
-		JNIEnv *jniEnv;
-		if (cached_jvm->GetEnv((void **)&jniEnv, JNI_VERSION_1_4)) {
-			return;
-		}
-
-		jniEnv->CallStaticVoidMethod(jclassUdaBridge, jmethodID_failureInUda);
+		env->CallStaticVoidMethod(jclassUdaBridge, jmethodID_failureInUda);
 
 
 	}

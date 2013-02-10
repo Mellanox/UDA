@@ -39,27 +39,6 @@
 extern char *rdmalog_dir;
 extern uint32_t wqes_perconn;
 
-static void usage(const char *cmd)
-{
-    printf("\nUsage: %s [<options> ... ]\n\n", cmd);
-    printf("<options> are the following:\n");
-    printf("  -r | --dataport    <port> "
-                   "  port to do rdma connection \n");
-    printf("  -a | --online      <online>"
-                   " If it is online merge\n");
-    printf("  -m | --mode        <mode>"
-                   "   Stand alone mode or integrated mode\n");
-    printf("  -g | --log               "
-                   "   Log directory for NetMerger and MOFSupplier\n");
-    printf("  -t | --trace-level       "
-                   "   threshold for log level for NetMerger and MOFSupplier\n");
-    printf("  -v | --version           "
-                       "    Display the version of the file and exit\n");
-    printf("  -h | --help              "
-                   "    Display this help and exit\n\n");
-   
-	throw new UdaException("bad usage");
-}
 
 int parse_options(int argc, char *argv[], netlev_option_t *op) 
 {
@@ -72,13 +51,11 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
         {"log",           1, NULL, 'g'},
         {"trace-level",   1, NULL, 't'},
         {"rdmabufsize",   1, NULL, 's'},
-        {"version",       0, NULL, 'v'},
-        {"help",          0, NULL, 'h'},
         {NULL,            0, NULL,  0 }
     };
     int buf_size;
 	errno = 0; // reset before we check!
-	while ((choice = getopt_long(argc, argv, "w:r:a:m:g:t:b:s:v:h",
+	while ((choice = getopt_long(argc, argv, "w:r:a:m:g:t:b:s:",
 
                             longopts, NULL)) != -1) {
         switch (choice) {
@@ -140,12 +117,6 @@ int parse_options(int argc, char *argv[], netlev_option_t *op)
 				goto err_options;
 			}
             break;
-        case 'v':
-        	printf("Version is %s\n",STR(VERSION_UDA));
-        	printf("Compiled on %s, %s\n", __DATE__, __TIME__);
-        	exit (0);
-        case 'h':
-            usage(argv[0]);
         default: 
         	printf("got invalid command line option choice=%c [%d] \n", choice, choice);
             break;
@@ -162,7 +133,6 @@ err_options:
     	printf("DEBUG: argv[%d] = %s\n", i, argv[i]);
     }
 
-    usage(argv[0]);
     return 1;
 }
 
@@ -235,10 +205,6 @@ bool parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
 
 void *event_processor(void *context)
 {
-
-JNIEnv *jniEnv = UdaBridge_attachNativeThread();
-try{
-
     int i, nevents, timeout = RDMA_TIMEOUT * 1000;
     struct epoll_event events[32];
 
@@ -256,29 +222,17 @@ try{
         if (nevents < 0) {
             if (errno != EINTR) {
             	log(lsERROR, "pollfd=%d: epoll_wait failed for with ret=%d (errno=%d: %m)", th->pollfd, nevents, errno);
-                pthread_exit(NULL);  // TODO: consider exit, OR throw new UdaException("failure in epoll_wait");
+                throw new UdaException("failure in epoll_wait");
             }
         } else if (nevents) {
             for (i = 0; i < nevents; i++) {
                 progress_event_t *pevent;
                 pevent = (progress_event_t *)events[i].data.ptr;
-                //avner - TODO: remove this log line it is extra verbose....
-                //log(lsTRACE, "EVENT calling handler=0x%x with data=0x%x; result of: th->pollfd=%d; nevents=%d", pevent->handler, pevent->data, th->pollfd, nevents);
                 pevent->handler(pevent, pevent->data);
             }
         } 
     }
 	log(lsINFO, "-------->>>>> event_processor thread stopped <<<<<--------");
-}
-catch(UdaException *ex) {
-	log(lsERROR, "got UdaException!");
-	UdaBridge_exceptionInNativeThread(jniEnv, ex);
-}
-catch(...) {
-	log(lsERROR, "got general Exception!");
-	UdaBridge_exceptionInNativeThread(jniEnv, NULL);
-}
-
     return NULL; //quite the compiler
 }
 

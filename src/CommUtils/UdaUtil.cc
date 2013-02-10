@@ -16,17 +16,74 @@
 **
 **
 */
+#include <errno.h>
 #include <UdaUtil.h>
 #include <IOUtility.h>
+#include "UdaBridge.h"
 
+
+////////////////////////////////////////////////////////////////////////////////
+struct UdaThreadArgs{
+	   const char * __caller_func;
+	   void *(*__start_routine) (void *);
+	   void *__arg;
+
+	   UdaThreadArgs(const char * __caller_func, void *(*__start_routine) (void *), void *__arg) {
+		   this -> __caller_func = __caller_func;
+		   this -> __start_routine = __start_routine;
+		   this -> __arg = __arg;
+	   }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+void * udaThreadStart(void *arg) {
+	UdaThreadArgs* threadArgs = (UdaThreadArgs*)arg;
+
+	JNIEnv *jniEnv = UdaBridge_attachNativeThread();
+	void * ret = NULL;
+	try {
+		log(lsINFO, "C++ THREAD STARTED (by %s) and attached to JVM tid=0x%x", threadArgs->__caller_func, (int)pthread_self());
+
+		// HERE RUN the entire THREAD...
+		ret = threadArgs->__start_routine(threadArgs->__arg);
+
+		log(lsINFO, "C++ THREAD TERMINATED (started by %s) tid=0x%x", threadArgs->__caller_func, (int)pthread_self());
+		delete threadArgs;
+	}
+	catch(UdaException *ex) {
+		log(lsERROR, "got UdaException!");
+		UdaBridge_exceptionInNativeThread(jniEnv, ex);
+	}
+    catch (std::exception *ex) {
+    	log(lsERROR, "got exception : %s ", ex->what());
+		UdaBridge_exceptionInNativeThread(jniEnv, NULL);
+    }
+	catch(...) {
+		log(lsERROR, "got general Exception!");
+		UdaBridge_exceptionInNativeThread(jniEnv, NULL);
+	}
+
+	return ret;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 /* wrapper for thread_create has same interface but does additional actions */
-int uda_thread_create (pthread_t * __newthread,
+int uda_thread_create_func (
+			   pthread_t * __newthread,
 			   __const pthread_attr_t *__attr,
 			   void *(*__start_routine) (void *),
-			   void *__arg) __THROW {
+			   void *__arg, const char * callerFunc) __THROW {
 
-	log(lsDEBUG, "CREATING THREAD");
-	return pthread_create(__newthread, __attr, __start_routine, __arg);
+	UdaThreadArgs *udaThreadArgs = new UdaThreadArgs(callerFunc, __start_routine, __arg);
+
+	int ret = pthread_create(__newthread, __attr, udaThreadStart, udaThreadArgs);
+
+	if (ret != 0) {
+		errno = ret;
+		log(lsERROR, "pthread_create failed error=%d (%m)!", errno);
+		throw new UdaException("pthread_create failed");
+	}
+	return ret;
 }
 
 /*

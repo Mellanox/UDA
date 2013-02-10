@@ -45,6 +45,7 @@ libuda_la_SOURCES = \
 					   	MOFServer/IndexInfo.cc  \
 						MOFServer/MOFServlet.cc \
 						MOFServer/MOFSupplierMain.cc \
+              MOFServer/MOFSupplierMain.h \
 					   	DataNet/RDMAClient.h \
 					   	DataNet/RDMAComm.h \
 					   	DataNet/RDMAServer.h \

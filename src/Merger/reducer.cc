@@ -160,7 +160,7 @@ int num_dirs =DIRS_START;
 	init_reduce_task(g_task);
 }
 
-const char * reduce_downcall_handler(const string & msg)
+void reduce_downcall_handler(const string & msg)
 {
 	client_part_req_t   *req;
 	hadoop_cmd_t        *hadoop_cmd;
@@ -175,28 +175,15 @@ const char * reduce_downcall_handler(const string & msg)
 		log(lsWARN, "Hadoop's command  - %s could not be parsed", msg.c_str());
 		free_hadoop_cmd(*hadoop_cmd);
 		free(hadoop_cmd);
-		return "C++ could not parse Hadoop command";
+		throw new UdaException("C++ could not parse Hadoop command");
 	}
 	log(lsDEBUG, "===>>> GOT COMMAND FROM JAVA SIDE (total %d params): hadoop_cmd->header=%d ", hadoop_cmd->count - 1, (int)hadoop_cmd->header);
 
 	switch (hadoop_cmd->header) {
 	case INIT_MSG: {
-		try {
-			handle_init_msg(hadoop_cmd);
-			free_hadoop_cmd(*hadoop_cmd);
-			free(hadoop_cmd);
-		BULLSEYE_EXCLUDE_BLOCK_START
-		}
-		catch (UdaException *ex) {
-			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to Hadoop's default shuffle plugin (with exMsg=%s)", ex->_info);
-			throw ex; //re-throw
-		}
-
-		catch (...) {
-			log(lsERROR, "Failure during UDA Initialization - we'll try to fallback to mapred default shuffle plugin");
-			throw new UdaException("Failure during UDA Initialization");
-		}
-		BULLSEYE_EXCLUDE_BLOCK_END
+		handle_init_msg(hadoop_cmd);
+		free_hadoop_cmd(*hadoop_cmd);
+		free(hadoop_cmd);
 		break;
 	}
 	case FETCH_MSG:
@@ -247,7 +234,6 @@ const char * reduce_downcall_handler(const string & msg)
 	BULLSEYE_EXCLUDE_BLOCK_END
 
 	log(lsDEBUG, "<<<=== HANDLED COMMAND FROM JAVA SIDE");
-	return NULL;
 }
 
 
@@ -282,7 +268,7 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool) //similar to the ol
     BULLSEYE_EXCLUDE_BLOCK_START
 	if (rc) {
     	log(lsERROR, "Failed to memalign. aligment=%d size=%ll , rc=%d", pagesize ,pool->total_size, rc );
-        return -1;
+        throw new UdaException("memalign failed");
     }
     BULLSEYE_EXCLUDE_BLOCK_END
 
