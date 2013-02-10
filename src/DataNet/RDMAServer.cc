@@ -163,10 +163,9 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
         if (ne) {
             if (desc.status != IBV_WC_SUCCESS) {
                 if (desc.status == IBV_WC_WR_FLUSH_ERR) {
-                    log(lsERROR, "Operation: %s. Dev %p wr (0x%llx) flush err. quitting...",
+                    log(lsDEBUG, "Operation: %s. Dev %p wr (0x%llx) flush err. quitting...",
                                   netlev_stropcode(desc.opcode), dev, 
                                   (unsigned long long)desc.wr_id);
-                    throw new UdaException("IBV - Bad WC status");
                 } else {
                 	log(lsERROR, "Operation: %s. Bad WC status %d for wr_id 0x%llx\n",
                                   netlev_stropcode(desc.opcode), desc.status, 
