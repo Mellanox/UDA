@@ -37,7 +37,7 @@ public:
 
 	void initDecompress();
 	LzoDecompressor(int port, reduce_task_t* reduce_task);
-	decompressRetData_t* get_next_block_length(char* buf);
+	void get_next_block_length(char* buf, decompressRetData_t* retObj);
 	uint32_t getBlockSizeOffset ();
 	decompressRetData_t* decompress(char* compressed_buff, char* uncompressed_buff, size_t compressed_buff_len, size_t uncompressed_buff_len,int offest);
 

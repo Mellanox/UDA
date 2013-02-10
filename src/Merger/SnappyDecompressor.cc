@@ -64,23 +64,20 @@ decompressRetData_t* SnappyDecompressor::decompress(char* compressed_buff, char*
 	throw new UdaException("Error in snappy decompress function");
 }
 
-decompressRetData_t* SnappyDecompressor::get_next_block_length(char* buf) {
+void SnappyDecompressor::get_next_block_length(char* buf, decompressRetData_t* retObj) {
 	uint32_t tmp[2];
 	memcpy(&tmp, buf, getBlockSizeOffset());
-	decompressRetData_t* ret = new decompressRetData_t();
+	//decompressRetData_t* ret = new decompressRetData_t();
 
-	ret->num_uncompressed_bytes=((tmp[0] & 0xFF000000)>>24);
-	ret->num_uncompressed_bytes+=((tmp[0] & 0xFF0000)>>8);
-	ret->num_uncompressed_bytes+=((tmp[0] & 0xFF00)<<8);
-	ret->num_uncompressed_bytes+=((tmp[0] & 0xFF)<<24);
+	retObj->num_uncompressed_bytes=((tmp[0] & 0xFF000000)>>24);
+	retObj->num_uncompressed_bytes+=((tmp[0] & 0xFF0000)>>8);
+	retObj->num_uncompressed_bytes+=((tmp[0] & 0xFF00)<<8);
+	retObj->num_uncompressed_bytes+=((tmp[0] & 0xFF)<<24);
 
-	ret->num_compressed_bytes=((tmp[1] & 0xFF000000)>>24);
-	ret->num_compressed_bytes+=((tmp[1] & 0xFF0000)>>8);
-	ret->num_compressed_bytes+=((tmp[1] & 0xFF00)<<8);
-	ret->num_compressed_bytes+=((tmp[1] & 0xFF)<<24);
-
-	return ret;
-
+	retObj->num_compressed_bytes=((tmp[1] & 0xFF000000)>>24);
+	retObj->num_compressed_bytes+=((tmp[1] & 0xFF0000)>>8);
+	retObj->num_compressed_bytes+=((tmp[1] & 0xFF00)<<8);
+	retObj->num_compressed_bytes+=((tmp[1] & 0xFF)<<24);
 }
 
 uint32_t SnappyDecompressor::getBlockSizeOffset (){ return 8;}

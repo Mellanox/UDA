@@ -359,24 +359,28 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 
 
 
-char* UdaBridge_invoke_getConfData_callback(JNIEnv * jniEnv, const char* paramName, const char* defaultParam) {
-	log(lsTRACE, "before getConfData...");
-	jstring jstr_param = jniEnv->NewStringUTF(paramName);
-	jstring jstr_default = jniEnv->NewStringUTF(defaultParam);
-	jobject jdata = jniEnv->CallStaticObjectMethod(jclassUdaBridge, jmethodID_getConfData, jstr_param,jstr_default);
+char* UdaBridge_invoke_getConfData_callback(const char* paramName, const char* defaultParam) {
+	JNIEnv *env;
+	if (cached_jvm->GetEnv((void **)&env, JNI_VERSION_1_4)) {
+		log(lsERROR, "-->> Error getting JNIEnv In C++ JNI_getConfData");
+		return NULL;
+	}
+	jstring jstr_param = env->NewStringUTF(paramName);
+	jstring jstr_default = env->NewStringUTF(defaultParam);
+	jobject jdata = env->CallStaticObjectMethod(jclassUdaBridge, jmethodID_getConfData, jstr_param,jstr_default);
 	log(lsTRACE, "after getConfData...");
-	jniEnv->DeleteLocalRef(jstr_param);
-	jniEnv->DeleteLocalRef(jstr_default);
+	env->DeleteLocalRef(jstr_param);
+	env->DeleteLocalRef(jstr_default);
 	if (jdata==NULL){
 		log(lsERROR, "-->> In C++ java UdaBridge.getConfData returned null!");
 		return NULL;
 	}
 	log(lsTRACE, "got data getConfData");
-	const char *nativeString = jniEnv->GetStringUTFChars( (jstring) jdata, 0);
+	const char *nativeString = env->GetStringUTFChars( (jstring) jdata, 0);
 	const size_t len = strlen(nativeString);
 	char *dataStr = (char*) malloc(len+1);
 	strncpy(dataStr, nativeString, len+1);
-	jniEnv->ReleaseStringUTFChars( (jstring)jdata, nativeString);
+	env->ReleaseStringUTFChars( (jstring)jdata, nativeString);
 	return dataStr;
 }
 
@@ -402,7 +406,6 @@ void UdaBridge_invoke_logToJava_callback(const char* log_message, int severity) 
 // - DON'T use the handle from one thread in context of another threads!
 JNIEnv *UdaBridge_attachNativeThread()
 {
-	log(lsTRACE, "started");
     JNIEnv *env;
 	if (! cached_jvm) {
 		log(lsERROR, "cached_jvm is NULL");

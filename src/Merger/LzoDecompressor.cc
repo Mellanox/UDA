@@ -79,9 +79,8 @@ void LzoDecompressor::init(){
  * if doesn't exist in conf then loads LZO1X by default
  */
 void LzoDecompressor::loadDecompressorFunc(){
-	initJniEnv();
 	decompressor_func_ptr = NULL;
-	char *lzo_decompressor_function =  UdaBridge_invoke_getConfData_callback(this->jniEnv, decompressionParamName, "LZO1X");//LZO1X_SAFE");
+	char *lzo_decompressor_function =  UdaBridge_invoke_getConfData_callback (decompressionParamName, "LZO1X");//LZO1X_SAFE");
 	log(lsDEBUG,"lzo_decompressor_function: %s",lzo_decompressor_function);
 	int i;
 
@@ -137,23 +136,19 @@ decompressRetData_t* LzoDecompressor::decompress
 	}
 }
 
-decompressRetData_t* LzoDecompressor::get_next_block_length(char* buf) {
+void LzoDecompressor::get_next_block_length(char* buf, decompressRetData_t* retObj){
 	uint tmp[2];
 	memcpy(&tmp, buf, 8);
-	decompressRetData_t* ret = new decompressRetData_t();
 
-	ret->num_uncompressed_bytes=((tmp[0] & 0xFF000000)>>24);
-	ret->num_uncompressed_bytes+=((tmp[0] & 0xFF0000)>>8);
-	ret->num_uncompressed_bytes+=((tmp[0] & 0xFF00)<<8);
-	ret->num_uncompressed_bytes+=((tmp[0] & 0xFF)<<24);
+	retObj->num_uncompressed_bytes=((tmp[0] & 0xFF000000)>>24);
+	retObj->num_uncompressed_bytes+=((tmp[0] & 0xFF0000)>>8);
+	retObj->num_uncompressed_bytes+=((tmp[0] & 0xFF00)<<8);
+	retObj->num_uncompressed_bytes+=((tmp[0] & 0xFF)<<24);
 
-	ret->num_compressed_bytes=((tmp[1] & 0xFF000000)>>24);
-	ret->num_compressed_bytes+=((tmp[1] & 0xFF0000)>>8);
-	ret->num_compressed_bytes+=((tmp[1] & 0xFF00)<<8);
-	ret->num_compressed_bytes+=((tmp[1] & 0xFF)<<24);
-
-	return ret;
-
+	retObj->num_compressed_bytes=((tmp[1] & 0xFF000000)>>24);
+	retObj->num_compressed_bytes+=((tmp[1] & 0xFF0000)>>8);
+	retObj->num_compressed_bytes+=((tmp[1] & 0xFF00)<<8);
+	retObj->num_compressed_bytes+=((tmp[1] & 0xFF)<<24);
 }
 
 uint32_t LzoDecompressor::getBlockSizeOffset (){ return 8;}
