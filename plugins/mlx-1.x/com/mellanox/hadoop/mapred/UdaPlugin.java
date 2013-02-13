@@ -531,7 +531,7 @@ class UdaPluginTT extends UdaPlugin {
 	static final int FILE_CACHE_SIZE = 2000;
 	private static LRUHash<String, Path> fileCache ;//= new LRUHash<String, Path>(FILE_CACHE_SIZE);
 	private static LRUHash<String, Path> fileIndexCache ;//= new LRUHash<String, Path>(FILE_CACHE_SIZE);
-	static IndexCache indexCache;
+	static IndexCacheBridge indexCache;
 	static UdaShuffleProviderPlugin udaShuffleProvider;
 
 	public UdaPluginTT(TaskTracker taskTracker, JobConf jobConf, UdaShuffleProviderPlugin udaShuffleProvider) {
@@ -543,7 +543,7 @@ class UdaPluginTT extends UdaPlugin {
 		fileCache = new LRUHash<String, Path>(FILE_CACHE_SIZE);
 		fileIndexCache = new LRUHash<String, Path>(FILE_CACHE_SIZE);
 
-		this.indexCache = new IndexCache(jobConf);
+		this.indexCache = new IndexCacheBridge(jobConf);
 	}
 	
 	protected void buildCmdParams() {
@@ -636,13 +636,13 @@ class UdaPluginTT extends UdaPlugin {
 		    //  Read the index file to get the information about where
 		    //  the map-output for the given reducer is available. 
 		         
-		   IndexRecord info = indexCache.getIndexInformation(mapId, reduce,indexFileName, 
+		   IndexRecordBridge info = indexCache.getIndexInformation(mapId, reduce,indexFileName, 
 		             runAsUserName);
 		   
 		   data = new DataPassToJni();
-		   data.startOffset = info.startOffset;
-		   data.rawLength = info.rawLength;
-		   data.partLength = info.partLength;
+		   data.startOffset = info.getStartOffset();
+		   data.rawLength = info.getRawLength();
+		   data.partLength = info.getPartLength();
 		   data.pathMOF = mapOutputFileName.toString();
 
 	    } catch (IOException e) {
