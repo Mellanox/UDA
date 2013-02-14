@@ -607,10 +607,10 @@ class UdaPluginTT extends UdaPlugin {
 	
 	
 	//this code is copied from TaskTracker.MapOutputServlet.doGet 
-	static DataPassToJni getPathIndex(String jobId, String mapId, int reduce){
+	static IndexRecordBridge getPathIndex(String jobId, String mapId, int reduce){
 		 String userName = null;
 	     String runAsUserName = null;
-	     DataPassToJni data = null;
+	     IndexRecordBridge data = null;
 	     
 	     try{
 	    	 JobConf jobConf = udaShuffleProvider.getJobConfFromSuperClass(JobID.forName(jobId)); 
@@ -635,14 +635,8 @@ class UdaPluginTT extends UdaPlugin {
 		        
 		    //  Read the index file to get the information about where
 		    //  the map-output for the given reducer is available. 
-		         
-		   IndexRecordBridge info = indexCache.getIndexInformation(mapId, reduce,indexFileName, 
-		             runAsUserName);
-		   
-		   data = new DataPassToJni();
-		   data.startOffset = info.getStartOffset();
-		   data.rawLength = info.getRawLength();
-		   data.partLength = info.getPartLength();
+
+		   data = indexCache.getIndexInformationBridge(mapId, reduce, indexFileName, runAsUserName);
 		   data.pathMOF = mapOutputFileName.toString();
 
 	    } catch (IOException e) {
@@ -659,7 +653,7 @@ class UdaPluginTT extends UdaPlugin {
 
 // Starting to unify code between all our plugins...
 class UdaPluginSH {
-	static DataPassToJni getPathIndex(String jobId, String mapId, int reduce){
+	static IndexRecordBridge getPathIndex(String jobId, String mapId, int reduce){
 		return UdaPluginTT.getPathIndex(jobId, mapId, reduce);
 	}
 }

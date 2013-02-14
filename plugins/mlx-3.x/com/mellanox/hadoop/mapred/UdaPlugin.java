@@ -490,7 +490,7 @@ class UdaPluginSH extends UdaPlugin {
 	private Vector<String>     mParams       = new Vector<String>();
 	private static LocalDirAllocator localDirAllocator = new LocalDirAllocator ("mapred.local.dir");
 	Configuration conf;
-	static IndexCache indexCache;
+	static IndexCacheBridge indexCache;
     private static LocalDirAllocator lDirAlloc =
         new LocalDirAllocator(YarnConfiguration.NM_LOCAL_DIRS);
 	private static final Map<String,String> userRsrc = new ConcurrentHashMap<String,String>();
@@ -498,7 +498,7 @@ class UdaPluginSH extends UdaPlugin {
 	public UdaPluginSH(Configuration conf) {
 		super(new JobConf(conf));
 		LOG.info("initApp of UdaPluginSH");	
-		indexCache = new IndexCache(mjobConf);
+		indexCache = new IndexCacheBridge(mjobConf);
 		launchCppSide(false, null); // false: this is TT => we should execute MOFSupplier
 
 	}
@@ -541,10 +541,10 @@ class UdaPluginSH extends UdaPlugin {
 	
 	
 	//this code is copied from ShuffleHandler.sendMapOutput
-	static DataPassToJni getPathIndex(String jobIDStr, String mapId, int reduce){
+	static IndexRecordBridge getPathIndex(String jobIDStr, String mapId, int reduce){
 		 String user = userRsrc.get(jobIDStr);
 //		String user = "katyak";
-	     DataPassToJni data = null;
+	     IndexRecordBridge data = null;
 	        
 	     JobID jobID = JobID.forName(jobIDStr);
 	     ApplicationId appID = Records.newRecord(ApplicationId.class);
@@ -565,13 +565,8 @@ class UdaPluginSH extends UdaPlugin {
 	            base + "/file.out", mjobConf);
 	        LOG.debug("DEBUG1 " + base + " : " + mapOutputFileName + " : " +
 	            indexFileName);
-	        IndexRecord info = 
-	          indexCache.getIndexInformation(mapId, reduce, indexFileName, user);
-				
-		   data = new DataPassToJni();
-		   data.startOffset = info.startOffset;
-		   data.rawLength = info.rawLength;
-		   data.partLength = info.partLength;
+			 // TODO: is this correct ?? - why user and not runAsUserName like in hadoop-1 ??
+		   data = indexCache.getIndexInformationBridge(mapId, reduce, indexFileName, user);
 		   data.pathMOF = mapOutputFileName.toString();
 	     }catch (IOException e){
 	        	LOG.error("got an exception while retrieving the Index Info");}

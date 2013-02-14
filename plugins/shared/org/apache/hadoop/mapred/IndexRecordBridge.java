@@ -20,16 +20,16 @@
 package org.apache.hadoop.mapred;
 
 
-// This class is an accessible wrapper around the hadoop's internal IndexRecord (in file: SpillRecord.java)
+/**
+ * This class is a comfortable and accessible wrapper around the vanilla hadoop's IndexRecord
+*/
+public class IndexRecordBridge extends IndexRecord{
 
-public class IndexRecordBridge extends IndexRecord {
-	
-	IndexRecord orig;
-  public IndexRecordBridge(IndexRecord orig) { 
-		this.orig = orig;
+	IndexRecordBridge(IndexRecord orig) {
+		startOffset = orig.startOffset;
+		rawLength   = orig.rawLength;
+		partLength  = orig.partLength;
 	}
-	
-  public long getStartOffset() {return startOffset;}
-  public long getRawLength() {return rawLength;}
-  public long getPartLength() {return partLength;}
+
+	public String pathMOF; // Will be populated by UdaPlugin
 }

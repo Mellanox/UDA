@@ -23,17 +23,17 @@ import java.io.IOException;
 import org.apache.hadoop.fs.Path;
 
 /**
- *This class is an accessible wrapper around the hadoop's internal IndexCache
+ *This class is an accessible wrapper around the vanilla hadoop's IndexCache
 */
 public class IndexCacheBridge extends IndexCache{
   public IndexCacheBridge(JobConf conf) {
 		super(conf);
 	}
 	
-  public IndexRecordBridge getIndexInformation(String mapId, int reduce,
+  public IndexRecordBridge getIndexInformationBridge(String mapId, int reduce,
       Path fileName, String expectedIndexOwner) throws IOException {
 				
-				IndexRecord orig = super.getIndexInformation(mapId, reduce, fileName, expectedIndexOwner);
-				return new IndexRecordBridge(orig); 
+				IndexRecord indexRecord = super.getIndexInformation(mapId, reduce, fileName, expectedIndexOwner);			
+				return new IndexRecordBridge(indexRecord);
 	}	
 }
