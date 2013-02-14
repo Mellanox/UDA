@@ -411,7 +411,6 @@ void UdaBridge_invoke_logToJava_callback(const char* log_message, int severity) 
 // - DON'T use the handle from one thread in context of another threads!
 JNIEnv *UdaBridge_attachNativeThread()
 {
-	log(lsTRACE, "started");
     JNIEnv *env;
 	if (! cached_jvm) {
 		log(lsERROR, "cached_jvm is NULL");
