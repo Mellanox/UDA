@@ -529,8 +529,8 @@ class UdaPluginTT extends UdaPlugin {
 	private Vector<String>     mParams       = new Vector<String>();
 	private static LocalDirAllocator localDirAllocator = new LocalDirAllocator ("mapred.local.dir");
 	static final int FILE_CACHE_SIZE = 2000;
-	private static LRUHash<String, Path> fileCache ;//= new LRUHash<String, Path>(FILE_CACHE_SIZE);
-	private static LRUHash<String, Path> fileIndexCache ;//= new LRUHash<String, Path>(FILE_CACHE_SIZE);
+	private static LRUCacheBridge<String, Path> fileCache ;//= new LRUCacheBridge<String, Path>(FILE_CACHE_SIZE);
+	private static LRUCacheBridge<String, Path> fileIndexCache ;//= new LRUCacheBridge<String, Path>(FILE_CACHE_SIZE);
 	static IndexCacheBridge indexCache;
 	static UdaShuffleProviderPlugin udaShuffleProvider;
 
@@ -540,8 +540,8 @@ class UdaPluginTT extends UdaPlugin {
 		this.udaShuffleProvider = udaShuffleProvider;
 		
 		launchCppSide(false, null); // false: this is TT => we should execute MOFSupplier
-		fileCache = new LRUHash<String, Path>(FILE_CACHE_SIZE);
-		fileIndexCache = new LRUHash<String, Path>(FILE_CACHE_SIZE);
+		fileCache = new LRUCacheBridge<String, Path>(FILE_CACHE_SIZE);
+		fileIndexCache = new LRUCacheBridge<String, Path>(FILE_CACHE_SIZE);
 
 		this.indexCache = new IndexCacheBridge(jobConf);
 	}
