@@ -17,15 +17,10 @@
  */
 package org.apache.hadoop.mapred;
 
-// NOTE: this file should be in shared area.
-// It is copied as it to all plugins except 3.x which doesn't need it.
-//
-// However, currently, itt existentce in shared will break compilation of 
-// our hadoop-3.x plugin (unless we change our Makefile sceme)
-
-public class LRUCacheBridge<K, V> extends TaskTracker.LRUCache<K, V> {
-    public LRUCacheBridge(int cacheSize) {
-			super (cacheSize);
-    }
+// NOTE: this file is only shared among our Hadoop1 environments.
+// it is excluded from our mlx-3.x plugin, be including only *[^1].java in its Makefile
+public class LRUCacheBridgeHadoop1 <K, V> extends TaskTracker.LRUCache<K, V> {
+	public LRUCacheBridgeHadoop1 () {
+		super (TaskTracker.FILE_CACHE_SIZE);
+  }
 }
-
