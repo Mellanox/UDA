@@ -52,12 +52,16 @@ import org.apache.hadoop.io.WritableUtils;
 
 import org.apache.hadoop.fs.Path;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
+
 
 abstract class UdaPlugin {
 	protected List<String> mCmdParams = new ArrayList<String>();
 	protected static Log LOG;
-	protected static int log_level;
-
+	protected static int log_level = -1; // Initialisation value for calcAndCompareLogLevel() first run
+	protected static String logging_package_name = "org.apache.hadoop.mapred";
 	protected static JobConf mjobConf;
 	
 	public UdaPlugin(JobConf jobConf) {
@@ -73,20 +77,36 @@ abstract class UdaPlugin {
 		LOG = LogFactory.getLog(logging_name);
 	}
 	
-	//* retrieve and set the logging level
-	private static void calcLogLevel(){
-		log_level = (LOG.isFatalEnabled() ? 1 : 0) + (LOG.isErrorEnabled() ? 1 : 0) +  
-					(LOG.isWarnEnabled() ? 1 : 0) +(LOG.isInfoEnabled() ? 1 : 0) + 
-					(LOG.isDebugEnabled() ? 1 : 0) + (LOG.isTraceEnabled() ? 1 : 0);
+	//* retrieves and sets the logging level, if log_level was changed return true, else return false.
+	private static boolean calcAndCompareLogLevel(){
+		int curr_log_level = (LOG.isFatalEnabled() ? 1 : 0) + (LOG.isErrorEnabled() ? 1 : 0) +  
+						 	 (LOG.isWarnEnabled() ? 1 : 0) +(LOG.isInfoEnabled() ? 1 : 0) + 
+						 	 (LOG.isDebugEnabled() ? 1 : 0) + (LOG.isTraceEnabled() ? 1 : 0);
+		if(curr_log_level == log_level)
+			return false;
+		else
+		{
+			log_level = curr_log_level;
+			return true;
+		}
 	}
 	
 	//* configuring all that is needed for logging
 	protected static void prepareLog(String logging_name){
 		setLog(logging_name);
-		calcLogLevel();
-	}
+		calcAndCompareLogLevel();	
+		}
 	
 	protected void launchCppSide(boolean isNetMerger, UdaCallable _callable) {
+		
+		
+		//only if this is the provider, start the periodic log check task.
+		if(!isNetMerger)
+		{
+			LOG.debug("starting periodic log check task");
+			Timer timer = new Timer();
+			timer.schedule(new TaskLogLevel(), 0, 1000);
+		}
 		
 		LOG.info("UDA: Launching C++ thru JNI");
 		buildCmdParams();
@@ -107,14 +127,27 @@ abstract class UdaPlugin {
 			throw (e);
 		}
 	}
+	
+	// Class represents the period task of log-level checking & setting in C++ 
+	class TaskLogLevel extends TimerTask{
+		public void run()
+		{
+			// check if log level has changed
+			if(calcAndCompareLogLevel())
+			{
+				// set log level in C++
+				UdaBridge.setLogLevel(log_level);
+				LOG.info("Logging level was cahanged");
+			}
+		}
+	}
 
 }
 
 class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
 	static{
-		String logging_name = UdaPlugin.class.getName() + ".Consumer";
-		prepareLog(logging_name);
+		prepareLog(logging_package_name + ".ShuffleConsumerPlugin");
 	}
 	
 	final UdaShuffleConsumerPlugin udaShuffleConsumer;
@@ -489,17 +522,15 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 class UdaPluginTT extends UdaPlugin {  
 	
 	static{
-		String logging_name = UdaPlugin.class.getName() + ".Provider";
-		prepareLog(logging_name);
+		prepareLog(logging_package_name + ".ShuffleProviderPlugin");
 	}
 
 	private static TaskTracker taskTracker;
 	private Vector<String>     mParams       = new Vector<String>();
 	private static LocalDirAllocator localDirAllocator = new LocalDirAllocator ("mapred.local.dir");
-	static final int FILE_CACHE_SIZE = 2000;
-	private static LRUCacheBridge<String, Path> fileCache ;//= new LRUCacheBridge<String, Path>(FILE_CACHE_SIZE);
-	private static LRUCacheBridge<String, Path> fileIndexCache ;//= new LRUCacheBridge<String, Path>(FILE_CACHE_SIZE);
-	static IndexCache indexCache;
+	private static LRUCacheBridgeHadoop1<String, Path> fileCache ;//= new LRUCacheBridgeHadoop1<String, Path>();
+	private static LRUCacheBridgeHadoop1<String, Path> fileIndexCache ;//= new LRUCacheBridgeHadoop1<String, Path>();
+	static IndexCacheBridge indexCache;
 	static UdaShuffleProviderPlugin udaShuffleProvider;
 
 	public UdaPluginTT(TaskTracker taskTracker, JobConf jobConf, UdaShuffleProviderPlugin udaShuffleProvider) {
@@ -508,10 +539,10 @@ class UdaPluginTT extends UdaPlugin {
 		this.udaShuffleProvider = udaShuffleProvider;
 		
 		launchCppSide(false, null); // false: this is TT => we should execute MOFSupplier
-		fileCache = new LRUCacheBridge<String, Path>(FILE_CACHE_SIZE);
-		fileIndexCache = new LRUCacheBridge<String, Path>(FILE_CACHE_SIZE);
+		fileCache = new LRUCacheBridgeHadoop1<String, Path>();
+		fileIndexCache = new LRUCacheBridgeHadoop1<String, Path>();
 
-		this.indexCache = new IndexCache(jobConf);
+		this.indexCache = new IndexCacheBridge(jobConf);
 	}
 	
 	protected void buildCmdParams() {
@@ -575,10 +606,10 @@ class UdaPluginTT extends UdaPlugin {
 	
 	
 	//this code is copied from TaskTracker.MapOutputServlet.doGet 
-	static DataPassToJni getPathIndex(String jobId, String mapId, int reduce){
+	static IndexRecordBridge getPathIndex(String jobId, String mapId, int reduce){
 		 String userName = null;
 	     String runAsUserName = null;
-	     DataPassToJni data = null;
+	     IndexRecordBridge data = null;
 	     
 	     try{
 	    	 JobConf jobConf = udaShuffleProvider.getJobConfFromSuperClass(JobID.forName(jobId)); 
@@ -603,14 +634,8 @@ class UdaPluginTT extends UdaPlugin {
 		        
 		    //  Read the index file to get the information about where
 		    //  the map-output for the given reducer is available. 
-		         
-		   IndexRecord info = indexCache.getIndexInformation(mapId, reduce,indexFileName, 
-		             runAsUserName);
-		   
-		   data = new DataPassToJni();
-		   data.startOffset = info.startOffset;
-		   data.rawLength = info.rawLength;
-		   data.partLength = info.partLength;
+
+		   data = indexCache.getIndexInformationBridge(mapId, reduce, indexFileName, runAsUserName);
 		   data.pathMOF = mapOutputFileName.toString();
 
 	    } catch (IOException e) {
@@ -627,7 +652,7 @@ class UdaPluginTT extends UdaPlugin {
 
 // Starting to unify code between all our plugins...
 class UdaPluginSH {
-	static DataPassToJni getPathIndex(String jobId, String mapId, int reduce){
+	static IndexRecordBridge getPathIndex(String jobId, String mapId, int reduce){
 		return UdaPluginTT.getPathIndex(jobId, mapId, reduce);
 	}
 }

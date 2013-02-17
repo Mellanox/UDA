@@ -100,9 +100,8 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 	protected TaskUmbilicalProtocol umbilical; // Reference to the umbilical object
 	protected JobConf jobConf;
 	protected Reporter reporter;
-	protected static String logging_name = "com.mellanox.hadoop.mapred.UdaPlugin.Consumer";
 	
-	private static final Log LOG = LogFactory.getLog(logging_name);
+	private static final Log LOG = LogFactory.getLog("org.apache.hadoop.mapred.ShuffleConsumerPlugin");
 	
 	// This is the channel used to transfer the data between RDMA C++ and Hadoop
 	private UdaPluginRT rdmaChannel;
@@ -194,12 +193,6 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 	
     
 	
-	/*
-		public long getMaxInMemReduce() {
-		return maxInMemReduce;
-		}
-	//*/		
-	
 	/** 
 		* A flag to indicate when to exit getMapEvents thread 
 	*/
@@ -212,16 +205,16 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 		getMapEventsThread = new GetMapEventsThread();
 		getMapEventsThread.start();         
 		
-		LOG.debug("Wait for fetching");
+		LOG.info("fetchOutputs - Using UdaShuffleConsumerPlugin");
 		synchronized(fetchLock) {
 			try {
 				fetchLock.wait(); 
 				} catch (InterruptedException e) {
 			}       
 		}
-		LOG.debug("Fetching finished"); 
 		// all done, inform the copiers to exit
 		exitGetMapEvents= true;
+		if (LOG.isDebugEnabled()) LOG.debug("Fetching finished"); 
 
 		if (fallbackPlugin != null) {
 			LOG.warn("another thread has indicated Uda failure");
@@ -239,8 +232,8 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 		fetchOutputsCompleted = true;
 		return true;
 	}
-
-	@Override
+	
+    @Override
 	public boolean fetchOutputs() throws IOException {
 		
 		try {
@@ -288,6 +281,7 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 		
 		try {
 			if (fetchOutputsCompleted) {
+				LOG.info("createKVIterator - Using UdaShuffleConsumerPlugin");
 				return this.rdmaChannel.createKVIterator_rdma(job,fs,reporter);
 			}
 		}
@@ -306,6 +300,7 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 	public void close() {
 		// try catch here is not needed since it is too late for new fallback to vanilla.
 		if (fallbackPlugin == null) {
+			LOG.info("close - Using UdaShuffleConsumerPlugin");
 			this.rdmaChannel.close();
 			return;
 		}

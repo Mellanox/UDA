@@ -106,7 +106,7 @@ public class UdaShuffleProviderPlugin implements ShuffleProviderPlugin{
 		rdmaChannel.jobOver(jobID.toString());
 	}
 	
-	JobConf getJobConfFromSuperClass(JobID jobid) {
+	JobConf getJobConfFromSuperClass(JobID jobid) throws IOException{
 		return taskTracker.getJobConf(jobid) ;
 	}
 	
