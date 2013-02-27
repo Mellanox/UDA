@@ -20,6 +20,9 @@
 #include <dlfcn.h>
 #include <UdaUtil.h>
 
+#ifndef DC_H
+#define DC_H
+
 typedef struct decompressRetData {
 	    uint32_t   num_uncompressed_bytes;
 	    uint32_t   num_compressed_bytes;
@@ -27,34 +30,47 @@ typedef struct decompressRetData {
 
 class DecompressorWrapper : public InputClient
 {
-public:
-    virtual ~DecompressorWrapper() ;
 
+public:
+
+    virtual ~DecompressorWrapper() ;
     DecompressorWrapper (int port, reduce_task_t* reduce_task);
 
-    virtual decompressRetData_t* decompress(char* compressed_buff, char* uncompressed_buff, size_t compressed_buff_len, size_t uncompressed_buff_len,int offest)=0;
-    virtual void initDecompress() = 0;
-    virtual void get_next_block_length(char* buf, decompressRetData_t* retObj) = 0; //should be implemented in deriving class since different for block and non block
     void start_client();
     void stop_client();
-
     int start_fetch_req(struct client_part_req *req,  char * buff, int32_t buf_len);
     void comp_fetch_req(struct client_part_req *req);
     RdmaClient* getRdmaClient();
-    virtual uint32_t getBlockSizeOffset() = 0; //For LZO will return the number of bytes of the block length. for non block alg's will return 0
-    void initJniEnv();
-    void* loadSymbol(void *handle, const char* symbol);
 
-    bool library_loaded;
-    char* library_name; //to be passed in the c-tor?
-    InputClient *rdmaClient;
-    int port;
-//    merging_state_t    *state;
+
     reduce_task_t* reduce_task;
     pthread_cond_t cond;
     pthread_mutex_t      lock;
-    list<client_part_req_t *>    req_to_decompress;
     netlev_thread_t    decompress_thread;
-    char* buffer; //this is the side buffer to where the data is decompressed
-    JNIEnv *jniEnv;
+    list<client_part_req_t *>    req_to_decompress;
+    char* buffer; //this is the side buffer to where the data is temporarily decompressed
+
+    static void * decompressMainThread(void *arg);  // thread start
+protected:
+
+	virtual void initDecompress() = 0;
+	void* loadSymbolWrapper(void *handle, const char* symbol);
+	InputClient *rdmaClient;
+
+private:
+	void *decompressMainThread();
+	void handle1Req(client_part_req_t *req);
+	bool perliminaryCheck1Req(client_part_req_t *req);
+	void doDecompress(client_part_req_t *req);
+	void handleNextRdmaFetch(client_part_req_t *req);
+	void copy_from_side_buffer_to_actual_buffer(mem_desc_t * dest, uint32_t length);
+	virtual uint32_t getBlockSizeOffset() = 0; //For LZO/snappy will return the number of bytes of the block length. for non block alg's will return 0
+	virtual void get_next_block_length(char* buf, decompressRetData_t* retObj) = 0; //should be implemented in deriving class since different for block and non block
+	virtual  void decompress(const char* compressed_buff, char* uncompressed_buff, size_t compressed_buff_len, size_t uncompressed_buff_len, int offest, decompressRetData_t* retObj)=0;
+	bool isRdmaBlockReadyToRead(mem_desc_t *buffer);
+	virtual uint32_t getNumCompressedBytes(char* buf)=0;
+	virtual uint32_t getNumUncompressedBytes(char* buf)=0;
+
 };
+
+#endif

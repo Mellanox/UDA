@@ -54,10 +54,9 @@ typedef struct merging_state {
 
     memory_pool_t      mop_pool;
     
-    int 			data_port;
-
-
+    int 			   data_port;
 } merging_state_t;
+
 typedef struct reduce_task {
 
 	InputClient       *client;
@@ -94,18 +93,19 @@ typedef struct reduce_task {
 
     /*for compression*/
 
-    compressionType compr_alg;
-    int block_size;
+    compressionType comp_alg;
+    int comp_block_size;
 
     bool isCompressionOn(){
-    	if(compr_alg != compOff){
-    		return true;
-    	}
-    	return false;
+    	return (comp_alg != compOff);
     }
 
+    bool isCompressionOff(){
+		return !isCompressionOn();
+	}
+
     compressionType getCompressionType(){
-    	return compr_alg;
+    	return comp_alg;
     }
 
 } reduce_task_t;
@@ -116,7 +116,10 @@ void spawn_reduce_task();
 void finalize_reduce_task(reduce_task_t *task);
 int  create_mem_pool(int logsize, int num, memory_pool_t *pool);
 int  create_mem_pool_pair(int size1, int size2,  int num, memory_pool_t *pool);
-void createCompressionClient();
+void createInputClient();
+compressionType getCompAlg(char* comp);
+void initMemPool(int minRdmaBuffer);
+
 #endif
 
 /*

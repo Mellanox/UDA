@@ -71,18 +71,6 @@ int MergeManager_main(int argc, char* argv[])
      * -- create a network connections with the server
      * -- round-robin to process segment requests from all reducers
      */
-
-/*
-	if (!g_task->compr_alg) {//if not compression
-		merging_sm.client = new RdmaClient(op.data_port, &merging_sm);
-	}else{
-		log(lsINFO, "compr before creating dummydecompressor");
-		merging_sm.client = new DummyDecompressor(op.data_port, &merging_sm);
-		log(lsINFO, "compr after creating dummydecompressor");
-	}
-    merging_sm.client->start_client();
-	log(lsINFO, " AFTER INPUT CLIENT CREATION");
-*/
 	spawn_reduce_task();
 
     return 0;

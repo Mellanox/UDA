@@ -118,7 +118,7 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 				manager->mops_in_queue.insert(mop->mop_id);
 				Segment *segment = new Segment(mop);
 
-				if (!task->isCompressionOn()){
+				if (task->isCompressionOff()){
 					segment->send_request(); // send req for second buffer
 
 				}
@@ -246,16 +246,16 @@ KVOutput::KVOutput(struct reduce_task *task)
     memory_pool_t *mem_pool;
 
     this->task = task;
-    if (!task->isCompressionOn()){// nocompression
+    if (task->isCompressionOff()){// nocompression
     	this->staging_mem_idx = 0;
     }else{
     	this->staging_mem_idx = 1;
     }
 
-    this->total_len_part = 0;
-    this->total_len_raw = 0;
-    this->total_fetched_raw = 0;
-    this->total_fetched_read = 0;
+    this->total_len_rdma = 0;
+    this->total_len_uncompress = 0;
+    this->fetched_len_rdma = 0;
+    this->fetched_len_uncompress = 0;
     this->last_fetched = 0;
     pthread_mutex_init(&this->lock, NULL);
     pthread_cond_init(&this->cond, NULL);
@@ -370,14 +370,14 @@ int MergeManager::update_fetch_req(client_part_req_t *req)
     pthread_mutex_lock(&req->mop->lock);
     /* set variables in map output */
     req->mop->last_fetched = recvd_data[2];
-    req->mop->total_len_part = recvd_data[1];
-    req->mop->total_len_raw = recvd_data[0];
-    req->mop->total_fetched_raw += recvd_data[2];
+    req->mop->total_len_rdma = recvd_data[1];
+    req->mop->total_len_uncompress = recvd_data[0];
+    req->mop->fetched_len_rdma += recvd_data[2];
 
     pthread_mutex_unlock(&req->mop->lock);
 
-    log(lsTRACE, "update_fetch_req total_len_part=%d total_len_raw=%d req->mop->total_fetched_raw=%d req->last_fetched=%d req->mop->mop_id=%d",
-       		req->mop->total_len_part, req->mop->total_len_raw, req->mop->total_fetched_raw, recvd_data[2], req->mop->mop_id);
+    log(lsTRACE, "update_fetch_req total_len_part=%d total_len_raw=%d req->mop->total_fetched_compressed=%d req->last_fetched=%d req->mop->mop_id=%d",
+       		req->mop->total_len_rdma, req->mop->total_len_uncompress, req->mop->fetched_len_rdma, recvd_data[2], req->mop->mop_id);
 
     return 1;
 }

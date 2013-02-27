@@ -93,11 +93,10 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
 
     if ( h->type == MSG_RTS ) {
     	client_part_req_t *req = (client_part_req_t*) (long2ptr(h->src_req));
-
         memcpy(req->recvd_msg, h->msg, h->tot_len);
 
-        log(lsTRACE, "Client received RDMA completion for fetch request: jobid=%s, mapid=%s, reducer_id=%s, total_fetched_raw=%lld, total_fetched_read=%lld (not updated for this comp)",
-        		req->info->params[1], req->info->params[2], req->info->params[3], req->mop->total_fetched_raw, req->mop->total_fetched_read);
+        log(lsTRACE, "Client received RDMA completion for fetch request: jobid=%s, mapid=%s, reducer_id=%s, total_fetched_compressed=%lld, total_read_uncompress=%lld (not updated for this comp)",
+        		req->info->params[1], req->info->params[2], req->info->params[3], req->mop->fetched_len_rdma, req->mop->fetched_len_uncompress);
         req->mop->task->client->comp_fetch_req(req);
     } 
     else {
@@ -531,7 +530,7 @@ RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf_len
     msg_len = sprintf(h.msg,"%s:%s:%ld:%s:%lu:%lu:%d",
                       freq->info->params[1],
                       freq->info->params[2],
-                      freq->mop->total_fetched_raw,
+                      freq->mop->fetched_len_rdma,
                       freq->info->params[3],
                       addr,
                       (uint64_t) freq,
@@ -539,7 +538,7 @@ RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf_len
 
     conn = connect(freq->info->params[0], svc_port);
     if (!conn) return -1; //log was already issued inside connect
-    log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%lld, qp=%d, hostname=%s", freq->info->params[2], freq->info->params[3], freq->mop->total_fetched_raw, conn->qp_hndl->qp_num,freq->info->params[0]);
+    log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%lld, qp=%d, hostname=%s", freq->info->params[2], freq->info->params[3], freq->mop->fetched_len_rdma, conn->qp_hndl->qp_num,freq->info->params[0]);
 
     log(lsTRACE, "msg len is %d", msg_len);
     return netlev_post_send(&h,  msg_len, 0, freq, conn, MSG_RTS);

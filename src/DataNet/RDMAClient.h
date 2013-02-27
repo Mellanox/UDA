@@ -48,9 +48,8 @@ public:
     int                 svc_port;
     netlev_thread_t     helper;
     netlev_ctx_t        ctx;
-    InputClient        *parent;
-//    merging_state_t    *state;
-    reduce_task_t* reduce_task;
+    InputClient         *parent;
+    reduce_task_t*      reduce_task;
     struct list_head    register_mems_head;
     std::map<std::string, unsigned long> local_dns;
 };

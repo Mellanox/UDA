@@ -54,15 +54,20 @@ typedef struct mem_desc {
 		return free_bytes;
 	}
 
+	// safe both for our cyclic and non-cyclic buffer
 	void incStart(uint32_t bytesToAdd)
 	{
-		uint32_t oldStart = start;
-		if (oldStart + bytesToAdd < buf_len) {
-			start += bytesToAdd;
-		} else {
-			start = oldStart + bytesToAdd - buf_len;
-		}
+		start += bytesToAdd;
+		if (start > buf_len) start -= buf_len;
 	}
+
+	void incStartWithLock(uint32_t bytesToAdd)
+	{
+		pthread_mutex_lock(&lock);
+		incStart(bytesToAdd);
+		pthread_mutex_unlock(&lock);
+	}
+
 
 
     struct list_head     list;
@@ -73,6 +78,12 @@ typedef struct mem_desc {
 //    struct memory_pool  *owner;  /* owner pool */
     pthread_mutex_t      lock;
     pthread_cond_t       cond;
+
+    /*
+	CODEREVIEW:
+     private: start/end - init with proper values
+     public: getStart/getEnd - simple inline getters
+    */
 
     //the following variables are for cyclic buffer
     uint32_t 			start; //index of the oldest element

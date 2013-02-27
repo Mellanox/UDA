@@ -298,8 +298,8 @@ int BaseSegment::nextKV() {
 
     /* in mem map output */
 	if (kv_output != NULL) {
-		if (eof || byte_read >= this->kv_output->total_len_raw) {
-			log(lsERROR, "Reader: End of Stream [%p]- byte_read=%lld total_len=%lld", kv_output->mop_bufs[kv_output->staging_mem_idx], byte_read,  this->kv_output->total_len_raw);
+		if (eof || byte_read >= this->kv_output->total_len_uncompress) {
+			log(lsERROR, "Reader: End of Stream [%p]- byte_read=%lld total_len=%lld", kv_output->mop_bufs[kv_output->staging_mem_idx], byte_read,  this->kv_output->total_len_uncompress);
 	        return 0;
 	    }
     	return nextKVInternal(in_mem_data);
@@ -351,11 +351,11 @@ void BaseSegment::close() {
 
 void Segment::send_request() {
 	//compression is not calling this function: chekcing only total_fetched_raw
-	if (map_output->total_fetched_raw == map_output->total_len_part) {
+	if (map_output->fetched_len_rdma == map_output->total_len_rdma) {
 		return; // TODO: probably the segment was switched while it was already reached the total_len
 		BULLSEYE_EXCLUDE_BLOCK_START
-	} else if (map_output->total_fetched_raw > map_output->total_len_part) {
-		log(lsERROR, "Unexpectedly send_request called while total_fetched_raw(%lld) >  total_len(%lld)", map_output->total_fetched_raw, map_output->total_len_part);
+	} else if (map_output->fetched_len_rdma > map_output->total_len_rdma) {
+		log(lsERROR, "Unexpectedly send_request called while total_fetched_raw(%lld) >  total_len(%lld)", map_output->fetched_len_rdma, map_output->total_len_rdma);
         return;
     }
 		BULLSEYE_EXCLUDE_BLOCK_END
@@ -386,31 +386,31 @@ bool BaseSegment::reset_data() {;
 			if (difference < 0) {
 				//checking if there is more than one key-value pair before the end of the buffer
 				if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < staging_mem->buf_len-staging_mem->start){
-					log(lsDEBUG, " before turnaround of the cyclic buffer [%p]. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
+					log(lsTRACE, " before turnaround of the cyclic buffer [%p]. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
 							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
 					//just reset
 					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->buf_len-staging_mem->start);
-					log(lsDEBUG, " after turnaround of the cyclic buffer [%p]. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
+					log(lsTRACE, " after turnaround of the cyclic buffer [%p]. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
 							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
 					return true;
 				}else{
 					//indicates that there should be join
-					log(lsDEBUG, "reset_data return false, cyclic buffer [%p]", staging_mem);
+					log(lsTRACE, "reset_data return false, cyclic buffer [%p]", staging_mem);
 					return false;
 				}
 			}
 			else {
 				if ((int)(this->in_mem_data->getLength()-this->in_mem_data->getPosition())< difference){
 					//there is new data
-					log(lsDEBUG, "since last time more data was fetched/decompressed. resetting cyclic buffer [%p] to start=%d end=%d count=%d pos=%d",
+					log(lsTRACE, "since last time more data was fetched/decompressed. resetting cyclic buffer [%p] to start=%d end=%d count=%d pos=%d",
 							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
 					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, end-staging_mem->start);
 					return true;
 				}
 				else{
 					//no new data was added: must sleep
-					log(lsDEBUG, "there is no data in cyclic buffer [%p]: wait for fetch. start=%d, end=%d, count=%d, pos=%d. total_len_part is %d",
-							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), this->kv_output->total_len_part);
+					log(lsTRACE, "there is no data in cyclic buffer [%p]: wait for fetch. start=%d, end=%d, count=%d, pos=%d. total_len_part is %d",
+							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), this->kv_output->total_len_rdma);
 
 					MapOutput *mop = dynamic_cast<MapOutput*>(kv_output);
 					get_task()->client->start_fetch_req(mop->part_req, NULL, 1);
@@ -444,7 +444,7 @@ bool BaseSegment::switch_mem() {
 		mem_desc_t *staging_mem =
 				kv_output->mop_bufs[kv_output->staging_mem_idx];
 
-		if (byte_read >= kv_output->total_len_raw) {
+		if (byte_read >= kv_output->total_len_uncompress) {
 			return false;
 		}
 
@@ -475,7 +475,6 @@ bool BaseSegment::switch_mem() {
 		}
 		else{
 			// restore break record
-			log(lsTRACE, "before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched_raw, kv_output->last_fetched);
 			bool b = join(staging_mem->buff, kv_output->last_fetched);
 			// to check if we need more data from map output
 			this->send_request();

@@ -33,14 +33,15 @@
 #include <ctime>
 #include <assert.h>
 #include <math.h> //for sqrt
+#include <algorithm>    // std::min
 
 #include "reducer.h"
 #include "IOUtility.h"
 #include "C2JNexus.h"
 #include "../DataNet/RDMAClient.h"
-#include "LzoDecompressor.cc"
-#include "SnappyDecompressor.cc"
 #include "CompareFunc.h"
+#include "LzoDecompressor.h"
+#include "SnappyDecompressor.h"
 #include <UdaUtil.h>
 
 using namespace std;
@@ -57,105 +58,60 @@ reduce_task_t * g_task;
 
 void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 {
-	static const int DIRS_START = 7;
-	int rc=0;
+	static const int DIRS_START = 9;
+
+	log(lsDEBUG, "handle_init_msg: got params from java  num_maps=%s, job_id=%s, reduce_task_id=%s, lpq_size=%s, buffer_size_from_java=%s, minBuffer=%s, cmp_func=%s, comp_alg=%s, comp_block_size=%s", hadoop_cmd->params[0],hadoop_cmd->params[1],
+			hadoop_cmd->params[2],hadoop_cmd->params[3],hadoop_cmd->params[4],hadoop_cmd->params[5],hadoop_cmd->params[6],hadoop_cmd->params[7],hadoop_cmd->params[8]);
 
 	assert (hadoop_cmd->count -1 > 2); // sanity under debug
 	g_task->num_maps = atoi(hadoop_cmd->params[0]);
 	g_task->job_id = strdup(hadoop_cmd->params[1]);
 	g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
 	g_task->lpq_size = atoi(hadoop_cmd->params[3]);
-	int buffer_size_from_java = atoi(hadoop_cmd->params[4]); // unaligned to pagesize
-	g_task->buffer_size = buffer_size_from_java - buffer_size_from_java % getpagesize(); // alignment to pagesize
-	int minBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
-	log(lsINFO, "set C compare function according to java key class: %s",  hadoop_cmd->params[6]);
-	g_cmp_func = get_compare_func(hadoop_cmd->params[6]); // set compare func using Java's key type name
 
-	if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minBuffer) ) {
-		log(lsERROR, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minBuffer);
+	int buffer_size_from_java = atoi(hadoop_cmd->params[4]); // unaligned to pagesize
+
+//
+	g_task->buffer_size = buffer_size_from_java - buffer_size_from_java % getpagesize(); // alignment to pagesize
+	int minRdmaBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
+
+	if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minRdmaBuffer) ) {
+		log(lsERROR, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minRdmaBuffer);
 		throw new UdaException("RDMA Buffer is too small");
 	}
 
-int num_dirs =DIRS_START;
+	g_cmp_func = get_compare_func(hadoop_cmd->params[6]); // set compare func using Java's key type name
 
-		if (hadoop_cmd->count -1  > DIRS_START) {
-			assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
-			if (hadoop_cmd->params[DIRS_START] != NULL) {
-				num_dirs = atoi(hadoop_cmd->params[DIRS_START]);
-				log(lsDEBUG, " ===>>> num_dirs=%d" , num_dirs);
+	g_task->comp_alg = getCompAlg(hadoop_cmd->params[7]);
 
-				assert (num_dirs >= 0); // sanity under debug
-				if (num_dirs > 0 && DIRS_START + 1 + num_dirs  <= hadoop_cmd->count - 1) {
-					g_task->local_dirs.resize(num_dirs);
-					for (int i = 0; i < num_dirs; ++i) {
-						g_task->local_dirs[i].assign(hadoop_cmd->params[DIRS_START + 1 + i]);
-						log(lsINFO, " -> dir[%d]=%s", i, g_task->local_dirs[i].c_str());
-					}
+	g_task->comp_block_size = atoi(hadoop_cmd->params[8]);
+
+	createInputClient();
+
+	g_task->client->start_client();
+
+	log(lsDEBUG, " AFTER INPUT CLIENT CREATION");
+
+	int num_dirs = 0;
+
+	if (hadoop_cmd->count -1  > DIRS_START) {
+		assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
+		if (hadoop_cmd->params[DIRS_START] != NULL) {
+			num_dirs = atoi(hadoop_cmd->params[DIRS_START]);
+			log(lsDEBUG, " ===>>> num_dirs=%d" , num_dirs);
+
+			assert (num_dirs >= 0); // sanity under debug
+			if (num_dirs > 0 && DIRS_START + 1 + num_dirs  <= hadoop_cmd->count - 1) {
+				g_task->local_dirs.resize(num_dirs);
+				for (int i = 0; i < num_dirs; ++i) {
+					g_task->local_dirs[i].assign(hadoop_cmd->params[DIRS_START + 1 + i]);
+					log(lsDEBUG, " -> dir[%d]=%s", i, g_task->local_dirs[i].c_str());
 				}
 			}
 		}
-
-    char* comp = strdup(hadoop_cmd->params[DIRS_START + 1 + num_dirs]);
-		if(strcmp(comp,"com.hadoop.compression.lzo.LzoCodec")==0){
-			g_task->compr_alg = compLzo;
-		}else if(strcmp(comp,"org.apache.hadoop.io.compress.SnappyCodec")==0){
-			g_task->compr_alg = compSnappy;
-		}else if(strcmp(comp,"null")==0){
-			g_task->compr_alg = compOff;
-		}else{
-			log(lsERROR, "compression not supported");
-			throw new UdaException("compression not supported");
-		}
-
-		g_task->block_size = atoi(hadoop_cmd->params[DIRS_START + 2 + num_dirs]);
-
-		log(lsINFO, " block_size for compression is %d", g_task->block_size);
-
-		createCompressionClient();
-
-		g_task->client->start_client();
-		log(lsINFO, " AFTER INPUT CLIENT CREATION");
-
-	// init map output memory pool
-    memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
-	int numBuffers = g_task->num_maps + EXTRA_RDMA_BUFFERS; //the buffers will be allocated in pairs
-		log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
-
-	if (!g_task->isCompressionOn()) {//if not compression
-			log(lsINFO, "init compression not configured: allocating 2 buffers of same size = %d",g_task->buffer_size);
-			rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,
-										numBuffers,
-										&merging_sm.mop_pool);
-	}else{
-			log(lsINFO, "init compression configured: allocating 2 buffers of different size");
-			int tempComp = g_task->block_size*2;
-			int tempRdma = g_task->buffer_size*2;
-			if(tempRdma - minBuffer - tempComp <= 0)
-			{
-				log(lsERROR, "not enough memory to allocate buffers. rdma buffer size=%d, comp block size=%d",g_task->block_size,g_task->buffer_size);
-			}else if(g_task->buffer_size>=tempComp){
-				rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,
-											numBuffers,
-											&merging_sm.mop_pool);
-				log(lsINFO, "init compression configured. allocating rdma buff=%d, cyclic buff=%d",g_task->buffer_size,g_task->buffer_size);
-			}else {
-				rc = create_mem_pool_pair(tempRdma-tempComp, tempComp,
-										numBuffers,
-										&merging_sm.mop_pool);
-				log(lsINFO, "init compression configured. allocating rdma buff=%d, cyclic buff=%d",tempRdma-tempComp,tempComp);
-			}
 	}
-	if(rc){
-			log(lsERROR, "failed to create Map Output memory pool");
-			free_hadoop_cmd(*hadoop_cmd);
-			free(hadoop_cmd);
-			throw new UdaException("failed to create Map Output memory pool");
-		}
 
-    // register RDMA buffers
-	g_task->client->getRdmaClient()->register_mem(&merging_sm.mop_pool);
-	/* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
-    log(lsINFO, " After RDMA buffers registration (%d buffers X %d bytes = total %lld bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
+	initMemPool(minRdmaBuffer);
 
 	init_reduce_task(g_task);
 }
@@ -167,6 +123,10 @@ void reduce_downcall_handler(const string & msg)
 	
 
 	hadoop_cmd = (hadoop_cmd_t*) malloc(sizeof(hadoop_cmd_t));
+
+// hadoop_cmd = new hadoop_cmd_t();
+// std::auto_ptr<hadoop_cmd_t> auto_hadoop_cmd(hadoop_cmd)
+	
 	memset(hadoop_cmd, 0, sizeof(hadoop_cmd_t));
 
 	/* if hadoop command could not be parsed correctly */
@@ -239,12 +199,12 @@ void reduce_downcall_handler(const string & msg)
 
 void init_mem_desc(mem_desc_t *desc, char *addr, int32_t buf_len){
 	desc->buff  = addr;
-        desc->buf_len = buf_len;
-        desc->status = INIT;
-        desc->start = 0;
-        desc->end = 0;
-        pthread_mutex_init(&desc->lock, NULL);
-        pthread_cond_init(&desc->cond, NULL);
+	desc->buf_len = buf_len;
+	desc->status = INIT;
+	desc->start = 0;
+	desc->end = 0;
+	pthread_mutex_init(&desc->lock, NULL);
+	pthread_cond_init(&desc->cond, NULL);
 }
 
 
@@ -285,7 +245,7 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool) //similar to the ol
     return 0;
 }
 
-
+//yyyyyyyyyyyyyyyyyyy
 int  create_mem_pool_pair(int size1, int size2, int num, memory_pool_t *pool)
 //TODO: merge this with create_mem_pool method
 //buffers come in pair and might be of different size
@@ -302,10 +262,12 @@ int  create_mem_pool_pair(int size1, int size2, int num, memory_pool_t *pool)
     log (lsDEBUG, "buffer length1  is %d, buffer length2  is %d pool->total_size is %d\n", size1, size2, pool->total_size);
 
     int rc = posix_memalign((void**)&pool->mem,  pagesize, pool->total_size);
+    BULLSEYE_EXCLUDE_BLOCK_START
     if (rc) {
     	log(lsERROR, "Failed to memalign. aligment=%d size=%ll , rc=%d", pagesize ,pool->total_size, rc );
-        return -1;
+        throw new UdaException("memalign failed");
     }
+    BULLSEYE_EXCLUDE_BLOCK_END
 
     log(lsDEBUG,"memalign successed - %lld bytes", pool->total_size);
     memset(pool->mem, 0, pool->total_size);
@@ -410,7 +372,12 @@ void final_cleanup(){
     free(merging_sm.mop_pool.mem);
     log (lsDEBUG, "mop pool is freed");
 
-    log (lsDEBUG, "finished all C++ threads");
+    g_task->client->stop_client();
+    log (lsDEBUG, "INPUT client is stopped");
+
+    delete(g_task->client);
+    log (lsDEBUG, "INPUT client is deleted");
+
 }
 
 //------------------------------------------------------------------------------
@@ -462,39 +429,97 @@ void finalize_reduce_task(reduce_task_t *task)
     	log(lsERROR, "Failed to destroy pthread_mutex - rc=%d", rc);
     }
 
-    write_log(task->reduce_log, DBG_CLIENT, "reduce task is freed successfully");
+    final_cleanup();
     
     free(task->reduce_task_id);
     free(task->job_id);
-    task->client->stop_client();
-    log (lsDEBUG, "INPUT client is stopped");
-
-    delete(task->client);
-    log (lsDEBUG, "INPUT client is deleted");
-
     free(task);
 
-    final_cleanup();
     log(lsINFO, "*********  ALL C++ threads finished  ************");
     closeLog();
 }
 
-void createCompressionClient(){
+void createInputClient(){
 	compressionType comp = g_task->getCompressionType();
-	if (comp == compOff) {//if not compression
-		g_task->client = new RdmaClient(merging_sm.data_port, g_task);
-		 log (lsDEBUG, "creating rdma client");
-	}else{
-		if(comp == compLzo){
+	switch(comp){
+		case compOff:
+			g_task->client = new RdmaClient(merging_sm.data_port, g_task);
+			log (lsDEBUG, "creating rdma client");
+		break;
+		case compLzo:
 			g_task->client = new LzoDecompressor(merging_sm.data_port, g_task);
 			log (lsDEBUG, "creating lzo client");
-		}
-		else if(comp == compSnappy){
+		break;
+		case compSnappy:
 			g_task->client = new SnappyDecompressor(merging_sm.data_port, g_task);
 			log (lsDEBUG, "creating snappy client");
+		break;
+		default:
+			log(lsERROR, "compression not supported: %d", comp);
+			throw new UdaException("compression not supported");
+		break;
+	}
+}
+
+compressionType getCompAlg(char* comp){
+	if(strcmp(comp,"com.hadoop.compression.lzo.LzoCodec")==0){
+		return compLzo;
+	}else if(strcmp(comp,"org.apache.hadoop.io.compress.SnappyCodec")==0){
+		return compSnappy;
+	}else if(strcmp(comp,"null")==0){
+		return compOff;
+	}else{
+		log(lsERROR, "compression not supported: %s", comp);
+		throw new UdaException("compression not supported");
+	}
+}
+
+//XXXXXXXXXXXXX
+
+void initMemPool(int minRdmaBuffer){
+
+	int rc=0;
+	// init map output memory pool
+	memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
+	int numBuffers = g_task->num_maps + EXTRA_RDMA_BUFFERS; //the buffers will be allocated in pairs
+	log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
+
+	if (g_task->isCompressionOff()) {//if not compression
+		log(lsDEBUG, "init. compression not configured: allocating 2 buffers of same size = %d",g_task->buffer_size);
+		rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,numBuffers,&merging_sm.mop_pool);
+
+	} else{
+
+		double splitPercentRdmaComp =  ::atof(UdaBridge_invoke_getConfData_callback ("mapred.rdma.compression.buffer.ratio", "0.20").c_str());
+		int uncompBufferHardMin = g_task->comp_block_size + minRdmaBuffer;
+		long totalBufferPerMof = g_task->buffer_size*2;
+
+		if(totalBufferPerMof < uncompBufferHardMin + minRdmaBuffer)
+		{
+			log(lsERROR, "not enough memory to allocate buffers. minRdmaBuffer=%d, uncompBufferHardMin=%d, totalBufferPerMof=%d, splitPercentRdmaComp=%f",minRdmaBuffer, uncompBufferHardMin, totalBufferPerMof, splitPercentRdmaComp);
+            throw new UdaException ("not enough memory to allocate buffers");
 		}
 
+		double delta = totalBufferPerMof - (uncompBufferHardMin + minRdmaBuffer);
+		int uncompBufferUsed = uncompBufferHardMin + (int)(delta * splitPercentRdmaComp);
+		int rdmaBufferUsed = totalBufferPerMof - uncompBufferUsed;
+		
+
+
+		rc = create_mem_pool_pair(rdmaBufferUsed, uncompBufferUsed, numBuffers, &merging_sm.mop_pool);
+		log(lsINFO, "init compression configured. allocating rdmaBufferUsed=%d, uncompBufferUsed=%d totalBufferPerMof=%d, splitPercentRdmaComp=%f", uncompBufferHardMin, totalBufferPerMof, splitPercentRdmaComp);
 	}
+
+	if(rc){
+		log(lsERROR, "failed to create Map Output memory pool");
+		throw new UdaException("failed to create Map Output memory pool");
+	}
+
+	// register RDMA buffers
+	g_task->client->getRdmaClient()->register_mem(&merging_sm.mop_pool);
+	/* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
+	log(lsINFO, " After RDMA buffers registration (%d buffers X %d bytes = total %lld bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
+
 }
 
 /*

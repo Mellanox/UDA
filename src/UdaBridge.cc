@@ -1,17 +1,17 @@
 /*
 ** Copyright (C) 2012 Auburn University
 ** Copyright (C) 2012 Mellanox Technologies
-**
+** 
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
 ** You may obtain a copy of the License at:
-**
+**  
 ** http://www.apache.org/licenses/LICENSE-2.0
-**
+** 
 ** Unless required by applicable law or agreed to in writing, software
 ** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
-** either express or implied. See the License for the specific language
+** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, 
+** either express or implied. See the License for the specific language 
 ** governing permissions and  limitations under the License.
 **
 **
@@ -351,7 +351,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 		log(lsERROR, "java_UdaBridge.getPathUda returned null! for job_id=%s, map_id=%s, reduceId=%d", job_id, map_id, reduceId);
 		return NULL;
 	}
-
+	
 	jclass cls_data = jniEnv->GetObjectClass(jdata);
 
 	if (fidOffset == NULL) {
@@ -399,29 +399,25 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 
 
 
-char* UdaBridge_invoke_getConfData_callback(const char* paramName, const char* defaultParam) {
-	JNIEnv *env;
-	if (cached_jvm->GetEnv((void **)&env, JNI_VERSION_1_4)) {
-		log(lsERROR, "-->> Error getting JNIEnv In C++ JNI_getConfData");
+std::string UdaBridge_invoke_getConfData_callback(const char* paramName, const char* defaultValue) {
+	JNIEnv *env = UdaBridge_threadGetEnv();
+	if (!env) {
 		return NULL;
 	}
 	jstring jstr_param = env->NewStringUTF(paramName);
-	jstring jstr_default = env->NewStringUTF(defaultParam);
+	jstring jstr_default = env->NewStringUTF(defaultValue);
 	jobject jdata = env->CallStaticObjectMethod(jclassUdaBridge, jmethodID_getConfData, jstr_param,jstr_default);
-	log(lsTRACE, "after getConfData...");
 	env->DeleteLocalRef(jstr_param);
 	env->DeleteLocalRef(jstr_default);
 	if (jdata==NULL){
-		log(lsERROR, "-->> In C++ java UdaBridge.getConfData returned null!");
+		log(lsERROR, "java UdaBridge.getConfData returned null!");
 		return NULL;
 	}
-	log(lsTRACE, "got data getConfData");
 	const char *nativeString = env->GetStringUTFChars( (jstring) jdata, 0);
-	const size_t len = strlen(nativeString);
-	char *dataStr = (char*) malloc(len+1);
-	strncpy(dataStr, nativeString, len+1);
+	std::string value(nativeString); // !!!
 	env->ReleaseStringUTFChars( (jstring)jdata, nativeString);
-	return dataStr;
+	log(lsDEBUG, "UdaBridge_invoke_getConfData_callback: paramName=%s, defaultValue=%s, retValue=%s", paramName, defaultValue, nativeString);
+	return value;
 }
 
 
@@ -445,6 +441,7 @@ void UdaBridge_invoke_logToJava_callback(const char* log_message, int severity) 
 // - DON'T use the handle from one thread in context of another threads!
 JNIEnv *UdaBridge_attachNativeThread()
 {
+	// DO NOT log before cached_jvm->AttachCurrentThread
     JNIEnv *env;
 	if (! cached_jvm) {
 		log(lsERROR, "cached_jvm is NULL");

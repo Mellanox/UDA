@@ -45,7 +45,7 @@ libuda_la_SOURCES = \
 					   	MOFServer/IndexInfo.cc  \
 						MOFServer/MOFServlet.cc \
 						MOFServer/MOFSupplierMain.cc \
-              MOFServer/MOFSupplierMain.h \
+						MOFServer/MOFSupplierMain.h \
 					   	DataNet/RDMAClient.h \
 					   	DataNet/RDMAComm.h \
 					   	DataNet/RDMAServer.h \
@@ -53,7 +53,6 @@ libuda_la_SOURCES = \
 					   	DataNet/RDMAServer.cc \
 					   	DataNet/RDMAComm.cc \
                         Merger/InputClient.h \
-                        Merger/InputClient.cc \
                         CommUtils/IOUtility.cc \
                         CommUtils/atomic.cc \
                         CommUtils/C2JNexus.cc \
@@ -72,8 +71,12 @@ libuda_la_SOURCES = \
 						Merger/DecompressorWrapper.cc \
 						Merger/CompareFunc.h \
                         Merger/CompareFunc.cc \
-                        UdaBridge.cc 
-
+                        UdaBridge.cc \ 
+						Merger/LzoDecompressor.h \
+						Merger/LzoDecompressor.cc \
+						Merger/SnappyDecompressor.h \
+						Merger/SnappyDecompressor.cc 
+						
 libuda_la_LIBADD =  -lpthread -libverbs -lrdmacm -laio
 
 #support coverity
