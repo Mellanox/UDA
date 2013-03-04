@@ -326,16 +326,16 @@ Index: src/mapred/org/apache/hadoop/mapred/ReduceTask.java
      // free up the data structures
      mapOutputFilesOnDisk.clear();
 @@ -422,6 +433,10 @@
+       runOldReducer(job, umbilical, reporter, rIter, comparator, 
                      keyClass, valueClass);
      }
-     done(umbilical, reporter);
 +    if (shuffleConsumerPlugin != null) {
 +    	shuffleConsumerPlugin.close();
 +    	shuffleConsumerPlugin = null;
 +    }
+     done(umbilical, reporter);
    }
  
-   private class OldTrackingRecordWriter<K, V> implements RecordWriter<K, V> {
 @@ -657,7 +672,7 @@
      OTHER_ERROR
    };
