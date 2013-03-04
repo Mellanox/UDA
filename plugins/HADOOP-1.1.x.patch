@@ -159,9 +159,9 @@ Index: src/mapred/org/apache/hadoop/mapred/ShuffleProviderPlugin.java
 +}
 Index: src/mapred/org/apache/hadoop/mapred/TaskTracker.java
 ===================================================================
---- src/mapred/org/apache/hadoop/mapred/TaskTracker.java	(revision 1363325)
+--- src/mapred/org/apache/hadoop/mapred/TaskTracker.java	(revision 1452205)
 +++ src/mapred/org/apache/hadoop/mapred/TaskTracker.java	(working copy)
-@@ -137,6 +137,12 @@
+@@ -141,6 +141,12 @@
    static final long WAIT_FOR_DONE = 3 * 1000;
    private int httpPort;
  
@@ -174,7 +174,7 @@ Index: src/mapred/org/apache/hadoop/mapred/TaskTracker.java
    static enum State {NORMAL, STALE, INTERRUPTED, DENIED}
  
    static{
-@@ -625,7 +631,7 @@
+@@ -692,7 +698,7 @@
      + TaskTracker.LOCAL_SPLIT_FILE;
    }
  
@@ -183,18 +183,19 @@ Index: src/mapred/org/apache/hadoop/mapred/TaskTracker.java
        String taskid) {
      return getLocalTaskDir(user, jobid, taskid) + Path.SEPARATOR
      + TaskTracker.OUTPUT;
-@@ -881,6 +887,24 @@
-     oobHeartbeatDamper = 
-       fConf.getInt(TT_OUTOFBAND_HEARTBEAT_DAMPER, 
-           DEFAULT_OOB_HEARTBEAT_DAMPER);
+@@ -942,6 +948,25 @@
+     
+     // Start thread to monitor jetty bugs
+     startJettyBugMonitor();
++
 +
 +    // loads a configured additional ShuffleProviderPlugin, if any.
 +    // At this phase we only support at most one such plugin
 +    // +++ NOTE: This code support load of 3rd party plugins at runtime +++
 +    //
 +    Class<? extends ShuffleProviderPlugin> providerClazz =
-+    		fConf.getClass(TT_SHUFFLE_PROVIDER_PLUGIN,
-+    				null, ShuffleProviderPlugin.class);
++               fConf.getClass(TT_SHUFFLE_PROVIDER_PLUGIN,
++                               null, ShuffleProviderPlugin.class);
 +    if (providerClazz != null) {
 +        shuffleProviderPlugin = ReflectionUtils.newInstance(providerClazz, fConf);
 +    }
@@ -205,10 +206,10 @@ Index: src/mapred/org/apache/hadoop/mapred/TaskTracker.java
 +    else {
 +        LOG.info(" NO ShuffleProviderPlugin will be used");
 +    }
-   }
- 
-   private void startJettyBugMonitor() {
-@@ -1423,6 +1447,11 @@
+     
+     oobHeartbeatOnTaskCompletion = 
+       fConf.getBoolean(TT_OUTOFBAND_HEARBEAT, false);
+@@ -1496,6 +1521,11 @@
        jettyBugMonitor.shutdown();
        jettyBugMonitor = null;
      }
@@ -220,7 +221,18 @@ Index: src/mapred/org/apache/hadoop/mapred/TaskTracker.java
    }
  
    /**
-@@ -3781,11 +3810,19 @@
+@@ -3864,11 +3894,18 @@
+     }
+     return result;
+   }
++
++ /**
++   * Get the specific job conf for a running job.
++   */
++  public JobConf getJobConf(JobID jobid) {
++    return runningJobs.get(jobid).getJobConf();
++  }
+   
    /**
     * Get the default job conf for this tracker.
     */
@@ -229,19 +241,7 @@ Index: src/mapred/org/apache/hadoop/mapred/TaskTracker.java
      return fConf;
    }
  
-   /**
-+   * Get the specific job conf for a running job.
-+   */
-+  public JobConf getJobConf(JobID jobid) {
-+    return runningJobs.get(jobid).getJobConf();
-+  }
-+	
-+  
-+  /**
-    * Is this task tracker idle?
-    * @return has this task tracker finished all its assigned tasks?
-    */
-@@ -3864,7 +3901,7 @@
+@@ -3951,7 +3988,7 @@
     * This class is used in TaskTracker's Jetty to serve the map outputs
     * to other nodes.
     */
@@ -249,8 +249,8 @@ Index: src/mapred/org/apache/hadoop/mapred/TaskTracker.java
 +  public static class MapOutputServlet extends HttpServlet implements ShuffleProviderPlugin {
      private static final long serialVersionUID = 1L;
      private static final int MAX_BYTES_TO_READ = 64 * 1024;
-     
-@@ -4084,6 +4121,12 @@
+     // work around jetty internal buffering issues
+@@ -4193,6 +4230,12 @@
        LOG.debug("Fetcher request verfied. enc_str="+enc_str+";reply="
            +reply.substring(len-len/2, len-1));
      }
