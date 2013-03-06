@@ -61,8 +61,8 @@ shuffle_req_t* get_shuffle_req(const string &param)
     sreq->freq = atoll(param.substr(start, end - start).c_str());
 
     start = ++end;
-    int param_lenght = param.length();
-    sreq->chunk_size = atoi(param.substr(start, param_lenght - start).c_str());
+    int param_length = param.length();
+    sreq->chunk_size = atoi(param.substr(start, param_length - start).c_str());
 
     my_auto_ptr.release();
     return sreq;
