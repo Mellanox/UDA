@@ -23,6 +23,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <pwd.h>
+#include <unistd.h>
 #include <execinfo.h>  // for backtrace
 
 #include <limits.h> // for PATH_MAX
@@ -442,7 +444,16 @@ void startLogMOFSupplier()
     int rc = gethostname(host, 99);
     if (rc) fprintf(stderr, "gethostname failed: %m(%d)", errno);
 
-	sprintf(full_path, "%s/hadoop-%s-udaMOFSupplier-%s.log", rdmalog_dir, getlogin(), host);
+    char user[100] = {0};
+    uid_t uid = getuid();
+    struct passwd *pwd = getpwuid(uid);
+
+    if (pwd && pwd->pw_name)
+        snprintf(user, 99, "%s", pwd->pw_name);
+    else
+        snprintf(user, 99, "uid-%u", uid);
+
+	sprintf(full_path, "%s/hadoop-%s-udaMOFSupplier-%s.log", rdmalog_dir, user, host);
 	printf("log will go to: %s\n", full_path);
 	log_file = fopen (full_path,"a");
 
