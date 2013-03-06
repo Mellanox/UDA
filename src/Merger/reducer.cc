@@ -214,7 +214,7 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool)
 
     BULLSEYE_EXCLUDE_BLOCK_START
     if (rc) {
-    	log(lsERROR, "Failed to memalign. aligment=%d size=%ll , rc=%d", pagesize ,pool->total_size, rc );
+    	log(lsERROR, "Failed to memalign. aligment=%d size=%lld, rc=%d", pagesize ,pool->total_size, rc );
         throw new UdaException("memalign failed");
     }
     BULLSEYE_EXCLUDE_BLOCK_END
