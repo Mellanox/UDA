@@ -180,7 +180,7 @@ void *merge_do_merging_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *mer
 	}
 
 	log(lsDEBUG, "invoking DeleteWeakGlobalRef: desc=%p, jbuf=%p, address=%p, capacity=%d", desc, jbuf, desc->buff, desc->buf_len);
-	s_jniEnv->DeleteWeakGlobalRef(jbuf);
+	s_jniEnv->DeleteWeakGlobalRef((jweak)jbuf);
 	log(lsDEBUG, "After DeleteWeakGlobalRef");
 
 	log(lsINFO, "----- merger thread completed ------");
