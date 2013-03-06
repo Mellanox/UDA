@@ -398,7 +398,7 @@ RdmaServer::RdmaServer(int port, int rdma_buf_size, void *state)
     memset(&this->helper, 0, sizeof(this->helper));
     
     int rdma_align = getpagesize();
-    this->rdma_total_len = NETLEV_RDMA_MEM_CHUNKS_NUM * (rdma_buf_size + 2*AIO_ALIGNMENT);
+    this->rdma_total_len = NETLEV_RDMA_MEM_CHUNKS_NUM * ((unsigned long)rdma_buf_size + 2*AIO_ALIGNMENT);
     this->rdma_chunk_len = rdma_buf_size + 2*AIO_ALIGNMENT;
     log(lsDEBUG, "rdma_buf_size inside RdmaServer is %d\n", rdma_buf_size);
 
