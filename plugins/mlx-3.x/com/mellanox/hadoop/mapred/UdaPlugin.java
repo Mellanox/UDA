@@ -193,7 +193,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		LOG.info("UDA: minimum rdma.buf.size=" + minRdmaBufferSize + "KB");
 
 		int rdmaBufferSize=maxRdmaBufferSize * 1024; // for comparing rdmaBuffSize to shuffleMemorySize in Bytes
-		if (shuffleMemorySize < numMaps * rdmaBufferSize * 2 ) { // double buffer
+		if (shuffleMemorySize < ((long)numMaps * rdmaBufferSize * 2) ) { // double buffer
 			rdmaBufferSize= (int)(shuffleMemorySize / (numMaps * 2) );
 			//*** Can't get pagesize from java, avoid using hardcoded pagesize, c will make the alignment */ 
 		
