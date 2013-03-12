@@ -107,7 +107,7 @@ abstract class UdaPlugin {
 			timer.schedule(new TaskLogLevel(), 0, 1000);
 		}
 		
-		LOG.info("UDA: Launching C++ thru JNI");
+		LOG.debug("Launching C++ thru JNI");
 		buildCmdParams();
 
 		LOG.info("going to execute C++ thru JNI with argc=: " + mCmdParams.size() + " cmd: " + mCmdParams);    	  
