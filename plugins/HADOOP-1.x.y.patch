@@ -119,7 +119,7 @@ Index: src/mapred/org/apache/hadoop/mapred/TaskTracker.java
    }
  
    /**
-@@ -3864,11 +3894,18 @@
+@@ -3864,11 +3894,20 @@
      }
      return result;
    }
@@ -128,7 +128,9 @@ Index: src/mapred/org/apache/hadoop/mapred/TaskTracker.java
 +   * Get the specific job conf for a running job.
 +   */
 +  public JobConf getJobConf(JobID jobid) {
-+    return runningJobs.get(jobid).getJobConf();
++    synchronized (runningJobs) {
++      return runningJobs.get(jobid).getJobConf();
++    }
 +  }
    
    /**
