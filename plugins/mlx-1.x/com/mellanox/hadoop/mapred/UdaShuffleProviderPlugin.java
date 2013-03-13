@@ -39,7 +39,7 @@ public class UdaShuffleProviderPlugin implements ShuffleProviderPlugin{
 
 	protected TaskTracker taskTracker; //handle to parent object
 
-	private static final Log LOG = LogFactory.getLog("org.apache.hadoop.mapred.ShuffleProviderPlugin");
+	private static final Log LOG = LogFactory.getLog(ShuffleProviderPlugin.class.getCanonicalName());
 
 	// This is the channel used to transfer the data between RDMA C++ and Hadoop
 	private UdaPluginTT rdmaChannel;
@@ -106,7 +106,7 @@ public class UdaShuffleProviderPlugin implements ShuffleProviderPlugin{
 		rdmaChannel.jobOver(jobID.toString());
 	}
 	
-	JobConf getJobConfFromSuperClass(JobID jobid) {
+	JobConf getJobConfFromSuperClass(JobID jobid) throws IOException{
 		return taskTracker.getJobConf(jobid) ;
 	}
 	

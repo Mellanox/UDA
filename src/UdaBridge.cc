@@ -352,7 +352,7 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 		return NULL;
 	}
 	
-	jclass cls_data = jniEnv->GetObjectClass(jdata);
+	static jclass cls_data = jniEnv->GetObjectClass(jdata);
 
 	if (fidOffset == NULL) {
 		fidOffset = jniEnv->GetFieldID(cls_data, "startOffset", "J");

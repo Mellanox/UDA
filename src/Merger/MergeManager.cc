@@ -442,10 +442,9 @@ void MergeManager::start_fetch_req(client_part_req_t *req)
         }
     } else {
         if (req->mop->fetch_count == 0) {
-            write_log(task->reduce_log, DBG_CLIENT,
-                     "First time fetch is lost %d",
-                     task->total_first_fetch);
+        	log(lsERROR,"First time fetch is lost %d",task->total_first_fetch);
         }
+        throw new UdaException("Error in MergeManager::start_fetch_req");
     }
 }
 

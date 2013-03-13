@@ -32,7 +32,7 @@ TARGET=uda-hadoop-3.x.jar
 FILES=com/mellanox/hadoop/mapred/*.java \
       org/apache/hadoop/mapred/*.java \
 			../shared/com/mellanox/hadoop/mapred/*.java \
-			../shared/org/apache/hadoop/mapred/*.java
+			../shared/org/apache/hadoop/mapred/*[^1].java
 
 all: $(TARGET)
 

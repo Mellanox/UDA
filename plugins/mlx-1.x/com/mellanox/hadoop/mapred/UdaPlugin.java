@@ -61,7 +61,6 @@ abstract class UdaPlugin {
 	protected List<String> mCmdParams = new ArrayList<String>();
 	protected static Log LOG;
 	protected static int log_level = -1; // Initialisation value for calcAndCompareLogLevel() first run
-	protected static String logging_package_name = "org.apache.hadoop.mapred";
 	protected static JobConf mjobConf;
 	
 	public UdaPlugin(JobConf jobConf) {
@@ -147,7 +146,7 @@ abstract class UdaPlugin {
 class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
 	static{
-		prepareLog(logging_package_name + ".ShuffleConsumerPlugin");
+		prepareLog(ShuffleConsumerPlugin.class.getCanonicalName());
 	}
 	
 	final UdaShuffleConsumerPlugin udaShuffleConsumer;
@@ -321,9 +320,10 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
 	public void close() {
 		mParams.clear();
-		LOG.info("UDA: sending EXIT_COMMAND");    	  
+		LOG.info("sending EXIT_COMMAND");    	  
 		String msg = UdaCmd.formCmd(UdaCmd.EXIT_COMMAND, mParams);
 		UdaBridge.doCommand(msg);
+    	if (LOG.isDebugEnabled()) LOG.debug("C++ finished.  Closing java...");
 		this.j2c_queue.close();
 	}
 
@@ -545,16 +545,15 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 class UdaPluginTT extends UdaPlugin {  
 	
 	static{
-		prepareLog(logging_package_name + ".ShuffleProviderPlugin");
+		prepareLog(ShuffleProviderPlugin.class.getCanonicalName());
 	}
 
 	private static TaskTracker taskTracker;
 	private Vector<String>     mParams       = new Vector<String>();
 	private static LocalDirAllocator localDirAllocator = new LocalDirAllocator ("mapred.local.dir");
-	static final int FILE_CACHE_SIZE = 2000;
-	private static LRUHash<String, Path> fileCache ;//= new LRUHash<String, Path>(FILE_CACHE_SIZE);
-	private static LRUHash<String, Path> fileIndexCache ;//= new LRUHash<String, Path>(FILE_CACHE_SIZE);
-	static IndexCache indexCache;
+	private static LRUCacheBridgeHadoop1<String, Path> fileCache ;//= new LRUCacheBridgeHadoop1<String, Path>();
+	private static LRUCacheBridgeHadoop1<String, Path> fileIndexCache ;//= new LRUCacheBridgeHadoop1<String, Path>();
+	static IndexCacheBridge indexCache;
 	static UdaShuffleProviderPlugin udaShuffleProvider;
 
 	public UdaPluginTT(TaskTracker taskTracker, JobConf jobConf, UdaShuffleProviderPlugin udaShuffleProvider) {
@@ -563,10 +562,10 @@ class UdaPluginTT extends UdaPlugin {
 		this.udaShuffleProvider = udaShuffleProvider;
 		
 		launchCppSide(false, null); // false: this is TT => we should execute MOFSupplier
-		fileCache = new LRUHash<String, Path>(FILE_CACHE_SIZE);
-		fileIndexCache = new LRUHash<String, Path>(FILE_CACHE_SIZE);
+		fileCache = new LRUCacheBridgeHadoop1<String, Path>();
+		fileIndexCache = new LRUCacheBridgeHadoop1<String, Path>();
 
-		this.indexCache = new IndexCache(jobConf);
+		this.indexCache = new IndexCacheBridge(jobConf);
 	}
 	
 	protected void buildCmdParams() {
@@ -630,10 +629,10 @@ class UdaPluginTT extends UdaPlugin {
 	
 	
 	//this code is copied from TaskTracker.MapOutputServlet.doGet 
-	static DataPassToJni getPathIndex(String jobId, String mapId, int reduce){
+	static IndexRecordBridge getPathIndex(String jobId, String mapId, int reduce){
 		 String userName = null;
 	     String runAsUserName = null;
-	     DataPassToJni data = null;
+	     IndexRecordBridge data = null;
 	     
 	     try{
 	    	 JobConf jobConf = udaShuffleProvider.getJobConfFromSuperClass(JobID.forName(jobId)); 
@@ -658,14 +657,8 @@ class UdaPluginTT extends UdaPlugin {
 		        
 		    //  Read the index file to get the information about where
 		    //  the map-output for the given reducer is available. 
-		         
-		   IndexRecord info = indexCache.getIndexInformation(mapId, reduce,indexFileName, 
-		             runAsUserName);
-		   
-		   data = new DataPassToJni();
-		   data.startOffset = info.startOffset;
-		   data.rawLength = info.rawLength;
-		   data.partLength = info.partLength;
+
+		   data = indexCache.getIndexInformationBridge(mapId, reduce, indexFileName, runAsUserName);
 		   data.pathMOF = mapOutputFileName.toString();
 
 	    } catch (IOException e) {
@@ -682,7 +675,7 @@ class UdaPluginTT extends UdaPlugin {
 
 // Starting to unify code between all our plugins...
 class UdaPluginSH {
-	static DataPassToJni getPathIndex(String jobId, String mapId, int reduce){
+	static IndexRecordBridge getPathIndex(String jobId, String mapId, int reduce){
 		return UdaPluginTT.getPathIndex(jobId, mapId, reduce);
 	}
 }

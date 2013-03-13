@@ -15,9 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.hadoop.mapred;
 
-public class Temp {
-	
+// NOTE: this file is only shared among our Hadoop1 environments.
+// it is excluded from our mlx-3.x plugin, be including only *[^1].java in its Makefile
+public class LRUCacheBridgeHadoop1 <K, V> extends TaskTracker.LRUCache<K, V> {
+	public LRUCacheBridgeHadoop1 () {
+		super (TaskTracker.FILE_CACHE_SIZE);
+  }
 }

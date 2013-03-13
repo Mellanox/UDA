@@ -16,8 +16,8 @@
 #
 #
 
-#CPATH=../hadoop-1.1.0-patched-v2/build/classes/:commons-logging-1.1.1.jar 
-CPATH=hadoop-core-1.1.0-SNAPSHOT.jar:commons-logging-1.1.1.jar 
+#CPATH=hadoop-core-1.1.0-SNAPSHOT.jar:commons-logging-1.1.1.jar
+CPATH=hadoop-core-2.0.0-mr1-cdh4.1.3.jar:hadoop-common-2.0.0-cdh4.1.3.jar:commons-logging-1.1.1.jar
 
 TARGET=uda-hadoop-1.x.jar
 

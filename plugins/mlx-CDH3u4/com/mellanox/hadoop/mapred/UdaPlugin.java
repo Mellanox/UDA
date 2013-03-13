@@ -493,10 +493,9 @@ class UdaPluginTT extends UdaPlugin {
 	private static TaskTracker taskTracker;
 	private Vector<String>     mParams       = new Vector<String>();
 	private static LocalDirAllocator localDirAllocator = new LocalDirAllocator ("mapred.local.dir");
-	static final int FILE_CACHE_SIZE = 2000;
-	private static LRUHash<String, Path> fileCache ;//= new LRUHash<String, Path>(FILE_CACHE_SIZE);
-	private static LRUHash<String, Path> fileIndexCache ;//= new LRUHash<String, Path>(FILE_CACHE_SIZE);
-	static IndexCache indexCache;
+	private static LRUCacheBridgeHadoop1<String, Path> fileCache ;//= new LRUCacheBridgeHadoop1<String, Path>();
+	private static LRUCacheBridgeHadoop1<String, Path> fileIndexCache ;//= new LRUCacheBridgeHadoop1<String, Path>();
+	static IndexCacheBridge indexCache;
 	static UdaShuffleProviderPlugin udaShuffleProvider;
 
 	public UdaPluginTT(TaskTracker taskTracker, JobConf jobConf, UdaShuffleProviderPlugin udaShuffleProvider) {
@@ -505,10 +504,10 @@ class UdaPluginTT extends UdaPlugin {
 		this.udaShuffleProvider = udaShuffleProvider;
 		
 		launchCppSide(false, null); // false: this is TT => we should execute MOFSupplier
-		fileCache = new LRUHash<String, Path>(FILE_CACHE_SIZE);
-		fileIndexCache = new LRUHash<String, Path>(FILE_CACHE_SIZE);
+		fileCache = new LRUCacheBridgeHadoop1<String, Path>();
+		fileIndexCache = new LRUCacheBridgeHadoop1<String, Path>();
 
-		this.indexCache = new IndexCache(jobConf);
+		this.indexCache = new IndexCacheBridge(jobConf);
 	}
 	
 	protected void buildCmdParams() {
@@ -572,10 +571,11 @@ class UdaPluginTT extends UdaPlugin {
 	
 	
 	//this code is copied from TaskTracker.MapOutputServlet.doGet 
-	static DataPassToJni getPathIndex(String jobId, String mapId, int reduce){
+	static IndexRecordBridge getPathIndex(String jobId, String mapId, int reduce){
 		 String userName = null;
+
 //0.20.2	     String runAsUserName = null;
-	     DataPassToJni data = null;
+	     IndexRecordBridge data = null;
 	     
 	     try{
 	    	 JobConf jobConf = udaShuffleProvider.getJobConfFromSuperClass(JobID.forName(jobId)); 
@@ -601,15 +601,11 @@ class UdaPluginTT extends UdaPlugin {
 		    //  Read the index file to get the information about where
 		    //  the map-output for the given reducer is available. 
 		         
-//0.20.2		   IndexRecord info = indexCache.getIndexInformation(mapId, reduce,indexFileName, 
-//0.20.2		             runAsUserName);
-		   IndexRecord info = indexCache.getIndexInformation(mapId, reduce,indexFileName);
-		   
-		   data = new DataPassToJni();
-		   data.startOffset = info.startOffset;
-		   data.rawLength = info.rawLength;
-		   data.partLength = info.partLength;
+//hadoop-1.x		   data = indexCache.getIndexInformationBridge(mapId, reduce, indexFileName, runAsUserName);
+// TODO: how to get runAsUserName in this env ??
+		   data = indexCache.getIndexInformationBridge(mapId, reduce, indexFileName, userName);
 		   data.pathMOF = mapOutputFileName.toString();
+
 
 	    } catch (IOException e) {
 			  LOG.error("exception caught" + e.toString()); //to check how C behaves in case there is an exception
@@ -625,7 +621,7 @@ class UdaPluginTT extends UdaPlugin {
 
 // Starting to unify code between all our plugins...
 class UdaPluginSH {
-	static DataPassToJni getPathIndex(String jobId, String mapId, int reduce){
+	static IndexRecordBridge getPathIndex(String jobId, String mapId, int reduce){
 		return UdaPluginTT.getPathIndex(jobId, mapId, reduce);
 	}
 }

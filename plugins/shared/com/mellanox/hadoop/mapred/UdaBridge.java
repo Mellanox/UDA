@@ -88,10 +88,9 @@ public class UdaBridge {
 	
 	static public Object getPathUda(String jobId, String mapId, int reduceId)  {
 		if (LOG.isDebugEnabled()) LOG.debug("+++>>> started  UdaBridge.getPathUda");
-    	//String s = callable.getPath(jobId, mapId, reduceId);//return "katya";
-		DataPassToJni d = UdaPluginSH.getPathIndex(jobId, mapId, reduceId);//return "katya";
+		IndexRecordBridge record = UdaPluginSH.getPathIndex(jobId, mapId, reduceId);
 		if (LOG.isDebugEnabled()) LOG.debug("<<<+++ finished UdaBridge.getPathUda"); 
-		return d;
+		return record;
 	}	
 	
 	
@@ -139,9 +138,3 @@ public class UdaBridge {
 
 }
 
-class DataPassToJni{
-	  long startOffset;
-	  long rawLength;
-	  long partLength;
-	  String pathMOF;
-}
