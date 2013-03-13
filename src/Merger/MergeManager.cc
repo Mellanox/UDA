@@ -293,7 +293,7 @@ MapOutput::~MapOutput()
 
 KVOutput::~KVOutput() 
 {
-	log(lsDEBUG, "d-tor of KVOutput");
+	log(lsTRACE, "d-tor of KVOutput");
     /* return mem */
     memory_pool_t *mem_pool = &(merging_sm.mop_pool);
     mem_set_desc_t *desc_pair = (mem_set_desc_t*) malloc(sizeof(mem_set_desc_t));
@@ -382,7 +382,7 @@ int MergeManager::update_fetch_req(client_part_req_t *req)
     return 1;
 }
 
-int MergeManager::mark_req_as_ready(client_part_req_t *req)
+void MergeManager::mark_req_as_ready(client_part_req_t *req)
 {
 
 	pthread_mutex_lock(&req->mop->lock);
@@ -401,9 +401,6 @@ int MergeManager::mark_req_as_ready(client_part_req_t *req)
         pthread_cond_broadcast(&this->cond);
         pthread_mutex_unlock(&this->lock);
 	}
-
-
-    return 1;
 }
 
 void MergeManager::allocate_rdma_buffers(client_part_req_t *req)
@@ -419,11 +416,8 @@ void MergeManager::allocate_rdma_buffers(client_part_req_t *req)
 }
 
 
-int MergeManager::start_fetch_req(client_part_req_t *req)
+void MergeManager::start_fetch_req(client_part_req_t *req)
 {
-
-    /* Update the buf status */
-
 	int ret;
 	if (this->task->isCompressionOn()){
 		req->mop->mop_bufs[0]->status = BUSY;
@@ -453,8 +447,6 @@ int MergeManager::start_fetch_req(client_part_req_t *req)
                      task->total_first_fetch);
         }
     }
-
-    return 1;
 }
 
 

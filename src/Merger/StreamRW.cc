@@ -375,60 +375,64 @@ void Segment::send_request() {
     map_output->task->merge_man->start_fetch_req(map_output->part_req);
 }
 
+// CODEREVIEW: I would expect shared code between this function and switch_mem since their logic is similar.
 //this function is used for compression: it sync's the DataStream in_mem_data with the cyclic buffer ('staging_mem')
 bool BaseSegment::reset_data() {;
-		if (kv_output != NULL) {
-			mem_desc_t *staging_mem =
-					kv_output->mop_bufs[kv_output->staging_mem_idx];
+/*	
+	// CODEREVIEW: Avoid nesting all the body of the function,
+				1. start with if (kv_output == NULL) return false;
+				2. move to "if.. {} else if.. {} else {} "scheme with less nesting, (and with equal cases)
+*/				
+		if (kv_output == NULL) return false;
 
-			int32_t	end = staging_mem->end; // no need for lock as long as we refer to same 'end' value
-			int difference = end - staging_mem->start;
-			if (difference < 0) {
-				//checking if there is more than one key-value pair before the end of the buffer
-				if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < staging_mem->buf_len-staging_mem->start){
-					log(lsTRACE, " before turnaround of the cyclic buffer [%p]. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
-							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
-					//just reset
-					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->buf_len-staging_mem->start);
-					log(lsTRACE, " after turnaround of the cyclic buffer [%p]. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
-							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
-					return true;
-				}else{
-					//indicates that there should be join
-					log(lsTRACE, "reset_data return false, cyclic buffer [%p]", staging_mem);
-					return false;
-				}
+		mem_desc_t *staging_mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
+
+		int32_t	end = staging_mem->end; // no need for lock as long as we refer to same 'end' value
+		int difference = end - staging_mem->start;
+		if (difference < 0) {
+			//checking if there is more than one key-value pair before the end of the buffer
+			if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < staging_mem->buf_len-staging_mem->start){
+				log(lsTRACE, " before turnaround of the cyclic buffer [%p]. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
+						staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
+				//just reset
+				this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->buf_len-staging_mem->start);
+				log(lsTRACE, " after turnaround of the cyclic buffer [%p]. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
+						staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
+				return true;
+			}else{
+				//indicates that there should be join
+				log(lsTRACE, "reset_data return false, cyclic buffer [%p]", staging_mem);
+				return false;
 			}
-			else {
-				if ((int)(this->in_mem_data->getLength()-this->in_mem_data->getPosition())< difference){
-					//there is new data
-					log(lsTRACE, "since last time more data was fetched/decompressed. resetting cyclic buffer [%p] to start=%d end=%d count=%d pos=%d",
-							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
-					this->in_mem_data->reset(staging_mem->buff+staging_mem->start, end-staging_mem->start);
-					return true;
-				}
-				else{
-					//no new data was added: must sleep
-					log(lsTRACE, "there is no data in cyclic buffer [%p]: wait for fetch. start=%d, end=%d, count=%d, pos=%d. total_len_part is %d",
-							staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), this->kv_output->total_len_rdma);
-
-					MapOutput *mop = dynamic_cast<MapOutput*>(kv_output);
-					get_task()->client->start_fetch_req(mop->part_req, NULL, 1);
-
-					pthread_mutex_lock(&kv_output->lock);
-					end = staging_mem->end;
-					difference = end - staging_mem->start;
-					if ((int)(this->in_mem_data->getLength()- this->in_mem_data->getPosition()) >= difference) {
-						pthread_cond_wait(&kv_output->cond, &kv_output->lock);
-					}
-					pthread_mutex_unlock(&kv_output->lock);
-					return true;
-				}
+		}
+		else {
+			if ((int)(this->in_mem_data->getLength()-this->in_mem_data->getPosition())< difference){
+				//there is new data
+				log(lsTRACE, "since last time more data was fetched/decompressed. resetting cyclic buffer [%p] to start=%d end=%d count=%d pos=%d",
+						staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
+				this->in_mem_data->reset(staging_mem->buff+staging_mem->start, end-staging_mem->start);
+				return true;
 			}
+			else{
+				//no new data was added: must sleep
+				log(lsTRACE, "there is no data in cyclic buffer [%p]: wait for fetch. start=%d, end=%d, count=%d, pos=%d. total_len_part is %d",
+						staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), this->kv_output->total_len_rdma);
 
+				MapOutput *mop = dynamic_cast<MapOutput*>(kv_output);
+				get_task()->client->start_fetch_req(mop->part_req, NULL, 1);
+
+				pthread_mutex_lock(&kv_output->lock);
+				end = staging_mem->end;
+				difference = end - staging_mem->start;
+				if ((int)(this->in_mem_data->getLength()- this->in_mem_data->getPosition()) >= difference) {
+					pthread_cond_wait(&kv_output->cond, &kv_output->lock);
+				}
+				pthread_mutex_unlock(&kv_output->lock);
+				return true;
+			}
 		}
 
-    return false;
+
 }
 
 

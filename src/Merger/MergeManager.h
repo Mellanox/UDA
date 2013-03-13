@@ -164,9 +164,9 @@ public:
 
     ~MergeManager();
   
-    int start_fetch_req(client_part_req_t *req);
+    void start_fetch_req(client_part_req_t *req);
     int update_fetch_req(client_part_req_t *req);
-    int mark_req_as_ready(client_part_req_t *req);
+    void mark_req_as_ready(client_part_req_t *req);
     void allocate_rdma_buffers(client_part_req_t *req);
 
     pthread_mutex_t      lock; 

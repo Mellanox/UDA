@@ -492,7 +492,8 @@ void initMemPool(int minRdmaBuffer){
 
 		double splitPercentRdmaComp =  ::atof(UdaBridge_invoke_getConfData_callback ("mapred.rdma.compression.buffer.ratio", "0.20").c_str());
 		int uncompBufferHardMin = g_task->comp_block_size + minRdmaBuffer;
-		long totalBufferPerMof = g_task->buffer_size*2;
+		long totalBufferPerMof = g_task->buffer_size * 2;
+		log(lsINFO, "totalBufferPerMof=%ld  , g_task->buffer_size=%d, uncompBufferHardMin=%d, minRdmaBuffer=%d",totalBufferPerMof, g_task->buffer_size, uncompBufferHardMin, minRdmaBuffer);
 
 		if(totalBufferPerMof < uncompBufferHardMin + minRdmaBuffer)
 		{
@@ -505,9 +506,8 @@ void initMemPool(int minRdmaBuffer){
 		int rdmaBufferUsed = totalBufferPerMof - uncompBufferUsed;
 		
 
-
 		rc = create_mem_pool_pair(rdmaBufferUsed, uncompBufferUsed, numBuffers, &merging_sm.mop_pool);
-		log(lsINFO, "init compression configured. allocating rdmaBufferUsed=%d, uncompBufferUsed=%d totalBufferPerMof=%d, splitPercentRdmaComp=%f", uncompBufferHardMin, totalBufferPerMof, splitPercentRdmaComp);
+		log(lsINFO, "init compression configured. allocating rdmaBufferUsed=%d, uncompBufferUsed=%d totalBufferPerMof=%ld, splitPercentRdmaComp=%f", uncompBufferHardMin, totalBufferPerMof, splitPercentRdmaComp);
 	}
 
 	if(rc){

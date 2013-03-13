@@ -42,15 +42,14 @@ public:
     void comp_fetch_req(struct client_part_req *req);
     RdmaClient* getRdmaClient();
 
-
-    reduce_task_t* reduce_task;
-    pthread_cond_t cond;
-    pthread_mutex_t      lock;
-    netlev_thread_t    decompress_thread;
-    list<client_part_req_t *>    req_to_decompress;
-    char* buffer; //this is the side buffer to where the data is temporarily decompressed
-
     static void * decompressMainThread(void *arg);  // thread start
+
+    pthread_cond_t		 cond;
+    pthread_mutex_t      lock;
+    netlev_thread_t      decompress_thread;
+
+
+
 protected:
 
 	virtual void initDecompress() = 0;
@@ -58,6 +57,7 @@ protected:
 	InputClient *rdmaClient;
 
 private:
+
 	void *decompressMainThread();
 	void handle1Req(client_part_req_t *req);
 	bool perliminaryCheck1Req(client_part_req_t *req);
@@ -71,6 +71,9 @@ private:
 	virtual uint32_t getNumCompressedBytes(char* buf)=0;
 	virtual uint32_t getNumUncompressedBytes(char* buf)=0;
 
+	list<client_part_req_t *>    req_to_decompress;
+	reduce_task_t* 				reduce_task;
+	char* buffer; //this is the side buffer to where the data is temporarily decompressed
 };
 
 #endif

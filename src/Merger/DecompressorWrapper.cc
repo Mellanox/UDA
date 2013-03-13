@@ -67,7 +67,6 @@ void DecompressorWrapper::copy_from_side_buffer_to_actual_buffer(mem_desc_t * de
 	}
 }
 
-//CODEREVIEW: make members private since we access them from a class method
 /*static method */void *DecompressorWrapper::decompressMainThread(void* wrapper)
 {
 	return ((DecompressorWrapper*)wrapper) -> decompressMainThread();
@@ -166,14 +165,24 @@ void DecompressorWrapper::doDecompress(client_part_req_t *req)
 	this->get_next_block_length(rdma_mem_desc->buff + rdma_mem_desc->start,&next_block_length);
 
 	decompressRetData_t retData;
-	this->decompress(rdma_mem_desc->buff + rdma_mem_desc->start + this->getBlockSizeOffset(),this->buffer,
-			next_block_length.num_compressed_bytes, next_block_length.num_uncompressed_bytes, 0,&retData);
-
+	//there is enough space in the cyclic buffer for the uncompressed block without doing wrap around = > decompress straight to the cyclic buffer
+	if (read_mem_desc->end + next_block_length.num_uncompressed_bytes <= read_mem_desc->buf_len){
+		this->decompress(rdma_mem_desc->buff + rdma_mem_desc->start + this->getBlockSizeOffset(),read_mem_desc->buff + read_mem_desc->end,
+				next_block_length.num_compressed_bytes, next_block_length.num_uncompressed_bytes, 0,&retData);
+		read_mem_desc->end += retData.num_uncompressed_bytes;
+		log(lsTRACE, "mopid=%d, just decompressed %d bytes to actual buffer, start=%d, end=%d", req->mop->mop_id, retData.num_uncompressed_bytes, read_mem_desc->start,read_mem_desc->end);
+	}else{
+		this->decompress(rdma_mem_desc->buff + rdma_mem_desc->start + this->getBlockSizeOffset(),this->buffer,
+				next_block_length.num_compressed_bytes, next_block_length.num_uncompressed_bytes, 0,&retData);
+		copy_from_side_buffer_to_actual_buffer(read_mem_desc, retData.num_uncompressed_bytes);
+		log(lsTRACE, "mopid=%d, just copied %d bytes from side buffer to actual buffer, start=%d, end=%d", req->mop->mop_id, retData.num_uncompressed_bytes, read_mem_desc->start,read_mem_desc->end);
+	}
 	log(lsTRACE, "changing rdma start. mof=%d, old=%d, new=%d",req->mop->mop_id, rdma_mem_desc->start , rdma_mem_desc->start + retData.num_compressed_bytes + this->getBlockSizeOffset());
 	rdma_mem_desc->incStartWithLock(retData.num_compressed_bytes + this->getBlockSizeOffset());
 
-	copy_from_side_buffer_to_actual_buffer(read_mem_desc, retData.num_uncompressed_bytes);
-	log(lsTRACE, "mopid=%d, just copied %d bytes from side buffer to actual buffer, start=%d, end=%d", req->mop->mop_id, retData.num_uncompressed_bytes, read_mem_desc->start,read_mem_desc->end);
+
+
+
 	req->mop->fetched_len_uncompress += retData.num_uncompressed_bytes;
 }
 
