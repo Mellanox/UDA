@@ -98,11 +98,11 @@ Index: src/mapred/org/apache/hadoop/mapred/TaskTracker.java
 +        shuffleProviderPlugin = ReflectionUtils.newInstance(providerClazz, fConf);
 +    }
 +    if (shuffleProviderPlugin != null) {
-+        LOG.info(" Using ShuffleProviderPlugin: " + shuffleProviderPlugin);
++        LOG.info("Using ShuffleProviderPlugin: " + shuffleProviderPlugin);
 +        shuffleProviderPlugin.initialize(this);
 +    }
 +    else {
-+        LOG.info(" NO ShuffleProviderPlugin will be used");
++        LOG.info("NO external ShuffleProviderPlugin will be used");
 +    }
      
      oobHeartbeatOnTaskCompletion = 
@@ -204,7 +204,7 @@ Index: src/mapred/org/apache/hadoop/mapred/ReduceTask.java
 +    	Class<? extends ShuffleConsumerPlugin> clazz =
 +    			job.getClass(RT_SHUFFLE_CONSUMERER_PLUGIN, null, ShuffleConsumerPlugin.class);
 +    	shuffleConsumerPlugin = ShuffleConsumerPlugin.getShuffleConsumerPlugin(clazz, this, umbilical, job, reporter);
-+    	LOG.info(" Using ShuffleConsumerPlugin : " + shuffleConsumerPlugin);
++    	LOG.info("Using ShuffleConsumerPlugin: " + shuffleConsumerPlugin);
 +   	
 +      if (!shuffleConsumerPlugin.fetchOutputs()) {
 +        if(shuffleConsumerPlugin.mergeThrowable instanceof FSError) {
