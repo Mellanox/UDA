@@ -50,12 +50,12 @@ void SnappyDecompressor::decompress(const char* compressed_buff, char* uncompres
 			log(lsERROR, "Could not decompress snappy data. Input is invalid.");
 		break;
 		case SNAPPY_OK:
-			log(lsERROR,  "Could not decompress snappy data.");
-		break;
-		default:
 			retObj->num_compressed_bytes=compressed_buff_len;
 			retObj->num_uncompressed_bytes=uncompressed_buff_len;
 			return;
+		break;
+		default:
+			log(lsERROR,  "Could not decompress snappy data.");
 		break;
 	}
 

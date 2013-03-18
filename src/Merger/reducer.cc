@@ -490,7 +490,7 @@ void initMemPool(int minRdmaBuffer){
 
 	} else{
 		float splitPercentRdmaComp =  ::atof(UdaBridge_invoke_getConfData_callback ("mapred.rdma.compression.buffer.ratio", "0.20").c_str());
-		int maxRdmaSize =  ::atof(UdaBridge_invoke_getConfData_callback ("mapred.rdma.buf.size", "1024").c_str());
+		int maxRdmaSize =  ::atof(UdaBridge_invoke_getConfData_callback ("mapred.rdma.buf.size", "1024").c_str())*1024;
 		int uncompBufferHardMin = g_task->comp_block_size + minRdmaBuffer;
 		int totalBufferPerMof = g_task->buffer_size * 2;
 		if(totalBufferPerMof < uncompBufferHardMin + minRdmaBuffer)

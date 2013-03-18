@@ -193,16 +193,17 @@ void DecompressorWrapper::handleNextRdmaFetch(client_part_req_t *req)
 		req-> request_in_queue = false;
 		return;
 	}
-
 	mem_desc_t * rdma_mem_desc = req->mop->mop_bufs[0];
 	if (rdma_mem_desc->status != MERGE_READY) {
 		req-> request_in_queue = false;
 		return;
 	}
 
+	decompressRetData_t next_block_length;
+	this->get_next_block_length(rdma_mem_desc->buff + rdma_mem_desc->start,&next_block_length);
 	// do we already have enough compressed data?
-	if (rdma_mem_desc->buf_len  >= rdma_mem_desc->start + this->getBlockSizeOffset()) {
-		if (rdma_mem_desc->buf_len - rdma_mem_desc->start - this->getBlockSizeOffset() >= this->getNumCompressedBytes(rdma_mem_desc->buff + rdma_mem_desc->start)) {
+	if (rdma_mem_desc->buf_len  > rdma_mem_desc->start + this->getBlockSizeOffset()) {
+		if (rdma_mem_desc->buf_len - rdma_mem_desc->start - this->getBlockSizeOffset() >= next_block_length.num_compressed_bytes) {
 			req-> request_in_queue = false;
 			return;
 		}
