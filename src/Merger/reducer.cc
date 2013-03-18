@@ -74,7 +74,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 //
 	g_task->buffer_size = buffer_size_from_java - buffer_size_from_java % getpagesize(); // alignment to pagesize
 	int minRdmaBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
-
+	log(lsDEBUG, "minRdmaBuffer %d,  g_task->buffer_size*2=%d",minRdmaBuffer,g_task->buffer_size*2 );
 	if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minRdmaBuffer) ) {
 		log(lsERROR, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minRdmaBuffer);
 		throw new UdaException("RDMA Buffer is too small");
@@ -91,7 +91,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 	g_task->client->start_client();
 
 	log(lsDEBUG, " AFTER INPUT CLIENT CREATION");
-
+	log(lsDEBUG, "1 minRdmaBuffer %d,  g_task->buffer_size*2=%d, g_task->comp_block_size=%d",minRdmaBuffer,g_task->buffer_size*2,g_task->comp_block_size );
 	int num_dirs = 0;
 
 	if (hadoop_cmd->count -1  > DIRS_START) {
@@ -110,7 +110,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 			}
 		}
 	}
-
+	log(lsDEBUG, "2 minRdmaBuffer %d,  g_task->buffer_size*2=%d, g_task->comp_block_size=%d",minRdmaBuffer,g_task->buffer_size*2,g_task->comp_block_size );
 	initMemPool(minRdmaBuffer);
 
 	init_reduce_task(g_task);
@@ -489,25 +489,32 @@ void initMemPool(int minRdmaBuffer){
 		rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,numBuffers,&merging_sm.mop_pool);
 
 	} else{
-
-		double splitPercentRdmaComp =  ::atof(UdaBridge_invoke_getConfData_callback ("mapred.rdma.compression.buffer.ratio", "0.20").c_str());
+		float splitPercentRdmaComp =  ::atof(UdaBridge_invoke_getConfData_callback ("mapred.rdma.compression.buffer.ratio", "0.20").c_str());
+		int maxRdmaSize =  ::atof(UdaBridge_invoke_getConfData_callback ("mapred.rdma.buf.size", "1024").c_str());
 		int uncompBufferHardMin = g_task->comp_block_size + minRdmaBuffer;
-		long totalBufferPerMof = g_task->buffer_size * 2;
-		log(lsINFO, "totalBufferPerMof=%ld  , g_task->buffer_size=%d, uncompBufferHardMin=%d, minRdmaBuffer=%d",totalBufferPerMof, g_task->buffer_size, uncompBufferHardMin, minRdmaBuffer);
-
+		int totalBufferPerMof = g_task->buffer_size * 2;
 		if(totalBufferPerMof < uncompBufferHardMin + minRdmaBuffer)
 		{
 			log(lsERROR, "not enough memory to allocate buffers. minRdmaBuffer=%d, uncompBufferHardMin=%d, totalBufferPerMof=%d, splitPercentRdmaComp=%f",minRdmaBuffer, uncompBufferHardMin, totalBufferPerMof, splitPercentRdmaComp);
             throw new UdaException ("not enough memory to allocate buffers");
 		}
 
-		double delta = totalBufferPerMof - (uncompBufferHardMin + minRdmaBuffer);
+		int delta = totalBufferPerMof - (uncompBufferHardMin + minRdmaBuffer);
+		log(lsDEBUG, " initMemPool. delta = %d, minRdmaBuffer = %d, uncompBufferHardMin = %d",delta,minRdmaBuffer,uncompBufferHardMin);
 		int uncompBufferUsed = uncompBufferHardMin + (int)(delta * splitPercentRdmaComp);
 		int rdmaBufferUsed = totalBufferPerMof - uncompBufferUsed;
-		
+
+		//rdma buffer size is limited by 1M. if the calculation yields a bigger buffer we move the spare memory to the compression buffer
+		int spare = max(rdmaBufferUsed - maxRdmaSize , 0);
+		rdmaBufferUsed -= spare;
+		uncompBufferUsed += spare;
+
+		log(lsDEBUG, " initMemPool2. uncompBufferUsed = %d, rdmaBufferUsed=%d",uncompBufferUsed,rdmaBufferUsed);
 
 		rc = create_mem_pool_pair(rdmaBufferUsed, uncompBufferUsed, numBuffers, &merging_sm.mop_pool);
-		log(lsINFO, "init compression configured. allocating rdmaBufferUsed=%d, uncompBufferUsed=%d totalBufferPerMof=%ld, splitPercentRdmaComp=%f", uncompBufferHardMin, totalBufferPerMof, splitPercentRdmaComp);
+
+		/* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
+		log(lsINFO, "init compression configured. allocating rdmaBufferUsed = %d uncompBufferUsed = %d totalBufferPerMof = %d", uncompBufferHardMin, totalBufferPerMof);
 	}
 
 	if(rc){

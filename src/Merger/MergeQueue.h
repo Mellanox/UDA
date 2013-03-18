@@ -382,21 +382,6 @@ protected:
     		core_queue.adjustTop();
     		break;
     	}
-/*
- //CODEREVIEW: are you sure there is no risk of endless recursive here?
-is it possible to stay with something like:
-    	case -1: {
-               if ( (segment->get_task()->isCompressionOn() &&  segment->reset_data()) || segment->switch_mem() ) {
-				   core_queue.adjustTop();
-			   } else {
-				   T s = core_queue.pop();
-				   num_of_segments--;
-				   delete s;
-			   }
-    		break;
-    	}
-*/
-
     	case -1: { /*break in the middle - for cyclic buffer can represent that you need to switch to the beginning of the buffer*/
     		if (segment->get_task()->isCompressionOn() &&  segment->reset_data()){
     			adjustPriorityQueue(segment); //calling the function again, since data was reset
