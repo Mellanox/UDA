@@ -35,16 +35,70 @@
 class RawKeyValueIterator;
 
 typedef struct mem_desc {
+
+	uint32_t getFreeBytes()
+	{
+		uint32_t _start = start;
+		uint32_t _end = end;
+
+		uint32_t free_bytes = 0;
+		if (_start <= _end) {
+			// _start pos is smaller then end pos
+			uint32_t used_bytes = _end - _start;
+			free_bytes = buf_len - used_bytes;
+		}
+		else {
+			// _end pos is smaller then start pos (wrap around)
+			free_bytes = _start - _end;
+		}
+		return free_bytes;
+	}
+
+	// safe both for our cyclic and non-cyclic buffer
+	void incStart(uint32_t bytesToAdd)
+	{
+		start += bytesToAdd;
+		if (start > buf_len) start -= buf_len;
+	}
+
+	void incStartWithLock(uint32_t bytesToAdd)
+	{
+		pthread_mutex_lock(&lock);
+		incStart(bytesToAdd);
+		pthread_mutex_unlock(&lock);
+	}
+
+
+
     struct list_head     list;
     char                *buff;
-    int32_t              buf_len;
+    uint32_t              buf_len;
     int32_t              act_len;
     volatile int         status; /* available or invalid*/
-    struct memory_pool  *owner;  /* owner pool */
+//    struct memory_pool  *owner;  /* owner pool */
     pthread_mutex_t      lock;
     pthread_cond_t       cond;
 
+    /*
+	CODEREVIEW:
+     private: start/end - init with proper values
+     public: getStart/getEnd - simple inline getters
+    */
+
+    //the following variables are for cyclic buffer
+    uint32_t 			start; //index of the oldest element
+    uint32_t				end; //index at which to write new element
+
 } mem_desc_t;
+
+
+typedef struct mem_set_desc {
+    struct list_head     list;
+    mem_desc_t* buffer_unit [NUM_STAGE_MEM];
+
+} mem_set_desc_t;
+
+
 
 
 //#include "StreamRW.h"
@@ -194,7 +248,6 @@ private:
     }
 };
 
-
 /****************************************************************************
  * The implementation of PriorityQueue and RawKeyValueIterator
  ****************************************************************************/
@@ -203,7 +256,7 @@ class MergeQueue
 {
 private:
     std::list<T> *mSegments;
-    T min_segment;
+//    T min_segment;
     DataStream *key;
     DataStream *val;
     int num_of_segments;
@@ -211,6 +264,7 @@ public:
     const std::string filename;
     mem_desc_t*  staging_bufs[NUM_STAGE_MEM];
     PriorityQueue<T> core_queue;
+    T min_segment;
 public: 
 	#if LCOV_HYBRID_MERGE_DEAD_CODE
     	size_t getQueueSize() { return num_of_segments; }
@@ -241,6 +295,7 @@ public:
         this->min_segment = core_queue.top();
         this->key = &this->min_segment->key;
         this->val = &this->min_segment->val;
+
         return true;
     }
 
@@ -313,32 +368,35 @@ public:
 protected:
 
     bool lessThan(T a, T b);
-    void adjustPriorityQueue(T segment){
-        int ret = segment->nextKV();
+    void adjustPriorityQueue(T segment) {
+    	int ret = segment->nextKV();
 
-        switch (ret) {
-            case 0: { /*no more data for this segment*/
-                T s = core_queue.pop();
-                delete s;
-                num_of_segments--;
-                break;
-            }
-            case 1: { /*next KV pair exist*/
-                core_queue.adjustTop();
-                break;
-            }
-            case -1: { /*break in the middle*/
-                if (segment->switch_mem() ){
-                    /* DBGPRINT(DBG_CLIENT, "adjust priority queue\n"); */
-                    core_queue.adjustTop();
-                } else {
-                    T s = core_queue.pop();
-                    num_of_segments--;
-                    delete s;
-                }
-                break;
-            }
-        }
+    	switch (ret) {
+    	case 0: { /*no more data for this segment*/
+    		T s = core_queue.pop();
+    		delete s;
+    		num_of_segments--;
+    		break;
+    	}
+    	case 1: { /*next KV pair exist*/
+    		core_queue.adjustTop();
+    		break;
+    	}
+    	case -1: { /*break in the middle - for cyclic buffer can represent that you need to switch to the beginning of the buffer*/
+    		if (segment->get_task()->isCompressionOn() &&  segment->reset_data()){
+    			adjustPriorityQueue(segment); //calling the function again, since data was reset
+    		}else{
+    			if (segment->switch_mem() ){
+    				core_queue.adjustTop();
+    			} else {
+    				T s = core_queue.pop();
+    				num_of_segments--;
+    				delete s;
+    			}
+    		}
+    		break;
+    	}
+    	}
     }
 
 

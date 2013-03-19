@@ -24,7 +24,7 @@
 #include <sys/socket.h>
 
 #include "C2JNexus.h"
-#include "Merger/InputClient.h"
+#include "DataNet/RDMAClient.h"
 #include "Merger/reducer.h"
 #include "include/IOUtility.h"
 #include "CompareFunc.h"
@@ -61,6 +61,7 @@ int MergeManager_main(int argc, char* argv[])
     memset(&merging_sm, 0, sizeof(merging_state_t));
 //    merging_sm.stop = 0;
     merging_sm.online = op.online;
+    merging_sm.data_port = op.data_port;
 
 //    pthread_mutex_init(&merging_sm.lock, NULL);
 //    pthread_cond_init(&merging_sm.cond, NULL);
@@ -70,10 +71,6 @@ int MergeManager_main(int argc, char* argv[])
      * -- create a network connections with the server
      * -- round-robin to process segment requests from all reducers
      */
-    merging_sm.client = new InputClient(op.data_port, op.mode, &merging_sm);
-    merging_sm.client->start_client();
-	log(lsINFO, " AFTER RDMA CLIENT CREATION");
-
 	spawn_reduce_task();
 
     return 0;

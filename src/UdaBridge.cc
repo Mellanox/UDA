@@ -42,6 +42,7 @@ static jclass jclassUdaBridge; // just casted ref to above jweakUdaBridge. Hence
 static jmethodID jmethodID_fetchOverMessage; // handle to java cb method
 static jmethodID jmethodID_dataFromUda; // handle to java cb method
 static jmethodID jmethodID_getPathUda; // handle to java cb method
+static jmethodID jmethodID_getConfData; // handle to java cb method
 static jmethodID jmethodID_logToJava; // handle to java cb method
 static jfieldID fidOffset;
 static jfieldID fidRawLength;
@@ -151,6 +152,13 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
 	jmethodID_getPathUda = env->GetStaticMethodID(jclassUdaBridge, "getPathUda", "(Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/Object;");
 	if (jmethodID_getPathUda == NULL) {
 		printf("-->> In C++ java UdaBridge.jmethodID_getPathUda() callback method was NOT found\n");
+		return JNI_ERR;
+	}
+
+	//getConfData callback
+	jmethodID_getConfData = env->GetStaticMethodID(jclassUdaBridge, "getConfData", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+	if (jmethodID_getConfData == NULL) {
+		printf("-->> In C++ java UdaBridge.jmethodID_getConfData() callback method was NOT found\n");
 		return JNI_ERR;
 	}
 
@@ -391,6 +399,28 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 
 
 
+std::string UdaBridge_invoke_getConfData_callback(const char* paramName, const char* defaultValue) {
+	JNIEnv *env = UdaBridge_threadGetEnv();
+	if (!env) {
+		return NULL;
+	}
+	jstring jstr_param = env->NewStringUTF(paramName);
+	jstring jstr_default = env->NewStringUTF(defaultValue);
+	jobject jdata = env->CallStaticObjectMethod(jclassUdaBridge, jmethodID_getConfData, jstr_param,jstr_default);
+	env->DeleteLocalRef(jstr_param);
+	env->DeleteLocalRef(jstr_default);
+	if (jdata==NULL){
+		log(lsERROR, "java UdaBridge.getConfData returned null!");
+		return NULL;
+	}
+	const char *nativeString = env->GetStringUTFChars( (jstring) jdata, 0);
+	std::string value(nativeString); // !!!
+	env->ReleaseStringUTFChars( (jstring)jdata, nativeString);
+	log(lsDEBUG, "UdaBridge_invoke_getConfData_callback: paramName=%s, defaultValue=%s, retValue=%s", paramName, defaultValue, nativeString);
+	return value;
+}
+
+
 void UdaBridge_invoke_logToJava_callback(const char* log_message, int severity) {
 	JNIEnv *env;
 	if (cached_jvm->GetEnv((void **)&env, JNI_VERSION_1_4)) {
@@ -411,6 +441,7 @@ void UdaBridge_invoke_logToJava_callback(const char* log_message, int severity) 
 // - DON'T use the handle from one thread in context of another threads!
 JNIEnv *UdaBridge_attachNativeThread()
 {
+	// DO NOT log before cached_jvm->AttachCurrentThread
     JNIEnv *env;
 	if (! cached_jvm) {
 		log(lsERROR, "cached_jvm is NULL");

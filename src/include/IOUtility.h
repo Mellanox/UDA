@@ -90,11 +90,12 @@ class DataStream : public InStream,
                    public OutStream 
 {
 protected:
-    char   *buf;
     size_t count;
     size_t pos;
 
 public:
+    char   *buf;
+
     DataStream(char*, int32_t);
     DataStream();
     ~DataStream();
@@ -113,8 +114,8 @@ public:
     bool     close();
     size_t   write (const void *buf, size_t len);
     char*    getData()    {return this->buf;}
-    int32_t  getPosition(){return this->pos;}
-    int32_t  getLength()  {return this->count;}
+    uint32_t  getPosition(){return this->pos;}
+    uint32_t  getLength()  {return this->count;}
 };
 
 /**********************************************

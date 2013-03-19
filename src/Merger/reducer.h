@@ -33,11 +33,13 @@
 #include "../DataNet/RDMAComm.h"
 #include "../Merger/MergeManager.h"
 #include "AIOHandler.h"
+#include "InputClient.h"
 
-class InputClient;
 class C2JNexus;
 class MergeManager;
 struct reduce_task;
+
+enum compressionType{compOff, compSnappy, compLzo};
 
 typedef struct reduce_directory {
     char         *path;
@@ -46,15 +48,19 @@ typedef struct reduce_directory {
 
 typedef struct merging_state {
 
-    InputClient       *client;   /* Transport */
+//    InputClient       *client;
 
     int                online;
 
     memory_pool_t      mop_pool;
     
-
+    int 			   data_port;
 } merging_state_t;
+
 typedef struct reduce_task {
+
+	InputClient       *client;
+
     struct list_head   list;
     int                reduce_id;
 
@@ -65,9 +71,6 @@ typedef struct reduce_task {
     char              *job_id;
     char              *reduce_task_id;
     int                mop_index;
-
-//    FetchManager      *fetch_man;
-//    netlev_thread_t    fetch_thread;
 
     MergeManager      *merge_man;  
     netlev_thread_t    merge_thread;
@@ -87,6 +90,24 @@ typedef struct reduce_task {
     int			  lpq_size;
     int			  buffer_size;
     std::vector<std::string>   local_dirs; // local dirs will serve for lpq temp files
+
+    /*for compression*/
+
+    compressionType comp_alg;
+    int comp_block_size;
+
+    bool isCompressionOn(){
+    	return (comp_alg != compOff);
+    }
+
+    bool isCompressionOff(){
+		return !isCompressionOn();
+	}
+
+    compressionType getCompressionType(){
+    	return comp_alg;
+    }
+
 } reduce_task_t;
 
 void reduce_downcall_handler(const std::string & msg);
@@ -94,6 +115,10 @@ extern reduce_task_t * g_task; // we only support 1 reducer per process
 void spawn_reduce_task();
 void finalize_reduce_task(reduce_task_t *task);
 int  create_mem_pool(int logsize, int num, memory_pool_t *pool);
+int  create_mem_pool_pair(int size1, int size2,  int num, memory_pool_t *pool);
+void createInputClient();
+compressionType getCompAlg(char* comp);
+void initMemPool(int minRdmaBuffer);
 
 #endif
 

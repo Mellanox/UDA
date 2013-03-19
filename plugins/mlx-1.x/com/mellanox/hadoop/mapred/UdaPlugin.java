@@ -261,7 +261,23 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(Long.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment			 
 		mParams.add(jobConf.getOutputKeyClass().getName());
 		
+		boolean compression = jobConf.getCompressMapOutput(); //"true" or "false"
+		String alg =null;
+        if(compression){
+            alg = jobConf.get("mapred.map.output.compression.codec", null);
+		}
+		mParams.add(alg); 
 		
+		String bufferSize=Integer.toString(256*1024);		
+		if(alg!=null){
+             if(alg.contains("lzo.LzoCodec")){
+                bufferSize = jobConf.get("io.compression.codec.lzo.buffersize", bufferSize);
+            }else if(alg.contains("SnappyCodec")){
+                bufferSize = jobConf.get("io.compression.codec.snappy.buffersize", bufferSize);
+            }
+        }		
+		mParams.add(bufferSize);
+	
 		String [] dirs = jobConf.getLocalDirs();
 		ArrayList<String> dirsCanBeCreated = new ArrayList<String>();
 		//checking if the directories can be created
@@ -279,6 +295,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 			mParams.add(dirsCanBeCreated.get(i));
 		}
 
+		LOG.info("mParams array is " + mParams);
 		LOG.info("UDA: sending INIT_COMMAND");    	  
 		String msg = UdaCmd.formCmd(UdaCmd.INIT_COMMAND, mParams);
 		UdaBridge.doCommand(msg);
@@ -370,6 +387,12 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		if (LOG.isDebugEnabled()) LOG.debug ("<<-- dataFromUda finished callback");
 	}
 
+	/**
+	 * gets property paramName from configuration file
+	 */
+	static String getDataFromConf(String paramName, String defaultParam){
+		return mjobConf.get(paramName,defaultParam);
+	}
 
 	// callback from C++
 	public void failureInUda(){

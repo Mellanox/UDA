@@ -76,7 +76,6 @@ typedef struct memory_pool {
 //    pthread_cond_t       cond; //this cond should be used in case the reducer is running several LPQs simultaneously
     struct list_head     free_descs;
     char                *mem;        
-    int32_t              size;
     int32_t              num;
     int64_t              total_size;
     struct list_head     register_mem_list;
@@ -94,12 +93,12 @@ typedef struct client_part_req
      * This constructor is basically for the fetching request from hadoop
      */
     struct list_head list;
-    int64_t          last_fetched;  /* offset to fetch in a MOF Partition */
-    int64_t          total_len;     /* total length of the partition */
     struct host_list *host;
     hadoop_cmd_t     *info; /* [0]:hostname,[1]:jobid,[2]:mapid,[3]:reduceid*/
     MapOutput        *mop;         /* A pointer to mop */
     char             recvd_msg[64];
+
+    bool 				request_in_queue;
 } client_part_req_t;
 
 
@@ -115,18 +114,25 @@ class KVOutput  {
 public:
     pthread_mutex_t         lock; 
     pthread_cond_t          cond;
-    mem_desc_t             *mop_bufs[2];
+    mem_desc_t             *mop_bufs[NUM_STAGE_MEM];
     struct reduce_task     *task;
     
     /* indicate which mem_desc should be filled by fetcher*/
     volatile int            staging_mem_idx;  
     
-    int64_t          		last_fetched;  /* offset to fetch in a KV Partition */
-    int64_t                 total_fetched;
-    int64_t                 total_len;
+    int64_t          		last_fetched;  /*represents how many bytes were fetched in the last time */
+//    int64_t                 total_fetched;
+
+    int64_t                 fetched_len_rdma; //represents #bytes fetched (current offset)
+    int64_t                 fetched_len_uncompress; //represents total #bytes ready to read
+
+//    int64_t                 total_len;
+    int64_t                 total_len_rdma; //represents raw size of MOF partition (either with compression, or uncompressed size without compression)
+    int64_t                 total_len_uncompress; //represents decompressed length of MOF
     
     KVOutput(struct reduce_task *task);
 	virtual ~KVOutput();
+	int32_t getFreeBytes();
 };
 
 /* MapOutput holds the data from one partition */
@@ -143,7 +149,7 @@ public:
     int                     mop_id; 
 
     /* used for testing */
-    volatile int            fetch_count;
+    volatile uint64_t  fetch_count;
 };
 
 
@@ -158,8 +164,9 @@ public:
 
     ~MergeManager();
   
-    int start_fetch_req(client_part_req_t *req);
+    void start_fetch_req(client_part_req_t *req);
     int update_fetch_req(client_part_req_t *req);
+    void mark_req_as_ready(client_part_req_t *req);
     void allocate_rdma_buffers(client_part_req_t *req);
 
     pthread_mutex_t      lock; 

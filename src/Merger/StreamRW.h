@@ -48,11 +48,13 @@ public:
      */ 
     virtual int         nextKV();
     virtual bool        switch_mem();
+    virtual bool 		reset_data();
     virtual void        close();
     virtual void        send_request() = 0;
-    //virtual reduce_task *get_task() {return kv_output->task;}	NEEDED FOR COMPRESSION, WILL BE CLOSED UNTIL MERGE WITH MASTER
+    virtual reduce_task *get_task() {return kv_output->task;}
+	bool operator<(BaseSegment &seg) { return  (memcmp(key.getData(), seg.key.getData(), key.getLength())  <  0)  ;    }
+	virtual KVOutput * getKVOUutput() {return kv_output;}
 
-    bool operator<(BaseSegment &seg) { 	return ( (g_cmp_func(key.getData(), key.getLength(), seg.key.getData(), seg.key.getLength())) < 0 ); }
 
     DataStream  key;
     DataStream  val;
@@ -85,6 +87,7 @@ public:
     virtual ~Segment();
 
     virtual void        send_request();
+    virtual KVOutput * getKVOUutput() {return map_output;}
 
 protected:
     MapOutput   *map_output;

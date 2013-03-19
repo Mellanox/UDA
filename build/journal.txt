@@ -41,3 +41,4 @@ BUG FIXES:
 Version: 3.0.6-0 - 2012-09-13
 ================================
 [journal starts here]
+>>>>>>> master

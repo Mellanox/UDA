@@ -95,8 +95,9 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
     	client_part_req_t *req = (client_part_req_t*) (long2ptr(h->src_req));
         memcpy(req->recvd_msg, h->msg, h->tot_len);
 
-        log(lsTRACE, "Client received RDMA completion for fetch request: jobid=%s, mapid=%s, reducer_id=%s, total_fetched=%lld (not updated for this comp)", req->info->params[1], req->info->params[2], req->info->params[3], req->mop->total_fetched);
-        merging_sm.client->rdma->fetch_over(req); 
+        log(lsTRACE, "Client received RDMA completion for fetch request: jobid=%s, mapid=%s, reducer_id=%s, total_fetched_compressed=%lld, total_read_uncompress=%lld (not updated for this comp)",
+        		req->info->params[1], req->info->params[2], req->info->params[3], req->mop->fetched_len_rdma, req->mop->fetched_len_uncompress);
+        req->mop->task->client->comp_fetch_req(req);
     } 
     else {
     	log(lsDEBUG, "received a noop");
@@ -364,7 +365,7 @@ err_conn_alloc:
 };
 
 
-RdmaClient::RdmaClient(int port, merging_state_t *state)
+RdmaClient::RdmaClient(int port, reduce_task_t* reduce_task)
 {
     netlev_thread_t *th;
 
@@ -376,8 +377,8 @@ RdmaClient::RdmaClient(int port, merging_state_t *state)
     INIT_LIST_HEAD(&this->register_mems_head); 
     errno = 0;
 
-    this->state = state;
-    this->parent = state->client;
+    this->reduce_task = reduce_task;
+
     this->svc_port = port;
     this->ctx.cm_channel = rdma_create_event_channel();
 
@@ -488,23 +489,40 @@ RdmaClient::connect(const char *host, int port)
     return conn;
 }
 
-int
-RdmaClient::fetch_over(client_part_req_t *freq)
+
+void RdmaClient::comp_fetch_req(client_part_req_t *req)
 {
-    this->parent->comp_fetch_req(freq);
-    return 0;
+	if (parent==this){//there is no decompression thread ->must notify MergeManager directly
+		if (req->mop){
+			MergeManager *merge_man = req->mop->task->merge_man;
+			merge_man->update_fetch_req(req);
+			merge_man->mark_req_as_ready(req);
+		}else{
+			log(lsFATAL, "req->mop is null!"); //TODO might be related to key/value size bigger than rdma buffer size. see bug 89763
+			exit (-1);
 }
+	}else{
+		parent->comp_fetch_req(req);
+	}
+}
+
+RdmaClient* RdmaClient::getRdmaClient(){return this;}
+
+void RdmaClient::start_client(){
+	this->parent = this->reduce_task->client; //problem here!!!!!
+}
+
+void RdmaClient::stop_client(){}
 
 
 int 
-RdmaClient::fetch(client_part_req_t *freq) 
+RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf_len)
 {
     int             msg_len;
     uint64_t        addr;
     netlev_conn_t  *conn;
 
-    int idx = freq->mop->staging_mem_idx; 
-    addr = (uint64_t)((uintptr_t)(freq->mop->mop_bufs[idx]->buff));
+    addr = (uint64_t)((uintptr_t)(buff));
 
     netlev_msg_t h;
 
@@ -512,15 +530,15 @@ RdmaClient::fetch(client_part_req_t *freq)
     msg_len = sprintf(h.msg,"%s:%s:%ld:%s:%lu:%lu:%d",
                       freq->info->params[1],
                       freq->info->params[2],
-                      freq->mop->total_fetched,
+                      freq->mop->fetched_len_rdma,
                       freq->info->params[3],
                       addr,
                       (uint64_t) freq,
-                      freq->mop->mop_bufs[idx]->buf_len);
+                      buf_len);
 
     conn = connect(freq->info->params[0], svc_port);
     if (!conn) return -1; //log was already issued inside connect
-    log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%lld, qp=%d, hostname=%s", freq->info->params[2], freq->info->params[3], freq->mop->total_fetched, conn->qp_hndl->qp_num,freq->info->params[0]);
+    log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%lld, qp=%d, hostname=%s", freq->info->params[2], freq->info->params[3], freq->mop->fetched_len_rdma, conn->qp_hndl->qp_num,freq->info->params[0]);
 
     log(lsTRACE, "msg len is %d", msg_len);
     return netlev_post_send(&h,  msg_len, 0, freq, conn, MSG_RTS);

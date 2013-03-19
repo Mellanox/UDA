@@ -370,7 +370,13 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		if (LOG.isDebugEnabled()) LOG.debug ("<<-- dataFromUda finished callback");
 	}
 
-
+	/**
+	 * gets property paramName from configuration file
+	 */
+	static String getDataFromConf(String paramName, String defaultParam){
+		return mjobConf.get(paramName,defaultParam);
+	}
+	
 	// callback from C++
 	public void failureInUda(){
 		udaShuffleConsumer.failureInUda(new UdaRuntimeException("Uda Failure in a C++ thread"));		

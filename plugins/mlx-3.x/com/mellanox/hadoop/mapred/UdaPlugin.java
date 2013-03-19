@@ -336,6 +336,13 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		if (LOG.isDebugEnabled()) LOG.debug ("<<-- dataFromUda finished callback");
 	}
 
+	/**
+	 * gets property paramName from configuration file
+	 */
+	static String getDataFromConf(String paramName, String defaultParam){
+		return mjobConf.get(paramName,defaultParam);
+	}
+	
 	public void failureInUda(){
 		throw new RuntimeException("Unimplemented yet"); //TODO: implement!		
 	}

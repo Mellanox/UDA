@@ -52,6 +52,12 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     log(lsDEBUG, ">>>> started");
 
     while (records->next()) {
+    	 if (records->min_segment->get_task()->isCompressionOn()){
+			MapOutput *mop = dynamic_cast<MapOutput*>(records->min_segment->getKVOUutput());
+			//passing NULL and 0 since those variables are needed for RDMA client and not decomressore wrapper
+			records->min_segment->get_task()->client->start_fetch_req(mop->part_req, NULL, 0);
+		}
+
         //log(lsTRACE, "in loop i=%d", i++);
         DataStream *k = records->getKey();
         DataStream *v = records->getVal();
@@ -128,7 +134,12 @@ Segment::Segment(MapOutput *mapOutput) :
 	BULLSEYE_EXCLUDE_BLOCK_START
 	if (mapOutput) {
 		mem_desc_t *mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
-		this->in_mem_data->reset(mem->buff, mapOutput->part_req->last_fetched);
+
+		if (get_task()->isCompressionOn()){//compression is on
+			this->in_mem_data->reset(mem->buff, mem->end);
+		}else{
+			this->in_mem_data->reset(mem->buff, mapOutput->last_fetched);
+		}
 	}
 	BULLSEYE_EXCLUDE_BLOCK_END
 }
@@ -147,8 +158,9 @@ BaseSegment::BaseSegment(KVOutput *kvOutput) {
     this->byte_read = 0;
 
 	this->kv_output = kvOutput;
+	mem_desc_t *mem;
 	if (kvOutput) {
-		mem_desc_t *mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
+		mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
 		this->in_mem_data = new DataStream();
 		this->in_mem_data->reset(mem->buff, mem->buf_len);
     }
@@ -211,14 +223,22 @@ Segment::~Segment() {
 
 int BaseSegment::nextKVInternal(InStream *stream) {
 	//TODO: this can only work with ((DataStream*)stream)
-	if (!stream)
+
+	mem_desc_t *cur_buf = kv_output->mop_bufs[kv_output->staging_mem_idx];
+	int total_read = 0;
+	if (!stream){
 		return 0;
+	}
+    
+    int digested = 0;
 
     /* key length */
+
     bool k = StreamUtility::deserializeInt(*stream, cur_key_len, &kbytes);
-	if (!k)
+	if (!k){
 		return -1;
-    int digested = 0;
+	}
+
     digested += kbytes;
 
     /* value length */
@@ -228,18 +248,21 @@ int BaseSegment::nextKVInternal(InStream *stream) {
         return -1;
     }
     digested += vbytes;
-
 	if (cur_key_len == EOF_MARKER && cur_val_len == EOF_MARKER) {
         eof = true;
-        byte_read += (kbytes + vbytes);
+        total_read = kbytes + vbytes;
+        byte_read += total_read;
+        cur_buf->incStart(total_read);
         return 0;
     }
 
     /* Making a sanity check */
     if (cur_key_len < 0 || cur_val_len < 0) {
-		output_stderr("Reader:Error in nextKV")
-;		eof = true;
-        byte_read += (kbytes + vbytes);
+		output_stderr("Reader:Error in nextKV");
+		eof = true;
+		total_read = kbytes + vbytes;
+		byte_read += total_read;
+		cur_buf->incStart(total_read);
         return 0;
     }
 
@@ -263,7 +286,9 @@ int BaseSegment::nextKVInternal(InStream *stream) {
     mem = ((DataStream*)stream)->getData();
     this->val.reset(mem + pos, cur_val_len);
     stream->skip(cur_val_len);
-    byte_read += (kbytes + vbytes + cur_key_len + cur_val_len);
+    total_read = kbytes + vbytes + cur_key_len + cur_val_len;
+    byte_read += total_read;
+    cur_buf->incStart(total_read);
     return 1;
 
 }
@@ -273,9 +298,9 @@ int BaseSegment::nextKV() {
 
     /* in mem map output */
 	if (kv_output != NULL) {
-		if (eof || byte_read >= this->kv_output->total_len) {
-			log(lsERROR, "Reader: End of Stream - byte_read=%ll total_len=%ll", byte_read, this->kv_output->total_len);
-	        return 0;  //TODO: consider throw !
+		if (eof || byte_read >= this->kv_output->total_len_uncompress) {
+			log(lsERROR, "Reader: End of Stream [%p]- byte_read=%lld total_len=%lld", kv_output->mop_bufs[kv_output->staging_mem_idx], byte_read,  this->kv_output->total_len_uncompress);
+	        return 0;
 	    }
     	return nextKVInternal(in_mem_data);
 
@@ -325,14 +350,15 @@ void BaseSegment::close() {
 }
 
 void Segment::send_request() {
-	if (map_output->total_fetched == map_output->total_len) {
+	//compression is not calling this function: chekcing only total_fetched_raw
+	if (map_output->fetched_len_rdma == map_output->total_len_rdma) {
 		return; // TODO: probably the segment was switched while it was already reached the total_len
-	BULLSEYE_EXCLUDE_BLOCK_START
-	} else if (map_output->total_fetched > map_output->total_len) {
-		log(lsERROR, "Unexpectedly send_request called while total_fetched(%lld) >  total_len(%lld)", map_output->total_fetched, map_output->total_len);
+		BULLSEYE_EXCLUDE_BLOCK_START
+	} else if (map_output->fetched_len_rdma > map_output->total_len_rdma) {
+		log(lsERROR, "Unexpectedly send_request called while total_fetched_raw(%lld) >  total_len(%lld)", map_output->fetched_len_rdma, map_output->total_len_rdma);
         return;
     }
-	BULLSEYE_EXCLUDE_BLOCK_END
+		BULLSEYE_EXCLUDE_BLOCK_END
 
 	/* switch to new staging buffer */
     pthread_mutex_lock(&map_output->lock);
@@ -349,42 +375,108 @@ void Segment::send_request() {
     map_output->task->merge_man->start_fetch_req(map_output->part_req);
 }
 
+// CODEREVIEW: I would expect shared code between this function and switch_mem since their logic is similar.
+//this function is used for compression: it sync's the DataStream in_mem_data with the cyclic buffer ('staging_mem')
+bool BaseSegment::reset_data() {;
+	if (kv_output == NULL) return false;
+
+	mem_desc_t *staging_mem = kv_output->mop_bufs[kv_output->staging_mem_idx];
+
+	int32_t	end = staging_mem->end; // no need for lock as long as we refer to same 'end' value
+	int difference = end - staging_mem->start;
+	if (difference < 0) {
+		//checking if there is more than one key-value pair before the end of the buffer
+		if (this->in_mem_data->getLength()-this->in_mem_data->getPosition() < staging_mem->buf_len-staging_mem->start){
+			log(lsTRACE, " before turnaround of the cyclic buffer [%p]. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
+					staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
+			//just reset
+			this->in_mem_data->reset(staging_mem->buff+staging_mem->start, staging_mem->buf_len-staging_mem->start);
+			log(lsTRACE, " after turnaround of the cyclic buffer [%p]. new data was added so don't have to do join start=%d end=%d count=%d pos=%d size=%d",
+					staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), staging_mem->buf_len);
+			return true;
+		}else{
+			//indicates that there should be join
+			log(lsTRACE, "reset_data return false, cyclic buffer [%p]", staging_mem);
+			return false;
+		}
+	}
+	else if ((int)(this->in_mem_data->getLength()-this->in_mem_data->getPosition())< difference){
+		//there is new data
+		log(lsTRACE, "since last time more data was fetched/decompressed. resetting cyclic buffer [%p] to start=%d end=%d count=%d pos=%d",
+				staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition());
+		this->in_mem_data->reset(staging_mem->buff+staging_mem->start, end-staging_mem->start);
+	}
+	else{
+		//no new data was added: must sleep
+		log(lsTRACE, "there is no data in cyclic buffer [%p]: wait for fetch. start=%d, end=%d, count=%d, pos=%d. total_len_part is %d",
+				staging_mem, staging_mem->start, end, this->in_mem_data->getLength(), this->in_mem_data->getPosition(), this->kv_output->total_len_rdma);
+
+		MapOutput *mop = dynamic_cast<MapOutput*>(kv_output);
+		get_task()->client->start_fetch_req(mop->part_req, NULL, 1);
+
+		pthread_mutex_lock(&kv_output->lock);
+		end = staging_mem->end;
+		difference = end - staging_mem->start;
+		if ((int)(this->in_mem_data->getLength()- this->in_mem_data->getPosition()) >= difference) {
+			pthread_cond_wait(&kv_output->cond, &kv_output->lock);
+		}
+		pthread_mutex_unlock(&kv_output->lock);
+	}
+	return true;
+}
+
+
+
+
+//called by adjustPriorityQueue
 bool BaseSegment::switch_mem() {
+
 	BULLSEYE_EXCLUDE_BLOCK_START
+
 	if (kv_output != NULL) {
 	BULLSEYE_EXCLUDE_BLOCK_END
 		mem_desc_t *staging_mem =
 				kv_output->mop_bufs[kv_output->staging_mem_idx];
 
-		if (byte_read >= kv_output->total_len) {
-            return false;
-        }
+		if (byte_read >= kv_output->total_len_uncompress) {
+			return false;
+		}
 
-        time_t st, ed;
-        time(&st);
+		time_t st, ed;
+		time(&st);
 		pthread_mutex_lock(&kv_output->lock);
-        //pthread_mutex_lock(&merger->lock);
-        //if (staging_mem->status != MERGE_READY) {
-        while (staging_mem->status != MERGE_READY) {
+		//pthread_mutex_lock(&merger->lock);
+		//if (staging_mem->status != MERGE_READY) {
+		while (staging_mem->status != MERGE_READY) {
 			pthread_cond_wait(&kv_output->cond, &kv_output->lock);
-            //pthread_cond_wait(&merger->cond, &merger->lock);
-            /* merger->fetched_mops.clear(); */
-        }
-        //pthread_mutex_unlock(&merger->lock);
+			//pthread_cond_wait(&merger->cond, &merger->lock);
+			/* merger->fetched_mops.clear(); */
+		}
+		//pthread_mutex_unlock(&merger->lock);
 		pthread_mutex_unlock(&kv_output->lock);
-        time(&ed);
+		time(&ed);
 
 		kv_output->task->total_wait_mem_time += ((int) (ed - st));
 
-		log(lsTRACE, "before join: total_fetched=%lld last_fetched=%lld", kv_output->total_fetched, kv_output->last_fetched);
-		/* restore break record */
-		bool b = join(staging_mem->buff, kv_output->last_fetched);
 
-        /* to check if we need more data from map output*/
-        this->send_request();
-        return b;
-    }
-    return false;
+		if (this->get_task()->isCompressionOn()) {
+			int32_t	end = staging_mem->end; // no need for lock as long as we refer to same 'end' value
+			//there is a partial key-value pair: must do join
+			int32_t tempByte_read = byte_read;
+			bool b = join(staging_mem->buff, end);
+			staging_mem->incStart(byte_read-tempByte_read);
+			return b;
+		}
+		else{
+			// restore break record
+			bool b = join(staging_mem->buff, kv_output->last_fetched);
+			// to check if we need more data from map output
+			this->send_request();
+			return b;
+		}
+	}
+
+	return false;
 }
 
 bool BaseSegment::join(char *src, const int32_t src_len) {

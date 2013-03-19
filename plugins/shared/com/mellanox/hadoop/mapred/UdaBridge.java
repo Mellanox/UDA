@@ -25,6 +25,8 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.util.StringUtils;
 
+import com.mellanox.hadoop.mapred.UdaPluginRT;
+
 interface UdaCallable {
 	public void fetchOverMessage();
 	public void dataFromUda(Object directBufAsObj, int len) throws Throwable;
@@ -119,6 +121,12 @@ public class UdaBridge {
 					 break;
 					 
 		 }
+	}
+	
+	static public String getConfData(String paramName,String defaultParam)  {
+		if (LOG.isDebugEnabled()) LOG.debug("+++>>> started  UdaBridge.getConfData");
+		String data = UdaPluginRT.getDataFromConf(paramName,defaultParam);
+		return data;
 	}
 
 	static public void failureInUda()  {
