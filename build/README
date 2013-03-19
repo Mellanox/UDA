@@ -155,5 +155,10 @@ Required options:
 				Task will fail in case the redcuer need to use smaller buffer size than 'mapred.rdma.buf.size.min'.
 			</description>
 		</property>
-		
+		<property>
+                        <name>mapred.rdma.compression.buffer.ratio</name>
+                        <description>The ratio in which memory is divided between RDMA buffer and decompression buffer (used only with intermediate data compression)</description>
+                        <value>0.20</value>
+                </property>
+	
 	</configuration>
