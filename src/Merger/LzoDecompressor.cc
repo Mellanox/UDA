@@ -137,7 +137,7 @@ void LzoDecompressor::get_next_block_length(char* buf, decompressRetData_t* retO
 
 
 uint32_t LzoDecompressor::getNumCompressedBytes(char* buf){
-	return ntohl((uint32_t)buf[4]);
+	return ntohl(((uint32_t*) buf)[1]);
 }
 
 uint32_t LzoDecompressor::getNumUncompressedBytes(char* buf){
