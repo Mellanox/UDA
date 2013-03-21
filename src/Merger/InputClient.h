@@ -31,8 +31,7 @@ class InputClient
 {
 public:
 
-    virtual ~InputClient() = 0;
-
+    virtual ~InputClient() {};
     virtual void start_client() = 0;
     virtual void stop_client() = 0;
 
