@@ -443,21 +443,26 @@ void createInputClient(){
 	compressionType comp = g_task->getCompressionType();
 	switch(comp){
 		case compOff:
-			g_task->client = new RdmaClient(merging_sm.data_port, g_task);
 			log (lsDEBUG, "creating rdma client");
+			g_task->client = new RdmaClient(merging_sm.data_port, g_task);
 		break;
 		case compLzo:
-			g_task->client = new LzoDecompressor(merging_sm.data_port, g_task);
 			log (lsDEBUG, "creating lzo client");
+			g_task->client = new LzoDecompressor(merging_sm.data_port, g_task);
 		break;
 		case compSnappy:
-			g_task->client = new SnappyDecompressor(merging_sm.data_port, g_task);
 			log (lsDEBUG, "creating snappy client");
+			g_task->client = new SnappyDecompressor(merging_sm.data_port, g_task);
 		break;
 		default:
 			log(lsERROR, "compression not supported: %d", comp);
 			throw new UdaException("compression not supported");
 		break;
+	}
+
+	if (!g_task->client){
+		log(lsERROR, "failed to create new Input Client");
+		throw new UdaException("failed to create new Input Client");
 	}
 }
 
