@@ -54,8 +54,10 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
     while (records->next()) {
     	 if (records->min_segment->get_task()->isCompressionOn()){
 			MapOutput *mop = dynamic_cast<MapOutput*>(records->min_segment->getKVOUutput());
-			//passing NULL and 0 since those variables are needed for RDMA client and not decomressore wrapper
-			records->min_segment->get_task()->client->start_fetch_req(mop->part_req, NULL, 0);
+			if(mop!=NULL){
+				//passing NULL and 0 since those variables are needed for RDMA client and not decomressore wrapper
+				records->min_segment->get_task()->client->start_fetch_req(mop->part_req, NULL, 0);
+			}
 		}
 
         //log(lsTRACE, "in loop i=%d", i++);
