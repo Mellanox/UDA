@@ -110,7 +110,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 			}
 		}
 	}
-	log(lsDEBUG, "2 minRdmaBuffer %d,  g_task->buffer_size*2=%d, g_task->comp_block_size=%d",minRdmaBuffer,g_task->buffer_size*2,g_task->comp_block_size );
+
 	initMemPool(minRdmaBuffer);
 
 	init_reduce_task(g_task);
@@ -519,7 +519,7 @@ void initMemPool(int minRdmaBuffer){
 		rc = create_mem_pool_pair(rdmaBufferUsed, uncompBufferUsed, numBuffers, &merging_sm.mop_pool);
 
 		/* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
-		log(lsINFO, "init compression configured. allocating rdmaBufferUsed = %d uncompBufferUsed = %d totalBufferPerMof = %d", uncompBufferHardMin, totalBufferPerMof);
+		log(lsINFO, "init compression configured. allocating rdmaBufferUsed = %d uncompBufferUsed = %d totalBufferPerMof = %d ", uncompBufferHardMin, totalBufferPerMof);
 	}
 
 	if(rc){

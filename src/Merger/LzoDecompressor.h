@@ -34,6 +34,7 @@ private:
 	void decompress(const char* compressed_buff, char* uncompressed_buff, size_t compressed_buff_len, size_t uncompressed_buff_len, int offest, decompressRetData_t* retObj);
 	uint32_t getNumCompressedBytes(char* buf);
 	uint32_t getNumUncompressedBytes(char* buf);
+	~LzoDecompressor();
 
 	void *liblzo2;
 	lzo_decompress_t decompressor_func_ptr;

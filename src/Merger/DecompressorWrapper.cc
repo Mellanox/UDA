@@ -41,6 +41,7 @@ DecompressorWrapper::DecompressorWrapper(int port, reduce_task_t* reduce_t) : re
 DecompressorWrapper::~DecompressorWrapper()
 {
 	free(this->buffer);
+	delete(this->rdmaClient);
 	pthread_mutex_destroy(&this->lock);
 	pthread_cond_destroy(&this->cond);
     log(lsDEBUG, "dtor DecompressorWrapper");

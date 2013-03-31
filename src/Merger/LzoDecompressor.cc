@@ -145,3 +145,5 @@ uint32_t LzoDecompressor::getNumUncompressedBytes(char* buf){
 }
 
 uint32_t LzoDecompressor::getBlockSizeOffset (){ return 8;}
+
+LzoDecompressor::~LzoDecompressor() {}
