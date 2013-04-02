@@ -76,9 +76,9 @@ netlev_init_rdma_mem(void *mem, uint64_t total_size,
     rdma_mem->total_size = total_size;
     rdma_mem->mr = ibv_reg_mr(dev->pd, mem, total_size, NETLEV_MEM_ACCESS_PERMISSION);
     if (!rdma_mem->mr) {
-        log(lsERROR,"ibv_reg_mr failed for memory of total_size=%llu  , MSG=%m (errno=%d)", total_size, errno);
-        throw new UdaException("ibv_reg_mr failure");
         free(rdma_mem);
+        log(lsERROR,"ibv_reg_mr failed for memory of total_size=%llu  , MSG=%m (errno=%d)", total_size, errno);
+         throw new UdaException("ibv_reg_mr failure");
         return -1;
     }
 
@@ -314,15 +314,14 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     }
 
     if (rdma_create_qp(conn->cm_id, dev->pd, &qp_init_attr) != 0) {
-    	log(lsERROR, "rdma_create_qp failed");
-    	throw new UdaException("rdma_create_qp failed");
         pthread_mutex_destroy(&conn->lock);
         netlev_dealloc_conn_mem(conn->mem);
         if (rdma_destroy_id(cm_id)){
         	log(lsERROR, "rdma_destroy_qp failed (errno=%d)", errno);
         }
         free(conn);
-        return NULL;
+        log(lsERROR, "rdma_create_qp failed");
+        throw new UdaException("rdma_create_qp failed");
     }
 
     conn->sent_counter = 0;
@@ -344,10 +343,9 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
     	wqe->data = (char *)(conn->mem->wqe_buff_start) + (i * sizeof(netlev_msg_t));
         init_wqe_recv(wqe, sizeof(netlev_msg_t), conn->mem->mr->lkey, conn);
         if (ibv_post_recv(conn->qp_hndl, &wqe->desc.rr, &bad_wr) != 0) {
+        	netlev_conn_free(conn);
         	log(lsERROR, "ibv_post_recv failed");
         	throw new UdaException("ibv_post_recv failed");
-            netlev_conn_free(conn);
-            return NULL;
         }
     }
     return conn;
