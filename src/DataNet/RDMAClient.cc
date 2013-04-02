@@ -365,7 +365,7 @@ err_conn_alloc:
 };
 
 
-RdmaClient::RdmaClient(int port, reduce_task_t* reduce_task)
+RdmaClient::RdmaClient(int port, reduce_task_t* reduce_task) : parent(NULL)
 {
     netlev_thread_t *th;
 

@@ -35,7 +35,7 @@ enum MEM_STAT {FREE, OCCUPIED, INUSE};
 
 DataEngine::DataEngine(void *mem,
                        supplier_state_t *state,
-                       const char *path, int mode, int rdma_buf_size, struct rlimit kernel_fd_rlim)
+                       const char *path, int mode, int rdma_buf_size, struct rlimit kernel_fd_rlim) : jniEnv(NULL)
 {
 
 	prepare_tables(mem, rdma_buf_size);
@@ -264,6 +264,7 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
     rc= aio_read_chunk_data(req, index_rec, path, chunk, req->map_offset);
 
     jniEnv->ReleaseStringUTFChars(index_rec->path, path);
+
     return rc;
 }
 
