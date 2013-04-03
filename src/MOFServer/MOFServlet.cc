@@ -35,31 +35,37 @@ shuffle_req_t* get_shuffle_req(const string &param)
     if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
     sreq->m_jobid = param.substr(0, end);
 
+    //COVERITY: RM#189303 false alarm. disregard the integer overflow issue
     start = ++end;
     end = param.find(':', start);
     if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
     sreq->m_map = param.substr(start, end - start);
 
+    //COVERITY: RM#189303 false alarm. disregard the integer overflow issue
     start = ++end;
     end = param.find(':', start);
     if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
     sreq->map_offset = atoi(param.substr(start, end - start).c_str());
 
+    //COVERITY: RM#189303 false alarm. disregard the integer overflow issue
     start = ++end;
     end = param.find(':', start);
     if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
     sreq->reduceID = atoi(param.substr(start, end - start).c_str());
 
+    //COVERITY: RM#189303 false alarm. disregard the integer overflow issue
     start = ++end;
     end = param.find(':', start);
     if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
     sreq->remote_addr = atoll(param.substr(start, end - start).c_str());
 
+    //COVERITY: RM#189303 false alarm. disregard the integer overflow issue
     start = ++end;
     end = param.find(':', start);
     if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
     sreq->freq = atoll(param.substr(start, end - start).c_str());
 
+    //COVERITY: RM#189303 false alarm. disregard the integer overflow issue
     start = ++end;
     int param_length = param.length();
     sreq->chunk_size = atoi(param.substr(start, param_length - start).c_str());
