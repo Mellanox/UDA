@@ -35,12 +35,20 @@ DecompressorWrapper::DecompressorWrapper(int port, reduce_task_t* reduce_t) : re
 
     this->rdmaClient=new RdmaClient(port, this->reduce_task);
 
+    memset(&this->decompress_thread, 0, sizeof(netlev_thread_t));
+	this->decompress_thread.stop = 0;
+	this->decompress_thread.context = this;
+	//this->decompress_thread.pollfd = 0;
+	pthread_attr_init(&this->decompress_thread.attr);
+	pthread_attr_setdetachstate(&this->decompress_thread.attr, PTHREAD_CREATE_JOINABLE);
+
     log(lsDEBUG, "ctor DecompressorWrapper");
 }
 
 DecompressorWrapper::~DecompressorWrapper()
 {
 	free(this->buffer);
+	delete(this->rdmaClient);
 	pthread_mutex_destroy(&this->lock);
 	pthread_cond_destroy(&this->cond);
     log(lsDEBUG, "dtor DecompressorWrapper");
@@ -241,10 +249,6 @@ void DecompressorWrapper::start_client(){
 	this->rdmaClient->start_client();
 
 	//start decompress thread
-	memset(&this->decompress_thread, 0, sizeof(netlev_thread_t));
-	this->decompress_thread.stop = 0;
-	pthread_attr_init(&this->decompress_thread.attr);
-	pthread_attr_setdetachstate(&this->decompress_thread.attr, PTHREAD_CREATE_JOINABLE);
 	uda_thread_create(&this->decompress_thread.thread,&this->decompress_thread.attr,DecompressorWrapper::decompressMainThread, this);
 
 	log(lsDEBUG, "start_client DecompressorWrapper");

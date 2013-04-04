@@ -35,7 +35,7 @@ enum MEM_STAT {FREE, OCCUPIED, INUSE};
 
 DataEngine::DataEngine(void *mem,
                        supplier_state_t *state,
-                       const char *path, int mode, int rdma_buf_size, struct rlimit kernel_fd_rlim)
+                       const char *path, int mode, int rdma_buf_size, struct rlimit kernel_fd_rlim) : jniEnv(NULL)
 {
 
 	prepare_tables(mem, rdma_buf_size);
@@ -242,7 +242,8 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
     index_record_t *index_rec =  UdaBridge_invoke_getPathUda_callback(this->jniEnv, req->m_jobid.c_str(), req->m_map.c_str(), req->reduceID);
     if (!index_rec){
     	log(lsERROR, "UDA bridge failed!");
-			return -1;
+    	free(index_rec);
+		return -1;
 	}
 
     // in case we have no more chunks to occupy , then we should submit current aio waiting requests before WAITing for a chunk.
@@ -253,17 +254,21 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
 	chunk = occupy_chunk();
     if (chunk == NULL) {
         log(lsERROR, "occupy_chunk failed: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
+        free(index_rec);
         return -1;
     }
 
     const char *path = jniEnv->GetStringUTFChars(index_rec->path, NULL);
     if (!path){
+    	free(index_rec);
     	return -1;
     }
 
     rc= aio_read_chunk_data(req, index_rec, path, chunk, req->map_offset);
 
     jniEnv->ReleaseStringUTFChars(index_rec->path, path);
+
+    free(index_rec);
     return rc;
 }
 

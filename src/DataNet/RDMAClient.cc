@@ -347,10 +347,10 @@ netlev_get_conn(unsigned long ipaddr, int port,
         conn->returning = 0;
         rdma_ack_cm_event(event);
     } else {
-        log(lsERROR, "client recv unknown event %d", event->event);
-        throw new UdaException("client recv unknown event");
         rdma_ack_cm_event(event);
         goto err_rdma_connect;
+        log(lsERROR, "client recv unknown event %d", event->event);
+        throw new UdaException("client recv unknown event");
     }
     return conn;
 
@@ -365,7 +365,7 @@ err_conn_alloc:
 };
 
 
-RdmaClient::RdmaClient(int port, reduce_task_t* reduce_task)
+RdmaClient::RdmaClient(int port, reduce_task_t* reduce_task) : parent(NULL)
 {
     netlev_thread_t *th;
 

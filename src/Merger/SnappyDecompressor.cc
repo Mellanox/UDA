@@ -87,3 +87,4 @@ uint32_t SnappyDecompressor::getBlockSizeOffset() {
 	return 8;
 }
 
+SnappyDecompressor::~SnappyDecompressor() {}
