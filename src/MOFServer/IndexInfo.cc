@@ -267,7 +267,6 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
 
     jniEnv->ReleaseStringUTFChars(index_rec->path, path);
 
-    free(index_rec);
     return rc;
 }
 

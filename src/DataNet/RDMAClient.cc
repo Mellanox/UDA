@@ -347,10 +347,9 @@ netlev_get_conn(unsigned long ipaddr, int port,
         conn->returning = 0;
         rdma_ack_cm_event(event);
     } else {
+    	log(lsERROR, "client recv unknown event %d", event->event);
         rdma_ack_cm_event(event);
         goto err_rdma_connect;
-        log(lsERROR, "client recv unknown event %d", event->event);
-        throw new UdaException("client recv unknown event");
     }
     return conn;
 
@@ -361,6 +360,8 @@ err_conn_alloc:
     rdma_destroy_event_channel(ctx->cm_channel);
     output_stderr("[%s,%d] connection failed",
                  __FILE__,__LINE__);
+    log(lsERROR, "[%s,%d] connection failed", __FILE__,__LINE__);
+    throw new UdaException("connection failed");
     return NULL;
 };
 

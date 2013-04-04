@@ -176,7 +176,7 @@ bool parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
 
     /* header info, the first argument */
 
-    //COVERITY: RM#16001 false alarm. disregard the integer overflow issue
+    //COVERITY: RM#16001 NEGATIVE_RETURNS. false alarm
     start = ++end;    
     end = cmd.find(':', start);
     if (end == cmd.npos) {		
@@ -189,7 +189,7 @@ bool parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
     /* the rest of arguments */
     cmd_struct.params = (char **) malloc((count - 1) * sizeof(char *));
 
-    //COVERITY: RM#16001 false alarm. disregard the integer overflow issue
+    //COVERITY: RM#16001 NEGATIVE_RETURNS. false alarm
     start = ++end;
     while (i < count - 2) {
         end = cmd.find(':', start);
@@ -197,7 +197,7 @@ bool parse_hadoop_cmd(const string &cmd, hadoop_cmd_t &cmd_struct)
         string tmp = cmd.substr(start, end - start);
         cmd_struct.params[i] = strdup(tmp.c_str());
 
-        //COVERITY: RM#16001 false alarm. disregard the integer overflow issue
+        //COVERITY: RM#16001 NEGATIVE_RETURNS. false alarm
         start = ++end;
         ++i;
     }

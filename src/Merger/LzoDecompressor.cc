@@ -53,6 +53,7 @@ LzoDecompressor::LzoDecompressor(int port, reduce_task_t* reduce_task):Decompres
 	initDecompress();
 }
 
+LzoDecompressor::~LzoDecompressor() {}
 
 /**
  * loads lzo library
@@ -145,5 +146,3 @@ uint32_t LzoDecompressor::getNumUncompressedBytes(char* buf){
 }
 
 uint32_t LzoDecompressor::getBlockSizeOffset (){ return 8;}
-
-LzoDecompressor::~LzoDecompressor() {}

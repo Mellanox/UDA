@@ -16,6 +16,8 @@ SnappyDecompressor::SnappyDecompressor(int port, reduce_task_t* reduce_task) :
 	initDecompress();
 }
 
+SnappyDecompressor::~SnappyDecompressor() {}
+
 /**
  *
  */
@@ -86,5 +88,3 @@ uint32_t SnappyDecompressor::getNumUncompressedBytes(char* buf) {
 uint32_t SnappyDecompressor::getBlockSizeOffset() {
 	return 8;
 }
-
-SnappyDecompressor::~SnappyDecompressor() {}

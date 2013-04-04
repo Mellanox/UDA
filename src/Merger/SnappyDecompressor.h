@@ -21,6 +21,7 @@ class SnappyDecompressor : public DecompressorWrapper
 	public:
 
 		SnappyDecompressor(int port, reduce_task_t* reduce_task);
+		~SnappyDecompressor();
 
 	private:
 
@@ -32,7 +33,7 @@ class SnappyDecompressor : public DecompressorWrapper
 		void decompress(const char* compressed_buff, char* uncompressed_buff, size_t compressed_buff_len, size_t uncompressed_buff_len, int /*offest*/, decompressRetData_t* retObj);
 		uint32_t getNumCompressedBytes(char* buf);
 		uint32_t getNumUncompressedBytes(char* buf);
-		~SnappyDecompressor();
+
 
 		void *libsnappy;
 		bool snappy_loaded;
