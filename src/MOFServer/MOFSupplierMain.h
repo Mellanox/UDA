@@ -23,7 +23,7 @@
 #include <string>
 
 void mof_downcall_handler(const std::string & msg);
-int MOFSupplier_main(int argc, char* argv[]);
+int MOFSupplier_main(int argc, char* argv[]) throw (UdaException*);
 extern "C" void * MOFSupplierRun(void *);
 
 #endif// ! ___MOF_SUPPLIER_MAIN_H___

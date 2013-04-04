@@ -83,7 +83,8 @@ void mof_downcall_handler(const std::string & msg)
 	#pragma BullseyeCoverage on
 #endif
 
-int MOFSupplier_main(int argc, char *argv[])
+//COVERITY: UNCAUGHT_EXCEPT, RM#189300. false alarm
+int MOFSupplier_main(int argc, char *argv[]) throw (UdaException*)
 {
     int ret;
     struct rlimit open_files_limit;

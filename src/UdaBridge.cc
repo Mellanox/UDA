@@ -51,7 +51,7 @@ static jfieldID fidPathMOF;
 
 
 //forward declarion until in H file...
-int MergeManager_main(int argc, char* argv[]);
+int MergeManager_main(int argc, char* argv[]) throw (UdaException*);
 
 typedef void (*downcall_handler_t) (const std::string & msg);
 typedef int (*main_t)(int argc, char* argv[]);

@@ -25,7 +25,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 struct UdaThreadArgs{
 	   const char * __caller_func;
-	   void *(*__start_routine) (void *);
+	   void *(*__start_routine) (void *)  throw (UdaException*);
 	   void *__arg;
 
 	   UdaThreadArgs(const char * __caller_func, void *(*__start_routine) (void *), void *__arg) {
@@ -72,7 +72,8 @@ int uda_thread_create_func (
 			   pthread_t * __newthread,
 			   __const pthread_attr_t *__attr,
 			   void *(*__start_routine) (void *),
-			   void *__arg, const char * callerFunc) __THROW {
+//			   void *__arg, const char * callerFunc) __THROW {
+			   void *__arg, const char * callerFunc) throw (UdaException*) {
 
 	UdaThreadArgs *udaThreadArgs = new UdaThreadArgs(callerFunc, __start_routine, __arg);
 

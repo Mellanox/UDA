@@ -40,8 +40,8 @@ merging_state_t merging_sm;
 
 hadoop_cmp_func g_cmp_func;
 
-
-int MergeManager_main(int argc, char* argv[])
+//COVERITY: UNCAUGHT_EXCEPT, RM#189300. false alarm
+int MergeManager_main(int argc, char* argv[])  throw (UdaException*)
 {
 	int  ret;
     struct netlev_option op;

@@ -242,7 +242,6 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
     index_record_t *index_rec =  UdaBridge_invoke_getPathUda_callback(this->jniEnv, req->m_jobid.c_str(), req->m_map.c_str(), req->reduceID);
     if (!index_rec){
     	log(lsERROR, "UDA bridge failed!");
-    	free(index_rec);
 		return -1;
 	}
 

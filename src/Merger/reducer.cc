@@ -50,7 +50,7 @@ using namespace std;
 #define EXTRA_RDMA_BUFFERS (10)
 
 extern merging_state_t merging_sm;
-extern void *merge_thread_main (void *context);
+extern void *merge_thread_main (void *context)  throw (UdaException*);
 
 static void init_reduce_task(struct reduce_task *task);
 

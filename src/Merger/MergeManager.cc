@@ -202,8 +202,8 @@ void *merge_online (reduce_task_t *task)
 }
 
 
-
-void *merge_thread_main (void *context)
+//COVERITY: UNCAUGHT_EXCEPT, RM#189300. false alarm
+void *merge_thread_main (void *context) throw (UdaException*)
 {
 	s_jniEnv = UdaBridge_threadGetEnv();
 	reduce_task_t *task = (reduce_task_t *) context;

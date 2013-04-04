@@ -26,12 +26,14 @@
  * ALL UDA Threads must use it!
  */
 #define uda_thread_create(a, b, c, d)  uda_thread_create_func(a, b, c, d, __func__)
+#include <IOUtility.h>
 
 int uda_thread_create_func (pthread_t *__restrict __newthread,
 			   __const pthread_attr_t *__restrict __attr,
 			   void *(*__start_routine) (void *),
 			   void *__restrict __arg,
-			   const char * __caller_func) __THROW __nonnull ((1, 3));
+//			   const char * __caller_func) __THROW __nonnull ((1, 3));
+			   const char * __caller_func) throw (UdaException*) __nonnull ((1, 3));
 
 
 #endif /// ! __UDA_UTIL_H__
