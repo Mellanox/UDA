@@ -21,7 +21,7 @@ class SnappyDecompressor : public DecompressorWrapper
 	public:
 
 		SnappyDecompressor(int port, reduce_task_t* reduce_task);
-		~SnappyDecompressor();
+		virtual ~SnappyDecompressor();
 
 	private:
 

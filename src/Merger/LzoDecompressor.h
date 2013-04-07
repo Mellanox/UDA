@@ -23,7 +23,7 @@ class LzoDecompressor : public DecompressorWrapper
 public:
 
 	LzoDecompressor(int port, reduce_task_t* reduce_task);
-	~LzoDecompressor();
+	virtual ~LzoDecompressor();
 
 private:
 

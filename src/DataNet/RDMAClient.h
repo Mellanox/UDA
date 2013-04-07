@@ -30,7 +30,7 @@ class RdmaClient : public InputClient
 {
 public:
     RdmaClient (int port, reduce_task_t* reduce_task);
-    ~RdmaClient();
+    virtual ~RdmaClient();
 
     netlev_conn_t* connect(const char *host, int port);
 //    void disconnect(netlev_conn_t *conn); //LCOV_AUBURN_DEAD_CODE
