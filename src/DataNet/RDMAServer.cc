@@ -217,8 +217,7 @@ error_event:
 }
 
 
-static void 
-server_cm_handler(progress_event_t *pevent, void *data)
+static void server_cm_handler(progress_event_t *pevent, void *data)
 {
     int ret;
 
@@ -241,17 +240,14 @@ server_cm_handler(progress_event_t *pevent, void *data)
         return;
     }
 
-    log(lsDEBUG, "got rdma event = %d", cm_event->event);
-
     switch (cm_event->event) {
         case RDMA_CM_EVENT_CONNECT_REQUEST:
             {
-                dev = netlev_dev_find(cm_event->id, 
-                                      &ctx->hdr_dev_list); 
-
-                log(lsTRACE, "got RDMA_CM_EVENT_CONNECT_REQUEST; found dev=%x", dev);
+                log(lsDEBUG, "got RDMA_CM_EVENT_CONNECT_REQUEST (on cma_id=%d)", cm_event->id);
+                dev = netlev_dev_find(cm_event->id, &ctx->hdr_dev_list);
 
                 if (!dev) {
+                    log(lsDEBUG, "dev not found, creating a new one");
                     dev = (struct netlev_dev *) malloc(sizeof(struct netlev_dev));
                     if (dev == NULL) {
                         output_stderr("[%s,%d] alloc dev failed",
@@ -290,6 +286,9 @@ server_cm_handler(progress_event_t *pevent, void *data)
                     list_add_tail(&dev->list, &ctx->hdr_dev_list);
                     pthread_mutex_unlock(&ctx->lock);
                 }
+                else {
+                	log(lsDEBUG, "found dev=%x", dev);
+                }
 
                 conn = netlev_init_conn(cm_event, dev);
                 log(lsTRACE, "conn=%x", conn);
@@ -315,22 +314,19 @@ server_cm_handler(progress_event_t *pevent, void *data)
             break;
 
         case RDMA_CM_EVENT_ESTABLISHED:
+            log(lsDEBUG, "got RDMA_CM_EVENT_ESTABLISHED (on cma_id=%d)", cm_event->id);
             conn = netlev_conn_established(cm_event, &ctx->hdr_conn_list);
-            log(lsDEBUG, "RDMA_CM_EVENT_ESTABLISHED - netlev_conn_established returned conn=%x", conn);
-            log(lsTRACE, "QQ connection in server is %d", conn->qp_hndl->qp_num);
+            log(lsDEBUG, "netlev_conn_established returned conn=%x (QPN connection in server is %d)", conn, conn->qp_hndl->qp_num);
             break;
 
         case RDMA_CM_EVENT_DISCONNECTED:
-            log(lsDEBUG, "got RDMA_CM_EVENT_DISCONNECTED");
-
-//            log(lsWARN, "== TODO: cleanup was commented out");
-//*
+            log(lsDEBUG, "got RDMA_CM_EVENT_DISCONNECTED (on cma_id=%d)", cm_event->id);
             conn = netlev_conn_find(cm_event, &ctx->hdr_conn_list);
             log(lsTRACE, "calling rdma_ack_cm_event for event=%d", cm_event->event);
             ret = rdma_ack_cm_event(cm_event);
             if (ret) { log(lsWARN, "ack cm event failed"); }
             conn->bad_conn = true;
-            if (!conn->received_counter){
+            if (!conn->received_counter) {
 				log(lsDEBUG, "freeing connection (all related chunks are released)");
 				pthread_mutex_lock(&ctx->lock);
 				list_del(&conn->list);
@@ -338,8 +334,6 @@ server_cm_handler(progress_event_t *pevent, void *data)
 				netlev_disconnect(conn);
 			}
 
-
-//*/
 
 /*
             // Avner: TODO
@@ -358,20 +352,27 @@ server_cm_handler(progress_event_t *pevent, void *data)
             return;
 
 
-        case RDMA_CM_EVENT_TIMEWAIT_EXIT:  // avner: don't bail out
-            log(lsWARN, "got RDMA_CM_EVENT_TIMEWAIT_EXIT");
+        case RDMA_CM_EVENT_TIMEWAIT_EXIT:
+            log(lsWARN, "got RDMA_CM_EVENT_TIMEWAIT_EXIT (on cma_id=%d)", cm_event->id);
+            // avner: don't bail out
             // TODO: consider cleanup
             break;
 
         default:
-            log(lsERROR, "Server got unknown event %d, bailing out", cm_event->event);
+            log(lsERROR, "Server got unknown event %d (on cma_id=%d)", cm_event->event, cm_event->id);
+#if 0
+// Disregard the unknown event
+// not the best but definitely not good to bail out
+// Since we don't know the event we can't be sure if we can destory the cmd_id or not
+
             if (cm_event->id) {
-                if (rdma_destroy_id(cm_event->id)){
+                if (rdma_destroy_id(cm_event->id)) {
                     log(lsERROR, "rdma_destroy_id failed");
                 }
             }
             /* XXX: Trigger the exit of all threads */
             throw new UdaException("Server is bailing out, because of an RDMA unknown event");
+#endif
             break;
     }
 
