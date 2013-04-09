@@ -179,12 +179,7 @@ extern "C" JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *jvm, void *reserved)
 	// NOTE: We never reached this place
 	printf("-->> In C++ JNI_OnUnload\n");
 
-	JNIEnv *env;
-	if (jvm->GetEnv((void **)&env, JNI_VERSION_1_4)) {
-		return;
-	}
-	env->DeleteWeakGlobalRef(jweakUdaBridge);
-	return;
+	UdaBridge_onUnloadCleanup();
 }
 
 
@@ -457,6 +452,7 @@ JNIEnv *UdaBridge_attachNativeThread()
     return env; // note: this handler is valid for all functions in this tread
 }
 
+////////////////////////////////////////////////////////////////////////////////
 JNIEnv *UdaBridge_threadGetEnv()
 {
 	JNIEnv *jniEnv;
@@ -516,5 +512,16 @@ jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long
 }
 
 
+/////////////////////////////////////////////////////////////////////////////////////////////
+// NOTE: This was written in a way that allow multiple calls from JNI_OnUnload and when getting EXIT_MSG
+void UdaBridge_onUnloadCleanup() {
+	JNIEnv *env = UdaBridge_threadGetEnv();
+	if (!env) return;
 
+	if (jweakUdaBridge != NULL) {
+		env->DeleteWeakGlobalRef(jweakUdaBridge);
+		jweakUdaBridge = NULL;
+		log(lsDEBUG, "after env->DeleteWeakGlobalRef(jweakUdaBridge)");
+	}
+}
 

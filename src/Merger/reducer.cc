@@ -378,6 +378,8 @@ void final_cleanup(){
     delete(g_task->client);
     log (lsDEBUG, "INPUT client is deleted");
 
+    // sanity - force calling it, because we can't trust JNI_OnUnload
+    UdaBridge_onUnloadCleanup();
 }
 
 //------------------------------------------------------------------------------

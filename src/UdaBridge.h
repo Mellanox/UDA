@@ -41,5 +41,6 @@ JNIEnv *UdaBridge_attachNativeThread();
 JNIEnv *UdaBridge_threadGetEnv();
 void    UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex);
 jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long capacity);
+void    UdaBridge_onUnloadCleanup();
 
 #endif // ! UdaBridge__H___
