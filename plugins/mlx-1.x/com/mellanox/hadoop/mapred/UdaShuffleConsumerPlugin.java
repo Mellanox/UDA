@@ -101,7 +101,7 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	protected JobConf jobConf;
 	protected Reporter reporter;
 	
-	private static final Log LOG = LogFactory.getLog(UdaShuffleConsumerPlugin.class.getCanonicalName());
+	private static final Log LOG = LogFactory.getLog(ShuffleConsumerPlugin.class.getCanonicalName());
 	
 	// This is the channel used to transfer the data between RDMA C++ and Hadoop
 	private UdaPluginRT rdmaChannel;
