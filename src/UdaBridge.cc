@@ -532,6 +532,10 @@ jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long
 /////////////////////////////////////////////////////////////////////////////////////////////
 // NOTE: This was written in a way that allow multiple calls from JNI_OnUnload and when getting EXIT_MSG
 void UdaBridge_onUnloadCleanup() {
+	static bool alreadyCalled = false;
+	if (alreadyCalled) return;
+	alreadyCalled = true;
+
 	JNIEnv *env = UdaBridge_threadGetEnv();
 	if (!env) return;
 
