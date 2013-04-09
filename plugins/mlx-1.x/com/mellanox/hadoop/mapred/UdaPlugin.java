@@ -323,8 +323,9 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		LOG.info("sending EXIT_COMMAND");    	  
 		String msg = UdaCmd.formCmd(UdaCmd.EXIT_COMMAND, mParams);
 		UdaBridge.doCommand(msg);
-    	if (LOG.isDebugEnabled()) LOG.debug("C++ finished.  Closing java...");
+    	if (LOG.isDebugEnabled()) LOG.debug(">> C++ finished.  Closing java...");
 		this.j2c_queue.close();
+    	if (LOG.isDebugEnabled()) LOG.debug("<< java finished");
 	}
 
 	public <K extends Object, V extends Object>
@@ -526,9 +527,11 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		public void close() {
 			for (int i = 0; i < kv_buf_num; ++i) {
 				KVBuf buf = kv_bufs[i];
+				if (LOG.isTraceEnabled()) LOG.trace(">>> before synchronized on kv_bufs #" + i);
 				synchronized (buf) {
 					buf.notifyAll();
 				}
+				if (LOG.isTraceEnabled()) LOG.trace("<<< after  synchronized on kv_bufs #" + i);
 			}
 		}
 

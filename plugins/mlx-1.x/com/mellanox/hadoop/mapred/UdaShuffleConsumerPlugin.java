@@ -301,13 +301,14 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		if (fallbackPlugin == null) {
 			LOG.info("close - Using UdaShuffleConsumerPlugin");
 			this.rdmaChannel.close();
-			LOG.info("==== Successfully closed UdaShuffleConsumerPlugin ====");
+			LOG.info("====XXX Successfully closed UdaShuffleConsumerPlugin XXX====");
+
 			return;
 		}
 
 		LOG.info("close: Using fallbackPlugin");
 		fallbackPlugin.close();		
-		LOG.info("==== Successfully closed fallbackPlugin ====");
+		LOG.info("====XXX Successfully closed fallbackPlugin XXX====");
 	}
 	
 	
