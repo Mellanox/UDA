@@ -39,16 +39,22 @@ struct UdaThreadArgs{
 void * udaThreadStart(void *arg) {
 	UdaThreadArgs* threadArgs = (UdaThreadArgs*)arg;
 
-	JNIEnv *jniEnv = UdaBridge_attachNativeThread();
+	JNIEnv *jniEnv = NULL;
 	void * ret = NULL;
 	try {
+		jniEnv = UdaBridge_attachNativeThread();
 		log(lsINFO, "C++ THREAD STARTED (by %s) and attached to JVM tid=0x%x", threadArgs->__caller_func, (int)pthread_self());
 
 		// HERE RUN the entire THREAD...
 		ret = threadArgs->__start_routine(threadArgs->__arg);
 
-		log(lsINFO, "C++ THREAD TERMINATED (started by %s) tid=0x%x", threadArgs->__caller_func, (int)pthread_self());
+		log(lsINFO, "C++ THREAD will be DETACHED and TERMINATED (started by %s) tid=0x%x", threadArgs->__caller_func, (int)pthread_self());
+
 		delete threadArgs;
+		UdaBridge_detachNativeThread();
+
+		// no log after dettachNativeThread !!!
+
 	}
 	catch(UdaException *ex) {
 		log(lsERROR, "got UdaException!");

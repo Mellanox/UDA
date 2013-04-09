@@ -38,6 +38,7 @@ std::string   UdaBridge_invoke_getConfData_callback(const char* paramName, const
 
 // UdaBridge utility functions
 JNIEnv *UdaBridge_attachNativeThread();
+void UdaBridge_detachNativeThread();
 JNIEnv *UdaBridge_threadGetEnv();
 void    UdaBridge_exceptionInNativeThread(JNIEnv *env, UdaException *ex);
 jobject UdaBridge_registerDirectByteBuffer(JNIEnv * jniEnv,  void* address, long capacity);

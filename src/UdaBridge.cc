@@ -453,6 +453,23 @@ JNIEnv *UdaBridge_attachNativeThread()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void UdaBridge_detachNativeThread()
+{
+	if (! cached_jvm) {
+		log(lsERROR, "cached_jvm is NULL");
+		throw new UdaException("cached_jvm is NULL");
+	}
+    jint ret = cached_jvm->DetachCurrentThread();
+
+	if (ret < 0) {
+		log(lsERROR, "cached_jvm->DetachCurrentThread failed ret=%d", ret);
+		throw new UdaException("cached_jvm->AttachCurrentThread failed");
+	}
+
+	// DO NOT log after cached_jvm->DetachCurrentThread
+}
+
+////////////////////////////////////////////////////////////////////////////////
 JNIEnv *UdaBridge_threadGetEnv()
 {
 	JNIEnv *jniEnv;
