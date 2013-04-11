@@ -155,11 +155,12 @@ Required options:
 				Task will fail in case the redcuer need to use smaller buffer size than 'mapred.rdma.buf.size.min'.
 			</description>
 		</property>
+		
 		<property>
-                        <name>mapred.rdma.compression.buffer.ratio</name>
-                        <description>The ratio in which memory is divided between RDMA buffer and decompression buffer (used only with intermediate data compression)</description>
-                        <value>0.20</value>
-                </property>
+			<name>mapred.rdma.compression.buffer.ratio</name>
+			<description>The ratio in which memory is divided between RDMA buffer and decompression buffer (used only with intermediate data compression)</description>
+			<value>0.20</value>
+		</property>
 	
 	</configuration>
 
@@ -170,5 +171,5 @@ For example to debug the client side (NetMerger) at TRACE level and the server s
 	log4j.logger.org.apache.hadoop.mapred.ShuffleConsumerPlugin=TRACE
 	log4j.logger.org.apache.hadoop.mapred.ShuffleProvidorPlugin=DEBUG
 
-The log from UDA client will be in the log file of the appropriate Reduce Task  log file
-The log from UDA server will be in the log file of the appropriate Task Tracker log file
+The log output from UDA client will be in the log file of the appropriate Reduce Task.
+The log output from UDA server will be in the log file of the appropriate Task Tracker.
