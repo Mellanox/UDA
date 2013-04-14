@@ -169,7 +169,7 @@ UDA debug logs configuration and output are available thru Hadoop standard log c
 For example to debug the client side (NetMerger) at TRACE level and the server side (MofSupplier) at DEBUG level, add the following 2 lines to your log4j.properties file:
 
 	log4j.logger.org.apache.hadoop.mapred.ShuffleConsumerPlugin=TRACE
-	log4j.logger.org.apache.hadoop.mapred.ShuffleProvidorPlugin=DEBUG
+	log4j.logger.org.apache.hadoop.mapred.ShuffleProviderPlugin=DEBUG
 
 The log output from UDA client will be in the log file of the appropriate Reduce Task.
 The log output from UDA server will be in the log file of the appropriate Task Tracker.
