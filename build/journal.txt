@@ -3,6 +3,18 @@
 #
 
 ================================
+Version: 3.1.6-0 - 2013-04-15
+================================
+
+BUG FIXES:
+	#190291 fix missing JNI cleanup on some systems that caused Reduce Task processes to stay alive for some time even after successfull termination of Hadoop with UDA
+	#190316 Don't exit RDMA server on several RDMA errors
+	#189946 stabilizing issues with compression
+
+IMPROVEMENTS: 
+	#191246 scripts for collecting logs of a job
+
+================================
 Version: 3.1.5-0 - 2013-03-21
 ================================
 
