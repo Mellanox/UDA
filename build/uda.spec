@@ -20,15 +20,15 @@
 #%define doc_dir  /usr/share/doc/%{name}-%{version}/
 %define doc_dir  %{uda_dir}
 
-%define uda_lib   				libuda.so
-%define uda_hadoop_1x_jar    	uda-hadoop-1.x.jar
-%define uda_hadoop_3x_jar    	uda-hadoop-3.x.jar
-%define uda_CDH3u4_jar    		uda-CDH3u4.jar
-%define uda_readme 				README
-%define uda_lic    				LICENSE.txt
-%define hadoop_prop_script    	set_hadoop_slave_property.sh
-%define uda_source		    	source.tgz
-%define uda_journal		    	journal.txt
+%define uda_lib                libuda.so
+%define uda_hadoop_1x_jar      uda-hadoop-1.x.jar
+%define uda_hadoop_3x_jar      uda-hadoop-3.x.jar
+%define uda_CDH3u4_jar         uda-CDH3u4.jar
+%define uda_readme             README
+%define uda_lic                LICENSE.txt
+%define uda_utils              utils.tgz
+%define uda_source             source.tgz
+%define uda_journal            journal.txt
 
 %define hname hadoop
 %define hadoop_name hadoop
@@ -75,7 +75,7 @@ Source0:        %{uda_lib}
 Source1:        %{uda_hadoop_1x_jar}
 Source2:        %{uda_readme}
 Source3:        %{uda_lic}
-Source4:        %{hadoop_prop_script}
+Source4:        %{uda_utils}
 Source5:        %{uda_CDH3u4_jar}
 Source7:        %{uda_hadoop_3x_jar}
 Source8:        %{uda_source}
@@ -114,15 +114,17 @@ install -m 0755 %{SOURCE0} $RPM_BUILD_ROOT%{uda_dir}/%{uda_lib}
 install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_1x_jar}
 install -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{doc_dir}/%{uda_readme}
 install -m 0644 %{SOURCE3} $RPM_BUILD_ROOT%{doc_dir}/%{uda_lic}
-install -m 0755 %{SOURCE4} $RPM_BUILD_ROOT%{uda_dir}/%{hadoop_prop_script}
+install -m 0644 %{SOURCE4} $RPM_BUILD_ROOT%{uda_dir}/%{uda_utils}
 install -m 0644 %{SOURCE5} $RPM_BUILD_ROOT%{uda_dir}/%{uda_CDH3u4_jar}
 install -m 0644 %{SOURCE7} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_3x_jar}
 install -m 0644 %{SOURCE8} $RPM_BUILD_ROOT%{doc_dir}/%{uda_source}
 install -m 0644 %{SOURCE9} $RPM_BUILD_ROOT%{doc_dir}/%{uda_journal}
 
 #%post
+#tar -xvf $RPM_BUILD_ROOT%{uda_dir}/%{uda_utils}
 
 #%postun
+#rm -rf $RPM_BUILD_ROOT
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -136,7 +138,7 @@ rm -rf $RPM_BUILD_ROOT
 %{uda_dir}/%{uda_hadoop_1x_jar}
 %{doc_dir}/%{uda_readme}
 %{doc_dir}/%{uda_lic}
-%{uda_dir}/%{hadoop_prop_script}
+%{uda_dir}/%{uda_utils}
 %{uda_dir}/%{uda_hadoop_3x_jar}
 %{doc_dir}/%{uda_source}
 %{doc_dir}/%{uda_journal}

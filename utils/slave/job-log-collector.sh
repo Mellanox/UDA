@@ -19,8 +19,8 @@ SAFEFILES=$FILES[^$ENDCHAR]
 OUTFILES=$FILES$SUFFIX
 $RM -f $OUTFILES
 
-SCRIPTSDIR=`dirname $0`
-$SCRIPTSDIR/job-log.awk JOB=$JOB CONTEXT=$CONTEXT SUFFIX=$SUFFIX  $SAFEFILES
+SLAVEDIR=`dirname $0`
+$SLAVEDIR/job-log-collector.awk JOB=$JOB CONTEXT=$CONTEXT SUFFIX=$SUFFIX $SAFEFILES
 
 TARFILE=/tmp/`hostname`_job_$JOB.all-logs.tar
 $RM -f $TARFILE*
@@ -42,3 +42,6 @@ $RM -f $OUTFILES $TARFILE
 #TARFLAGS="-C $LOGDIR --dereference --transform \"s,^$STRIP,`hostname`,\" $VERBOSE"
 #echo TARFLAGS=$TARFLAGS
 
+#dinal@r-zorro002 hadoop-0.20-mapreduce$ x=`ps -ef | grep java | grep tasktracker | awk '{print $2}'`
+#dinal@r-zorro002 hadoop-0.20-mapreduce$ sudo ls -l /proc/$x/cwd
+#lrwxrwxrwx 1 mapred mapred 0 Apr 14 16:21 /proc/29591/cwd -> /var/run/cloudera-scm-agent/process/265-mapreduce-TASKTRACKER

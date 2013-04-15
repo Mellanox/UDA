@@ -10,8 +10,7 @@ CONTEXT=${3-1000}
 ####################  just initialization ###
 
 #tells where are the script on the slaves
-#SCRIPTSDIR=`dirname $0`
-SCRIPTSDIR=/usr/lib64/uda
+SCRIPTSDIR=`dirname $0`/..
 
 #tells the slaves were to scp their logs to
 MASTER=`hostname`
@@ -43,7 +42,7 @@ echo $LOGDIR | grep --silent '^/' || LOGDIR=`pwd`/$LOGDIR #rel-path to abs-path
 
 # ask each slave to collect its JOB logs and scp it to our /tmp
 echo $PROG: running ./bin/slaves.sh, please wait...
-./bin/slaves.sh $SCRIPTSDIR/job-log.sh $MASTER $JOB $LOGDIR $CONTEXT
+./bin/slaves.sh $SCRIPTSDIR/slave/job-log-collector.sh $MASTER $JOB $LOGDIR $CONTEXT
 
 
 echo $PROG: combining logs, please wait...
