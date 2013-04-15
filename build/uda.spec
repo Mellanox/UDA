@@ -120,11 +120,13 @@ install -m 0644 %{SOURCE7} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_3x_jar}
 install -m 0644 %{SOURCE8} $RPM_BUILD_ROOT%{doc_dir}/%{uda_source}
 install -m 0644 %{SOURCE9} $RPM_BUILD_ROOT%{doc_dir}/%{uda_journal}
 
-#%post
-#tar -xvf $RPM_BUILD_ROOT%{uda_dir}/%{uda_utils}
+%post
+cd %{uda_dir}
+tar -xf %{uda_utils}
+cd -
 
-#%postun
-#rm -rf $RPM_BUILD_ROOT
+%postun
+rm -rf %{uda_dir}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
