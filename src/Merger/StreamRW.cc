@@ -301,7 +301,7 @@ int BaseSegment::nextKV() {
     /* in mem map output */
 	if (kv_output != NULL) {
 		if (eof || byte_read >= this->kv_output->total_len_uncompress) {
-			log(lsERROR, "Reader: End of Stream [%p]- byte_read=%lld total_len=%lld", kv_output->mop_bufs[kv_output->staging_mem_idx], byte_read,  this->kv_output->total_len_uncompress);
+			log(lsERROR, "Reader: End of Stream (%s) [%p]- byte_read=%lld total_len=%lld", (eof?"true":"false"), kv_output->mop_bufs[kv_output->staging_mem_idx], byte_read,  this->kv_output->total_len_uncompress);
 	        return 0;
 	    }
     	return nextKVInternal(in_mem_data);
