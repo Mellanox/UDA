@@ -490,26 +490,19 @@ struct netlev_conn* netlev_init_conn(struct rdma_cm_event *event, struct netlev_
 
 struct netlev_conn* netlev_conn_established(struct rdma_cm_event *event, struct list_head *head)
 {
-	int found = 0;
 	struct netlev_conn *conn;
+	conn = netlev_conn_find_by_cm_id(event->id, head);
 
-	list_for_each_entry(conn, head, list) {
-		if (conn->cm_id == event->id) {
-			found = 1;
-			break;
-		}
-	}
-
-	if (!found) {
+	if (!conn) {
 		log(lsERROR, "event=%p id=%p qp_num=%d not found",
 				event, event->id, event->id->qp->qp_num);
 		throw new UdaException("event-id was not found");
 		return NULL;
-	} else {
-		conn->state = NETLEV_CONN_READY;
-		output_stdout("A connection is fully ready conn=%p", conn);
-		return conn;
 	}
+
+	conn->state = NETLEV_CONN_READY;
+	output_stdout("A connection is fully ready conn=%p", conn);
+	return conn;
 }
 
 struct netlev_conn* netlev_conn_find_by_ip(unsigned long ipaddr, struct list_head *head)
@@ -535,6 +528,19 @@ struct netlev_conn* netlev_conn_find_by_qp(uint32_t qp_num, struct list_head *he
 		}
 	}
 	log(lsDEBUG, "conn was not found based on qp_num=%x", qp_num);
+	return NULL;
+}
+
+struct netlev_conn* netlev_conn_find_by_cm_id(struct rdma_cm_id *cm_id, struct list_head *head)
+{
+	struct netlev_conn *conn = NULL;
+	list_for_each_entry(conn, head, list) {
+		if (conn->cm_id == cm_id) {
+			log(lsDEBUG, "conn (%p) was found based on cm_id=%p", conn, cm_id);
+			return conn;
+		}
+	}
+	log(lsDEBUG, "conn was not found based on cm_id=%p", cm_id);
 	return NULL;
 }
 

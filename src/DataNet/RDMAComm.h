@@ -156,10 +156,11 @@ int netlev_init_mem(struct netlev_dev *dev);
 int netlev_dev_init(struct netlev_dev *dev);
 int netlev_dev_release(struct netlev_dev *dev);
 
-struct netlev_dev *netlev_dev_find(struct rdma_cm_id *cm_id, struct list_head *head);
+struct netlev_dev* netlev_dev_find(struct rdma_cm_id *cm_id, struct list_head *head);
 
-struct netlev_conn *netlev_conn_find_by_ip(unsigned long ipaddr, struct list_head *head);
-struct netlev_conn * netlev_conn_find_by_qp(uint32_t qp_num, struct list_head *head);
+struct netlev_conn* netlev_conn_find_by_ip(unsigned long ipaddr, struct list_head *head);
+struct netlev_conn* netlev_conn_find_by_qp(uint32_t qp_num, struct list_head *head);
+struct netlev_conn* netlev_conn_find_by_cm_id(struct rdma_cm_id *cm_id, struct list_head *head);
 
 void netlev_conn_free(netlev_conn_t *conn);
 
