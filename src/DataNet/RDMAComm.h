@@ -51,7 +51,6 @@ typedef enum {
 	PTR_CHUNK = 0x01,
 } ptr_type_t;
 
-
 typedef enum {
 	RECV_WQE_AVAIL = 0x10, /* Free */
 	RECV_WQE_INIT  = 0x11, /* claimed for usage */
@@ -72,10 +71,9 @@ typedef struct netlev_msg {
 	char  msg[NETLEV_FETCH_REQSIZE];
 } netlev_msg_t;
 
-
 typedef struct netlev_wqe {
-	uint32_t				type; //!!!!1 must be at offset 0!!!!!! DO NOT MOVE IT!!!!!!
-	struct list_head         list;
+	uint32_t                type; //!!!!1 must be at offset 0!!!!!! DO NOT MOVE IT!!!!!!
+	struct list_head        list;
 	union {
 		struct ibv_recv_wr   rr;
 		struct ibv_send_wr   sr;
@@ -87,13 +85,13 @@ typedef struct netlev_wqe {
 
 typedef struct netlev_msg_backlog {
 	struct list_head        list;
-	uint8_t   				type;
-	uint32_t				len;
-	uint8_t   				padding;
-	uint16_t  				padding2;
-	char                    *msg;
-	uint64_t      			src_req;
-	void                    *context; //save pointer to chunk(server/request(client)
+	uint8_t                 type;
+	uint32_t                len;
+	uint8_t                 padding;
+	uint16_t                padding2;
+	char                   *msg;
+	uint64_t                src_req;
+	void                   *context; //save pointer to chunk(server/request(client)
 } netlev_msg_backlog_t;
 
 
@@ -150,7 +148,6 @@ typedef struct netlev_conn
 	uint32_t			sent_counter;
 	bool				bad_conn;
 	uint32_t			received_counter; //used by server to track requests received from this connection
-
 } netlev_conn_t;
 
 int netlev_dealloc_mem(struct netlev_dev *dev, netlev_mem_t *mem);
@@ -159,28 +156,23 @@ int netlev_init_mem(struct netlev_dev *dev);
 int netlev_dev_init(struct netlev_dev *dev);
 int netlev_dev_release(struct netlev_dev *dev);
 
-struct netlev_dev *
-netlev_dev_find(struct rdma_cm_id *cm_id, struct list_head *head);
+struct netlev_dev *netlev_dev_find(struct rdma_cm_id *cm_id, struct list_head *head);
 
-struct netlev_conn*
-netlev_conn_find(struct rdma_cm_event *ev, struct list_head *head);
+struct netlev_conn *netlev_conn_find(struct rdma_cm_event *ev, struct list_head *head);
 
 void netlev_conn_free(netlev_conn_t *conn);
 
-struct netlev_conn *
-netlev_conn_alloc(struct netlev_dev *dev, 
-		struct rdma_cm_id *cm_id);
+struct netlev_conn *netlev_conn_alloc(struct netlev_dev *dev, struct rdma_cm_id *cm_id);
 
-struct netlev_conn * 
-netlev_find_conn_by_ip(unsigned long ipaddr, struct list_head *q);
+struct netlev_conn *netlev_find_conn_by_ip(unsigned long ipaddr, struct list_head *q);
 
 void init_wqe_rdmaw(struct ibv_send_wr *send_wr, struct ibv_sge *sg, int len,
 		void *laddr, uint32_t lkey,
 		void *raddr, uint32_t rkey, struct ibv_send_wr *next_wr);
 
-void init_wqe_send (ibv_send_wr *send_wr,ibv_sge *sg, netlev_msg_t *h, unsigned int len,
+void init_wqe_send(ibv_send_wr *send_wr,ibv_sge *sg, netlev_msg_t *h, unsigned int len,
 		bool send_signal, void* context);
-void init_wqe_recv (netlev_wqe_t *wqe, unsigned int len, 
+void init_wqe_recv(netlev_wqe_t *wqe, unsigned int len,
 		uint32_t lkey, netlev_conn_t *conn);
 
 //netlev_wqe_t * get_netlev_wqe (struct list_head *head); LCOV_AUBURN_DEAD_CODE
@@ -205,38 +197,22 @@ typedef struct netlev_ctx {
 } netlev_ctx_t;
 
 /* return a completion channel, and a QP */
-struct netlev_conn *
-netlev_init_conn(struct rdma_cm_event *event,
-		struct netlev_dev *dev);
+struct netlev_conn *netlev_init_conn(struct rdma_cm_event *event, struct netlev_dev *dev);
 
-struct netlev_conn *
-netlev_conn_established(struct rdma_cm_event *event, struct list_head *head);
+struct netlev_conn *netlev_conn_established(struct rdma_cm_event *event, struct list_head *head);
 
 void netlev_disconnect(struct netlev_conn *conn);
 
-netlev_msg_backlog_t *
-init_backlog_data(uint8_t type, uint32_t len, uint64_t src_req, void *context, char *msg );
+netlev_msg_backlog_t *init_backlog_data(uint8_t type, uint32_t len, uint64_t src_req, void *context, char *msg );
 
-struct netlev_conn *
-netlev_disconnect(struct rdma_cm_event *ev, struct list_head *head);
+struct netlev_conn *netlev_disconnect(struct rdma_cm_event *ev, struct list_head *head);
 
-int
-netlev_post_send(netlev_msg_t *h, int bytes,
+int netlev_post_send(netlev_msg_t *h, int bytes,
 		uint64_t srcreq, void* context,
 		netlev_conn_t *conn, uint8_t msg_type);
 
-int netlev_init_rdma_mem(void *, unsigned long total_size,
-		netlev_dev_t *dev);
+int netlev_init_rdma_mem(void *, unsigned long total_size, netlev_dev_t *dev);
 
 const char* netlev_stropcode(int opcode);
 
 #endif
-
-/*
- * Local variables:
- *  c-indent-level: 4
- *  c-basic-offset: 4
- * End:
- *
- * vim: ts=4 sw=4 hlsearch cindent expandtab 
- */

@@ -39,8 +39,7 @@ extern merging_state_t merging_sm;
 extern uint32_t wqes_perconn;
 
 
-static void 
-client_comp_ibv_recv(netlev_wqe_t *wqe)
+static void client_comp_ibv_recv(netlev_wqe_t *wqe)
 {
 	struct ibv_send_wr *bad_sr;
 	struct ibv_recv_wr *bad_rr;
@@ -124,10 +123,7 @@ client_comp_ibv_recv(netlev_wqe_t *wqe)
 	}
 }
 
-
-
-static void 
-client_cq_handler(progress_event_t *pevent, void *data)
+static void client_cq_handler(progress_event_t *pevent, void *data)
 {
 	int rc=0;
 	int ne = 0;
@@ -202,9 +198,7 @@ client_cq_handler(progress_event_t *pevent, void *data)
 	return;
 }
 
-
-netlev_conn_t*
-netlev_get_conn(unsigned long ipaddr, int port, 
+netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 		netlev_ctx_t *ctx,
 		list_head_t *registered_mem)
 {
@@ -363,8 +357,7 @@ netlev_get_conn(unsigned long ipaddr, int port,
 	log(lsERROR, "[%s,%d] connection failed", __FILE__,__LINE__);
 	throw new UdaException("connection failed");
 	return NULL;
-};
-
+}
 
 RdmaClient::RdmaClient(int port, reduce_task_t* reduce_task) : parent(NULL)
 {
@@ -446,10 +439,7 @@ RdmaClient::~RdmaClient()
 	pthread_mutex_destroy(&this->ctx.lock);
 }
 
-
-
-void 
-RdmaClient::register_mem(struct memory_pool *mem_pool)
+void RdmaClient::register_mem(struct memory_pool *mem_pool)
 {
 	struct netlev_dev *dev = NULL;
 	list_for_each_entry(dev, &this->ctx.hdr_dev_list, list) {
@@ -458,8 +448,7 @@ RdmaClient::register_mem(struct memory_pool *mem_pool)
 	list_add_tail(&mem_pool->register_mem_list, &this->register_mems_head);
 }
 
-netlev_conn_t* 
-RdmaClient::connect(const char *host, int port)
+netlev_conn_t* RdmaClient::connect(const char *host, int port)
 {
 	netlev_conn_t *conn;
 	unsigned long ipaddr;
@@ -490,7 +479,6 @@ RdmaClient::connect(const char *host, int port)
 	return conn;
 }
 
-
 void RdmaClient::comp_fetch_req(client_part_req_t *req)
 {
 	if (parent==this){//there is no decompression thread ->must notify MergeManager directly
@@ -507,17 +495,21 @@ void RdmaClient::comp_fetch_req(client_part_req_t *req)
 	}
 }
 
-RdmaClient* RdmaClient::getRdmaClient(){return this;}
+RdmaClient* RdmaClient::getRdmaClient()
+{
+	return this;
+}
 
-void RdmaClient::start_client(){
+void RdmaClient::start_client()
+{
 	this->parent = this->reduce_task->client; //problem here!!!!!
 }
 
-void RdmaClient::stop_client(){}
+void RdmaClient::stop_client()
+{
+}
 
-
-int 
-RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf_len)
+int RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf_len)
 {
 	int             msg_len;
 	uint64_t        addr;
@@ -547,10 +539,7 @@ RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf_len
 
 }
 
-
-
-unsigned long 
-RdmaClient::get_hostip (const char *host)
+unsigned long RdmaClient::get_hostip(const char *host)
 {
 	string id(host);
 	map<string, unsigned long>::iterator iter;
@@ -587,13 +576,3 @@ RdmaClient::disconnect(struct netlev_conn *conn)
 	netlev_conn_free(conn);
 }
 #endif
-
-
-/*
- * Local variables:
- *  c-indent-level: 4
- *  c-basic-offset: 4
- * End:
- *
- * vim: ts=4 sw=4 hlsearch cindent expandtab 
- */

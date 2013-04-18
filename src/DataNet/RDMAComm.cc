@@ -35,8 +35,7 @@
 
 int rdma_debug_flag = 0x0;
 
-int
-netlev_dealloc_conn_mem(netlev_mem_t *mem)
+int netlev_dealloc_conn_mem(netlev_mem_t *mem)
 {
 	if (ibv_dereg_mr(mem->mr)){
 		log(lsERROR,"ibv_dereg_mr failed (errno=%d)", errno);
@@ -48,9 +47,7 @@ netlev_dealloc_conn_mem(netlev_mem_t *mem)
 	return 0;
 }
 
-
-int
-netlev_dealloc_rdma_mem(struct netlev_dev *dev)
+int netlev_dealloc_rdma_mem(struct netlev_dev *dev)
 {
 	if (ibv_dereg_mr(dev->rdma_mem->mr)){
 		log(lsERROR,"ibv_dereg_mr failed (errno=%d)", errno);
@@ -60,9 +57,7 @@ netlev_dealloc_rdma_mem(struct netlev_dev *dev)
 	return 0;
 }
 
-int
-netlev_init_rdma_mem(void *mem, uint64_t total_size,
-		netlev_dev_t *dev)
+int netlev_init_rdma_mem(void *mem, uint64_t total_size, netlev_dev_t *dev)
 {
 	netlev_rdma_mem_t *rdma_mem;
 
@@ -87,8 +82,7 @@ netlev_init_rdma_mem(void *mem, uint64_t total_size,
 }
 
 
-int
-netlev_init_conn_mem(struct netlev_conn *conn)
+int netlev_init_conn_mem(struct netlev_conn *conn)
 {
 	netlev_mem_t *dev_mem;
 	void         *wqe_mem;
@@ -147,13 +141,7 @@ netlev_init_conn_mem(struct netlev_conn *conn)
 	return -1;
 }
 
-
-
-
-
-
-int
-netlev_dev_release(struct netlev_dev *dev)
+int netlev_dev_release(struct netlev_dev *dev)
 {
 	if (ibv_destroy_cq(dev->cq)){
 		log(lsERROR,"ibv_destroy_cq failed (errno=%d)", errno);
@@ -175,9 +163,7 @@ netlev_dev_release(struct netlev_dev *dev)
 	return 0;
 }
 
-
-int 
-netlev_dev_init(struct netlev_dev *dev)
+int netlev_dev_init(struct netlev_dev *dev)
 {
 	struct ibv_device_attr device_attr;
 	int cqe_num, max_sge;
@@ -229,8 +215,7 @@ netlev_dev_init(struct netlev_dev *dev)
 	return 0;
 }
 
-struct netlev_dev* 
-netlev_dev_find(struct rdma_cm_id *cm_id, list_head_t *head)
+struct netlev_dev* netlev_dev_find(struct rdma_cm_id *cm_id, list_head_t *head)
 {
 	struct netlev_dev *dev = NULL;
 
@@ -242,8 +227,7 @@ netlev_dev_find(struct rdma_cm_id *cm_id, list_head_t *head)
 	return NULL;
 }
 
-void 
-netlev_conn_free(netlev_conn_t *conn)
+void netlev_conn_free(netlev_conn_t *conn)
 {
 	pthread_mutex_lock(&conn->lock);
 	while (!list_empty(&conn->backlog)) {
@@ -260,10 +244,9 @@ netlev_conn_free(netlev_conn_t *conn)
 	pthread_mutex_destroy(&conn->lock);
 	netlev_dealloc_conn_mem(conn->mem);
 	free(conn);
-};
+}
 
-struct netlev_conn *
-netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id) 
+struct netlev_conn *netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
 {
 	/* build a new connection structure */
 	netlev_conn_t *conn;
@@ -349,12 +332,9 @@ netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_id)
 		}
 	}
 	return conn;
-};
+}
 
-
-
-struct netlev_conn* 
-netlev_find_conn_by_ip (unsigned long ipaddr, struct list_head *q)
+struct netlev_conn* netlev_find_conn_by_ip(unsigned long ipaddr, struct list_head *q)
 {
 	struct netlev_conn *conn = NULL;
 	list_for_each_entry(conn, q, list) {
@@ -365,9 +345,7 @@ netlev_find_conn_by_ip (unsigned long ipaddr, struct list_head *q)
 	return NULL;
 }
 
-
-void
-init_wqe_send (ibv_send_wr *send_wr,ibv_sge *sg, netlev_msg_t *h, unsigned int len,
+void init_wqe_send(ibv_send_wr *send_wr,ibv_sge *sg, netlev_msg_t *h, unsigned int len,
 		bool send_signal, void* context)
 {
 	send_wr->next       = NULL;
@@ -384,8 +362,8 @@ init_wqe_send (ibv_send_wr *send_wr,ibv_sge *sg, netlev_msg_t *h, unsigned int l
 	sg->addr           = (uintptr_t) h;
 }
 
-netlev_msg_backlog_t *
-init_backlog_data(uint8_t type, uint32_t len, uint64_t src_req, void *context, char *msg)
+netlev_msg_backlog_t *init_backlog_data(uint8_t type, uint32_t len,
+		uint64_t src_req, void *context, char *msg)
 {
 	netlev_msg_backlog_t *back = (netlev_msg_backlog_t*)malloc (sizeof(netlev_msg_backlog_t));
 	if (back == NULL) {
@@ -401,10 +379,7 @@ init_backlog_data(uint8_t type, uint32_t len, uint64_t src_req, void *context, c
 	return back;
 }
 
-
-void 
-init_wqe_recv (netlev_wqe_t *wqe, unsigned int len, 
-		uint32_t lkey, netlev_conn_t *conn)
+void init_wqe_recv(netlev_wqe_t *wqe, unsigned int len, uint32_t lkey, netlev_conn_t *conn)
 {
 	wqe->desc.rr.next   = NULL;
 	wqe->desc.rr.wr_id  = (uintptr_t) wqe;
@@ -418,12 +393,10 @@ init_wqe_recv (netlev_wqe_t *wqe, unsigned int len,
 	//    wqe->state          = RECV_WQE_INIT;
 }
 
-
-
-void
-init_wqe_rdmaw(struct ibv_send_wr *send_wr, struct ibv_sge *sg, int len,
+void init_wqe_rdmaw(struct ibv_send_wr *send_wr, struct ibv_sge *sg, int len,
 		void *laddr, uint32_t lkey,
-		void *raddr, uint32_t rkey, struct ibv_send_wr *next_wr)
+		void *raddr, uint32_t rkey,
+		struct ibv_send_wr *next_wr)
 {
 	send_wr->next       = next_wr;
 	send_wr->opcode     = IBV_WR_RDMA_WRITE;
@@ -439,9 +412,7 @@ init_wqe_rdmaw(struct ibv_send_wr *send_wr, struct ibv_sge *sg, int len,
 	send_wr->wr.rdma.remote_addr = (uintptr_t) (raddr);
 }
 
-
-int 
-netlev_event_add(int poll_fd, int fd, int events, 
+int netlev_event_add(int poll_fd, int fd, int events,
 		event_handler_t handler, void *data,
 		struct list_head *head)
 {
@@ -469,8 +440,7 @@ netlev_event_add(int poll_fd, int fd, int events,
 	return err;
 }
 
-void 
-netlev_event_del(int poll_fd, int fd, struct list_head *head)
+void netlev_event_del(int poll_fd, int fd, struct list_head *head)
 {
 	progress_event_t *pevent;
 
@@ -487,9 +457,7 @@ netlev_event_del(int poll_fd, int fd, struct list_head *head)
 	log(lsERROR, "Event fd %d not found", fd);
 }
 
-struct netlev_conn*
-netlev_init_conn(struct rdma_cm_event *event,
-		struct netlev_dev *dev)
+struct netlev_conn* netlev_init_conn(struct rdma_cm_event *event, struct netlev_dev *dev)
 {
 	struct netlev_conn *conn = NULL;
 	struct rdma_conn_param conn_param;
@@ -531,10 +499,7 @@ netlev_init_conn(struct rdma_cm_event *event,
 	return NULL;
 }
 
-
-struct netlev_conn*
-netlev_conn_established(struct rdma_cm_event *event,
-		struct list_head *head)
+struct netlev_conn* netlev_conn_established(struct rdma_cm_event *event, struct list_head *head)
 {
 	int found = 0;
 	struct netlev_conn *conn;
@@ -558,9 +523,7 @@ netlev_conn_established(struct rdma_cm_event *event,
 	}
 }
 
-
-struct netlev_conn*
-netlev_conn_find(struct rdma_cm_event *ev, struct list_head *head)
+struct netlev_conn* netlev_conn_find(struct rdma_cm_event *ev, struct list_head *head)
 {
 	struct netlev_conn *conn;
 
@@ -582,8 +545,7 @@ void netlev_disconnect(struct netlev_conn *conn)
 	}
 }
 
-int
-netlev_post_send(netlev_msg_t *h, int bytes,
+int netlev_post_send(netlev_msg_t *h, int bytes,
 		uint64_t srcreq, void* context,
 		netlev_conn_t *conn, uint8_t msg_type)
 {
@@ -622,14 +584,13 @@ netlev_post_send(netlev_msg_t *h, int bytes,
 
 
 		return 0;
-	}else{
+	} else {
 		//there are no credits, save this to backlog
 		netlev_msg_backlog_t *back = init_backlog_data(msg_type, bytes, srcreq, context, h->msg);
 		list_add_tail(&back->list, &conn->backlog);
 		return -2;
 	}
 }
-
 
 const char* netlev_stropcode(int opcode)
 {
@@ -680,14 +641,3 @@ netlev_find_conn_by_qp (uint32_t qp_num, struct list_head *q)
 	return NULL;
 }
 #endif
-
-
-
-/*
- * Local variables:
- *  c-indent-level: 4
- *  c-basic-offset: 4
- * End:
- *
- * vim: ts=4 sw=4 hlsearch cindent expandtab 
- */

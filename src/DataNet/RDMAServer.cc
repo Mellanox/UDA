@@ -41,8 +41,7 @@ extern supplier_state_t state_mac;
 extern uint32_t wqes_perconn;
 
 
-static void 
-server_comp_ibv_recv(netlev_wqe_t *wqe)
+static void server_comp_ibv_recv(netlev_wqe_t *wqe)
 {
 	struct ibv_send_wr *bad_sr;
 	struct ibv_recv_wr *bad_rr;
@@ -109,7 +108,7 @@ server_comp_ibv_recv(netlev_wqe_t *wqe)
 		}
 		/* data_req is freed by AIOHandler (in aio_completion_handler callback) or by DataEngine
 		   (in start(), if error occurred before callback)*/
-	} else{
+	} else {
 		log(lsDEBUG, "received a noop" );
 	}
 
@@ -183,7 +182,7 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 				}
 				goto error_event;
 
-			}else{
+			} else {
 
 				switch (desc.opcode) {
 
@@ -215,7 +214,6 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 	}
 	return;
 }
-
 
 static void server_cm_handler(progress_event_t *pevent, void *data)
 {
@@ -381,7 +379,6 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 	if (ret) { log(lsWARN, "ack cm event failed"); }
 }
 
-
 RdmaServer::RdmaServer(int port, int rdma_buf_size, void *state)
 
 {
@@ -412,8 +409,7 @@ RdmaServer::RdmaServer(int port, int rdma_buf_size, void *state)
 
 }
 
-void 
-RdmaServer::start_server()
+void RdmaServer::start_server()
 {
 	errno = 0;
 	netlev_thread_t *th;
@@ -438,7 +434,6 @@ RdmaServer::start_server()
 
 RdmaServer::~RdmaServer()
 {
-
 	log(lsTRACE,"QQ server dtor");
 	pthread_mutex_destroy(&this->ctx.lock);
 	this->parent  = NULL;
@@ -446,8 +441,7 @@ RdmaServer::~RdmaServer()
 	free(this->rdma_mem);
 }
 
-void 
-RdmaServer::stop_server()
+void RdmaServer::stop_server()
 {
 	struct netlev_conn *conn;
 	struct netlev_dev  *dev;
@@ -485,8 +479,7 @@ RdmaServer::stop_server()
 }
 
 /* Create a RDMA listener for incoming connection requests */
-int 
-RdmaServer::create_listener ()
+int RdmaServer::create_listener()
 {
 	errno = 0;
 	struct sockaddr_in sin;
@@ -536,8 +529,7 @@ RdmaServer::create_listener ()
 	return -1;
 }
 
-int 
-RdmaServer::destroy_listener()
+int RdmaServer::destroy_listener()
 {
 	log(lsDEBUG, "Closing server fd=%d cm_channel=%p",
 			this->ctx.cm_id->channel->fd,
@@ -557,12 +549,8 @@ RdmaServer::destroy_listener()
 	return 0;
 }
 
-
-int
-RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req,
-		uintptr_t laddr,
-		uint64_t req_size,
-		void* chunk,struct index_record *record)
+int RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req, uintptr_t laddr,
+		uint64_t req_size, void* chunk,struct index_record *record)
 {
 	netlev_dev_t         *dev;
 	int32_t               rdma_send_size, ack_msg_len, total_ack_len, lkey;
@@ -652,14 +640,3 @@ RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req,
 	}
 
 }
-
-
-
-/*
- * Local variables:
- *  c-indent-level: 4
- *  c-basic-offset: 4
- * End:
- *
- * vim: ts=4 sw=4 hlsearch cindent expandtab 
- */

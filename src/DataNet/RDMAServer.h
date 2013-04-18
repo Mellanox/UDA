@@ -51,12 +51,3 @@ public:
 };
 
 #endif
-
-/*
- * Local variables:
- *  c-indent-level: 4
- *  c-basic-offset: 4
- * End:
- *
- * vim: ts=4 sw=4 hlsearch cindent expandtab 
- */
