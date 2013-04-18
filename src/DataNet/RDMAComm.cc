@@ -492,7 +492,6 @@ struct netlev_conn* netlev_conn_established(struct rdma_cm_event *event, struct 
 {
 	struct netlev_conn *conn;
 	conn = netlev_conn_find_by_cm_id(event->id, head);
-
 	if (!conn) {
 		log(lsERROR, "event=%p id=%p qp_num=%d not found",
 				event, event->id, event->id->qp->qp_num);
@@ -501,7 +500,7 @@ struct netlev_conn* netlev_conn_established(struct rdma_cm_event *event, struct 
 	}
 
 	conn->state = NETLEV_CONN_READY;
-	output_stdout("A connection is fully ready conn=%p", conn);
+	output_stdout("A connection is fully ready conn (%p)", conn);
 	return conn;
 }
 
