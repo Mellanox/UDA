@@ -158,13 +158,12 @@ int netlev_dev_release(struct netlev_dev *dev);
 
 struct netlev_dev *netlev_dev_find(struct rdma_cm_id *cm_id, struct list_head *head);
 
-struct netlev_conn *netlev_conn_find(struct rdma_cm_event *ev, struct list_head *head);
+struct netlev_conn *netlev_conn_find_by_ip(unsigned long ipaddr, struct list_head *head);
+struct netlev_conn * netlev_conn_find_by_qp(uint32_t qp_num, struct list_head *head);
 
 void netlev_conn_free(netlev_conn_t *conn);
 
 struct netlev_conn *netlev_conn_alloc(struct netlev_dev *dev, struct rdma_cm_id *cm_id);
-
-struct netlev_conn *netlev_find_conn_by_ip(unsigned long ipaddr, struct list_head *q);
 
 void init_wqe_rdmaw(struct ibv_send_wr *send_wr, struct ibv_sge *sg, int len,
 		void *laddr, uint32_t lkey,
@@ -176,7 +175,6 @@ void init_wqe_recv(netlev_wqe_t *wqe, unsigned int len,
 		uint32_t lkey, netlev_conn_t *conn);
 
 //netlev_wqe_t * get_netlev_wqe (struct list_head *head); LCOV_AUBURN_DEAD_CODE
-//struct netlev_conn * netlev_find_conn_by_qp (uint32_t qp_num, struct list_head *q);  LCOV_AUBURN_DEAD_CODE
 
 void set_wqe_addr_key(netlev_wqe_t * wqe, 
 		int len,

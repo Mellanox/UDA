@@ -334,17 +334,6 @@ struct netlev_conn *netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_i
 	return conn;
 }
 
-struct netlev_conn* netlev_find_conn_by_ip(unsigned long ipaddr, struct list_head *q)
-{
-	struct netlev_conn *conn = NULL;
-	list_for_each_entry(conn, q, list) {
-		if (conn->peerIPAddr == ipaddr) {
-			return conn;
-		}
-	}
-	return NULL;
-}
-
 void init_wqe_send(ibv_send_wr *send_wr,ibv_sge *sg, netlev_msg_t *h, unsigned int len,
 		bool send_signal, void* context)
 {
@@ -523,17 +512,29 @@ struct netlev_conn* netlev_conn_established(struct rdma_cm_event *event, struct 
 	}
 }
 
-struct netlev_conn* netlev_conn_find(struct rdma_cm_event *ev, struct list_head *head)
+struct netlev_conn* netlev_conn_find_by_ip(unsigned long ipaddr, struct list_head *head)
 {
-	struct netlev_conn *conn;
-
+	struct netlev_conn *conn = NULL;
 	list_for_each_entry(conn, head, list) {
-		if (conn->qp_hndl->qp_num == ev->id->qp->qp_num) {
-			log(lsDEBUG, "conn was found based on ev->id->qp->qp_num=%x; ev->id->channel->fd=%d", (int)conn->qp_hndl->qp_num, ev->id->channel ? ev->id->channel->fd : 0);
+		if (conn->peerIPAddr == ipaddr) {
+			log(lsDEBUG, "conn (%p) was found based on ipaddr=%x", conn, ipaddr);
 			return conn;
 		}
 	}
-	log(lsDEBUG, "conn was not found");
+	log(lsDEBUG, "conn was not found based on ipaddr=%x", ipaddr);
+	return NULL;
+}
+
+struct netlev_conn* netlev_conn_find_by_qp(uint32_t qp_num, struct list_head *head)
+{
+	struct netlev_conn *conn = NULL;
+	list_for_each_entry(conn, head, list) {
+		if (conn->qp_hndl->qp_num == qp_num) {
+			log(lsDEBUG, "conn (%p) was found based on qp_num=%x", conn, qp_num);
+			return conn;
+		}
+	}
+	log(lsDEBUG, "conn was not found based on qp_num=%x", qp_num);
 	return NULL;
 }
 
@@ -628,16 +629,5 @@ dprint(char *s, char *fmt, ...)
 	vsprintf(s1, fmt, ap);
 	va_end(ap);
 	fprintf(stderr, "%s %s", s, s1);
-}
-struct netlev_conn*
-netlev_find_conn_by_qp (uint32_t qp_num, struct list_head *q)
-{
-	struct netlev_conn *conn = NULL;
-	list_for_each_entry(conn, q, list) {
-		if (conn->qp_hndl->qp_num == qp_num) {
-			return conn;
-		}
-	}
-	return NULL;
 }
 #endif

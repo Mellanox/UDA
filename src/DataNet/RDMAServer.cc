@@ -319,7 +319,7 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 
 	case RDMA_CM_EVENT_DISCONNECTED:
 		log(lsDEBUG, "got RDMA_CM_EVENT_DISCONNECTED (on cma_id=%d)", cm_event->id);
-		conn = netlev_conn_find(cm_event, &ctx->hdr_conn_list);
+		conn = netlev_conn_find_by_qp(cm_event->id->qp->qp_num, &ctx->hdr_conn_list);
 		log(lsTRACE, "calling rdma_ack_cm_event for event=%d", cm_event->event);
 		ret = rdma_ack_cm_event(cm_event);
 		if (ret) { log(lsWARN, "ack cm event failed"); }

@@ -460,7 +460,7 @@ netlev_conn_t* RdmaClient::connect(const char *host, int port)
 		pthread_mutex_unlock(&this->ctx.lock);
 		return NULL;
 	}
-	conn = netlev_find_conn_by_ip(ipaddr, &this->ctx.hdr_conn_list);
+	conn = netlev_conn_find_by_ip(ipaddr, &this->ctx.hdr_conn_list);
 	if (conn) {
 		pthread_mutex_unlock(&this->ctx.lock);
 		return conn;
