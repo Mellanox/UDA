@@ -492,7 +492,7 @@ void initMemPool(int minRdmaBuffer){
 	log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
 
 	if (g_task->isCompressionOff()) {//if not compression
-		log(lsDEBUG, "init. compression not configured: allocating 2 buffers of same size = %d",g_task->buffer_size);
+		log(lsINFO, "compression not configured: allocating 2 buffers of same size = %d",g_task->buffer_size);
 		rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,numBuffers,&merging_sm.mop_pool);
 
 	} else{
@@ -507,7 +507,7 @@ void initMemPool(int minRdmaBuffer){
 		}
 
 		int delta = totalBufferPerMof - (uncompBufferHardMin + minRdmaBuffer);
-		log(lsDEBUG, " initMemPool. delta = %d, minRdmaBuffer = %d, uncompBufferHardMin = %d",delta,minRdmaBuffer,uncompBufferHardMin);
+		log(lsTRACE, " initMemPool. delta = %d, minRdmaBuffer = %d, uncompBufferHardMin = %d",delta,minRdmaBuffer,uncompBufferHardMin);
 		int uncompBufferUsed = uncompBufferHardMin + (int)(delta * splitPercentRdmaComp);
 		int rdmaBufferUsed = totalBufferPerMof - uncompBufferUsed;
 
@@ -516,12 +516,12 @@ void initMemPool(int minRdmaBuffer){
 		rdmaBufferUsed -= spare;
 		uncompBufferUsed += spare;
 
-		log(lsDEBUG, " initMemPool2. uncompBufferUsed = %d, rdmaBufferUsed=%d",uncompBufferUsed,rdmaBufferUsed);
+		log(lsTRACE, " initMemPool2. uncompBufferUsed = %d, rdmaBufferUsed=%d",uncompBufferUsed,rdmaBufferUsed);
 
 		rc = create_mem_pool_pair(rdmaBufferUsed, uncompBufferUsed, numBuffers, &merging_sm.mop_pool);
 
 		/* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
-		log(lsINFO, "init compression configured. allocating rdmaBufferUsed = %d uncompBufferUsed = %d totalBufferPerMof = %d ", uncompBufferHardMin, totalBufferPerMof);
+		log(lsINFO, "init compression done. allocating rdmaBufferUsed = %d uncompBufferUsed = %d totalBufferPerMof = %d ", rdmaBufferUsed, uncompBufferHardMin, totalBufferPerMof);
 	}
 
 	if(rc){
