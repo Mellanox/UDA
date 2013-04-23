@@ -472,10 +472,13 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 					case OBSOLETE:
 					{
 						//              obsoleteMapIds.add(event.getTaskAttemptId());
-						LOG.info("Ignoring obsolete output of " + event.getTaskStatus() + 
-						" map-task: '" + event.getTaskAttemptId() + "'");
+						// LOG.info("Ignoring obsolete output of " + event.getTaskStatus() +
+						String errorMsg = "encountered obsolete output of " + event.getTaskStatus() +
+						" map-task: '" + event.getTaskAttemptId() + "'";
+
+						throw new UdaRuntimeException(errorMsg);
 					}
-					break;
+					// break; - break is unreachable after throw
 					case TIPFAILED:
 					{
 						//              copiedMapOutputs.add(event.getTaskAttemptId().getTaskID());
