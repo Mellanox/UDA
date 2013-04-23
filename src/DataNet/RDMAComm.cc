@@ -130,13 +130,13 @@ int netlev_init_conn_mem(struct netlev_conn *conn)
 	conn->mem = dev_mem;
 	return 0;
 
-	error_register:
+error_register:
 	free(dma_mem);
-	error_dma:
+error_dma:
 	free(wqe_mem);
-	error_wqe:
+error_wqe:
 	free(dev_mem);
-	error_dev:
+error_dev:
 	throw new UdaException("error when allocating/registering rdma memory");
 	return -1;
 }
@@ -478,9 +478,9 @@ struct netlev_conn* netlev_init_conn(struct rdma_cm_event *event, struct netlev_
 	}
 	return conn;
 
-	err_rdma_conn:
+err_rdma_conn:
 	netlev_conn_free(conn);
-	err_alloc_dev:
+err_alloc_dev:
 	if (rdma_reject(event->id, NULL, 0) != 0) {
 		log(lsERROR, "rdma_reject failed");
 	}
@@ -587,7 +587,6 @@ int netlev_post_send(netlev_msg_t *h, int bytes,
 			pthread_mutex_unlock(&conn->lock);
 			return -1;
 		}
-
 
 		return 0;
 	} else {

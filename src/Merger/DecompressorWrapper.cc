@@ -296,7 +296,7 @@ int DecompressorWrapper::start_fetch_req(client_part_req_t *req, char * buff, in
 
 	//checking if we already have all the data decompressed:
 	if (req->mop->fetched_len_uncompress >= req->mop->total_len_uncompress){
-		return 0; //TODO return value
+		return 0;
 	}
 
 	mem_desc_t *rdmaBuffer = req->mop->mop_bufs[0];

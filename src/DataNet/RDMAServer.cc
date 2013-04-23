@@ -208,7 +208,8 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 			}
 		}
 	} while (ne);
-	error_event:
+
+error_event:
 	if (ibv_req_notify_cq(dev->cq, 0)) {
 		log(lsERROR, "ibv_req_notify_cq failed");
 	}
@@ -524,7 +525,7 @@ int RdmaServer::create_listener()
 	pthread_mutex_unlock(&this->ctx.lock);
 	return 0;
 
-	err_listener:
+err_listener:
 	throw new UdaException("error on create rdma listener");
 	return -1;
 }
@@ -576,7 +577,7 @@ int RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req, uintptr_t laddr
 		//locking to prevent destruction of the connection before ibv_post_send
 		pthread_mutex_lock(&conn->lock);
 		if (conn->credits>0){
-			log(lsTRACE, "katya before sending it is now %d, conn is %d in the send", conn->received_counter, conn->bad_conn);
+			log(lsTRACE, "before sending it is now %d, conn is %d in the send, h.msg is %s, rdma_send_size is %d", conn->received_counter, conn->bad_conn,h.msg,rdma_send_size);
 			init_wqe_rdmaw(&send_wr_rdma, &sge_rdma,
 					(int)rdma_send_size,
 					(void *)laddr,
@@ -625,7 +626,7 @@ int RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req, uintptr_t laddr
 			return -2;
 		}
 
-	}else{//connection does not exist anymore
+	} else {//connection does not exist anymore
 		log(lsERROR, "connection does not exist anymore. releasing chunk");
 		chunk_t *chunk_to_release = (chunk_t*) chunk;
 		state_mac.data_mac->release_chunk(chunk_to_release);

@@ -347,9 +347,9 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 	}
 	return conn;
 
-	err_rdma_connect:
+err_rdma_connect:
 	netlev_conn_free(conn);
-	err_conn_alloc:
+err_conn_alloc:
 	//    rdma_destroy_id(cm_id); //unnecessary, since destroyed in netlev_conn_alloc and netlev_conn_free
 	rdma_destroy_event_channel(ctx->cm_channel);
 	output_stderr("[%s,%d] connection failed",
@@ -407,7 +407,6 @@ RdmaClient::~RdmaClient()
 {
 	struct netlev_conn *conn;
 	struct netlev_dev *dev;
-
 
 	/* relase all connection */
 	while(!list_empty(&this->ctx.hdr_conn_list)) {
@@ -515,6 +514,11 @@ int RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf
 	uint64_t        addr;
 	netlev_conn_t  *conn;
 
+	if (buf_len <= 0) {
+		log(lsERROR, "illegal fetch request size of %d bytes", buf_len);
+		throw new UdaException("illegal fetch request size of 0 or less bytes");
+	}
+
 	addr = (uint64_t)((uintptr_t)(buff));
 
 	netlev_msg_t h;
@@ -529,14 +533,18 @@ int RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf
 			(uint64_t) freq,
 			buf_len);
 
+	if (msg_len >= NETLEV_FETCH_REQSIZE) {
+	    	log(lsERROR, "trying to fetch a message too big. msg_len=%d, max=%d",msg_len,NETLEV_FETCH_REQSIZE);
+	    	throw new UdaException("trying to fetch a message too big");
+	}
+
 	conn = connect(freq->info->params[0], svc_port);
-	if (!conn) return -1; //log was already issued inside connect
-	log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%lld, qp=%d, hostname=%s", freq->info->params[2], freq->info->params[3], freq->mop->fetched_len_rdma, conn->qp_hndl->qp_num,freq->info->params[0]);
-
-	log(lsTRACE, "msg len is %d", msg_len);
+	if (!conn) {
+		log(lsERROR, "could not connect to host %s on port %d", freq->info->params[0], svc_port);
+		throw new UdaException("trying to fetch a message too big");
+	}
+	log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%lld, qp=%d, hostname=%s, buf_len=%d, msg len=%d", freq->info->params[2], freq->info->params[3], freq->mop->fetched_len_rdma, conn->qp_hndl->qp_num,freq->info->params[0],buf_len, msg_len);
 	return netlev_post_send(&h,  msg_len, 0, freq, conn, MSG_RTS);
-
-
 }
 
 unsigned long RdmaClient::get_hostip(const char *host)
