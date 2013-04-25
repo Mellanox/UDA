@@ -3,6 +3,18 @@
 #
 
 ================================
+Version: 3.1.7-0 - 2013-04-25
+================================
+
+FIXED 
+	#192075 - Wordcounting with UDA generated different output from Vanilla output - this bug was entered uda-3.1.4
+	#191670, #191124 RDMA Fetch request with size=0 which caused IBV_WC_RECV with ERROR (happened in case UDA was used with non-default UDA compression configuration)
+	#194345 workaround - prevent possible hang in case UDA wrong handling of obsolete/killed/failed maps - do fallback to vanilla
+
+IMPROVEMENTS:
+	#191246 enhancements in scripts for collecting logs of a job
+
+================================
 Version: 3.1.6-0 - 2013-04-15
 ================================
 
