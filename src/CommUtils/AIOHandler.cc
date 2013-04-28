@@ -169,14 +169,18 @@ void AIOHandler::processEventsCallbacks()
 			rc *= -1;
 
 			switch (rc) {
+
+			case EINTR:
+				log(lsDEBUG, "io_getevents error: EINTR  Interrupted by a signal handler; see signal(7)");
+				// from https://bugzilla.redhat.com/show_bug.cgi?id=768407
+				// "Cause: Some libaio calls to disk may be interrupted by the kernel. When this happens, the error message EINTR is returned."
+				continue; // Jump to start of while loop and retry the io_getevents()
+
 			case EFAULT:
 				log(lsERROR, "io_getevents error: EFAULT Either events or timeout is an invalid pointer");
 				break;
 			case EINVAL:
 				log(lsERROR, "io_getevents error: EINVAL ctx_id is invalid.  min_nr is out of range or nr is out of range");
-				break;
-			case EINTR:
-				log(lsERROR, "io_getevents error: EINTR  Interrupted by a signal handler; see signal(7)");
 				break;
 			case ENOSYS:
 				log(lsERROR, "io_getevents error: EENOSYS io_getevents() is not implemented on this architecture");
@@ -188,7 +192,6 @@ void AIOHandler::processEventsCallbacks()
 			throw new UdaException("io_getevents error");
 		}
 		else if (rc > 0) {
-
 
 			_onAirKernelCounter-=rc;
 			log(lsTRACE,"AIO: %d operations submitted. current ONAIR=%d ONAIRKERNEL=%d", rc, _onAirCounter, _onAirKernelCounter);
@@ -212,7 +215,6 @@ void AIOHandler::processEventsCallbacks()
 					}
 				}
 
-
 				if ((callback_rc = _callback(eventArr[i].data, aio_status)) != 0 ){
 					log(lsERROR,"aio event: callback returned with rc=%d", callback_rc);
 				}
@@ -222,15 +224,11 @@ void AIOHandler::processEventsCallbacks()
 
 				_onAirCounter--;
 				log(lsTRACE,"AIO: %d operations submitted. current ONAIR=%d ONAIRKERNEL=%d", rc, _onAirCounter, _onAirKernelCounter);
-
 			}
 		}
 		/*else {
 			output_stdout("AIO: process events callbacks - TIMEOUT");
-
 		}*/
-
-
 	}
 
 	log(lsINFO, "AIO: Events processor stopped");
