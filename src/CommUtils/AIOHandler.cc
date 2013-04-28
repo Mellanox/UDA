@@ -1,21 +1,21 @@
 /*
-** Copyright (C) 2012 Auburn University
-** Copyright (C) 2012 Mellanox Technologies
-** 
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at:
-**  
-** http://www.apache.org/licenses/LICENSE-2.0
-** 
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, 
-** either express or implied. See the License for the specific language 
-** governing permissions and  limitations under the License.
-**
-**
-*/
+ ** Copyright (C) 2012 Auburn University
+ ** Copyright (C) 2012 Mellanox Technologies
+ **
+ ** Licensed under the Apache License, Version 2.0 (the "License");
+ ** you may not use this file except in compliance with the License.
+ ** You may obtain a copy of the License at:
+ **
+ ** http://www.apache.org/licenses/LICENSE-2.0
+ **
+ ** Unless required by applicable law or agreed to in writing, software
+ ** distributed under the License is distributed on an "AS IS" BASIS,
+ ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+ ** either express or implied. See the License for the specific language
+ ** governing permissions and  limitations under the License.
+ **
+ **
+ */
 
 #include "IOUtility.h"
 #include "AIOHandler.h"
@@ -37,7 +37,8 @@ AIOHandler::AIOHandler(AioCallback callback, int ctx_maxevents, long min_nr, lon
 	pthread_mutex_init(&_cbRowLock, NULL);
 }
 
-int AIOHandler::start() {
+int AIOHandler::start()
+{
 	int rc=0;
 
 	if (_context == 0)
@@ -45,7 +46,7 @@ int AIOHandler::start() {
 
 		if ((rc=io_setup(MAX_EVENTS, &_context))) {
 			log(lsERROR, "io_setup failure: rc=%d (errno=%m)", rc);
-	        throw new UdaException("io_setup failure");
+			throw new UdaException("io_setup failure");
 			return rc;
 		}
 
@@ -61,11 +62,10 @@ int AIOHandler::start() {
 	}
 
 	return rc;
-
 }
 
-AIOHandler::~AIOHandler() {
-
+AIOHandler::~AIOHandler()
+{
 	if (_callbackProcessorThread) {
 		_stopCallbackProcessor=true;
 
@@ -75,11 +75,10 @@ AIOHandler::~AIOHandler() {
 	}
 	pthread_mutex_destroy(&_cbRowLock);
 	delete[] _cbRow;
-
 }
 
-int AIOHandler::prepare_read(int fd, uint64_t fileOffset, size_t sizeToRead, char* dstBuffer, void* callback_arg) {
-
+int AIOHandler::prepare_read(int fd, uint64_t fileOffset, size_t sizeToRead, char* dstBuffer, void* callback_arg)
+{
 	if (!validateAligment(fileOffset, sizeToRead, dstBuffer))
 		return -1;
 
@@ -95,7 +94,8 @@ int AIOHandler::prepare_read(int fd, uint64_t fileOffset, size_t sizeToRead, cha
 
 
 
-bool AIOHandler::validateAligment(long fileOffset, size_t size, char* buff) {
+bool AIOHandler::validateAligment(long fileOffset, size_t size, char* buff)
+{
 	int mod;
 	mod = fileOffset&ALIGMENT_MASK;
 	if (mod) {
@@ -119,7 +119,8 @@ bool AIOHandler::validateAligment(long fileOffset, size_t size, char* buff) {
 }
 
 
-int AIOHandler::submit() {
+int AIOHandler::submit()
+{
 	int rc=0;
 
 	if (_cbRowIndex != 0) {
@@ -146,12 +147,10 @@ int AIOHandler::submit() {
 	}
 
 	return rc;
-
 }
 
-
-void AIOHandler::processEventsCallbacks() {
-
+void AIOHandler::processEventsCallbacks()
+{
 	io_event eventArr[NR];
 	int rc=0;
 	int callback_rc;
@@ -161,31 +160,31 @@ void AIOHandler::processEventsCallbacks() {
 	output_stdout("AIO: Events processor started");
 	int aio_status;
 
-	while(!_stopCallbackProcessor) {
+	while (!_stopCallbackProcessor) {
 		timeout=GETEVENTS_TIMEOUT;
 
-		rc = io_getevents(_context, MIN_NR, NR, eventArr, &timeout );
+		rc = io_getevents(_context, MIN_NR, NR, eventArr, &timeout);
 
 		if (rc < 0) {
 			rc *= -1;
-			
+
 			switch (rc) {
-				case EFAULT:
-					log(lsERROR, "io_getevents error: EFAULT Either events or timeout is an invalid pointer");
-					break;
-				case EINVAL:
-					log(lsERROR, "io_getevents error: EINVAL ctx_id is invalid.  min_nr is out of range or nr is out of range");
-					break;
-				case EINTR:
-					log(lsERROR, "io_getevents error: EINTR  Interrupted by a signal handler; see signal(7)");
-					break;
-				case ENOSYS:
-					log(lsERROR, "io_getevents error: EENOSYS io_getevents() is not implemented on this architecture");
-					break;
-				default:
-					log(lsERROR,"io_getevents error: unexpected return code -%d %m",rc); 
+			case EFAULT:
+				log(lsERROR, "io_getevents error: EFAULT Either events or timeout is an invalid pointer");
+				break;
+			case EINVAL:
+				log(lsERROR, "io_getevents error: EINVAL ctx_id is invalid.  min_nr is out of range or nr is out of range");
+				break;
+			case EINTR:
+				log(lsERROR, "io_getevents error: EINTR  Interrupted by a signal handler; see signal(7)");
+				break;
+			case ENOSYS:
+				log(lsERROR, "io_getevents error: EENOSYS io_getevents() is not implemented on this architecture");
+				break;
+			default:
+				log(lsERROR,"io_getevents error: unexpected return code -%d %m",rc);
 			}
-			
+
 			throw new UdaException("io_getevents error");
 		}
 		else if (rc > 0) {
@@ -201,7 +200,7 @@ void AIOHandler::processEventsCallbacks() {
 				if (res < 0) {
 					log(lsERROR,"aio event: completion with error, errno=%lld %m",res);
 					aio_status = 1;
-	        throw new UdaException("aio event: completion with error");
+					throw new UdaException("aio event: completion with error");
 				}
 				else if ((uint64_t)res != cb->u.c.nbytes ) { // res is the actual read/writen bytes  , u.c.nbytes is the requested bytes to read/write
 					if ((cb->u.c.nbytes - eventArr[i].res) > 2*AIO_ALIGNMENT) {
@@ -209,7 +208,7 @@ void AIOHandler::processEventsCallbacks() {
 						// else , it is unexpected.
 						log(lsERROR, "aio event: unexpected number of bytes was read/written. requested=%lld actaul=%lld",cb->u.c.nbytes, res);
 						aio_status = 1;
-		        throw new UdaException("aio event: unexpected number of bytes was read/written");
+						throw new UdaException("aio event: unexpected number of bytes was read/written");
 					}
 				}
 
@@ -238,13 +237,15 @@ void AIOHandler::processEventsCallbacks() {
 }
 
 #if LCOV_HYBRID_MERGE_DEAD_CODE
-void AIOHandler::setCompletionCallback(AioCallback callback) {
+void AIOHandler::setCompletionCallback(AioCallback callback)
+{
 	pthread_mutex_lock(&_cbRowLock);
 	_callback=callback;
 	pthread_mutex_unlock(&_cbRowLock);
 }
 
-int AIOHandler::prepare_write(int fd, uint64_t fileOffset, size_t sizeToWrite, char* srcBuffer, void* callback_arg) {
+int AIOHandler::prepare_write(int fd, uint64_t fileOffset, size_t sizeToWrite, char* srcBuffer, void* callback_arg)
+{
 	if (!validateAligment(fileOffset, sizeToWrite, srcBuffer))
 		return -1;
 
@@ -258,7 +259,3 @@ int AIOHandler::prepare_write(int fd, uint64_t fileOffset, size_t sizeToWrite, c
 	return 0;
 }
 #endif
-
-
-
-
