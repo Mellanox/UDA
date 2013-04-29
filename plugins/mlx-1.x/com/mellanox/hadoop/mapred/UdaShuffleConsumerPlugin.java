@@ -53,6 +53,9 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;  // TODO: probably concurrency is not needed 
 
+import java.util.Set;
+import java.util.TreeSet;
+
 
 import org.apache.hadoop.mapred.UdaMapredBridge;
 import org.apache.hadoop.fs.FSError;
@@ -436,7 +439,10 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 			MAX_EVENTS_TO_FETCH,
 			reduceTask.getTaskID(), reduceTask.getJvmContext());
 			TaskCompletionEvent events[] = update.getMapTaskCompletionEvents();
-			
+
+			Set <TaskID>        succeededTasks    = new TreeSet<TaskID>();
+			Set <TaskAttemptID> succeededAttempts = new TreeSet<TaskAttemptID>();
+
 			// Check if the reset is required.
 			// Since there is no ordering of the task completion events at the 
 			// reducer, the only option to sync with the new jobtracker is to reset 
@@ -445,6 +451,15 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 				fromEventId.set(0);
 				//          obsoleteMapIds.clear(); // clear the obsolete map
 				//          mapLocations.clear(); // clear the map locations mapping
+				
+				if (succeededTasks.isEmpty()) {
+					//ignore
+					LOG.info("got reset update before we had any succeeded map - this is OK");
+				}
+				else {
+					//fallback			
+					throw new UdaRuntimeException("got reset update, after " + succeededTasks.size() + " succeeded maps" );
+				}
 			}
 			
 			// Update the last seen event ID
@@ -462,21 +477,42 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 					{
 						URI u = URI.create(event.getTaskTrackerHttp());
 						String host = u.getHost();
-						TaskAttemptID taskId = event.getTaskAttemptId();
-						rdmaChannel.sendFetchReq(host, taskId.getJobID().toString()  , taskId.toString());  // Avner: notify RDMA
-						numNewMaps ++;
+						TaskAttemptID taskAttemptId = event.getTaskAttemptId();
+						succeededAttempts.add(taskAttemptId); // add to collection
+
+						TaskID coreTaskId = taskAttemptId.getTaskID();
+						if (succeededTasks.contains(coreTaskId)) {
+							//ignore
+							LOG.info("Ignoring succeeded attempt, since we already got success event" +
+									" for this task, new attempt is: '" +  taskAttemptId + "'");
+						}
+						else {
+							succeededTasks.add(coreTaskId); // add to collection
+							rdmaChannel.sendFetchReq(host, taskAttemptId.getJobID().toString()  , taskAttemptId.toString());
+							numNewMaps ++;
+						}
 					}
 					break;
 					case FAILED:
 					case KILLED:
 					case OBSOLETE:
 					{
-						//              obsoleteMapIds.add(event.getTaskAttemptId());
-						// LOG.info("Ignoring obsolete output of " + event.getTaskStatus() +
-						String errorMsg = "encountered obsolete output of " + event.getTaskStatus() +
-						" map-task: '" + event.getTaskAttemptId() + "'";
 
-						throw new UdaRuntimeException(errorMsg);
+						TaskAttemptID taskAttemptId = event.getTaskAttemptId();
+						if (succeededAttempts.contains(taskAttemptId)) {
+							//fallback
+							
+							String errorMsg = "encountered obsolete map attempt" +
+								" after this attempt was already successful. TaskStatus=" + event.getTaskStatus() +
+								" new attempt: '" + taskAttemptId + "'";
+
+							throw new UdaRuntimeException(errorMsg);
+						}
+						else {
+							//ignore
+							LOG.info("Ignoring failed attempt: '" +  taskAttemptId + "' that was not reported to C++ before");
+						}
+
 					}
 					// break; - break is unreachable after throw
 					case TIPFAILED:
