@@ -160,7 +160,7 @@ DataEngine::start()
 			pthread_mutex_unlock(&this->state_mac->mover->in_lock);
 
             if(req) {
-            	log(lsDEBUG, "DataEngine: received shuffle request - JOBID=%s REDUCEID=%d offset=%lld", req->m_jobid.c_str(), req->reduceID, req->map_offset);
+            	log(lsDEBUG, "DataEngine: received shuffle request - JOBID=%s REDUCEID=%d MAP=%s offset=%lld", req->m_jobid.c_str(), req->reduceID, req->m_map.c_str(), req->map_offset);
             	if (req->chunk_size > this->rdma_buf_size) {
             		log(lsERROR, "shuffle request chunk size is larger than rdma buffer(chunk_size=%ld rdma_buf_size=%ld)", req->chunk_size, this->rdma_buf_size);
             		// TODO: report TT for task failure
@@ -330,6 +330,7 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , index_record_t* record,
     size_t length_for_aio = read_length + 2*AIO_ALIGNMENT - (read_length & _aioHandler->ALIGMENT_MASK);
 
     long new_offset=offset - cb_arg->offsetAligment;
+    log(lsTRACE,"Preparing AIO READ: MOF=%s OFFSET=%d ALIGNED_OFFSET=%lld LENGTH=%lld ALIGNED_LENGTH=%lld", outPath.c_str(), offset, new_offset,read_length, length_for_aio );
     rc = _aioHandler->prepare_read(fdc->fd, new_offset, length_for_aio, chunk->buff, cb_arg);
 
     return rc;
@@ -338,10 +339,15 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , index_record_t* record,
 int aio_completion_handler(void* data, int aio_status) {
 	req_callback_arg *req_cb_arg = (req_callback_arg*)data;
 
+	log(lsTRACE, "on AIO callback: JOB=%s MAP=%s REDUCERID=%d REMOTE_HOST=%lld MAP_OFFSET=%lld ---> AIO_STATUS=%d", req_cb_arg->shreq->m_jobid.c_str(), req_cb_arg->shreq->m_map.c_str(), req_cb_arg->shreq->reduceID, req_cb_arg->shreq->remote_addr, req_cb_arg->shreq->map_offset, aio_status);
 	if (!aio_status){
 		//aio request ended successfully
 		req_cb_arg->state_mac->mover->start_outgoing_req(req_cb_arg->shreq, req_cb_arg->record, req_cb_arg->chunk, req_cb_arg->readLength, req_cb_arg->offsetAligment);
 	}//TODO: else: send NACK
+	else {
+		log(lsERROR, "Bad AIO operation status = %d", aio_status);
+
+	}
 
 	fd_counter_t* fdc=req_cb_arg->fdc;
 	DataEngine      *data_eng = req_cb_arg->state_mac->data_mac;
