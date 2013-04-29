@@ -194,7 +194,7 @@ void AIOHandler::processEventsCallbacks()
 		else if (rc > 0) {
 
 			_onAirKernelCounter-=rc;
-			log(lsTRACE,"AIO: %d operations submitted. current ONAIR=%d ONAIRKERNEL=%d", rc, _onAirCounter, _onAirKernelCounter);
+			log(lsTRACE,"AIO: got %d events. current ONAIR=%d ONAIRKERNEL=%d", rc, _onAirCounter, _onAirKernelCounter);
 
 			for (int i=0; i < rc ; i++ ) {
 				cb = (iocb*)eventArr[i].obj;
@@ -223,7 +223,7 @@ void AIOHandler::processEventsCallbacks()
 				// TODO: make a pool of iocb instead of making new and deleteing for each operation
 
 				_onAirCounter--;
-				log(lsTRACE,"AIO: %d operations submitted. current ONAIR=%d ONAIRKERNEL=%d", rc, _onAirCounter, _onAirKernelCounter);
+				log(lsTRACE,"AIO: after %d events callbacks. current ONAIR=%d ONAIRKERNEL=%d", rc, _onAirCounter, _onAirKernelCounter);
 			}
 		}
 		/*else {
