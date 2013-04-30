@@ -31,32 +31,30 @@ AM_CPPFLAGS = $(INCLUDE_DIR) -I$(top_srcdir) -I. -I$(top_srcdir)/include \
 
 lib_LTLIBRARIES = libuda.la
 
-libuda_la_SOURCES =    	MOFServer/IndexInfo.cc  \
+libuda_la_SOURCES =		MOFServer/IndexInfo.cc \
 						MOFServer/MOFServlet.cc \
 						MOFServer/MOFSupplierMain.cc \
-					   	DataNet/RDMAClient.cc \
-					   	DataNet/RDMAServer.cc \
-					   	DataNet/RDMAComm.cc \
-                        CommUtils/IOUtility.cc \
-                        CommUtils/atomic.cc \
-                        CommUtils/C2JNexus.cc \
-						CommUtils/AIOHandler.cc    \
-						CommUtils/UdaUtil.cc    \
-					    Merger/MergeManager.cc \
+						DataNet/RDMAClient.cc \
+						DataNet/RDMAServer.cc \
+						DataNet/RDMAComm.cc \
+						CommUtils/IOUtility.cc \
+						CommUtils/atomic.cc \
+						CommUtils/C2JNexus.cc \
+						CommUtils/AIOHandler.cc \
+						CommUtils/UdaUtil.cc \
+						Merger/MergeManager.cc \
 						Merger/StreamRW.cc \
 						Merger/reducer.cc \
-                        Merger/MergeQueue.cc \
-                        Merger/NetMergerMain.cc \
+						Merger/MergeQueue.cc \
+						Merger/NetMergerMain.cc \
 						Merger/DecompressorWrapper.cc \
-					    Merger/CompareFunc.cc \
-                        UdaBridge.cc \ 
+						Merger/CompareFunc.cc \
 						Merger/LzoDecompressor.cc \
-						Merger/SnappyDecompressor.cc 
+						Merger/SnappyDecompressor.cc \ 
+						UdaBridge.cc
 						
 libuda_la_LIBADD =  -lpthread -libverbs -lrdmacm -laio
 
 #support coverity
 cov:
 	PATH=/hpc/local/commercial/coverity/cov-sa/bin:$$PATH && rm -rf $(PWD)/cov-build && make clean && cov-build --dir $(PWD)/cov-build make all && cov-analyze --dir $(PWD)/cov-build && cov-format-errors --dir $(PWD)/cov-build
-
-# vim: sw=4: ts=4: noet
