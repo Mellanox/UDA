@@ -521,7 +521,7 @@ void initMemPool(int minRdmaBuffer){
 		rc = create_mem_pool_pair(rdmaBufferUsed, uncompBufferUsed, numBuffers, &merging_sm.mop_pool);
 
 		/* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
-		log(lsINFO, "init compression done. allocating rdmaBufferUsed = %d uncompBufferUsed = %d totalBufferPerMof = %d ", rdmaBufferUsed, uncompBufferHardMin, totalBufferPerMof);
+		log(lsINFO, "init compression done. allocating rdmaBufferUsed = %d uncompBufferUsed = %d totalBufferPerMof = %d ", rdmaBufferUsed, uncompBufferUsed, totalBufferPerMof);
 	}
 
 	if(rc){
