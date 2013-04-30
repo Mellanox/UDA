@@ -31,50 +31,26 @@ AM_CPPFLAGS = $(INCLUDE_DIR) -I$(top_srcdir) -I. -I$(top_srcdir)/include \
 
 lib_LTLIBRARIES = libuda.la
 
-libuda_la_SOURCES = \
-						include/atomic.h         \
-						include/C2JNexus.h       \
-						include/IOUtility.h      \
-						include/LinkList.h       \
-						include/MemCache.h       \
-						include/NetlevComm.h     \
-						include/AIOHandler.h     \
-						include/UdaUtil.h     \
-						MOFServer/IndexInfo.h    \
-					   	MOFServer/MOFServlet.h \
-					   	MOFServer/IndexInfo.cc  \
+libuda_la_SOURCES =    	MOFServer/IndexInfo.cc  \
 						MOFServer/MOFServlet.cc \
 						MOFServer/MOFSupplierMain.cc \
-						MOFServer/MOFSupplierMain.h \
-					   	DataNet/RDMAClient.h \
-					   	DataNet/RDMAComm.h \
-					   	DataNet/RDMAServer.h \
 					   	DataNet/RDMAClient.cc \
 					   	DataNet/RDMAServer.cc \
 					   	DataNet/RDMAComm.cc \
-                        Merger/InputClient.h \
                         CommUtils/IOUtility.cc \
                         CommUtils/atomic.cc \
                         CommUtils/C2JNexus.cc \
 						CommUtils/AIOHandler.cc    \
 						CommUtils/UdaUtil.cc    \
-					    Merger/MergeManager.h \
 					    Merger/MergeManager.cc \
-						Merger/StreamRW.h \
 						Merger/StreamRW.cc \
-						Merger/reducer.h \
 						Merger/reducer.cc \
-                        Merger/MergeQueue.h \
                         Merger/MergeQueue.cc \
                         Merger/NetMergerMain.cc \
-						Merger/DecompressorWrapper.h \
 						Merger/DecompressorWrapper.cc \
-						Merger/CompareFunc.h \
-                        Merger/CompareFunc.cc \
+					    Merger/CompareFunc.cc \
                         UdaBridge.cc \ 
-						Merger/LzoDecompressor.h \
 						Merger/LzoDecompressor.cc \
-						Merger/SnappyDecompressor.h \
 						Merger/SnappyDecompressor.cc 
 						
 libuda_la_LIBADD =  -lpthread -libverbs -lrdmacm -laio
