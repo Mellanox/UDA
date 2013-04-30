@@ -3,6 +3,18 @@
 #
 
 ================================
+Version: 3.1.8-0 - 2013-04-30
+================================
+
+IMPROVEMENTS:
+	#191031 UDA robustness after mapper failures
+		This updates of the logic from last release: #194345 workaround - prevent possible hang in case UDA wrong handling of obsolete/killed/failed maps - do fallback to vanilla
+
+FIXED 
+	#190960 Add retry of the io_getevents() call in cases of EINTR in AIOHandler
+
+
+================================
 Version: 3.1.7-0 - 2013-04-25
 ================================
 
