@@ -150,13 +150,12 @@ static void client_cq_handler(progress_event_t *pevent, void *data)
 		if (ne) {
 			if (desc.status != IBV_WC_SUCCESS) {
 				if (desc.status == IBV_WC_WR_FLUSH_ERR) {
-					output_stderr("Operation: %s. Dev %p wr flush err. quitting...",
-							netlev_stropcode(desc.opcode), dev);
+					output_stderr("Operation: %s (%d). Dev %p wr (0x%llx) flush err. quitting...",
+							netlev_stropcode(desc.opcode), desc.opcode, dev, (uint64_t)desc.wr_id);
 					goto error_event;
 				} else {
-					output_stderr("Operation: %s. Bad WC status %d for wr_id 0x%llx",
-							netlev_stropcode(desc.opcode), desc.status,
-							(unsigned long long) desc.wr_id);
+					output_stderr("Operation: %s (%d). Dev %p, Bad WC status %d for wr_id 0x%llx",
+							netlev_stropcode(desc.opcode), desc.opcode, dev, desc.status, (uint64_t)desc.wr_id);
 					goto error_event;
 				}
 			} else {
@@ -341,7 +340,7 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 		conn->returning = 0;
 		rdma_ack_cm_event(event);
 	} else {
-		log(lsERROR, "client recv unknown event %d", event->event);
+		log(lsERROR, "client recv unknown RDMA_CM event %s (%d)", rdma_event_str(event->event), event->event);
 		rdma_ack_cm_event(event);
 		goto err_rdma_connect;
 	}
@@ -485,11 +484,11 @@ void RdmaClient::comp_fetch_req(client_part_req_t *req)
 			MergeManager *merge_man = req->mop->task->merge_man;
 			merge_man->update_fetch_req(req);
 			merge_man->mark_req_as_ready(req);
-		}else{
+		} else {
 			log(lsFATAL, "req->mop is null!"); //TODO might be related to key/value size bigger than rdma buffer size. see bug 89763
 			exit (-1);
 		}
-	}else{
+	} else {
 		parent->comp_fetch_req(req);
 	}
 }

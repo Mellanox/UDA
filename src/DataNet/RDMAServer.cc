@@ -94,10 +94,9 @@ static void server_comp_ibv_recv(netlev_wqe_t *wqe)
 		/* XXX: create a free list of request to avoid malloc/free */
 		data_req = get_shuffle_req(param);
 
-		if(!data_req)
+		if (!data_req) {
 			log(lsERROR, "Error in parsing request, request %s will not be processed", param.c_str());
-		else
-		{
+		} else {
 			log(lsTRACE, "request as received by server: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d, qpnum=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset, conn->qp_hndl->qp_num);
 			data_req->conn = conn;
 			conn->received_counter ++;
@@ -162,13 +161,11 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 		if (ne) {
 			if (desc.status != IBV_WC_SUCCESS) {
 				if (desc.status == IBV_WC_WR_FLUSH_ERR) {
-					log(lsDEBUG, "Operation: %s. Dev %p wr (0x%llx) flush err. quitting...",
-							netlev_stropcode(desc.opcode), dev,
-							(unsigned long long)desc.wr_id);
+					log(lsDEBUG, "Operation: %s (%d). Dev %p wr (0x%llx) flush err. quitting...",
+							netlev_stropcode(desc.opcode), desc.opcode, dev, (uint64_t)desc.wr_id);
 				} else {
-					log(lsERROR, "Operation: %s. Bad WC status %d for wr_id 0x%llx\n",
-							netlev_stropcode(desc.opcode), desc.status,
-							(unsigned long long) desc.wr_id);
+					log(lsERROR, "Operation: %s (%d). Dev %p, Bad WC status %d for wr_id 0x%llx",
+							netlev_stropcode(desc.opcode), desc.opcode, dev, desc.status, (uint64_t)desc.wr_id);
 					throw new UdaException("IBV - Bad WC status");
 				}
 				//even if there was an error, must release the chunk
@@ -603,7 +600,7 @@ int RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req, uintptr_t laddr
 			}
 			pthread_mutex_unlock(&conn->lock);
 			return 0;
-		}else{
+		} else {
 			//send RDMA (do not take up recv wqe at client's end) and save ack in backlog
 			log(lsTRACE, "there are no credits for ack. send only the rdma");
 			init_wqe_rdmaw(&send_wr_rdma, &sge_rdma,

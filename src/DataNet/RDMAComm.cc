@@ -340,15 +340,15 @@ void init_wqe_send(ibv_send_wr *send_wr,ibv_sge *sg, netlev_msg_t *h, unsigned i
 	send_wr->next       = NULL;
 	if (send_signal){
 		send_wr->send_flags = IBV_SEND_SIGNALED | IBV_SEND_INLINE;
-	}else{
+	} else {
 		send_wr->send_flags = IBV_SEND_INLINE;
 	}
 	send_wr->opcode     = IBV_WR_SEND;
 	send_wr->wr_id      = (uintptr_t) context; //context (in server's case)is pointer to chunk that will be released after WC_SEND
 	send_wr->num_sge    = 1;
 	send_wr->sg_list    = sg;
-	sg->length         = len;
-	sg->addr           = (uintptr_t) h;
+	sg->length          = len;
+	sg->addr            = (uintptr_t) h;
 }
 
 netlev_msg_backlog_t *init_backlog_data(uint8_t type, uint32_t len,
@@ -394,9 +394,9 @@ void init_wqe_rdmaw(struct ibv_send_wr *send_wr, struct ibv_sge *sg, int len,
 	send_wr->wr_id      = (uintptr_t) send_wr;
 	send_wr->num_sge    = 1;
 	send_wr->sg_list    = sg;
-	sg->length         = (len);
-	sg->lkey           = (lkey);
-	sg->addr           = (uintptr_t)(laddr);
+	sg->length          = (len);
+	sg->lkey            = (lkey);
+	sg->addr            = (uintptr_t)(laddr);
 	send_wr->wr.rdma.rkey = (rkey);
 	send_wr->wr.rdma.remote_addr = (uintptr_t) (raddr);
 }
@@ -602,6 +602,10 @@ const char* netlev_stropcode(int opcode)
 	switch (opcode) {
 	case IBV_WC_SEND:
 		return "IBV_WC_SEND";
+		break;
+
+	case IBV_WC_RDMA_WRITE:
+		return "IBV_WC_RDMA_WRITE";
 		break;
 
 	case IBV_WC_RECV:
