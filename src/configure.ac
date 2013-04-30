@@ -17,7 +17,7 @@
 # 
 
 AC_PREREQ(2.59)
-AC_INIT([rdmamove], [0.1], support@mellanox.com)
+AC_INIT([libuda], [3.1], support@mellanox.com)
 
 AC_PREFIX_DEFAULT([`pwd`/bin])
 
