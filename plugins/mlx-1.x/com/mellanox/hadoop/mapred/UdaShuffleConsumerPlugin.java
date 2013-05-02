@@ -510,7 +510,8 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 						}
 						else {
 							//ignore
-							LOG.info("Ignoring failed attempt: '" +  taskAttemptId + "' that was not reported to C++ before");
+							LOG.info("Ignoring failed attempt: '" +  taskAttemptId + "' with TaskStatus=" + event.getTaskStatus() + 
+									" that was not reported to C++ before");
 						}
 
 					}
