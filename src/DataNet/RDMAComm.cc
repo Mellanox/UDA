@@ -416,7 +416,6 @@ int netlev_event_add(int poll_fd, int fd, int events,
 	pevent->handler = handler;
 
 	ev.events = events;
-	ev.data.fd = fd;
 	ev.data.ptr = pevent;
 	err = epoll_ctl(poll_fd, EPOLL_CTL_ADD, fd, &ev);
 	log(lsTRACE, "EVENT adding handler=0x%x with data=0x%x; for: pollfd=%d; fd=%d", handler, data, poll_fd, fd);
@@ -521,7 +520,7 @@ struct netlev_conn* netlev_conn_find_by_qp(uint32_t qp_num, struct list_head *he
 {
 	struct netlev_conn *conn = NULL;
 	list_for_each_entry(conn, head, list) {
-		if (conn->qp_hndl->qp_num == qp_num) {
+		if (conn && conn->qp_hndl && conn->qp_hndl->qp_num == qp_num) {
 			log(lsDEBUG, "conn (%p) was found based on qp_num=%x", conn, qp_num);
 			return conn;
 		}

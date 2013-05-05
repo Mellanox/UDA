@@ -132,6 +132,19 @@ static void server_comp_ibv_recv(netlev_wqe_t *wqe)
 	}
 }
 
+static void delete_connection(struct netlev_ctx *ctx,
+		struct netlev_conn *conn) {
+
+	conn->bad_conn = true;
+	if (!conn->received_counter) {
+		log(lsDEBUG, "freeing connection (all related chunks are released)");
+		pthread_mutex_lock(&ctx->lock);
+		list_del(&conn->list);
+		pthread_mutex_unlock(&ctx->lock);
+		netlev_disconnect(conn);
+	}
+}
+
 static void server_cq_handler(progress_event_t *pevent, void *data)
 {
 	struct ibv_wc desc;
@@ -166,7 +179,12 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 				} else {
 					log(lsERROR, "Operation: %s (%d). Dev %p, Bad WC status %d for wr_id 0x%llx",
 							netlev_stropcode(desc.opcode), desc.opcode, dev, desc.status, (uint64_t)desc.wr_id);
-					throw new UdaException("IBV - Bad WC status");
+					netlev_conn *conn = netlev_conn_find_by_qp((uint32_t) desc.qp_num, &dev->ctx->hdr_conn_list);
+					if (conn) {
+						delete_connection(dev->ctx, conn);
+					} else {
+						log(lsWARN, "After WC ERROR, can't find connection to clean. qp_num = %d",desc.qp_num);
+					}
 				}
 				//even if there was an error, must release the chunk
 				type = (uint32_t*) (long2ptr(desc.wr_id));
@@ -230,8 +248,7 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 	RdmaServer *rdma_server = (RdmaServer *)pevent->data;
 
 	if (rdma_get_cm_event(cm_channel, &cm_event)) {
-		output_stderr("[%s:%d] rdma_get_cm_event err",
-				__FILE__, __LINE__);
+		output_stderr("[%s:%d] rdma_get_cm_event err", __FILE__, __LINE__);
 		//TODO: consider throw exception
 		return;
 	}
@@ -246,13 +263,13 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 			log(lsDEBUG, "dev not found, creating a new one");
 			dev = (struct netlev_dev *) malloc(sizeof(struct netlev_dev));
 			if (dev == NULL) {
-				output_stderr("[%s,%d] alloc dev failed",
-						__FILE__,__LINE__);
+				output_stderr("[%s,%d] alloc dev failed", __FILE__, __LINE__);
 				//TODO: consider throw exception
 				return;
 			}
 			memset(dev, 0, sizeof(struct netlev_dev));
 			dev->ibv_ctx = cm_event->id->verbs;
+			dev->ctx = ctx;
 			if (netlev_dev_init(dev) != 0) {
 				log(lsWARN, "netlev_dev_init failed");
 				free(dev);
@@ -260,8 +277,7 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 			}
 
 			ret = netlev_init_rdma_mem(rdma_server->rdma_mem,
-					rdma_server->rdma_total_len,
-					dev);
+					rdma_server->rdma_total_len, dev);
 			if (ret) {
 				log(lsWARN, "netlev_init_rdma_mem failed");
 				free(dev);
@@ -307,12 +323,12 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 		list_add_tail(&conn->list, &ctx->hdr_conn_list);
 		pthread_mutex_unlock(&ctx->lock);
 	}
-	break;
+		break;
 
 	case RDMA_CM_EVENT_ESTABLISHED:
-		log(lsDEBUG, "got RDMA_CM_EVENT_ESTABLISHED (on cma_id=%d)", cm_event->id);
+		log(lsDEBUG,"got RDMA_CM_EVENT_ESTABLISHED (on cma_id=%d)", cm_event->id);
 		conn = netlev_conn_established(cm_event, &ctx->hdr_conn_list);
-		log(lsDEBUG, "netlev_conn_established returned conn=%x (QPN connection in server is %d)", conn, conn->qp_hndl->qp_num);
+		log(lsDEBUG,"netlev_conn_established returned conn=%x (QPN connection in server is %d)", conn, conn->qp_hndl->qp_num);
 		break;
 
 	case RDMA_CM_EVENT_DISCONNECTED:
@@ -320,16 +336,11 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 		conn = netlev_conn_find_by_qp(cm_event->id->qp->qp_num, &ctx->hdr_conn_list);
 		log(lsTRACE, "calling rdma_ack_cm_event for event=%d", cm_event->event);
 		ret = rdma_ack_cm_event(cm_event);
-		if (ret) { log(lsWARN, "ack cm event failed"); }
-		conn->bad_conn = true;
-		if (!conn->received_counter) {
-			log(lsDEBUG, "freeing connection (all related chunks are released)");
-			pthread_mutex_lock(&ctx->lock);
-			list_del(&conn->list);
-			pthread_mutex_unlock(&ctx->lock);
-			netlev_disconnect(conn);
+		if (ret) {
+			log(lsWARN, "ack cm event failed");
 		}
 
+		delete_connection(ctx, conn);
 
 		/*
             // Avner: TODO
@@ -374,7 +385,9 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 
 	log(lsTRACE, "calling rdma_ack_cm_event for event=%d", cm_event->event);
 	ret = rdma_ack_cm_event(cm_event);
-	if (ret) { log(lsWARN, "ack cm event failed"); }
+	if (ret) {
+		log(lsWARN, "ack cm event failed");
+	}
 }
 
 RdmaServer::RdmaServer(int port, int rdma_buf_size, void *state)
@@ -553,8 +566,8 @@ int RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req, uintptr_t laddr
 	netlev_dev_t         *dev;
 	int32_t               rdma_send_size, ack_msg_len, total_ack_len, lkey;
 	int rc;
-	struct ibv_send_wr   send_wr_rdma, send_wr_ack;
-	struct ibv_sge       sge_rdma, sge_ack;
+	struct ibv_send_wr send_wr_rdma, send_wr_ack;
+	struct ibv_sge sge_rdma, sge_ack;
 	struct ibv_send_wr *bad_wr;
 	netlev_msg_t h;
 

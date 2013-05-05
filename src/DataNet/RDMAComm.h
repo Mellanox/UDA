@@ -116,9 +116,10 @@ typedef struct netlev_dev {
 	struct ibv_comp_channel  *cq_channel;
 	netlev_rdma_mem_t        *rdma_mem;
 
-	struct list_head          list;     /* for device list*/
+	struct list_head          list;     /* for device list */
 	uint32_t                  cqe_num;
 	uint32_t                  max_sge;
+	struct netlev_ctx		  *ctx; 	/* RDMAServer */
 } netlev_dev_t;
 
 typedef enum {

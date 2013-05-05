@@ -38,7 +38,6 @@ extern int netlev_dbg_flag;
 extern merging_state_t merging_sm; 
 extern uint32_t wqes_perconn;
 
-
 static void client_comp_ibv_recv(netlev_wqe_t *wqe)
 {
 	struct ibv_send_wr *bad_sr;
@@ -187,8 +186,7 @@ static void client_cq_handler(progress_event_t *pevent, void *data)
 		}
 	} while (ne);
 
-	error_event:
-
+error_event:
 	if (ibv_req_notify_cq(dev->cq, 0) != 0) {
 		output_stderr("[%s,%d] ibv_req_notify_cq failed\n",
 				__FILE__,__LINE__);
@@ -514,7 +512,7 @@ int RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf
 	netlev_conn_t  *conn;
 
 	if (buf_len <= 0) {
-		log(lsERROR, "illegal fetch request size of %d bytes", buf_len);
+		log(lsERROR, "illegal fetch request size of %d bytes", buf_len); //DO NOT CHANGE THIS LINE. THE REGRESSION IS PARSING IT
 		throw new UdaException("illegal fetch request size of 0 or less bytes");
 	}
 
