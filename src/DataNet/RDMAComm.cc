@@ -168,6 +168,12 @@ int netlev_dev_init(struct netlev_dev *dev)
 	struct ibv_device_attr device_attr;
 	int cqe_num, max_sge;
 
+	log(lsTRACE, "calling ibv_fork_init");
+	int ret = ibv_fork_init(); // FORK SAFE  
+	if (ret) {
+		log(lsERROR,"Failure in ibv_fork_init. errno=%m (%d)", ret);
+	}
+
 	memset(&device_attr, 0, sizeof(struct ibv_device_attr));
 
 	dev->pd = ibv_alloc_pd(dev->ibv_ctx);
@@ -567,9 +573,9 @@ int netlev_post_send(netlev_msg_t *h, int bytes,
 
 		h->type = msg_type;
 		h->tot_len = bytes;
-		h->src_req = srcreq ? srcreq : 0;
+		h->src_req = srcreq;
 
-		bool send_signal = !(conn->sent_counter%SIGNAL_INTERVAL);
+		bool send_signal = !(conn->sent_counter % SIGNAL_INTERVAL);
 
 		init_wqe_send(&send_wr, &sg, h, len, send_signal, context);
 		log(lsTRACE,"signal is being sent %d", send_signal);
@@ -590,6 +596,7 @@ int netlev_post_send(netlev_msg_t *h, int bytes,
 		return 0;
 	} else {
 		//there are no credits, save this to backlog
+		log(lsTRACE, "No credits. save message on backlog");
 		netlev_msg_backlog_t *back = init_backlog_data(msg_type, bytes, srcreq, context, h->msg);
 		list_add_tail(&back->list, &conn->backlog);
 		return -2;
