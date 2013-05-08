@@ -189,11 +189,6 @@ void reduce_downcall_handler(const string & msg)
 		free(hadoop_cmd);
 		break;
 
-	case EXIT_MSG:
-		finalize_reduce_task(g_task);
-		free_hadoop_cmd(*hadoop_cmd);
-		free(hadoop_cmd);
-		break;
 	BULLSEYE_EXCLUDE_BLOCK_START
 	default:
 		free_hadoop_cmd(*hadoop_cmd);
