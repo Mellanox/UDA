@@ -296,6 +296,25 @@ extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_doCo
 
 
 // This is the implementation of the native method
+extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_reduceExitMsgNative (jclass cls) {
+	try {
+		reduce_exit_msg_handler();
+	}
+	// Exception in this method will not cause a fallback,
+	// so WE DO NOT call exceptionInJniThread(env, ex) here.
+    catch (UdaException *ex) {
+    	log(lsWARN, "failure in reduce_exit_msg_handler: info=%s, full-message=%s ", ex->_info, ex->getFullMessage().c_str());
+    }
+    catch (exception *ex) {
+    	log(lsWARN, "failure in reduce_exit_msg_handler: Exception : %s ", ex->what());
+    }
+    catch (...) {
+    	log(lsWARN, "failure in reduce_exit_msg_handler: unexpected error");
+    }
+}
+
+
+// This is the implementation of the native method
 extern "C" JNIEXPORT void JNICALL Java_com_mellanox_hadoop_mapred_UdaBridge_setLogLevelNative  (jclass cls, jint log_level) {
 	try {
 		log_set_threshold((log_severity_t)log_level);

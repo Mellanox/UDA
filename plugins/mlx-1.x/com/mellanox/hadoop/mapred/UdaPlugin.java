@@ -319,10 +319,8 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	}
 
 	public void close() {
-		mParams.clear();
-		LOG.info("sending EXIT_COMMAND");    	  
-		String msg = UdaCmd.formCmd(UdaCmd.EXIT_COMMAND, mParams);
-		UdaBridge.doCommand(msg);
+		LOG.info("sending EXIT_COMMAND by calling reduceExitMsg...");    	  
+		UdaBridge.reduceExitMsg();
     	if (LOG.isDebugEnabled()) LOG.debug(">> C++ finished.  Closing java...");
 		this.j2c_queue.close();
     	if (LOG.isDebugEnabled()) LOG.debug("<< java finished");

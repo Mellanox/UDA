@@ -64,6 +64,14 @@ public class UdaBridge {
     	if (LOG.isDebugEnabled()) LOG.debug(" <<<+++ after UdaBridge.doCommandNative");
     }
     
+        
+    private static native void reduceExitMsgNative();
+    public static void reduceExitMsg() {
+    	if (LOG.isDebugEnabled()) LOG.debug(" +++>>> invoking UdaBridge.reduceExitMsg");
+    	reduceExitMsgNative();
+    	if (LOG.isDebugEnabled()) LOG.debug(" <<<+++ after UdaBridge.reduceExitMsg");
+    }
+
     
     private static native void setLogLevelNative(int level);
     public static void setLogLevel(int level) {

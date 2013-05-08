@@ -297,7 +297,30 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		LOG.info("createKVIterator: Using fallbackPlugin");
 		return fallbackPlugin.createKVIterator(job, fs, reporter);
 	}
-	
+
+    private class UdaCloserThread extends Thread {
+    	UdaPluginRT rdmaChannel;
+		public UdaCloserThread(UdaPluginRT rdmaChannel) {
+			this.rdmaChannel = rdmaChannel;
+			setName("UdaCloserThread");
+			setDaemon(true);
+		}
+		
+		@Override
+		public void run() {
+			LOG.info(reduceTask.getTaskID() + " Thread started: " + getName());
+			if (rdmaChannel == null) {
+				LOG.warn("rdmaChannel == null");				
+			}
+			else {
+				LOG.info("--->>> closing UdaShuffleConsumerPlugin");
+				rdmaChannel.close();				
+				LOG.info("<<<--- UdaShuffleConsumerPlugin was closed");
+			}
+			LOG.info(reduceTask.getTaskID() + " Thread finished: " + getName());
+		}
+    }
+    
     @Override
 	public void close() {
 		// try catch here is not needed since it is too late for new fallback to vanilla.
@@ -310,7 +333,15 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		}
 
 		LOG.info("close: Using fallbackPlugin");
-		fallbackPlugin.close();		
+		fallbackPlugin.close();
+	
+		// also close UdaPlugin including C++
+		UdaCloserThread udaCloserThread = new UdaCloserThread(rdmaChannel);
+		udaCloserThread.start();
+		try {
+			udaCloserThread.join(1000);  // wait up to 1 second for the udaCloserThread
+		}
+		catch (InterruptedException e){LOG.info("InterruptedException on udaCloserThread.join");}
 		LOG.info("====XXX Successfully closed fallbackPlugin XXX====");
 	}
 	

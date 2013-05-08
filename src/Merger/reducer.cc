@@ -116,6 +116,15 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 	init_reduce_task(g_task);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void reduce_exit_msg_handler()
+{
+	log(lsDEBUG, "===>>> GOT EXIT COMMAND FROM JAVA SIDE");
+	finalize_reduce_task(g_task);
+	log(lsDEBUG, "<<<=== HANDLED EXIT COMMAND FROM JAVA SIDE");
+}
+
+////////////////////////////////////////////////////////////////////////////////
 void reduce_downcall_handler(const string & msg)
 {
 	client_part_req_t   *req;
