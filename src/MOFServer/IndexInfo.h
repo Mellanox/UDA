@@ -67,7 +67,6 @@ typedef struct shuffle_req
     struct netlev_conn *conn;
 
     string    m_jobid;
-    string    m_reduceid;
     string    m_map;
     int32_t   reduceID;
     int64_t   map_offset;

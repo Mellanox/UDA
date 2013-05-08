@@ -83,6 +83,9 @@ static void server_comp_ibv_recv(netlev_wqe_t *wqe)
 		if ((rc = ibv_post_send(conn->qp_hndl, &send_wr, &bad_sr)) != 0) {
 			log(lsERROR, "Error posting send. rc=%d",rc);
 		}
+
+		log(lsTRACE, "After ibv_post_send. conn=%p CREDIT=%d RETURNING=%d", conn, conn->credits, conn->returning );
+
 		free(back->msg);
 		free(back);
 	}
@@ -150,8 +153,6 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 	struct ibv_wc desc;
 	netlev_wqe_t *wqe = NULL;
 	int ne = 0;
-	chunk_t *chunk;
-	uint32_t *type;
 	struct netlev_dev *dev = (netlev_dev_t *)data;
 
 	void *ctx;
@@ -187,12 +188,11 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 					}
 				}
 				//even if there was an error, must release the chunk
-				type = (uint32_t*) (long2ptr(desc.wr_id));
-				if ( *type == PTR_CHUNK) {
-					chunk = (chunk_t*) (long2ptr(desc.wr_id)); //ptr_type_t is at offset 0 at chunk_t.
-					if (chunk){
-						state_mac.data_mac->release_chunk(chunk);
-						log(lsDEBUG, "releasing chunk in case of an error");
+				chunk_t *chunk = (chunk_t*) (long2ptr(desc.wr_id)); //ptr_type_t is at offset 0 at chunk_t.
+				if (chunk) {
+					if (chunk->type == PTR_CHUNK) {
+							state_mac.data_mac->release_chunk(chunk);
+							log(lsDEBUG, "releasing chunk in case of an error");
 					}
 				}
 				goto error_event;
@@ -202,22 +202,33 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 				switch (desc.opcode) {
 
 				case IBV_WC_SEND:
-					chunk = (chunk_t*) (long2ptr(desc.wr_id)); //ptr_type_t is at offset 0 at chunk_t.
-					if (chunk){
-						state_mac.data_mac->release_chunk(chunk);
+					{
+						chunk_t *chunk = (chunk_t*) (long2ptr(desc.wr_id)); //ptr_type_t is at offset 0 at chunk_t.
+						if (chunk){
+							log(lsTRACE, "got %s cq event: ACK_MSG_COMP chunk=%p", netlev_stropcode(desc.opcode), chunk);
+							state_mac.data_mac->release_chunk(chunk);				
+						}
+						else {
+							log(lsTRACE, "got %s cq event: NOOP_COMP", netlev_stropcode(desc.opcode));
+						}
 					}
 					break;
 
 				case IBV_WC_RECV:
-					wqe = (netlev_wqe_t *) (long2ptr(desc.wr_id));
-					log(lsTRACE, "rdma server got IBV_WC_RECV: local_qp=%d, remote_qp=%d, data=%s", wqe->conn->qp_hndl->qp_num, wqe->conn->peerinfo.qp, wqe->data);
-					server_comp_ibv_recv(wqe);
+					{
+						wqe = (netlev_wqe_t *) (long2ptr(desc.wr_id));
+						if (wqe) {
+							log(lsTRACE, "got %s cq event. data=%s", netlev_stropcode(desc.opcode), wqe->data);
+							server_comp_ibv_recv(wqe);
+						}
+						else {
+							log(lsERROR, "got %s cq event with NULL wqe", netlev_stropcode(desc.opcode));
+						}
+					}
 					break;
-
-				case IBV_WC_RDMA_WRITE:
-				case IBV_WC_RDMA_READ:
+				case IBV_WC_RDMA_WRITE: // we send the RDAM_WRITE with flag=0 (not signaled)
 				default:
-					log(lsERROR, "id %llx status %d unknown opcode %d", desc.wr_id, desc.status, desc.opcode);
+					log(lsERROR, "got unhanled cq event: id %llx status %s (%d) opcode %s (%d)", desc.wr_id, ibv_wc_status_str(desc.status), desc.status, netlev_stropcode(desc.opcode), desc.opcode);
 					break;
 				}
 			}
@@ -611,6 +622,7 @@ int RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req, uintptr_t laddr
 				pthread_mutex_unlock(&conn->lock);
 				return -1;
 			}
+			log(lsTRACE, "After ibv_post_send. JOBID=%s, REDUCEID=%d, MAPID=%s, MAP_OFFSET=%lld, CONN(conn=%p CREDIT=%d RETURNING=%d) ", req->m_jobid.c_str(), req->reduceID , req->m_map.c_str(),  req->map_offset, conn, conn->credits, conn->returning );
 			pthread_mutex_unlock(&conn->lock);
 			return 0;
 		} else {

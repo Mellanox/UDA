@@ -128,7 +128,6 @@ static void client_cq_handler(progress_event_t *pevent, void *data)
 	int ne = 0;
 	struct ibv_wc desc;
 	void *ctx;
-	netlev_wqe_t *wqe = NULL;
 	netlev_dev_t *dev = (netlev_dev_t *) pevent->data;
 
 	if ((rc = ibv_get_cq_event(dev->cq_channel, &dev->cq, &ctx)) != 0) {
@@ -149,11 +148,11 @@ static void client_cq_handler(progress_event_t *pevent, void *data)
 		if (ne) {
 			if (desc.status != IBV_WC_SUCCESS) {
 				if (desc.status == IBV_WC_WR_FLUSH_ERR) {
-					output_stderr("Operation: %s (%d). Dev %p wr (0x%llx) flush err. quitting...",
+					log(lsERROR,"Operation: %s (%d). Dev %p wr (0x%llx) flush err. quitting...",
 							netlev_stropcode(desc.opcode), desc.opcode, dev, (uint64_t)desc.wr_id);
 					goto error_event;
 				} else {
-					output_stderr("Operation: %s (%d). Dev %p, Bad WC status %d for wr_id 0x%llx",
+					log(lsERROR,"Operation: %s (%d). Dev %p, Bad WC status %d for wr_id 0x%llx",
 							netlev_stropcode(desc.opcode), desc.opcode, dev, desc.status, (uint64_t)desc.wr_id);
 					goto error_event;
 				}
@@ -165,20 +164,31 @@ static void client_cq_handler(progress_event_t *pevent, void *data)
 				switch (desc.opcode) {
 
 				case IBV_WC_SEND:
-					log(lsTRACE, "IBV_WC_SEND");
+					{
+						client_part_req_t* freq = (client_part_req_t *) (long2ptr(desc.wr_id));
+						if (freq)
+							log(lsTRACE, "got %s cq event: FETCH_REQ_COMP JOBID=%s MAPID=%s REDUCEID=%s ", netlev_stropcode(desc.opcode), freq->info->params[1], freq->info->params[2], freq->info->params[3]);
+						else
+							log(lsTRACE, "got %s cq event: NOOP_COMP", netlev_stropcode(desc.opcode));
+					}
 					break;
 
 				case IBV_WC_RECV:
-					wqe = (netlev_wqe_t *) (long2ptr(desc.wr_id));
-					log(lsTRACE, "rdma client got IBV_WC_RECV local_qp=%d, remote_qp=%d", wqe->conn->qp_hndl->qp_num, wqe->conn->peerinfo.qp);
-					client_comp_ibv_recv(wqe);
+					{
+						netlev_wqe_t *wqe = (netlev_wqe_t *) (long2ptr(desc.wr_id));
+						if (wqe) {
+							log(lsTRACE, "got %s cq event.", netlev_stropcode(desc.opcode));
+							client_comp_ibv_recv(wqe);
+						}
+						else {
+							log(lsERROR, "got %s cq event with NULL wqe", netlev_stropcode(desc.opcode));
+							throw new UdaException("got IBV_WC_RECV cq event with NULL wqe (wr_id=NULL)");
+						}
+					}
 					break;
 
 				default:
-					output_stderr("id %llx status %d unknown opcode %d",
-							desc.wr_id,
-							desc.status,
-							desc.opcode);
+					log(lsERROR, "got unhanled cq event: id %llx status %s (%d) opcode %s (%d)", desc.wr_id, ibv_wc_status_str(desc.status), desc.status, netlev_stropcode(desc.opcode), desc.opcode);
 					break;
 				}
 			}
@@ -188,8 +198,7 @@ static void client_cq_handler(progress_event_t *pevent, void *data)
 
 error_event:
 	if (ibv_req_notify_cq(dev->cq, 0) != 0) {
-		output_stderr("[%s,%d] ibv_req_notify_cq failed\n",
-				__FILE__,__LINE__);
+		log(lsERROR,"ibv_req_notify_cq failed");
 	}
 
 	return;
