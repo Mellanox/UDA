@@ -36,7 +36,7 @@
 JOB=$1  #for example: job_201304091252_0008}
 
 #how many lines before/after the job to copy from job/task tracker log files
-CONTEXT=${2:-1000}
+CONTEXT=${2:-20}
 
 
 # where are the logs on the slaves, for example $HADOOP_HOME/logs
@@ -46,6 +46,9 @@ LOGDIR=${LOGDIR:-$TMP}
 TMP=`ps -ef | grep tasktracker | awk 'BEGIN {RS=" "; FS="="} $1=="-Dhadoop.log.dir" {print $2}'`
 LOGDIR=${LOGDIR:-$TMP}
 LOGDIR=${LOGDIR:-/var/logs/hadoop}
+
+#allow user to provide jps location
+JPS=${JPS:-jps}
 
 ####################  just initialization ###
 
@@ -73,11 +76,11 @@ RM=/bin/rm
 echo $PROG: This script will collect the following files from the LOGDIR on each slave:
 echo "$PROG:  *** JOB's_conf.xml and JOB's snippets from all *tracker* files"
 echo "$PROG:  *** JOB's folder from userlogs dir"
-echo "$PROG:  *** optionaly if exist: *tracker*out* files"
+echo "$PROG:  *** optionaly, if exist: *tracker*out* files"
 echo $PROG: =========
 echo "$PROG: FYI - the expected usage is: $PROG JOB [CONTEXT [LOGDIR]]"
 echo "$PROG: FYI - calculated ARGS are: JOB=$JOB, CONTEXT=$CONTEXT, LOGDIR=$LOGDIR"
-echo "$PROG: FYI - calculated values are: MASTER=$MASTER, SCRIPTSDIR=$SCRIPTSDIR, HADOOP_HOME=$HADOOP_HOME"
+echo "$PROG: FYI - calculated values are: MASTER=$MASTER, SCRIPTSDIR=$SCRIPTSDIR, HADOOP_HOME=$HADOOP_HOME, JPS=$JPS"
 echo $PROG: =========
 
 
@@ -94,8 +97,8 @@ echo $JOB | grep --silent '^[0-9_]*$' || quit "illegal job id"
 ################  work starts here ##########################
 
 # ask each slave to collect its JOB logs and scp it to our /tmp
-echo $PROG: running "$HADOOP_HOME/bin/slaves.sh $SCRIPTSDIR/slave/job-log-collector.sh $MASTER $JOB $CONTEXT $LOGDIR", please wait...
-$HADOOP_HOME/bin/slaves.sh $SCRIPTSDIR/slave/job-log-collector.sh $MASTER $JOB $CONTEXT $LOGDIR
+echo $PROG: running "$HADOOP_HOME/bin/slaves.sh $SCRIPTSDIR/slave/job-log-collector.sh $MASTER $JOB $CONTEXT $LOGDIR $JPS", please wait...
+$HADOOP_HOME/bin/slaves.sh $SCRIPTSDIR/slave/job-log-collector.sh $MASTER $JOB $CONTEXT $LOGDIR $JPS
 echo $PROG: running also on master...
 $SCRIPTSDIR/slave/job-log-collector.sh $MASTER $JOB $CONTEXT $LOGDIR # TODO: check if can copy to itself
 
@@ -113,8 +116,3 @@ gzip --force $TARFILE
 
 echo $PROG: ==== FINISHED. YOUR LOGS ARE ALL IN: $TARFILE.gz FILE =====
 exit 0
-
-
-#root@r-zorro002-ib ~$ P=`jps -m | grep JobTracker | awk '{print $1}'`; echo $P
-#root@r-zorro002-ib ~$ export HADOOP_SLAVES=/proc/5683/cwd/mapred_hosts_allow.txt
-#root@r-zorro002-ib ~$ cat /proc/$P/cwd/mapred_hosts_allow.txt # remove duplication and remove master
