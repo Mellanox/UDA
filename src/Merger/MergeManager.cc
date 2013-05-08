@@ -156,7 +156,7 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 		pthread_cond_wait(&manager->cond, &manager->lock);
 		pthread_mutex_unlock(&manager->lock);
 
-	} while (true);
+	} while (!task->merge_thread.stop);
 
     log(lsDEBUG, "<< function finished");
     return NULL;
