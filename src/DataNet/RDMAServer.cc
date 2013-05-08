@@ -135,17 +135,13 @@ static void server_comp_ibv_recv(netlev_wqe_t *wqe)
 	}
 }
 
-static void delete_connection(struct netlev_ctx *ctx,
-		struct netlev_conn *conn) {
-
-	conn->bad_conn = true;
-	if (!conn->received_counter) {
-		log(lsDEBUG, "freeing connection (all related chunks are released)");
-		pthread_mutex_lock(&ctx->lock);
-		list_del(&conn->list);
-		pthread_mutex_unlock(&ctx->lock);
-		netlev_disconnect(conn);
-	}
+static void delete_connection(struct netlev_ctx *ctx, struct netlev_conn *conn)
+{
+	log(lsDEBUG, "freeing connection conn=%p",conn);
+	pthread_mutex_lock(&ctx->lock);
+	list_del(&conn->list);
+	pthread_mutex_unlock(&ctx->lock);
+	netlev_disconnect(conn);
 }
 
 static void server_cq_handler(progress_event_t *pevent, void *data)
@@ -182,6 +178,7 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 							netlev_stropcode(desc.opcode), desc.opcode, dev, desc.status, (uint64_t)desc.wr_id);
 					netlev_conn *conn = netlev_conn_find_by_qp((uint32_t) desc.qp_num, &dev->ctx->hdr_conn_list);
 					if (conn) {
+						conn->bad_conn = true;
 						delete_connection(dev->ctx, conn);
 					} else {
 						log(lsWARN, "After WC ERROR, can't find connection to clean. qp_num = %d",desc.qp_num);
@@ -314,7 +311,7 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 		}
 
 		conn = netlev_init_conn(cm_event, dev);
-		log(lsTRACE, "conn=%x", conn);
+		log(lsTRACE, "conn=%p", conn);
 		if (!cm_event->param.conn.private_data ||
 				(cm_event->param.conn.private_data_len < sizeof(conn->peerinfo)))
 		{
@@ -339,7 +336,7 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 	case RDMA_CM_EVENT_ESTABLISHED:
 		log(lsDEBUG,"got RDMA_CM_EVENT_ESTABLISHED (on cma_id=%d)", cm_event->id);
 		conn = netlev_conn_established(cm_event, &ctx->hdr_conn_list);
-		log(lsDEBUG,"netlev_conn_established returned conn=%x (QPN connection in server is %d)", conn, conn->qp_hndl->qp_num);
+		log(lsDEBUG,"netlev_conn_established returned conn=%p (QPN connection in server is %d)", conn, conn->qp_hndl->qp_num);
 		break;
 
 	case RDMA_CM_EVENT_DISCONNECTED:
@@ -350,21 +347,10 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 		if (ret) {
 			log(lsWARN, "ack cm event failed");
 		}
-
-		delete_connection(ctx, conn);
-
-		/*
-            // Avner: TODO
-            // it is true that list_del is wrong (after conn was freed) and it is
-            // redundant (since it was already performed inside netlev_disconnect()->netlev_conn_free())
-            // However, here there is a lock around list_del; while netlev_conn_free() use no lock
-
-            if (conn) {
-                pthread_mutex_lock(&ctx->lock);
-                list_del(&conn->list);
-                pthread_mutex_unlock(&ctx->lock);
-            }
-//*/
+		conn->bad_conn = true;
+		if (!conn->received_counter) {
+			delete_connection(ctx, conn);
+		}
 
 		// don't break here to avoid ack after disconnect
 		return;
@@ -654,10 +640,7 @@ int RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req, uintptr_t laddr
 		state_mac.data_mac->release_chunk(chunk_to_release);
 		if (!conn->received_counter){
 			log(lsINFO, "connection does not exist anymore, all related chunks are released. freeing connection");
-			pthread_mutex_lock(&this->ctx.lock);
-			list_del(&conn->list);
-			pthread_mutex_unlock(&this->ctx.lock);
-			netlev_disconnect(conn);
+			delete_connection(&this->ctx, conn);
 		}
 		return -1;
 	}
