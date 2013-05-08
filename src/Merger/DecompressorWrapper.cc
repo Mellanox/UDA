@@ -173,7 +173,7 @@ void DecompressorWrapper::doDecompress(client_part_req_t *req)
 	//note that we should skip the bytes indicating the length of the block
 	decompressRetData_t next_block_length;
 	this->get_next_block_length(rdma_mem_desc->buff + rdma_mem_desc->start,&next_block_length);
-
+	log(lsTRACE, "mopid=%d, going to decompress data. num_compressed=%d, num_uncompressed=%d, rdma->start=%d, comp->start=%d, comp->end=%d",req->mop->mop_id, next_block_length.num_compressed_bytes, next_block_length.num_uncompressed_bytes, rdma_mem_desc->start, read_mem_desc->start, read_mem_desc->end);
 	decompressRetData_t retData;
 	//there is enough space in the cyclic buffer for the uncompressed block without doing wrap around = > decompress straight to the cyclic buffer
 	if (read_mem_desc->end + next_block_length.num_uncompressed_bytes <= read_mem_desc->buf_len){
