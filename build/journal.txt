@@ -3,6 +3,21 @@
 #
 
 ================================
+Version: 3.1.9-0 - 2013-05-09
+================================
+
+FIXED
+	Bug SW #191168 important fix for job hangs in many wierd situations, by adding a call to ibv_fork_init on RDMA initialization
+	Bug SW #196902 uda hang in case Java send exit command to C++ before C++ reached merging phase prevented clenup at exit
+	Bug SW #191670 better handling in some cases of RDMA errors
+
+NEW FEATURES:
+	Feature #190995 uda cleanup after fallback to vanilla for preventing ghost RTs after fallback in some situations
+
+IMPROVEMENTS:
+	Task #196905 enhancments in our scripts for collecting logs
+
+================================
 Version: 3.1.8-0 - 2013-04-30
 ================================
 
