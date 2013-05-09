@@ -64,8 +64,11 @@ tar $VERBOSE --dereference -C $LOGDIR --transform "s,^$STRIP,$JOB/`hostname`," -
 
 #echo $TARFLAGS
 
-#tar -C $LOGDIR --dereference --transform "s,^$STRIP,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/userlogs/*$JOB* 2>&1 | grep -v "Removing leading" 
-tar $VERBOSE --dereference --transform "s,^$STRIP,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/userlogs/*$JOB* 2>&1 | grep -v "Removing leading" |  grep -v "File removed before we read it" #temp, remove noise in NFS tests
+if ls $LOGDIR/userlogs/*$JOB* > /dev/null 2> /dev/null
+then
+	#tar -C $LOGDIR --dereference --transform "s,^$STRIP,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/userlogs/*$JOB* 2>&1 | grep -v "Removing leading" 
+	tar $VERBOSE --dereference --transform "s,^$STRIP,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/userlogs/*$JOB* 2>&1 | grep -v "Removing leading" |  grep -v "File removed before we read it" #temp, remove noise in NFS tests
+fi
 tar $VERBOSE --dereference --transform "s,^$STRIP,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/*$TRACKER*.out --exclude  $LOGDIR/*$TRACKER*.log.out 2> /dev/null || true
 tar $VERBOSE --dereference --transform "s,^$STRIP,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/*$TRACKER*.out*[^${ENDCHAR}0-9] --exclude $LOGDIR/*$TRACKER*.log.out*[^${ENDCHAR}0-9]  2> /dev/null || true
 
