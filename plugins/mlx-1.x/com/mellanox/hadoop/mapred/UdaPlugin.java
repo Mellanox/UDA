@@ -235,7 +235,12 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 				throw new OutOfMemoryError("UDA: Not enough memory for rdma buffers: shuffleMemorySize=" + shuffleMemorySize + "B, mapred.rdma.buf.size.min=" + minRdmaBufferSize + "KB");
 			}
 			LOG.warn("UDA: using calulated RDMA buffer size=" + rdmaBufferSize + "B (not aligned yet) instead of max size=" + maxRdmaBufferSize + "KB");
-		}		
+		}
+		
+		if(jobConf.getSpeculativeExecution()) { // (getMapSpeculativeExecution() || getReduceSpeculativeExecution())
+			LOG.warn("UDA does not support speculative execution. ERROR may occur due to unexpected behavior");
+		}
+		
 		LOG.info("UDA: number of segments to fetch: " + numMaps);
 		LOG.info("UDA: Passing to C rdma.buf.size=" + rdmaBufferSize + "B  (before alignment to pagesize)");
 		
