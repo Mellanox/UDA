@@ -38,13 +38,13 @@ SLAVEDIR=`dirname $0`
 TARFILE=/tmp/`hostname`_daemons.all-logs.tar
 $RM -f $TARFILE*
 
-STRIP=`echo $LOGDIR | sed s/^.//` # without leading /, because tar doesn't see it
+STRIP=`echo $LOGDIR | sed 's/^\///'` # without leading / (if any), because tar doesn't see it
 
 
 # 1st create an empty archive, than append all files to it - this way tar will survive even if one componenet does not exist
 echo "creating: $TARFILE with all daemon's log files..."
 tar  --create -f $TARFILE --files-from=/dev/null
-tar $VERBOSE --dereference --transform "s,^$STRIP,`hostname`," --append -f $TARFILE  $LOGDIR/*$TRACKER*.* 2> /dev/null || true
+tar $VERBOSE --dereference --transform "s,^$STRIP,," --transform "s,^,`hostname`," --append -f $TARFILE  $LOGDIR/*$TRACKER*.* 2> /dev/null || true
 
 
 # TODO - check that $P is valid !

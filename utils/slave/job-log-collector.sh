@@ -52,24 +52,25 @@ fi
 TARFILE=/tmp/`hostname`_job_$JOB.all-logs.tar
 $RM -f $TARFILE*
 
-STRIP=`echo $LOGDIR | sed s/^.//` # without leading /, because tar doesn't see it
+STRIP=`echo $LOGDIR | sed 's/^\///'` # without leading / (if any), because tar doesn't see it
 
 
 # 1st create an empty archive, than append all files to it - this way tar will survive even if one componenet does not exist
 echo "creating: $TARFILE with all job's log files..."
 tar  --create -f $TARFILE --files-from=/dev/null
 
-tar $VERBOSE --dereference -C $LOGDIR --transform "s,^$STRIP,$JOB/`hostname`," --transform "s,.$ENDCHAR$,," --append -f $TARFILE  $LOGDIR/*$JOB* 2>&1 | grep -v "Removing leading" # takes the xml file, plus any snippet we created
+tar $VERBOSE --dereference --transform "s,^$STRIP,," --transform "s,^,$JOB/`hostname`," --transform "s,.$ENDCHAR$,," --append -f $TARFILE  $LOGDIR/*$JOB* 2>&1 | grep -v "Removing leading" # takes the xml file, plus any snippet we created
+
 
 #echo $TARFLAGS
 
 if ls $LOGDIR/userlogs/*$JOB* > /dev/null 2> /dev/null
 then
-	#tar -C $LOGDIR --dereference --transform "s,^$STRIP,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/userlogs/*$JOB* 2>&1 | grep -v "Removing leading" 
-	tar $VERBOSE --dereference --transform "s,^$STRIP,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/userlogs/*$JOB* 2>&1 | grep -v "Removing leading" |  grep -v "File removed before we read it" #temp, remove noise in NFS tests
+	#tar --dereference --transform "s,^$STRIP,," --transform "s,^,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/userlogs/*$JOB* 2>&1 | grep -v "Removing leading" 
+	tar $VERBOSE --dereference --transform "s,^$STRIP,," --transform "s,^,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/userlogs/*$JOB* 2>&1 | grep -v "Removing leading" |  grep -v "File removed before we read it" #temp, remove noise in NFS tests
 fi
-tar $VERBOSE --dereference --transform "s,^$STRIP,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/*$TRACKER*.out --exclude  $LOGDIR/*$TRACKER*.log.out 2> /dev/null || true
-tar $VERBOSE --dereference --transform "s,^$STRIP,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/*$TRACKER*.out*[^${ENDCHAR}0-9] --exclude $LOGDIR/*$TRACKER*.log.out*[^${ENDCHAR}0-9]  2> /dev/null || true
+tar $VERBOSE --dereference --transform "s,^$STRIP,," --transform "s,^,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/*$TRACKER*.out --exclude  $LOGDIR/*$TRACKER*.log.out 2> /dev/null || true
+tar $VERBOSE --dereference --transform "s,^$STRIP,," --transform "s,^,$JOB/`hostname`," --append -f $TARFILE  $LOGDIR/*$TRACKER*.out*[^${ENDCHAR}0-9] --exclude $LOGDIR/*$TRACKER*.log.out*[^${ENDCHAR}0-9]  2> /dev/null || true
 
 
 # TODO - check that $P is valid !
