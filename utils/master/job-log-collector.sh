@@ -47,9 +47,6 @@ TMP=`ps -ef | grep tasktracker | awk 'BEGIN {RS=" "; FS="="} $1=="-Dhadoop.log.d
 LOGDIR=${LOGDIR:-$TMP}
 LOGDIR=${LOGDIR:-/var/logs/hadoop}
 
-#allow user to provide jps location
-JPS=${JPS:-jps}
-
 ####################  just initialization ###
 
 #tells where are the script on the slaves
@@ -80,7 +77,7 @@ echo "$PROG:  *** optionaly, if exist: *tracker*out* files"
 echo $PROG: =========
 echo "$PROG: FYI - the expected usage is: $PROG JOB [CONTEXT [LOGDIR]]"
 echo "$PROG: FYI - calculated ARGS are: JOB=$JOB, CONTEXT=$CONTEXT, LOGDIR=$LOGDIR"
-echo "$PROG: FYI - calculated values are: MASTER=$MASTER, SCRIPTSDIR=$SCRIPTSDIR, HADOOP_HOME=$HADOOP_HOME, JPS=$JPS"
+echo "$PROG: FYI - calculated values are: MASTER=$MASTER, SCRIPTSDIR=$SCRIPTSDIR, HADOOP_HOME=$HADOOP_HOME"
 echo $PROG: =========
 
 
@@ -97,8 +94,8 @@ echo $JOB | grep --silent '^[0-9_]*$' || quit "illegal job id"
 ################  work starts here ##########################
 
 # ask each slave to collect its JOB logs and scp it to our /tmp
-echo $PROG: running "$HADOOP_HOME/bin/slaves.sh $SCRIPTSDIR/slave/job-log-collector.sh $MASTER $JOB $CONTEXT $LOGDIR $JPS", please wait...
-$HADOOP_HOME/bin/slaves.sh $SCRIPTSDIR/slave/job-log-collector.sh $MASTER $JOB $CONTEXT $LOGDIR $JPS
+echo $PROG: running "$HADOOP_HOME/bin/slaves.sh $SCRIPTSDIR/slave/job-log-collector.sh $MASTER $JOB $CONTEXT $LOGDIR", please wait...
+$HADOOP_HOME/bin/slaves.sh $SCRIPTSDIR/slave/job-log-collector.sh $MASTER $JOB $CONTEXT $LOGDIR
 echo $PROG: running also on master...
 $SCRIPTSDIR/slave/job-log-collector.sh $MASTER $JOB $CONTEXT $LOGDIR # TODO: check if can copy to itself
 

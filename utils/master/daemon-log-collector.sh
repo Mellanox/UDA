@@ -38,9 +38,6 @@ TMP=`ps -ef | grep tasktracker | awk 'BEGIN {RS=" "; FS="="} $1=="-Dhadoop.log.d
 LOGDIR=${LOGDIR:-$TMP}
 LOGDIR=${LOGDIR:-/var/logs/hadoop}
 
-#allow user to provide jps location
-JPS=${JPS:-jps}
-
 ####################  just initialization ###
 
 #tells where are the script on the slaves
@@ -67,7 +64,7 @@ echo $PROG: This script will collect the following files from the LOGDIR on each
 echo $PROG: =========
 echo "$PROG: FYI - the expected usage is: $PROG [LOGDIR]"
 echo "$PROG: FYI - calculated ARGS are: LOGDIR=$LOGDIR"
-echo "$PROG: FYI - calculated values are: MASTER=$MASTER, SCRIPTSDIR=$SCRIPTSDIR, HADOOP_HOME=$HADOOP_HOME, JPS=$JPS"
+echo "$PROG: FYI - calculated values are: MASTER=$MASTER, SCRIPTSDIR=$SCRIPTSDIR, HADOOP_HOME=$HADOOP_HOME"
 echo $PROG: =========
 
 
@@ -75,9 +72,9 @@ echo $PROG: =========
 
 # ask each slave to collect its daemons' logs and scp it to our /tmp
 echo $PROG: running "", please wait...
-$HADOOP_HOME/bin/slaves.sh $SCRIPTSDIR/slave/daemon-log-collector.sh $MASTER $LOGDIR $JPS
+$HADOOP_HOME/bin/slaves.sh $SCRIPTSDIR/slave/daemon-log-collector.sh $MASTER $LOGDIR
 echo $PROG: running also on master...
-$SCRIPTSDIR/slave/daemon-log-collector.sh $MASTER $LOGDIR $JPS
+$SCRIPTSDIR/slave/daemon-log-collector.sh $MASTER $LOGDIR
 
 
 echo $PROG: combining logs, please wait...
