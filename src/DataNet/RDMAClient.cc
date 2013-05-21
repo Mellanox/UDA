@@ -347,7 +347,7 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 		conn->returning = 0;
 		rdma_ack_cm_event(event);
 	} else {
-		log(lsERROR, "client recv unknown RDMA_CM event %s (%d)", rdma_event_str(event->event), event->event);
+		log(lsERROR, "client recv unknown RDMA_CM event %s (%d), status=%d", rdma_event_str(event->event), event->event, event->status);
 		rdma_ack_cm_event(event);
 		goto err_rdma_connect;
 	}
