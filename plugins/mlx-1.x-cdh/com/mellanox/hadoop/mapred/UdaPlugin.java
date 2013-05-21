@@ -61,7 +61,6 @@ abstract class UdaPlugin {
 	protected List<String> mCmdParams = new ArrayList<String>();
 	protected static Log LOG;
 	protected static int log_level = -1; // Initialisation value for calcAndCompareLogLevel() first run
-	protected static String logging_package_name = "org.apache.hadoop.mapred";
 	protected static JobConf mjobConf;
 	
 	public UdaPlugin(JobConf jobConf) {
@@ -108,7 +107,7 @@ abstract class UdaPlugin {
 			timer.schedule(new TaskLogLevel(), 0, 1000);
 		}
 		
-		LOG.info("UDA: Launching C++ thru JNI");
+		LOG.debug("Launching C++ thru JNI");
 		buildCmdParams();
 
 		LOG.info("going to execute C++ thru JNI with argc=: " + mCmdParams.size() + " cmd: " + mCmdParams);    	  
@@ -147,7 +146,7 @@ abstract class UdaPlugin {
 class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
 	static{
-		prepareLog(logging_package_name + ".ShuffleConsumerPlugin");
+		prepareLog(ShuffleConsumerPlugin.class.getCanonicalName());
 	}
 	
 	final UdaShuffleConsumerPlugin udaShuffleConsumer;
@@ -237,6 +236,11 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 			}
 			LOG.warn("UDA: using calulated RDMA buffer size=" + rdmaBufferSize + "B (not aligned yet) instead of max size=" + maxRdmaBufferSize + "KB");
 		}		
+		
+		if(jobConf.getSpeculativeExecution()) { // (getMapSpeculativeExecution() || getReduceSpeculativeExecution())
+			LOG.warn("UDA does not support speculative execution. ERROR may occur due to unexpected behavior");
+		}
+		
 		LOG.info("UDA: number of segments to fetch: " + numMaps);
 		LOG.info("UDA: Passing to C rdma.buf.size=" + rdmaBufferSize + "B  (before alignment to pagesize)");
 		
@@ -262,6 +266,22 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(Long.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment			 
 		mParams.add(jobConf.getOutputKeyClass().getName());
 		
+		boolean compression = jobConf.getCompressMapOutput(); //"true" or "false"
+		String alg =null;
+        if(compression){
+            alg = jobConf.get("mapred.map.output.compression.codec", null);
+		}
+		mParams.add(alg); 
+		
+		String bufferSize=Integer.toString(256*1024);		
+		if(alg!=null){
+             if(alg.contains("lzo.LzoCodec")){
+                bufferSize = jobConf.get("io.compression.codec.lzo.buffersize", bufferSize);
+            }else if(alg.contains("SnappyCodec")){
+                bufferSize = jobConf.get("io.compression.codec.snappy.buffersize", bufferSize);
+            }
+        }		
+		mParams.add(bufferSize);
 		
 		String [] dirs = jobConf.getLocalDirs();
 		ArrayList<String> dirsCanBeCreated = new ArrayList<String>();
@@ -280,6 +300,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 			mParams.add(dirsCanBeCreated.get(i));
 		}
 
+		LOG.info("mParams array is " + mParams);
 		LOG.info("UDA: sending INIT_COMMAND");    	  
 		String msg = UdaCmd.formCmd(UdaCmd.INIT_COMMAND, mParams);
 		UdaBridge.doCommand(msg);
@@ -303,11 +324,11 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	}
 
 	public void close() {
-		mParams.clear();
-		LOG.info("UDA: sending EXIT_COMMAND");    	  
-		String msg = UdaCmd.formCmd(UdaCmd.EXIT_COMMAND, mParams);
-		UdaBridge.doCommand(msg);
+		LOG.info("sending EXIT_COMMAND by calling reduceExitMsg...");    	  
+		UdaBridge.reduceExitMsg();
+    	if (LOG.isDebugEnabled()) LOG.debug(">> C++ finished.  Closing java...");
 		this.j2c_queue.close();
+    	if (LOG.isDebugEnabled()) LOG.debug("<< java finished");
 	}
 
 	public <K extends Object, V extends Object>
@@ -509,9 +530,11 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		public void close() {
 			for (int i = 0; i < kv_buf_num; ++i) {
 				KVBuf buf = kv_bufs[i];
+				if (LOG.isTraceEnabled()) LOG.trace(">>> before synchronized on kv_bufs #" + i);
 				synchronized (buf) {
 					buf.notifyAll();
 				}
+				if (LOG.isTraceEnabled()) LOG.trace("<<< after  synchronized on kv_bufs #" + i);
 			}
 		}
 
@@ -528,7 +551,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 class UdaPluginTT extends UdaPlugin {  
 	
 	static{
-		prepareLog(logging_package_name + ".ShuffleProviderPlugin");
+		prepareLog(ShuffleProviderPlugin.class.getCanonicalName());
 	}
 
 	private static TaskTracker taskTracker;

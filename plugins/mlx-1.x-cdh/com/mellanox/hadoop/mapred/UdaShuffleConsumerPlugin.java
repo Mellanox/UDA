@@ -53,6 +53,9 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;  // TODO: probably concurrency is not needed 
 
+import java.util.Set;
+import java.util.TreeSet;
+
 
 import org.apache.hadoop.mapred.UdaMapredBridge;
 import org.apache.hadoop.fs.FSError;
@@ -297,6 +300,29 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 		LOG.info("createKVIterator: Using fallbackPlugin");
 		return fallbackPlugin.createKVIterator();
 	}
+
+    private class UdaCloserThread extends Thread {
+    	UdaPluginRT rdmaChannel;
+		public UdaCloserThread(UdaPluginRT rdmaChannel) {
+			this.rdmaChannel = rdmaChannel;
+			setName("UdaCloserThread");
+			setDaemon(true);
+		}
+		
+		@Override
+		public void run() {
+			LOG.info(reduceTask.getTaskID() + " Thread started: " + getName());
+			if (rdmaChannel == null) {
+				LOG.warn("rdmaChannel == null");				
+			}
+			else {
+				LOG.info("--->>> closing UdaShuffleConsumerPlugin");
+				rdmaChannel.close();				
+				LOG.info("<<<--- UdaShuffleConsumerPlugin was closed");
+			}
+			LOG.info(reduceTask.getTaskID() + " Thread finished: " + getName());
+		}
+    }
 	
     @Override
 	public void close() {
@@ -304,11 +330,22 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 		if (fallbackPlugin == null) {
 			LOG.info("close - Using UdaShuffleConsumerPlugin");
 			this.rdmaChannel.close();
+			LOG.info("====XXX Successfully closed UdaShuffleConsumerPlugin XXX====");
+
 			return;
 		}
 
 		LOG.info("close: Using fallbackPlugin");
 		fallbackPlugin.close();		
+	
+		// also close UdaPlugin including C++
+		UdaCloserThread udaCloserThread = new UdaCloserThread(rdmaChannel);
+		udaCloserThread.start();
+		try {
+			udaCloserThread.join(1000);  // wait up to 1 second for the udaCloserThread
+		}
+		catch (InterruptedException e){LOG.info("InterruptedException on udaCloserThread.join");}
+		LOG.info("====XXX Successfully closed fallbackPlugin XXX====");
 	}
 	
 	
@@ -437,6 +474,9 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 			reduceTask.getTaskID(), reduceTask.getJvmContext());
 			TaskCompletionEvent events[] = update.getMapTaskCompletionEvents();
 			
+			Set <TaskID>        succeededTasks    = new TreeSet<TaskID>();
+			Set <TaskAttemptID> succeededAttempts = new TreeSet<TaskAttemptID>();
+
 			// Check if the reset is required.
 			// Since there is no ordering of the task completion events at the 
 			// reducer, the only option to sync with the new jobtracker is to reset 
@@ -445,6 +485,15 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 				fromEventId.set(0);
 				//          obsoleteMapIds.clear(); // clear the obsolete map
 				//          mapLocations.clear(); // clear the map locations mapping
+				
+				if (succeededTasks.isEmpty()) {
+					//ignore
+					LOG.info("got reset update before we had any succeeded map - this is OK");
+				}
+				else {
+					//fallback			
+					throw new UdaRuntimeException("got reset update, after " + succeededTasks.size() + " succeeded maps" );
+				}
 			}
 			
 			// Update the last seen event ID
@@ -462,20 +511,45 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 					{
 						URI u = URI.create(event.getTaskTrackerHttp());
 						String host = u.getHost();
-						TaskAttemptID taskId = event.getTaskAttemptId();
-						rdmaChannel.sendFetchReq(host, taskId.getJobID().toString()  , taskId.toString());  // Avner: notify RDMA
+						TaskAttemptID taskAttemptId = event.getTaskAttemptId();
+						succeededAttempts.add(taskAttemptId); // add to collection
+
+						TaskID coreTaskId = taskAttemptId.getTaskID();
+						if (succeededTasks.contains(coreTaskId)) {
+							//ignore
+							LOG.info("Ignoring succeeded attempt, since we already got success event" +
+									" for this task, new attempt is: '" +  taskAttemptId + "'");
+						}
+						else {
+							succeededTasks.add(coreTaskId); // add to collection
+							rdmaChannel.sendFetchReq(host, taskAttemptId.getJobID().toString()  , taskAttemptId.toString());
 						numNewMaps ++;
+					}
 					}
 					break;
 					case FAILED:
 					case KILLED:
 					case OBSOLETE:
 					{
-						//              obsoleteMapIds.add(event.getTaskAttemptId());
-						LOG.info("Ignoring obsolete output of " + event.getTaskStatus() + 
-						" map-task: '" + event.getTaskAttemptId() + "'");
+
+						TaskAttemptID taskAttemptId = event.getTaskAttemptId();
+						if (succeededAttempts.contains(taskAttemptId)) {
+							//fallback
+							
+							String errorMsg = "encountered obsolete map attempt" +
+								" after this attempt was already successful. TaskStatus=" + event.getTaskStatus() +
+								" new attempt: '" + taskAttemptId + "'";
+
+							throw new UdaRuntimeException(errorMsg);
 					}
-					break;
+						else {
+							//ignore
+							LOG.info("Ignoring failed attempt: '" +  taskAttemptId + "' with TaskStatus=" + event.getTaskStatus() + 
+									" that was not reported to C++ before");
+						}
+
+					}
+					// break; - break is unreachable after throw
 					case TIPFAILED:
 					{
 						//              copiedMapOutputs.add(event.getTaskAttemptId().getTaskID());
