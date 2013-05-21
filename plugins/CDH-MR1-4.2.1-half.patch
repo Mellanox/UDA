@@ -1,0 +1,215 @@
+Index: src/mapred/org/apache/hadoop/mapred/ShuffleProviderPlugin.java
+===================================================================
+--- src/mapred/org/apache/hadoop/mapred/ShuffleProviderPlugin.java	(revision 0)
++++ src/mapred/org/apache/hadoop/mapred/ShuffleProviderPlugin.java	(revision 0)
+@@ -0,0 +1,47 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapred;
++import org.apache.hadoop.classification.InterfaceAudience;
++import org.apache.hadoop.classification.InterfaceStability;
++
++/**
++ * This interface is implemented by objects that are able to answer shuffle requests which are
++ * sent from a matching Shuffle Consumer that lives in context of a ReduceTask object.
++ *
++ * ShuffleProviderPlugin object will be notified on the following events:
++ * initialize, destroy.
++ *
++ * NOTE: This interface is also used when loading 3rd party plugins at runtime
++ *
++ */
++@InterfaceAudience.LimitedPrivate("MapReduce")
++@InterfaceStability.Unstable
++public interface ShuffleProviderPlugin {
++  /**
++   * Do constructor work here.
++   * This method is invoked by the TaskTracker Constructor
++   */
++  public void initialize(TaskTracker taskTracker);
++
++  /**
++   * close and cleanup any resource, including threads and disk space.
++   * This method is invoked by TaskTracker.shutdown
++   */
++  public void destroy();
++}
+Index: src/mapred/org/apache/hadoop/mapred/TaskTracker.java
+===================================================================
+--- src/mapred/org/apache/hadoop/mapred/TaskTracker.java	(revision 1442052)
++++ src/mapred/org/apache/hadoop/mapred/TaskTracker.java	(working copy)
+@@ -141,6 +141,9 @@
+   static final long WAIT_FOR_DONE = 3 * 1000;
+   private int httpPort;
+ 
++  public static final String SHUFFLE_PROVIDER_PLUGIN_CLASSES = "mapreduce.shuffle.provider.plugin.classes";
++  final private ShuffleProviderPlugin shuffleProviderPlugin = new MultiShuffleProviderPlugin();
++
+   static enum State {NORMAL, STALE, INTERRUPTED, DENIED}
+ 
+   static{
+@@ -233,6 +236,52 @@
+     }
+   }
+ 
++  public static class DefaultShuffleProvider implements ShuffleProviderPlugin {
++    public void initialize(TaskTracker tt) {
++      tt.server.addInternalServlet("mapOutput", "/mapOutput", MapOutputServlet.class);
++    }
++
++    public void destroy() {
++    }
++  }
++
++  private static class MultiShuffleProviderPlugin implements ShuffleProviderPlugin {
++
++    private ShuffleProviderPlugin[] plugins;
++
++    public void initialize(TaskTracker tt) {
++      Configuration conf = tt.getJobConf();
++      Class<?>[] klasses = conf.getClasses(SHUFFLE_PROVIDER_PLUGIN_CLASSES, DefaultShuffleProvider.class);
++
++      plugins = new ShuffleProviderPlugin[klasses.length];
++      for (int i = 0; i < klasses.length; i++) {
++        try{
++          LOG.info(" Loading ShuffleProviderPlugin: " + klasses[i]);
++          plugins[i] =  (ShuffleProviderPlugin)ReflectionUtils.newInstance(klasses[i], conf);
++          plugins[i].initialize(tt);
++        }
++        catch(Throwable t) {
++          LOG.warn("Exception instantiating/initializing a ShuffleProviderPlugin: " + klasses[i], t);
++          plugins[i] =  null;
++        }
++      }
++    }
++
++    public void destroy() {
++      if (plugins != null) {
++          for (ShuffleProviderPlugin plugin : plugins) {
++            try {
++              if (plugin != null) {
++                plugin.destroy();
++              }
++            } catch (Throwable t) {
++              LOG.warn("Exception destroying a ShuffleProviderPlugin: " + plugin, t);
++            }
++          }
++        }
++      }
++    }
++
+   private LocalStorage localStorage;
+   private long lastCheckDirsTime;
+   private int lastNumFailures;
+@@ -697,7 +746,7 @@
+     + TaskTracker.LOCAL_SPLIT_FILE;
+   }
+ 
+-  static String getIntermediateOutputDir(String user, String jobid,
++  public static String getIntermediateOutputDir(String user, String jobid,
+       String taskid) {
+     return getLocalTaskDir(user, jobid, taskid) + Path.SEPARATOR
+     + TaskTracker.OUTPUT;
+@@ -1433,6 +1482,14 @@
+   public synchronized void shutdown() throws IOException, InterruptedException {
+     shuttingDown = true;
+     close();
++    if (this.shuffleProviderPlugin != null) {
++      try {
++        LOG.info("Shutting down shuffleProviderPlugin");
++        this.shuffleProviderPlugin.destroy();
++      } catch (Exception e) {
++        LOG.warn("Exception shutting down shuffleProviderPlugin", e);
++      }
++    }
+     if (this.server != null) {
+       try {
+         LOG.info("Shutting down StatusHttpServer");
+@@ -1611,7 +1668,7 @@
+     String exceptionMsgRegex = conf.get("mapreduce.reduce.shuffle.catch.exception.message.regex");
+     server.setAttribute("exceptionStackRegex", exceptionStackRegex);
+     server.setAttribute("exceptionMsgRegex", exceptionMsgRegex);
+-    server.addInternalServlet("mapOutput", "/mapOutput", MapOutputServlet.class);
++    shuffleProviderPlugin.initialize(this);
+     server.addServlet("taskLog", "/tasklog", TaskLogServlet.class);
+ 
+     boolean shuffleSsl = conf.getBoolean(JobTracker.SHUFFLE_SSL_ENABLED_KEY,
+@@ -3892,9 +3949,22 @@
+   }
+   
+   /**
++   * Get the specific job conf for a running job.
++   */
++  public JobConf getJobConf(JobID jobId) throws IOException {
++    synchronized (runningJobs) {
++      RunningJob rjob = runningJobs.get(jobId);
++      if (rjob == null) {
++        throw new IOException("Unknown job " + jobId + "!!");
++      }
++      return rjob.getJobConf();
++    }
++  }
++
++  /**
+    * Get the default job conf for this tracker.
+    */
+-  JobConf getJobConf() {
++  public JobConf getJobConf() {
+     return fConf;
+   }
+ 
+@@ -4030,16 +4100,10 @@
+         FileSystem rfs = ((LocalFileSystem)
+             context.getAttribute("local.file.system")).getRaw();
+ 
+-      String userName = null;
+-      String runAsUserName = null;
+-      synchronized (tracker.runningJobs) {
+-        RunningJob rjob = tracker.runningJobs.get(JobID.forName(jobId));
+-        if (rjob == null) {
+-          throw new IOException("Unknown job " + jobId + "!!");
+-        }
+-        userName = rjob.jobConf.getUser();
+-        runAsUserName = tracker.getTaskController().getRunAsUser(rjob.jobConf);
+-      }
++      JobConf jobConf = tracker.getJobConf(JobID.forName(jobId));
++      String userName = jobConf.getUser();
++      String runAsUserName = tracker.getTaskController().getRunAsUser(jobConf);
++
+       // Index file
+       String intermediateOutputDir = TaskTracker.getIntermediateOutputDir(userName, jobId, mapId);
+       String indexKey = intermediateOutputDir + "/file.out.index";
+Index: src/mapred/mapred-default.xml
+===================================================================
+--- src/mapred/mapred-default.xml	(revision 1442052)
++++ src/mapred/mapred-default.xml	(working copy)
+@@ -1334,4 +1334,13 @@
+   </description>
+ </property>
+   
++<property>
++  <name>mapreduce.shuffle.provider.plugin.classes</name>
++  <value>org.apache.hadoop.mapred.TaskTracker$DefaultShuffleProvider</value>
++  <description>A comma-separated list of classes that should be loaded as ShuffleProviderPlugin(s).
++   A ShuffleProviderPlugin can serve shuffle requests from reducetasks.
++   Each class in the list must be an instance of org.apache.hadoop.mapred.ShuffleProviderPlugin.
++  </description>
++</property>
++  
+ </configuration>
