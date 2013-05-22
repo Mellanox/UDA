@@ -188,11 +188,10 @@ static void client_cq_handler(progress_event_t *pevent, void *data)
 					break;
 
 				default:
-					log(lsERROR, "got unhanled cq event: id %llx status %s (%d) opcode %s (%d)", desc.wr_id, ibv_wc_status_str(desc.status), desc.status, netlev_stropcode(desc.opcode), desc.opcode);
+					log(lsERROR, "got unhandled cq event: id %llx status %s (%d) opcode %s (%d)", desc.wr_id, ibv_wc_status_str(desc.status), desc.status, netlev_stropcode(desc.opcode), desc.opcode);
 					break;
 				}
 			}
-			/* output_stdout("Complete event wr_id=0x%lx", desc.wr_id); */
 		}
 	} while (ne);
 
@@ -209,7 +208,7 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 		list_head_t *registered_mem)
 {
 	netlev_conn_t         *conn;
-	struct rdma_cm_event  *event;
+	struct rdma_cm_event  *cm_event;
 	struct rdma_cm_id     *cm_id;
 	struct netlev_dev     *dev;
 	struct sockaddr_in     sin;
@@ -234,20 +233,19 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 		return NULL;
 	}
 
-	if (rdma_get_cm_event(ctx->cm_channel, &event)) {
+	if (rdma_get_cm_event(ctx->cm_channel, &cm_event)) {
 		log(lsERROR, "rdma_get_cm_event failed, (errno=%d %m)",errno);
 		throw new UdaException("rdma_get_cm_event failed");
 		return NULL;
 	}
 
-
-	if (event->event != RDMA_CM_EVENT_ADDR_RESOLVED) {
-		rdma_ack_cm_event(event);
-		log(lsERROR, "unexpected CM event %d", event->event);
-		throw new UdaException("unexpected CM event ");
+	if (cm_event->event != RDMA_CM_EVENT_ADDR_RESOLVED) {
+		rdma_ack_cm_event(cm_event);
+		log(lsERROR, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
+		throw new UdaException("unexpected CM event");
 		return NULL;
 	}
-	rdma_ack_cm_event(event);
+	rdma_ack_cm_event(cm_event);
 
 	if (rdma_resolve_route(cm_id, NETLEV_TIMEOUT_MS)) {
 		log(lsERROR, "rdma_resolve_route failed, (errno=%d %m)",errno);
@@ -255,19 +253,19 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 		return NULL;
 	}
 
-	if (rdma_get_cm_event(ctx->cm_channel, &event)) {
+	if (rdma_get_cm_event(ctx->cm_channel, &cm_event)) {
 		log(lsERROR, "rdma_get_cm_event failed, (errno=%d %m)",errno);
 		throw new UdaException("rdma_get_cm_event failed");
 		return NULL;
 	}
 
-	if (event->event != RDMA_CM_EVENT_ROUTE_RESOLVED) {
-		rdma_ack_cm_event(event);
-		log(lsWARN, "unexpected CM event %d", event->event);
-		//TODO: consider throw new UdaException("unexpected CM event ");
+	if (cm_event->event != RDMA_CM_EVENT_ROUTE_RESOLVED) {
+		rdma_ack_cm_event(cm_event);
+		log(lsWARN, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
+		//TODO: consider throw new UdaException("unexpected CM event");
 		return NULL;
 	}
-	rdma_ack_cm_event(event);
+	rdma_ack_cm_event(cm_event);
 
 	dev = netlev_dev_find(cm_id, &ctx->hdr_dev_list);
 	if (!dev) {
@@ -325,31 +323,31 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 		goto err_rdma_connect;
 	}
 
-	if (rdma_get_cm_event(ctx->cm_channel, &event)) {
+	if (rdma_get_cm_event(ctx->cm_channel, &cm_event)) {
 		log(lsERROR, "rdma_get_cm_event err, (errno=%d %m)",errno);
 		goto err_rdma_connect;
 	}
 
-	if (event->event == RDMA_CM_EVENT_ESTABLISHED) {
-		log(lsINFO, "Successfully got RDMA_CM_EVENT_ESTABLISHED with peer %x:%d", (int)ipaddr, port);
-		conn->peerIPAddr = ipaddr;
-		list_add_tail(&conn->list, &ctx->hdr_conn_list);
-
-		if (!event->param.conn.private_data ||
-				(event->param.conn.private_data_len < sizeof(conn->peerinfo))) {
-			output_stderr("%s: bad private data len %d",
-					__func__, event->param.conn.private_data_len);
-		}
-		memcpy(&conn->peerinfo, event->param.conn.private_data, sizeof(conn->peerinfo));
-		conn->credits = conn->peerinfo.credits;
-		log(lsDEBUG,"Client conn->credits in the beginning is %d", conn->credits);
-		conn->returning = 0;
-		rdma_ack_cm_event(event);
-	} else {
-		log(lsERROR, "client recv unknown RDMA_CM event %s (%d), status=%d", rdma_event_str(event->event), event->event, event->status);
-		rdma_ack_cm_event(event);
+	if (cm_event->event != RDMA_CM_EVENT_ESTABLISHED) {
+		log(lsERROR, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
+		rdma_ack_cm_event(cm_event);
 		goto err_rdma_connect;
 	}
+
+	log(lsINFO, "Successfully got RDMA_CM_EVENT_ESTABLISHED with peer %x:%d", (int)ipaddr, port);
+	conn->peerIPAddr = ipaddr;
+	list_add_tail(&conn->list, &ctx->hdr_conn_list);
+
+	if (!cm_event->param.conn.private_data ||
+			(cm_event->param.conn.private_data_len < sizeof(conn->peerinfo))) {
+		output_stderr("%s: bad private data len %d",
+				__func__, cm_event->param.conn.private_data_len);
+	}
+	memcpy(&conn->peerinfo, cm_event->param.conn.private_data, sizeof(conn->peerinfo));
+	conn->credits = conn->peerinfo.credits;
+	log(lsDEBUG,"Client conn->credits in the beginning is %d", conn->credits);
+	conn->returning = 0;
+	rdma_ack_cm_event(cm_event);
 	return conn;
 
 err_rdma_connect:

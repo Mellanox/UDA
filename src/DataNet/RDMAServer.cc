@@ -262,86 +262,92 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 	}
 
 	switch (cm_event->event) {
-	case RDMA_CM_EVENT_CONNECT_REQUEST:
-	{
-		log(lsDEBUG, "got RDMA_CM_EVENT_CONNECT_REQUEST (on cma_id=%d)", cm_event->id);
-		dev = netlev_dev_find(cm_event->id, &ctx->hdr_dev_list);
-
-		if (!dev) {
-			log(lsDEBUG, "dev not found, creating a new one");
-			dev = rdma_server->create_dev(cm_event->id->verbs);
-		}
-		else {
-			log(lsDEBUG, "found dev=%x", dev);
-		}
-
-		conn = netlev_init_conn(cm_event, dev);
-		log(lsTRACE, "conn=%p", conn);
-		if (!cm_event->param.conn.private_data ||
-				(cm_event->param.conn.private_data_len < sizeof(conn->peerinfo)))
+		case RDMA_CM_EVENT_CONNECT_REQUEST:
 		{
-			log(lsERROR, "bad private data len %d", cm_event->param.conn.private_data_len);
-		}
-		else
-		{
-			memcpy(&conn->peerinfo, cm_event->param.conn.private_data,
-					sizeof(conn->peerinfo));
-		}
-		conn->credits = conn->peerinfo.credits;
-		log(lsTRACE,"Server conn->credits in the beginning is %d", conn->credits);
-		conn->returning = 0;
+			log(lsDEBUG, "got RDMA_CM_EVENT_CONNECT_REQUEST (on cma_id=%d)", cm_event->id);
+			dev = netlev_dev_find(cm_event->id, &ctx->hdr_dev_list);
 
-		conn->state = NETLEV_CONN_RTR;
-		pthread_mutex_lock(&ctx->lock);
-		list_add_tail(&conn->list, &ctx->hdr_conn_list);
-		pthread_mutex_unlock(&ctx->lock);
-	}
+			if (!dev) {
+				log(lsDEBUG, "dev not found, creating a new one");
+				dev = rdma_server->create_dev(cm_event->id->verbs);
+			}
+			else {
+				log(lsDEBUG, "found dev=%x", dev);
+			}
+
+			conn = netlev_init_conn(cm_event, dev);
+			log(lsTRACE, "conn=%p", conn);
+			if (!cm_event->param.conn.private_data ||
+					(cm_event->param.conn.private_data_len < sizeof(conn->peerinfo)))
+			{
+				log(lsERROR, "bad private data len %d", cm_event->param.conn.private_data_len);
+			}
+			else
+			{
+				memcpy(&conn->peerinfo, cm_event->param.conn.private_data,
+						sizeof(conn->peerinfo));
+			}
+			conn->credits = conn->peerinfo.credits;
+			log(lsTRACE,"Server conn->credits in the beginning is %d", conn->credits);
+			conn->returning = 0;
+
+			conn->state = NETLEV_CONN_RTR;
+			pthread_mutex_lock(&ctx->lock);
+			list_add_tail(&conn->list, &ctx->hdr_conn_list);
+			pthread_mutex_unlock(&ctx->lock);
+		}
 		break;
 
-	case RDMA_CM_EVENT_ESTABLISHED:
-		log(lsDEBUG,"got RDMA_CM_EVENT_ESTABLISHED (on cma_id=%d)", cm_event->id);
-		conn = netlev_conn_established(cm_event, &ctx->hdr_conn_list);
-		log(lsDEBUG,"netlev_conn_established returned conn=%p (QPN connection in server is %d)", conn, conn->qp_hndl->qp_num);
+		case RDMA_CM_EVENT_ESTABLISHED:
+		{
+			log(lsDEBUG,"got RDMA_CM_EVENT_ESTABLISHED (on cma_id=%d)", cm_event->id);
+			conn = netlev_conn_established(cm_event, &ctx->hdr_conn_list);
+			log(lsDEBUG,"netlev_conn_established returned conn=%p (QPN connection in server is %d)", conn, conn->qp_hndl->qp_num);
+		}
 		break;
 
-	case RDMA_CM_EVENT_DISCONNECTED:
-		log(lsDEBUG, "got RDMA_CM_EVENT_DISCONNECTED (on cma_id=%d)", cm_event->id);
-		conn = netlev_conn_find_by_qp(cm_event->id->qp->qp_num, &ctx->hdr_conn_list);
-		log(lsTRACE, "calling rdma_ack_cm_event for event=%d", cm_event->event);
-		ret = rdma_ack_cm_event(cm_event);
-		if (ret) {
-			log(lsWARN, "ack cm event failed");
+		case RDMA_CM_EVENT_DISCONNECTED:
+		{
+			log(lsDEBUG, "got RDMA_CM_EVENT_DISCONNECTED (on cma_id=%d)", cm_event->id);
+			conn = netlev_conn_find_by_qp(cm_event->id->qp->qp_num, &ctx->hdr_conn_list);
+			log(lsTRACE, "calling rdma_ack_cm_event for event=%d", cm_event->event);
+			ret = rdma_ack_cm_event(cm_event);
+			if (ret) {
+				log(lsWARN, "ack cm event failed");
+			}
+			conn->bad_conn = true;
+			if (!conn->received_counter) {
+				delete_connection(ctx, conn);
+			}
 		}
-		conn->bad_conn = true;
-		if (!conn->received_counter) {
-			delete_connection(ctx, conn);
-		}
-
 		// don't break here to avoid ack after disconnect
 		return;
 
-
-	case RDMA_CM_EVENT_TIMEWAIT_EXIT:
-		log(lsWARN, "got RDMA_CM_EVENT_TIMEWAIT_EXIT (on cma_id=%d)", cm_event->id);
-		// avner: don't bail out
-		// TODO: consider cleanup
+		case RDMA_CM_EVENT_TIMEWAIT_EXIT:
+		{
+			log(lsWARN, "got RDMA_CM_EVENT_TIMEWAIT_EXIT (on cma_id=%d)", cm_event->id);
+			// avner: don't bail out
+			// TODO: consider cleanup
+		}
 		break;
 
-	default:
-		log(lsERROR, "Server got unknown event %d (on cma_id=%d)", cm_event->event, cm_event->id);
-#if 0
-		// Disregard the unknown event
-		// not the best but definitely not good to bail out
-		// Since we don't know the event we can't be sure if we can destory the cmd_id or not
+		default:
+		{
+			log(lsERROR, "Unhandled RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
+	#if 0
+			// Disregard the unknown event
+			// not the best but definitely not good to bail out
+			// Since we don't know the event we can't be sure if we can destory the cmd_id or not
 
-		if (cm_event->id) {
-			if (rdma_destroy_id(cm_event->id)) {
-				log(lsERROR, "rdma_destroy_id failed");
+			if (cm_event->id) {
+				if (rdma_destroy_id(cm_event->id)) {
+					log(lsERROR, "rdma_destroy_id failed");
+				}
 			}
+			/* XXX: Trigger the exit of all threads */
+			throw new UdaException("Server is bailing out, because of an RDMA unknown event");
+	#endif
 		}
-		/* XXX: Trigger the exit of all threads */
-		throw new UdaException("Server is bailing out, because of an RDMA unknown event");
-#endif
 		break;
 	}
 
