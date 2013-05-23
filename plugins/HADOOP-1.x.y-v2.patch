@@ -58,7 +58,7 @@ index e95bb47..bc564ae
  
    private CompressionCodec codec;
  
-@@ -379,16 +379,33 @@ class ReduceTask extends Task {
+@@ -379,16 +379,28 @@ class ReduceTask extends Task {
      
      // Initialize the codec
      codec = initCodec();
@@ -76,12 +76,7 @@ index e95bb47..bc564ae
 +      Class<? extends ShuffleConsumerPlugin> clazz =
 +               job.getClass(JobContext.SHUFFLE_CONSUMER_PLUGIN_ATTR, ReduceCopier.class, ShuffleConsumerPlugin.class);
 +
-+      if (clazz != ReduceCopier.class) {
-+        shuffleConsumerPlugin = ReflectionUtils.newInstance(clazz, job);
-+      }
-+      else {
-+        shuffleConsumerPlugin = this.new ReduceCopier(); // default plugin is an inner class of ReduceTask
-+      }
++      shuffleConsumerPlugin = ReflectionUtils.newInstance(clazz, job);
 +      LOG.info(" Using ShuffleConsumerPlugin : " + shuffleConsumerPlugin);
 +
 +      ShuffleConsumerPlugin.Context context = new ShuffleConsumerPlugin.Context(ReduceTask.this, umbilical, conf, reporter);
