@@ -96,7 +96,7 @@ class MapOutputLocation {
 
 
 
-public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
+public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin{
 	
 	protected ReduceTask reduceTask;
 	protected TaskAttemptID reduceId;
@@ -110,7 +110,11 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 	private UdaPluginRT rdmaChannel;
 	
 	ShuffleConsumerPlugin fallbackPlugin = null;
-	
+
+  @Override
+  public Throwable getMergeThrowable() {
+    return null;//mergeThrowable;
+  }
 
 	// let other thread wake up fetchOutputs upon completion (either success of failure)
 	private Object fetchLock = new Object();
@@ -173,24 +177,17 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 		* initialize this ShuffleConsumer instance.  The base class implementation will initialize its members and 
 		* then invoke init for plugin specific initiaiztion
 		* 
-		* @param reduceTask
-		* @param umbilical
-		* @param jobConf
-		* @param reporter
-		* @throws ClassNotFoundException
-		* @throws IOException
-	*/
+	*/	
     @Override
-	public void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException {
-
+	public void init(ShuffleConsumerPlugin.Context context) throws IOException {
 		try {
 			LOG.info("init - Using UdaShuffleConsumerPlugin");
-			this.reduceTask = reduceTask;
-			this.reduceId = reduceTask.getTaskID();
+			this.reduceTask = context.getReduceTask();
+			this.reduceId = this.reduceTask.getTaskID();
 			
-			this.umbilical = umbilical;
-			this.jobConf = conf;
-			this.reporter = reporter;
+			this.umbilical = context.getUmbilical();
+			this.jobConf = context.getConf();
+			this.reporter = context.getReporter();
 	
 			configureClasspath(jobConf);
 			this.rdmaChannel = new UdaPluginRT<K,V>(this, reduceTask, jobConf, reporter, reduceTask.getNumMaps());
@@ -199,7 +196,6 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin{
 			doFallbackInit(t);
 		}
 	}
-	
     
 	
 	/** 

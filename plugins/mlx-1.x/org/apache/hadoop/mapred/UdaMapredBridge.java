@@ -27,19 +27,18 @@ import org.apache.hadoop.mapred.ReduceTask.ReduceCopier;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.fs.FileSystem;
 
-/**
- * ShuffleConsumerPlugin that can serve Reducers, and shuffle MOF files from tasktrackers.
- * The tasktracker may use a matching ShuffleProviderPlugin
- * 
- * NOTE: This interface is also used when loading 3rd party plugins at runtime
- * 
- */
 public class UdaMapredBridge {
 	
 	public static ShuffleConsumerPlugin getShuffleConsumerPlugin(Class<? extends ShuffleConsumerPlugin> clazz, ReduceTask reduceTask, 
 			TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws ClassNotFoundException, IOException  {
 	
-		return ShuffleConsumerPlugin.getShuffleConsumerPlugin(clazz, reduceTask, umbilical, conf, (TaskReporter) reporter);
+		if (clazz == null) {
+			clazz = ReduceCopier.class;
+		}
+		ShuffleConsumerPlugin plugin = ReflectionUtils.newInstance(clazz, conf);
+		ShuffleConsumerPlugin.Context context = new ShuffleConsumerPlugin.Context(reduceTask, umbilical, conf, (TaskReporter) reporter);
+		plugin.init(context);
+		return plugin;
 	}
 
 }
