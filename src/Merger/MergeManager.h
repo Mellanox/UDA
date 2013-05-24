@@ -78,6 +78,8 @@ typedef struct memory_pool {
     char                *mem;        
     int32_t              num;
     int64_t              total_size;
+    mem_desc_t			*desc_arr;
+    mem_set_desc_t		*pair_desc_arr;
     struct list_head     register_mem_list;
 } memory_pool_t;
 

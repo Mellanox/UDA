@@ -246,9 +246,9 @@ KVOutput::KVOutput(struct reduce_task *task)
     memory_pool_t *mem_pool;
 
     this->task = task;
-    if (task->isCompressionOff()){// nocompression
+    if (task->isCompressionOff()) {
     	this->staging_mem_idx = 0;
-    }else{
+    } else {
     	this->staging_mem_idx = 1;
     }
 
@@ -262,17 +262,15 @@ KVOutput::KVOutput(struct reduce_task *task)
     
     mem_pool = &(merging_sm.mop_pool);
     /*lock of mop_pool should be done in the calling function in case the reducer is running several LPQs simultaneously  */
-
-    mem_set_desc_t *desc_pair = list_entry(merging_sm.mop_pool.free_descs.next,
-                                                     typeof(*desc_pair), list);
+    log(lsTRACE, "Going to retrieve desc_pair from pool");
+    mem_set_desc_t *desc_pair = list_entry(merging_sm.mop_pool.free_descs.next, typeof(*desc_pair), list);
+    log(lsTRACE, "After retrieving desc_pair from pool");
     for (int i=0; i<NUM_STAGE_MEM; i++){
     	mop_bufs[i] = desc_pair->buffer_unit[i];
     	mop_bufs[i]->status = FETCH_READY;
     }
 
     list_del(&desc_pair->list);
-    delete (desc_pair);
-	
 }
 
 int32_t KVOutput::getFreeBytes()
@@ -294,20 +292,6 @@ MapOutput::~MapOutput()
 KVOutput::~KVOutput() 
 {
 	log(lsTRACE, "d-tor of KVOutput");
-    /* return mem */
-    memory_pool_t *mem_pool = &(merging_sm.mop_pool);
-    mem_set_desc_t *desc_pair = (mem_set_desc_t*) malloc(sizeof(mem_set_desc_t));
-
-    pthread_mutex_lock(&mem_pool->lock);
-
-    for (int i=0; i<NUM_STAGE_MEM; i++){
-    	mop_bufs[i]->status = INIT;
-    	desc_pair->buffer_unit[i] = mop_bufs[i];
-
-    }
-    list_add_tail(&desc_pair->list, &mem_pool->free_descs);
-
-    pthread_mutex_unlock(&mem_pool->lock);
     
     pthread_mutex_destroy(&this->lock);
     pthread_cond_destroy(&this->cond);	

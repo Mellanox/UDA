@@ -211,8 +211,6 @@ void init_mem_desc(mem_desc_t *desc, char *addr, int32_t buf_len){
 	pthread_cond_init(&desc->cond, NULL);
 }
 
-
-
 int  create_mem_pool(int size, int num, memory_pool_t *pool) //similar to the old one
 //buffers come in pair and might be of different size
 {
@@ -249,11 +247,11 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool) //similar to the ol
     return 0;
 }
 
-//yyyyyyyyyyyyyyyyyyy
 int  create_mem_pool_pair(int size1, int size2, int num, memory_pool_t *pool)
 //TODO: merge this with create_mem_pool method
 //buffers come in pair and might be of different size
 {
+	log (lsTRACE, "Going to create memory pool: %d X (buff1_size=%d buff2_size=%d)", num, size1, size2);
     int pagesize = getpagesize();
 
     pthread_mutex_init(&pool->lock, NULL);
@@ -274,27 +272,33 @@ int  create_mem_pool_pair(int size1, int size2, int num, memory_pool_t *pool)
     BULLSEYE_EXCLUDE_BLOCK_END
 
     log(lsDEBUG,"memalign successed - %lld bytes", pool->total_size);
-    memset(pool->mem, 0, pool->total_size);
 
-    for (int i = 0; i < num; ++i) {
+    mem_desc_t *desc_arr =  new mem_desc_t[num*2];
+    mem_set_desc_t* pair_desc_arr = new mem_set_desc_t[num];
+
+    log(lsTRACE, "sizeof(mem_desc_t)=%lld", sizeof(mem_desc_t));
+
+    pthread_mutex_lock(&pool->lock);
+    pool->desc_arr = desc_arr;
+    pool->pair_desc_arr = pair_desc_arr;
+
+    for (int i = 0; i < num; i++) {
     	//init mem_desc of the pair
-        mem_desc_t *desc1 = (mem_desc_t *) malloc(sizeof(mem_desc_t));
+    	mem_desc_t *desc1 = &(desc_arr[2*i]);
+    	mem_desc_t *desc2 = &(desc_arr[2*i+1]);
         init_mem_desc(desc1, pool->mem + i * (size1+size2), size1);
-        mem_desc_t *desc2 = (mem_desc_t *) malloc(sizeof(mem_desc_t));
         init_mem_desc(desc2, pool->mem + i * (size1+size2)+size1, size2);
 
-        mem_set_desc_t *pair_desc = (mem_set_desc_t *) malloc(sizeof(mem_set_desc_t));
-        pair_desc->buffer_unit[0] = desc1;
-        pair_desc->buffer_unit[1] = desc2;
+        pair_desc_arr[i].buffer_unit[0] = desc1;
+        pair_desc_arr[i].buffer_unit[1] = desc2;
 
-        pthread_mutex_lock(&pool->lock);
-        list_add_tail(&pair_desc->list, &pool->free_descs);
-        pthread_mutex_unlock(&pool->lock);
+        list_add_tail(&(pair_desc_arr[i].list), &pool->free_descs);
     }
+    pthread_mutex_unlock(&pool->lock);
+	log (lsTRACE, "After memory pool creation: %d X (buff1_size=%d buff2_size=%d)", num, size1, size2);
+
     return 0;
 }
-
-
 
 static void init_reduce_task(struct reduce_task *task)
 {
@@ -359,19 +363,13 @@ void spawn_reduce_task()
 
 
 //------------------------------------------------------------------------------
-void final_cleanup(){
+void final_cleanup()
+{
 
 	log(lsINFO, "-------------- STOPING PROCESS ---------");
     /* free map output pool */
-    while (!list_empty(&merging_sm.mop_pool.free_descs)) {
-    	mem_set_desc_t *desc_pair = list_entry(merging_sm.mop_pool.free_descs.next,
-                       typeof(*desc_pair), list);
-        list_del(&desc_pair->list);
-        for (int i=0; i<NUM_STAGE_MEM; i++){
-        	 free (desc_pair->buffer_unit[i]);
-        }
-        free(desc_pair);
-    }
+	delete [] merging_sm.mop_pool.desc_arr;
+	delete [] merging_sm.mop_pool.pair_desc_arr;
     pthread_mutex_destroy(&merging_sm.mop_pool.lock);
     free(merging_sm.mop_pool.mem);
     log (lsDEBUG, "mop pool is freed");
