@@ -61,6 +61,8 @@ int netlev_init_rdma_mem(void *mem, uint64_t total_size, netlev_dev_t *dev)
 {
 	netlev_rdma_mem_t *rdma_mem;
 
+	log(lsINFO,"Going to register RDMA memory. size=%llu", total_size);
+
 	rdma_mem = (netlev_rdma_mem_t *) malloc(sizeof(netlev_rdma_mem_t));
 	if (!rdma_mem) {
 		log(lsERROR, "malloc struct netlev_rdma_mem failed");
@@ -76,6 +78,7 @@ int netlev_init_rdma_mem(void *mem, uint64_t total_size, netlev_dev_t *dev)
 		throw new UdaException("ibv_reg_mr failure");
 		return -1;
 	}
+	log(lsINFO, "After RDMA memory registration. size=%llu", total_size);
 
 	dev->rdma_mem = rdma_mem;
 	return 0;
