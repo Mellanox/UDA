@@ -47,7 +47,7 @@ static void server_comp_ibv_recv(netlev_wqe_t *wqe)
 	struct ibv_recv_wr *bad_rr;
 	int rc=0;
 
-	netlev_msg_t  *h = (netlev_msg_t*)wqe->data;
+	netlev_msg_t *h = (netlev_msg_t*)wqe->data;
 	netlev_conn_t *conn = wqe->conn;
 
 	/* Credit flow */
@@ -269,42 +269,7 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 
 		if (!dev) {
 			log(lsDEBUG, "dev not found, creating a new one");
-			dev = (struct netlev_dev *) malloc(sizeof(struct netlev_dev));
-			if (dev == NULL) {
-				output_stderr("[%s,%d] alloc dev failed", __FILE__, __LINE__);
-				//TODO: consider throw exception
-				return;
-			}
-			memset(dev, 0, sizeof(struct netlev_dev));
-			dev->ibv_ctx = cm_event->id->verbs;
-			dev->ctx = ctx;
-			if (netlev_dev_init(dev) != 0) {
-				log(lsWARN, "netlev_dev_init failed");
-				free(dev);
-				return;
-			}
-
-			ret = netlev_init_rdma_mem(rdma_server->rdma_mem,
-					rdma_server->rdma_total_len, dev);
-			if (ret) {
-				log(lsWARN, "netlev_init_rdma_mem failed");
-				free(dev);
-				return;
-			}
-
-			ret = netlev_event_add(ctx->epoll_fd,
-					dev->cq_channel->fd,
-					EPOLLIN, server_cq_handler,
-					dev, &ctx->hdr_event_list);
-			if (ret) {
-				log(lsWARN, "netlev_event_add failed");
-				free(dev);
-				return;
-			}
-
-			pthread_mutex_lock(&ctx->lock);
-			list_add_tail(&dev->list, &ctx->hdr_dev_list);
-			pthread_mutex_unlock(&ctx->lock);
+			dev = rdma_server->create_dev(cm_event->id->verbs);
 		}
 		else {
 			log(lsDEBUG, "found dev=%x", dev);
@@ -388,7 +353,6 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 }
 
 RdmaServer::RdmaServer(int port, int rdma_buf_size, void *state)
-
 {
 	supplier_state_t *smac = (supplier_state_t *)state;
 
@@ -406,15 +370,24 @@ RdmaServer::RdmaServer(int port, int rdma_buf_size, void *state)
 	int rdma_align = getpagesize();
 	this->rdma_total_len = NETLEV_RDMA_MEM_CHUNKS_NUM * ((unsigned long)rdma_buf_size + 2*AIO_ALIGNMENT);
 	this->rdma_chunk_len = rdma_buf_size + 2*AIO_ALIGNMENT;
-	log(lsDEBUG, "rdma_buf_size inside RdmaServer is %d\n", rdma_buf_size);
+	log(lsDEBUG, "rdma_buf_size inside RdmaServer is %d", rdma_buf_size);
 
+	// Server memory allocation
 	this->rdma_mem = (void *) memalign(rdma_align, this->rdma_total_len);
 	if (!this->rdma_mem) {
 		log(lsERROR, "memalign failed");
 		throw new UdaException("memalign failed");
 	}
 	log(lsDEBUG, "memalign successed - %llu bytes", this->rdma_total_len);
+}
 
+RdmaServer::~RdmaServer()
+{
+	log(lsTRACE,"QQ server dtor");
+	pthread_mutex_destroy(&this->ctx.lock);
+	this->parent  = NULL;
+	this->data_mac = NULL;
+	free(this->rdma_mem);
 }
 
 void RdmaServer::start_server()
@@ -438,15 +411,9 @@ void RdmaServer::start_server()
 	pthread_attr_init(&th->attr);
 	pthread_attr_setdetachstate(&th->attr, PTHREAD_CREATE_JOINABLE);
 	uda_thread_create(&th->thread, &th->attr, event_processor, th);
-}
 
-RdmaServer::~RdmaServer()
-{
-	log(lsTRACE,"QQ server dtor");
-	pthread_mutex_destroy(&this->ctx.lock);
-	this->parent  = NULL;
-	this->data_mac = NULL;
-	free(this->rdma_mem);
+	// mapping and registering memory for all RDMA capable device
+	map_ib_devices();
 }
 
 void RdmaServer::stop_server()
@@ -555,6 +522,70 @@ int RdmaServer::destroy_listener()
 	rdma_destroy_event_channel(this->ctx.cm_channel);
 	pthread_mutex_unlock(&this->ctx.lock);
 	return 0;
+}
+
+int RdmaServer::map_ib_devices()
+{
+	int n_num_devices = 0;
+	struct ibv_context** pp_ibv_context_list = rdma_get_devices(&n_num_devices);
+	if (!pp_ibv_context_list) {
+		log(lsERROR, "No RDMA capable devices found!");
+		throw new UdaException("No capable RDMA devices found");
+	}
+	if (!n_num_devices) {
+		rdma_free_devices(pp_ibv_context_list);
+		log(lsERROR, "No RDMA capable devices found!");
+		throw new UdaException("No capable RDMA devices found");
+	}
+	log(lsDEBUG, "Mapping %d ibv devices", n_num_devices);
+	for (int i = 0; i < n_num_devices; i++) {
+		create_dev(pp_ibv_context_list[i]);
+	}
+
+	rdma_free_devices(pp_ibv_context_list);
+	return n_num_devices;
+}
+
+struct netlev_dev* RdmaServer::create_dev(struct ibv_context* ibv_ctx)
+{
+	int ret = 0;
+	struct netlev_dev* dev = (struct netlev_dev *) malloc(sizeof(struct netlev_dev));
+	if (dev == NULL) {
+		log(lsERROR, "alloc dev failed (errno=%d %m)", errno);
+		//TODO: consider throw exception
+		return NULL;
+	}
+	memset(dev, 0, sizeof(struct netlev_dev));
+	dev->ibv_ctx = ibv_ctx;
+	dev->ctx = &ctx;
+	if (netlev_dev_init(dev) != 0) {
+		log(lsWARN, "netlev_dev_init failed");
+		free(dev);
+		return NULL;
+	}
+
+	ret = netlev_init_rdma_mem(rdma_mem, rdma_total_len, dev);
+	if (ret) {
+		log(lsWARN, "netlev_init_rdma_mem failed");
+		free(dev);
+		return NULL;
+	}
+
+	ret = netlev_event_add(ctx.epoll_fd,
+			dev->cq_channel->fd,
+			EPOLLIN, server_cq_handler,
+			dev, &ctx.hdr_event_list);
+	if (ret) {
+		log(lsWARN, "netlev_event_add failed");
+		free(dev);
+		return NULL;
+	}
+
+	pthread_mutex_lock(&ctx.lock);
+	list_add_tail(&dev->list, &ctx.hdr_dev_list);
+	pthread_mutex_unlock(&ctx.lock);
+
+	return dev;
 }
 
 int RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req, uintptr_t laddr,

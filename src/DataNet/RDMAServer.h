@@ -37,6 +37,8 @@ public:
 	void stop_server();
 	int create_listener ();
 	int destroy_listener();
+	int map_ib_devices();
+	struct netlev_dev* create_dev(struct ibv_context* ibv_ctx);
 	int rdma_write_mof_send_ack(struct shuffle_req *req, uintptr_t addr,
 			uint64_t req_size, void* chunk, struct index_record* record);
 	int                data_port;

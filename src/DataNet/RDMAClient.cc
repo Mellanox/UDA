@@ -292,7 +292,6 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 			}
 		}
 
-
 		netlev_event_add(ctx->epoll_fd, dev->cq_channel->fd,
 				EPOLLIN, client_cq_handler,
 				dev, &ctx->hdr_event_list);
@@ -446,9 +445,14 @@ RdmaClient::~RdmaClient()
 
 void RdmaClient::register_mem(struct memory_pool *mem_pool)
 {
+	int rc = 0;
 	struct netlev_dev *dev = NULL;
 	list_for_each_entry(dev, &this->ctx.hdr_dev_list, list) {
-		netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
+		rc = netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
+		if (rc) {
+			log(lsERROR, "UDA critical error: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
+			throw new UdaException("failure in netlev_init_rdma_mem");
+		}
 	}
 	list_add_tail(&mem_pool->register_mem_list, &this->register_mems_head);
 }
