@@ -1,4 +1,4 @@
-SUBDIRS = mlx-1.x  mlx-3.x/  mlx-CDH3u4/
+SUBDIRS = mlx-1.x/  mlx-1.x-cdh-4.2/  mlx-3.x/  mlx-CDH3u4/
 
 .PHONY: all $(SUBDIRS)
      
