@@ -20,15 +20,17 @@
 #%define doc_dir  /usr/share/doc/%{name}-%{version}/
 %define doc_dir  %{uda_dir}
 
-%define uda_lib                libuda.so
-%define uda_hadoop_1x_jar      uda-hadoop-1.x.jar
-%define uda_hadoop_3x_jar      uda-hadoop-3.x.jar
-%define uda_CDH3u4_jar         uda-CDH3u4.jar
-%define uda_readme             README
-%define uda_lic                LICENSE.txt
-%define uda_utils              utils.tgz
-%define uda_source             source.tgz
-%define uda_journal            journal.txt
+%define uda_lib                 libuda.so
+%define uda_hadoop_1x_jar       uda-hadoop-1.x.jar
+%define uda_hadoop_1x_v1_jar    uda-hadoop-1.x-v1.jar
+%define uda_hadoop_1x_cdh42_jar uda-hadoop-1.x-cdh-4.2.jar
+%define uda_hadoop_3x_jar       uda-hadoop-3.x.jar
+%define uda_CDH3u4_jar          uda-CDH3u4.jar
+%define uda_readme              README
+%define uda_lic                 LICENSE.txt
+%define uda_utils               utils.tgz
+%define uda_source              source.tgz
+%define uda_journal             journal.txt
 
 %define hname hadoop
 %define hadoop_name hadoop
@@ -80,7 +82,8 @@ Source5:        %{uda_CDH3u4_jar}
 Source7:        %{uda_hadoop_3x_jar}
 Source8:        %{uda_source}
 Source9:        %{uda_journal}
-
+Source10:       %{uda_hadoop_1x_v1_jar}
+Source11:       %{uda_hadoop_1x_cdh42_jar}
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 #BuildArch:      noarch
@@ -119,6 +122,8 @@ install -m 0644 %{SOURCE5} $RPM_BUILD_ROOT%{uda_dir}/%{uda_CDH3u4_jar}
 install -m 0644 %{SOURCE7} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_3x_jar}
 install -m 0644 %{SOURCE8} $RPM_BUILD_ROOT%{doc_dir}/%{uda_source}
 install -m 0644 %{SOURCE9} $RPM_BUILD_ROOT%{doc_dir}/%{uda_journal}
+install -m 0644 %{SOURCE10} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_1x_v1_jar}
+install -m 0644 %{SOURCE11} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_1x_cdh42_jar}
 
 %post
 cd %{uda_dir}
@@ -144,5 +149,7 @@ rm -rf $RPM_BUILD_ROOT
 %{uda_dir}/%{uda_hadoop_3x_jar}
 %{doc_dir}/%{uda_source}
 %{doc_dir}/%{uda_journal}
+%{uda_dir}/%{uda_hadoop_1x_v1_jar}
+%{uda_dir}/%{uda_hadoop_1x_cdh42_jar}
 
 %changelog
