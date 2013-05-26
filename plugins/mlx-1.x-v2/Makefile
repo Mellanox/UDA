@@ -19,7 +19,7 @@
 #CPATH=hadoop-core-2.0.0-mr1-cdh4.1.3.jar:hadoop-common-2.0.0-cdh4.1.3.jar:commons-logging-1.1.1.jar
 CPATH=hadoop-core-1.1.3-SNAPSHOT.jar:commons-logging-1.1.1.jar
 
-TARGET=uda-hadoop-1.x.jar
+TARGET=uda-hadoop-1.x-v2.jar
 
 FILES=com/mellanox/hadoop/mapred/*.java \
       org/apache/hadoop/mapred/*.java \

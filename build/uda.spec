@@ -21,7 +21,7 @@
 %define doc_dir  %{uda_dir}
 
 %define uda_lib                 libuda.so
-%define uda_hadoop_1x_jar       uda-hadoop-1.x.jar
+%define uda_hadoop_1x_v2_jar    uda-hadoop-1.x-v2.jar
 %define uda_hadoop_1x_v1_jar    uda-hadoop-1.x-v1.jar
 %define uda_hadoop_1x_cdh42_jar uda-hadoop-1.x-cdh-4.2.jar
 %define uda_hadoop_3x_jar       uda-hadoop-3.x.jar
@@ -74,7 +74,7 @@ License:        Apache License v2.0
 Group:          Acceleration
 URL:            http://www.mellanox.com/
 Source0:        %{uda_lib}
-Source1:        %{uda_hadoop_1x_jar}
+Source1:        %{uda_hadoop_1x_v2_jar}
 Source2:        %{uda_readme}
 Source3:        %{uda_lic}
 Source4:        %{uda_utils}
@@ -114,7 +114,7 @@ rm -rf $RPM_BUILD_ROOT
 %__install -d -m 0755 $RPM_BUILD_ROOT%{doc_dir}
 
 install -m 0755 %{SOURCE0} $RPM_BUILD_ROOT%{uda_dir}/%{uda_lib}
-install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_1x_jar}
+install -m 0644 %{SOURCE1} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_1x_v2_jar}
 install -m 0644 %{SOURCE2} $RPM_BUILD_ROOT%{doc_dir}/%{uda_readme}
 install -m 0644 %{SOURCE3} $RPM_BUILD_ROOT%{doc_dir}/%{uda_lic}
 install -m 0644 %{SOURCE4} $RPM_BUILD_ROOT%{uda_dir}/%{uda_utils}
@@ -126,9 +126,8 @@ install -m 0644 %{SOURCE10} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_1x_v1_jar}
 install -m 0644 %{SOURCE11} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_1x_cdh42_jar}
 
 %post
-cd %{uda_dir}
-tar -xf %{uda_utils}
-cd -
+(cd %{uda_dir}; tar -xf %{uda_utils})
+(cd %{uda_dir}; ln  -sf %{uda_hadoop_1x_v2_jar} uda-hadoop-1.x.jar )
 
 %postun
 rm -rf %{uda_dir}
@@ -142,7 +141,7 @@ rm -rf $RPM_BUILD_ROOT
 %doc
 %{uda_dir}/%{uda_lib}
 %{uda_dir}/%{uda_CDH3u4_jar}
-%{uda_dir}/%{uda_hadoop_1x_jar}
+%{uda_dir}/%{uda_hadoop_1x_v2_jar}
 %{doc_dir}/%{uda_readme}
 %{doc_dir}/%{uda_lic}
 %{uda_dir}/%{uda_utils}
