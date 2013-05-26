@@ -32,10 +32,17 @@ public class UdaMapredBridge {
 	public static ShuffleConsumerPlugin getShuffleConsumerPlugin(Class<? extends ShuffleConsumerPlugin> clazz, ReduceTask reduceTask, 
 			TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws ClassNotFoundException, IOException  {
 	
+		ShuffleConsumerPlugin plugin = null;
+
 		if (clazz == null) {
 			clazz = ReduceCopier.class;
 		}
-		ShuffleConsumerPlugin plugin = ReflectionUtils.newInstance(clazz, conf);
+		if (clazz == ReduceCopier.class) {
+			plugin = reduceTask.new ReduceCopier();
+		}
+		else {			
+		  plugin = ReflectionUtils.newInstance(clazz, conf);
+		}
 		ShuffleConsumerPlugin.Context context = new ShuffleConsumerPlugin.Context(reduceTask, umbilical, conf, (TaskReporter) reporter);
 		plugin.init(context);
 		return plugin;
