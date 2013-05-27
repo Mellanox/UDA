@@ -50,7 +50,7 @@ libuda_la_SOURCES =		MOFServer/IndexInfo.cc \
 						Merger/DecompressorWrapper.cc \
 						Merger/CompareFunc.cc \
 						Merger/LzoDecompressor.cc \
-						Merger/SnappyDecompressor.cc \ 
+						Merger/SnappyDecompressor.cc \
 						UdaBridge.cc
 						
 libuda_la_LIBADD =  -lpthread -libverbs -lrdmacm -laio
