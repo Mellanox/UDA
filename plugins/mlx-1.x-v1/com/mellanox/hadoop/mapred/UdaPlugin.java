@@ -238,7 +238,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		}
 		
 		if(jobConf.getSpeculativeExecution()) { // (getMapSpeculativeExecution() || getReduceSpeculativeExecution())
-			LOG.warn("UDA does not support speculative execution. ERROR may occur due to unexpected behavior");
+			LOG.info("UDA has limited support for map task speculative execution");
 		}
 		
 		LOG.info("UDA: number of segments to fetch: " + numMaps);
