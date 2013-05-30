@@ -126,6 +126,7 @@ static void client_cq_handler(progress_event_t *pevent, void *data)
 {
 	int rc=0;
 	int ne = 0;
+	int loop_count = 0;
 	struct ibv_wc desc;
 	void *ctx;
 	netlev_dev_t *dev = (netlev_dev_t *) pevent->data;
@@ -193,6 +194,12 @@ static void client_cq_handler(progress_event_t *pevent, void *data)
 				}
 			}
 		}
+		loop_count++;
+		if (loop_count > 1000) {
+			log(lsDEBUG, "WARN: already handling %d cq events in a single loop", loop_count);
+			loop_count = 0;
+		}
+
 	} while (ne);
 
 error_event:

@@ -146,9 +146,10 @@ static void delete_connection(struct netlev_ctx *ctx, struct netlev_conn *conn)
 
 static void server_cq_handler(progress_event_t *pevent, void *data)
 {
+	int ne = 0;
+	int loop_count = 0;
 	struct ibv_wc desc;
 	netlev_wqe_t *wqe = NULL;
-	int ne = 0;
 	struct netlev_dev *dev = (netlev_dev_t *)data;
 
 	void *ctx;
@@ -230,6 +231,12 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 				}
 			}
 		}
+		loop_count++;
+		if (loop_count > 1000) {
+			log(lsDEBUG, "WARN: already handling %d cq events in a single loop", loop_count);
+			loop_count = 0;
+		}
+
 	} while (ne);
 
 error_event:
