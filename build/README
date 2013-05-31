@@ -30,6 +30,8 @@
 #1. add line containing jar name matching your hadoop version to the end of your hadoop-env.sh.
 	For Hadoop 1.x.y (including HDP) add:
 	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-1.x.jar
+	OR (in case you need the older version):
+	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-1.x-v1.jar
 	For CDH3u4 add:
 	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-CDH3u4.jar
 
@@ -70,10 +72,22 @@ Required options:
 	<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 	<configuration>
 
+	
+		 
+		<property>
+		  <name>mapreduce.shuffle.provider.plugin.classes</name>
+		  <value>com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin,org.apache.hadoop.mapred.TaskTracker$DefaultShuffleProvider</value>              
+		  <description>A comma-separated list of classes that should be loaded as ShuffleProviderPlugin(s).
+		   A ShuffleProviderPlugin can serve shuffle requests from reducetasks.
+		   Each class in the list must be an instance of org.apache.hadoop.mapred.ShuffleProviderPlugin.
+		  </description>
+		</property>
+		 
+			
 		<property>
 		<name>mapred.tasktracker.shuffle.provider.plugin</name>
 			<value>com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin</value>	
-			<description>
+			<description> This is if you want support for the older version: uda-hadoop-1.x-v1.jar
 				represents plugin for shuffle at TaskTracker side 
 				default value is: 
 				(empty string)
@@ -97,9 +111,10 @@ Required options:
 	<?xml version="1.0"?>
 	<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 	<configuration>
+
 		
 		<property>
-			<name>mapred.reducetask.shuffle.consumer.plugin</name>
+			<name>mapreduce.job.reduce.shuffle.consumer.plugin.class</name>
 			<value>com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin</value>
 			<description>
 				represents plugin for shuffle at ReduceTask side 
@@ -109,6 +124,21 @@ Required options:
 				com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin
 			</description>
 		</property>
+
+	
+		<property>
+			<name>mapred.reducetask.shuffle.consumer.plugin</name>
+			<value>com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin</value>
+			<description> This is if you want support for the older version: uda-hadoop-1.x-v1.jar
+				represents plugin for shuffle at ReduceTask side 
+				default value is: 
+				org.apache.hadoop.mapred.ReduceCopier
+				You can also try: 
+				com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin
+			</description>
+		</property>
+		
+		
 		
 	</configuration>
 

@@ -3,6 +3,23 @@
 #
 
 ================================
+Version: 3.1.11-0 - 2013-05-31
+================================
+
+NEW FEATURES:
+	Feature #202222 Support CDH 4.2.1 (mr1) and support additional version of our plugin-ability patch
+	which is closer to the work with the community.  The new plugin requires conf changes.  See README.
+
+IMPROVEMENTS:
+	Task #206244 system configuration guidelines about importance of swapoff when running Uda and/or hadoop
+
+================================
+Version: 3.1.10-0 - 2013-05-21
+================================
+
+internal version
+
+================================
 Version: 3.1.9-0 - 2013-05-09
 ================================
 
