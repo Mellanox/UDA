@@ -70,6 +70,8 @@ int netlev_init_rdma_mem(void *mem, uint64_t total_size, netlev_dev_t *dev)
 		return -1;
 	}
 
+	log(lsTRACE, "After malloc");
+
 	rdma_mem->total_size = total_size;
 	rdma_mem->mr = ibv_reg_mr(dev->pd, mem, total_size, NETLEV_MEM_ACCESS_PERMISSION);
 	if (!rdma_mem->mr) {
