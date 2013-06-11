@@ -197,6 +197,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		
 		mCmdParams.add("-s");
 		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
+		
 
 	}
 
@@ -206,23 +207,44 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		this.udaShuffleConsumer = udaShuffleConsumer;
 		this.reduceTask = reduceTask;
 		
+		String totalRdmaSizeStr = jobConf.get("mapred.rdma.shuffle.total.size", "0"); // default 0 means ignoring this parameter and use instead -Xmx and mapred.job.shuffle.input.buffer.percent
+		long totalRdmaSize = StringUtils.TraditionalBinaryPrefix.string2long(totalRdmaSizeStr);
 		long maxRdmaBufferSize= jobConf.getLong("mapred.rdma.buf.size", 1024);
 		long minRdmaBufferSize=jobConf.getLong("mapred.rdma.buf.size.min", 16);
-		long maxHeapSize = Runtime.getRuntime().maxMemory();
-		double shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", DEFAULT_SHUFFLE_INPUT_PERCENT);
-		if ((shuffleInputBufferPercent < 0) || (shuffleInputBufferPercent > 1)) {
-			LOG.warn("UDA: mapred.job.shuffle.input.buffer.percent is out of range - set to default: " + DEFAULT_SHUFFLE_INPUT_PERCENT);
-			shuffleInputBufferPercent = DEFAULT_SHUFFLE_INPUT_PERCENT;
+		long shuffleMemorySize = totalRdmaSize;
+		StringBuilder meminfoSb = new StringBuilder();
+		meminfoSb.append("UDA: numMaps=").append(numMaps);
+		meminfoSb.append(", maxRdmaBufferSize=").append(maxRdmaBufferSize);
+		meminfoSb.append("KB, minRdmaBufferSize=").append(minRdmaBufferSize).append("KB");
+		meminfoSb.append("KB, rdmaShuffleTotalSize=").append(totalRdmaSize);
+		
+		if (totalRdmaSize < 0) {
+			LOG.warn("Illegal paramter value: mapred.rdma.shuffle.total.size=" +  totalRdmaSize);
 		}
-		long shuffleMemorySize = (long)(maxHeapSize * shuffleInputBufferPercent);
+
+		if (totalRdmaSize <= 0) {	
+			long maxHeapSize = Runtime.getRuntime().maxMemory();
+			double shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", DEFAULT_SHUFFLE_INPUT_PERCENT);
+			if ((shuffleInputBufferPercent < 0) || (shuffleInputBufferPercent > 1)) {
+				LOG.warn("UDA: mapred.job.shuffle.input.buffer.percent is out of range - set to default: " + DEFAULT_SHUFFLE_INPUT_PERCENT);
+				shuffleInputBufferPercent = DEFAULT_SHUFFLE_INPUT_PERCENT;
+			}
+			shuffleMemorySize = (long)(maxHeapSize * shuffleInputBufferPercent);
+			
+			LOG.info("Using JAVA Xmx with mapred.job.shuffle.input.buffer.percent to limit UDA shuffle memory");
+				
+			meminfoSb.append(", maxHeapSize=").append(maxHeapSize).append("B");
+			meminfoSb.append(", shuffleInputBufferPercent=").append(shuffleInputBufferPercent);			
+			meminfoSb.append("==> shuffleMemorySize=").append(shuffleMemorySize).append("B");
+			
+			LOG.info("RDMA shuffle memory is limited to " + shuffleMemorySize/1024/1024 + "MB");
+		} 
+		else {
+			LOG.info("Using mapred.rdma.shuffle.total.size to limit UDA shuffle memory");
+			LOG.info("RDMA shuffle memory is limited to " + totalRdmaSize/1024/1024 + "MB");
+		}
 		
-		LOG.debug("UDA: numMaps=" + numMaps + 
-				", maxRdmaBufferSize=" + maxRdmaBufferSize + "KB, " + 
-				"minRdmaBufferSize=" + minRdmaBufferSize + "KB, " +
-				"maxHeapSize=" + maxHeapSize + "B, " +
-				"shuffleInputBufferPercent=" + shuffleInputBufferPercent + 
-				"==> shuffleMemorySize=" + shuffleMemorySize + "B");
-		
+		LOG.debug(meminfoSb.toString());
 		LOG.info("UDA: user prefer rdma.buf.size=" + maxRdmaBufferSize + "KB");
 		LOG.info("UDA: minimum rdma.buf.size=" + minRdmaBufferSize + "KB");
 
