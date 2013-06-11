@@ -4,7 +4,8 @@ set -ex
 
 cd `dirname $0`
 
-export JAVA_HOME=/usr/lib64/java/jdk1.6.0_25 
+#export JAVA_HOME=/usr/lib64/java/jdk1.6.0_25 
+export JAVA_HOME=/usr/java/jdk1.6.0_45
 make -C ../
 
 tar --gzip -cvf utils.tgz ../utils/*  #temp, should move to ./buildrpm.sh
