@@ -1,0 +1,785 @@
+diff --git src/mapred/mapred-default.xml src/mapred/mapred-default.xml
+index 93f59b0..b617042 100644
+--- src/mapred/mapred-default.xml
++++ src/mapred/mapred-default.xml
+@@ -203,6 +203,24 @@
+ </property>
+ 
+ <property>
++  <name>mapreduce.job.reduce.shuffle.consumer.plugin.class</name>
++  <value>org.apache.hadoop.mapred.ReduceTask$ReduceCopier</value>
++  <description>Name of the class whose instance will be used
++   to send shuffle requests by reducetasks of this job.
++   The class must be an instance of org.apache.hadoop.mapred.ShuffleConsumerPlugin.
++  </description>
++</property>
++
++<property>
++  <name>mapreduce.shuffle.provider.plugin.classes</name>
++  <value>org.apache.hadoop.mapred.TaskTracker$DefaultShuffleProvider</value>
++  <description>A comma-separated list of classes that should be loaded as ShuffleProviderPlugin(s).
++   A ShuffleProviderPlugin can serve shuffle requests from reducetasks.
++   Each class in the list must be an instance of org.apache.hadoop.mapred.ShuffleProviderPlugin.
++  </description>
++</property>
++
++<property>
+   <name>mapred.tasktracker.taskmemorymanager.monitoring-interval</name>
+   <value>5000</value>
+   <description>The interval, in milliseconds, for which the tasktracker waits
+diff --git src/mapred/org/apache/hadoop/mapred/ReduceTask.java src/mapred/org/apache/hadoop/mapred/ReduceTask.java
+old mode 100644
+new mode 100755
+index e95bb47..bc564ae
+--- src/mapred/org/apache/hadoop/mapred/ReduceTask.java
++++ src/mapred/org/apache/hadoop/mapred/ReduceTask.java
+@@ -77,6 +77,7 @@ import org.apache.hadoop.mapred.Merger.Segment;
+ import org.apache.hadoop.mapred.SortedRanges.SkipRangeIterator;
+ import org.apache.hadoop.mapred.TaskTracker.TaskInProgress;
+ import org.apache.hadoop.mapreduce.TaskAttemptContext;
++import org.apache.hadoop.mapreduce.JobContext;
+ import org.apache.hadoop.metrics2.MetricsBuilder;
+ import org.apache.hadoop.util.Progress;
+ import org.apache.hadoop.util.Progressable;
+@@ -94,7 +95,7 @@ import org.apache.hadoop.metrics2.lib.MetricMutableCounterLong;
+ import org.apache.hadoop.mapreduce.security.SecureShuffleUtils;
+ 
+ /** A Reduce task. */
+-class ReduceTask extends Task {
++public class ReduceTask extends Task {
+ 
+   static {                                        // register a ctor
+     WritableFactories.setFactory
+@@ -106,7 +107,6 @@ class ReduceTask extends Task {
+   
+   private static final Log LOG = LogFactory.getLog(ReduceTask.class.getName());
+   private int numMaps;
+-  private ReduceCopier reduceCopier;
+ 
+   private CompressionCodec codec;
+ 
+@@ -379,16 +379,33 @@ class ReduceTask extends Task {
+     
+     // Initialize the codec
+     codec = initCodec();
++    ShuffleConsumerPlugin shuffleConsumerPlugin = null;
+ 
+     boolean isLocal = "local".equals(job.get("mapred.job.tracker", "local"));
+     if (!isLocal) {
+-      reduceCopier = new ReduceCopier(umbilical, job, reporter);
+-      if (!reduceCopier.fetchOutputs()) {
+-        if(reduceCopier.mergeThrowable instanceof FSError) {
+-          throw (FSError)reduceCopier.mergeThrowable;
++      // loads ShuffleConsumerPlugin according to configuration file
++      // +++ NOTE: This code support load of 3rd party plugins at runtime +++
++      //
++      Class<? extends ShuffleConsumerPlugin> clazz =
++               job.getClass(JobContext.SHUFFLE_CONSUMER_PLUGIN_ATTR, ReduceCopier.class, ShuffleConsumerPlugin.class);
++
++      if (clazz != ReduceCopier.class) {
++        shuffleConsumerPlugin = ReflectionUtils.newInstance(clazz, job);
++      }
++      else {
++        shuffleConsumerPlugin = this.new ReduceCopier(); // default plugin is an inner class of ReduceTask
++      }
++      LOG.info(" Using ShuffleConsumerPlugin : " + shuffleConsumerPlugin);
++
++      ShuffleConsumerPlugin.Context context = new ShuffleConsumerPlugin.Context(ReduceTask.this, umbilical, conf, reporter);
++      shuffleConsumerPlugin.init(context);
++
++      if (!shuffleConsumerPlugin.fetchOutputs()) {
++        if(shuffleConsumerPlugin.getMergeThrowable() instanceof FSError) {
++          throw (FSError)shuffleConsumerPlugin.getMergeThrowable();
+         }
+         throw new IOException("Task: " + getTaskID() + 
+-            " - The reduce copier failed", reduceCopier.mergeThrowable);
++            " - The ShuffleConsumerPlugin " + clazz.getSimpleName() + " failed", shuffleConsumerPlugin.getMergeThrowable());
+       }
+     }
+     copyPhase.complete();                         // copy is already complete
+@@ -402,7 +419,7 @@ class ReduceTask extends Task {
+           !conf.getKeepFailedTaskFiles(), job.getInt("io.sort.factor", 100),
+           new Path(getTaskID().toString()), job.getOutputKeyComparator(),
+           reporter, spilledRecordsCounter, null)
+-      : reduceCopier.createKVIterator(job, rfs, reporter);
++      : shuffleConsumerPlugin.createKVIterator(job, rfs, reporter);
+         
+     // free up the data structures
+     mapOutputFilesOnDisk.clear();
+@@ -421,6 +438,9 @@ class ReduceTask extends Task {
+       runOldReducer(job, umbilical, reporter, rIter, comparator, 
+                     keyClass, valueClass);
+     }
++    if (shuffleConsumerPlugin != null) {
++      shuffleConsumerPlugin.close();
++    }
+     done(umbilical, reporter);
+   }
+ 
+@@ -657,11 +677,11 @@ class ReduceTask extends Task {
+     OTHER_ERROR
+   };
+ 
+-  class ReduceCopier<K, V> implements MRConstants {
++  class ReduceCopier<K, V> implements ShuffleConsumerPlugin, MRConstants {
+ 
+     /** Reference to the umbilical object */
+     private TaskUmbilicalProtocol umbilical;
+-    private final TaskReporter reporter;
++    private TaskReporter reporter;
+     
+     /** Reference to the task object */
+     
+@@ -748,18 +768,18 @@ class ReduceTask extends Task {
+     /**
+      * When we accumulate maxInMemOutputs number of files in ram, we merge/spill
+      */
+-    private final int maxInMemOutputs;
++    private int maxInMemOutputs;
+ 
+     /**
+      * Usage threshold for in-memory output accumulation.
+      */
+-    private final float maxInMemCopyPer;
++    private float maxInMemCopyPer;
+ 
+     /**
+      * Maximum memory usage of map outputs to merge from memory into
+      * the reduce, in bytes.
+      */
+-    private final long maxInMemReduce;
++    private long maxInMemReduce;
+ 
+     /**
+      * The threads for fetching the files.
+@@ -809,7 +829,7 @@ class ReduceTask extends Task {
+     /**
+      * Maximum number of fetch failures before reducer aborts.
+      */
+-    private final int abortFailureLimit;
++    private int abortFailureLimit;
+ 
+     /**
+      * Initial penalty time in ms for a fetch failure.
+@@ -1924,16 +1944,16 @@ class ReduceTask extends Task {
+       URLClassLoader loader = new URLClassLoader(urls, parent);
+       conf.setClassLoader(loader);
+     }
+-    
+-    public ReduceCopier(TaskUmbilicalProtocol umbilical, JobConf conf,
+-                        TaskReporter reporter
+-                        )throws ClassNotFoundException, IOException {
++
++    @Override
++    public void init (ShuffleConsumerPlugin.Context context)throws ClassNotFoundException, IOException {
+       
++      JobConf conf = context.getConf();
++      this.reporter = context.getReporter();
++      this.umbilical = context.getUmbilical();
++      this.reduceTask = context.getReduceTask();
+       configureClasspath(conf);
+-      this.reporter = reporter;
+       this.shuffleClientMetrics = new ShuffleClientMetrics(conf);
+-      this.umbilical = umbilical;      
+-      this.reduceTask = ReduceTask.this;
+ 
+       this.scheduledCopies = new ArrayList<MapOutputLocation>(100);
+       this.copyResults = new ArrayList<CopyResult>(100);    
+@@ -1993,12 +2013,22 @@ class ReduceTask extends Task {
+       this.reportReadErrorImmediately = 
+         conf.getBoolean("mapreduce.reduce.shuffle.notify.readerror", true);
+     }
+-    
++
++    @Override
++    public Throwable getMergeThrowable() {
++      return mergeThrowable;
++    }
++
++    @Override
++    public void close(){
++    }
++
+     private boolean busyEnough(int numInFlight) {
+       return numInFlight > maxInFlight;
+     }
+     
+     
++    @Override
+     public boolean fetchOutputs() throws IOException {
+       int totalFailures = 0;
+       int            numInFlight = 0, numCopied = 0;
+@@ -2441,8 +2471,9 @@ class ReduceTask extends Task {
+      * first merge pass. If not, then said outputs must be written to disk
+      * first.
+      */
++    @Override
+     @SuppressWarnings("unchecked")
+-    private RawKeyValueIterator createKVIterator(
++    public RawKeyValueIterator createKVIterator(
+         JobConf job, FileSystem fs, Reporter reporter) throws IOException {
+ 
+       // merge config params
+diff --git src/mapred/org/apache/hadoop/mapred/ShuffleConsumerPlugin.java src/mapred/org/apache/hadoop/mapred/ShuffleConsumerPlugin.java
+new file mode 100644
+index 0000000..f7fe85d
+--- /dev/null
++++ src/mapred/org/apache/hadoop/mapred/ShuffleConsumerPlugin.java
+@@ -0,0 +1,100 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapred;
++
++import org.apache.hadoop.classification.InterfaceAudience;
++import org.apache.hadoop.classification.InterfaceStability;
++import java.io.IOException;
++import org.apache.hadoop.mapred.Task.TaskReporter;
++import org.apache.hadoop.fs.FileSystem;
++
++/**
++ * ShuffleConsumerPlugin for serving Reducers.  It may shuffle MOF files from
++ * either the built-in provider (MapOutputServlet) or from a 3rd party ShuffleProviderPlugin.
++ *
++ */
++@InterfaceAudience.LimitedPrivate("MapReduce")
++@InterfaceStability.Unstable
++public interface ShuffleConsumerPlugin {
++
++  /**
++   * initialize this instance after it was created by factory.
++   */
++  public void init(Context context) throws ClassNotFoundException, IOException;
++
++  /**
++   * fetch output of mappers from TaskTrackers
++   * @return true iff success.  In case of failure an appropriate Throwable may be available thru getMergeThrowable() member
++   */
++  public boolean fetchOutputs() throws IOException;
++
++  /**
++   * @ret reference to a Throwable object (if merge throws an exception)
++   */
++  public Throwable getMergeThrowable();
++
++  /**
++   * Create a RawKeyValueIterator from copied map outputs.
++   *
++   * The iterator returned must satisfy the following constraints:
++   *   1. Fewer than io.sort.factor files may be sources
++   *   2. No more than maxInMemReduce bytes of map outputs may be resident
++   *      in memory when the reduce begins
++   *
++   * If we must perform an intermediate merge to satisfy (1), then we can
++   * keep the excluded outputs from (2) in memory and include them in the
++   * first merge pass. If not, then said outputs must be written to disk
++   * first.
++   */
++  public RawKeyValueIterator createKVIterator(JobConf job, FileSystem fs, Reporter reporter) throws IOException;
++
++  /**
++   * close and clean any resource associated with this object.
++   */
++  public void close();
++
++  @InterfaceAudience.LimitedPrivate("MapReduce")
++  @InterfaceStability.Unstable
++  public static class Context {
++    private final ReduceTask reduceTask;
++    private final TaskUmbilicalProtocol umbilical;
++    private final JobConf conf;
++    private final TaskReporter reporter;
++
++    public Context(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, TaskReporter reporter){
++      this.reduceTask = reduceTask;
++      this.umbilical = umbilical;
++      this.conf = conf;
++      this.reporter = reporter;
++    }
++
++    public ReduceTask getReduceTask() {
++      return reduceTask;
++    }
++    public JobConf getConf() {
++      return conf;
++    }
++    public TaskUmbilicalProtocol getUmbilical() {
++      return umbilical;
++    }
++    public TaskReporter getReporter() {
++      return reporter;
++    }
++  }
++}
+diff --git src/mapred/org/apache/hadoop/mapred/ShuffleProviderPlugin.java src/mapred/org/apache/hadoop/mapred/ShuffleProviderPlugin.java
+new file mode 100644
+index 0000000..51154b7
+--- /dev/null
++++ src/mapred/org/apache/hadoop/mapred/ShuffleProviderPlugin.java
+@@ -0,0 +1,47 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapred;
++import org.apache.hadoop.classification.InterfaceAudience;
++import org.apache.hadoop.classification.InterfaceStability;
++
++/**
++ * This interface is implemented by objects that are able to answer shuffle requests which are
++ * sent from a matching Shuffle Consumer that lives in context of a ReduceTask object.
++ *
++ * ShuffleProviderPlugin object will be notified on the following events:
++ * initialize, destroy.
++ *
++ * NOTE: This interface is also used when loading 3rd party plugins at runtime
++ *
++ */
++@InterfaceAudience.LimitedPrivate("MapReduce")
++@InterfaceStability.Unstable
++public interface ShuffleProviderPlugin {
++  /**
++   * Do constructor work here.
++   * This method is invoked by the TaskTracker Constructor
++   */
++  public void initialize(TaskTracker taskTracker);
++
++  /**
++   * close and cleanup any resource, including threads and disk space.
++   * This method is invoked by TaskTracker.shutdown
++   */
++  public void destroy();
++}
+diff --git src/mapred/org/apache/hadoop/mapred/TaskTracker.java src/mapred/org/apache/hadoop/mapred/TaskTracker.java
+index 89c4570..1584d0a 100644
+--- src/mapred/org/apache/hadoop/mapred/TaskTracker.java
++++ src/mapred/org/apache/hadoop/mapred/TaskTracker.java
+@@ -141,6 +141,9 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
+   static final long WAIT_FOR_DONE = 3 * 1000;
+   private int httpPort;
+ 
++  public static final String SHUFFLE_PROVIDER_PLUGIN_CLASSES = "mapreduce.shuffle.provider.plugin.classes";
++  final private ShuffleProviderPlugin shuffleProviderPlugin = new MultiShuffleProviderPlugin();
++
+   static enum State {NORMAL, STALE, INTERRUPTED, DENIED}
+ 
+   static{
+@@ -233,6 +236,52 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
+     }
+   }
+ 
++  public static class DefaultShuffleProvider implements ShuffleProviderPlugin {
++    public void initialize(TaskTracker tt) {
++      tt.server.addInternalServlet("mapOutput", "/mapOutput", MapOutputServlet.class);
++    }
++
++    public void destroy() {
++    }
++  }
++
++  private static class MultiShuffleProviderPlugin implements ShuffleProviderPlugin {
++
++    private ShuffleProviderPlugin[] plugins;
++
++    public void initialize(TaskTracker tt) {
++      Configuration conf = tt.getJobConf();
++      Class<?>[] klasses = conf.getClasses(SHUFFLE_PROVIDER_PLUGIN_CLASSES, DefaultShuffleProvider.class);
++
++      plugins = new ShuffleProviderPlugin[klasses.length];
++      for (int i = 0; i < klasses.length; i++) {
++        try{
++          LOG.info(" Loading ShuffleProviderPlugin: " + klasses[i]);
++          plugins[i] =  (ShuffleProviderPlugin)ReflectionUtils.newInstance(klasses[i], conf);
++          plugins[i].initialize(tt);
++        }
++        catch(Throwable t) {
++          LOG.warn("Exception instantiating/initializing a ShuffleProviderPlugin: " + klasses[i], t);
++          plugins[i] =  null;
++        }
++      }
++    }
++
++    public void destroy() {
++      if (plugins != null) {
++          for (ShuffleProviderPlugin plugin : plugins) {
++            try {
++              if (plugin != null) {
++                plugin.destroy();
++              }
++            } catch (Throwable t) {
++              LOG.warn("Exception destroying a ShuffleProviderPlugin: " + plugin, t);
++            }
++          }
++        }
++      }
++    }
++
+   private LocalStorage localStorage;
+   private long lastCheckDirsTime;
+   private int lastNumFailures;
+@@ -697,7 +746,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
+     + TaskTracker.LOCAL_SPLIT_FILE;
+   }
+ 
+-  static String getIntermediateOutputDir(String user, String jobid,
++  public static String getIntermediateOutputDir(String user, String jobid,
+       String taskid) {
+     return getLocalTaskDir(user, jobid, taskid) + Path.SEPARATOR
+     + TaskTracker.OUTPUT;
+@@ -1433,6 +1482,14 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
+   public synchronized void shutdown() throws IOException, InterruptedException {
+     shuttingDown = true;
+     close();
++    if (this.shuffleProviderPlugin != null) {
++      try {
++        LOG.info("Shutting down shuffleProviderPlugin");
++        this.shuffleProviderPlugin.destroy();
++      } catch (Exception e) {
++        LOG.warn("Exception shutting down shuffleProviderPlugin", e);
++      }
++    }
+     if (this.server != null) {
+       try {
+         LOG.info("Shutting down StatusHttpServer");
+@@ -1611,7 +1668,7 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
+ 
+     server.setAttribute("shuffleExceptionTracking", shuffleExceptionTracking);
+ 
+-    server.addInternalServlet("mapOutput", "/mapOutput", MapOutputServlet.class);
++    shuffleProviderPlugin.initialize(this);
+     server.addServlet("taskLog", "/tasklog", TaskLogServlet.class);
+     server.start();
+     this.httpPort = server.getPort();
+@@ -3892,9 +3949,22 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
+   }
+   
+   /**
++   * Get the specific job conf for a running job.
++   */
++  public JobConf getJobConf(JobID jobId) throws IOException {
++    synchronized (runningJobs) {
++      RunningJob rjob = runningJobs.get(jobId);
++      if (rjob == null) {
++        throw new IOException("Unknown job " + jobId + "!!");
++      }
++      return rjob.getJobConf();
++    }
++  }
++
++  /**
+    * Get the default job conf for this tracker.
+    */
+-  JobConf getJobConf() {
++  public JobConf getJobConf() {
+     return fConf;
+   }
+ 
+@@ -4030,16 +4100,10 @@ public class TaskTracker implements MRConstants, TaskUmbilicalProtocol,
+         FileSystem rfs = ((LocalFileSystem)
+             context.getAttribute("local.file.system")).getRaw();
+ 
+-      String userName = null;
+-      String runAsUserName = null;
+-      synchronized (tracker.runningJobs) {
+-        RunningJob rjob = tracker.runningJobs.get(JobID.forName(jobId));
+-        if (rjob == null) {
+-          throw new IOException("Unknown job " + jobId + "!!");
+-        }
+-        userName = rjob.jobConf.getUser();
+-        runAsUserName = tracker.getTaskController().getRunAsUser(rjob.jobConf);
+-      }
++      JobConf jobConf = tracker.getJobConf(JobID.forName(jobId));
++      String userName = jobConf.getUser();
++      String runAsUserName = tracker.getTaskController().getRunAsUser(jobConf);
++
+       // Index file
+       String intermediateOutputDir = TaskTracker.getIntermediateOutputDir(userName, jobId, mapId);
+       String indexKey = intermediateOutputDir + "/file.out.index";
+diff --git src/mapred/org/apache/hadoop/mapreduce/JobContext.java src/mapred/org/apache/hadoop/mapreduce/JobContext.java
+index f123e46..4297b53 100644
+--- src/mapred/org/apache/hadoop/mapreduce/JobContext.java
++++ src/mapred/org/apache/hadoop/mapreduce/JobContext.java
+@@ -67,6 +67,9 @@ public class JobContext {
+   public static final String USER_LOG_RETAIN_HOURS = 
+     "mapred.userlog.retain.hours";
+   
++  public static final String SHUFFLE_CONSUMER_PLUGIN_ATTR =
++    "mapreduce.job.reduce.shuffle.consumer.plugin.class";
++
+   /**
+    * The UserGroupInformation object that has a reference to the current user
+    */
+diff --git src/test/org/apache/hadoop/mapred/TestReduceTaskFetchFail.java src/test/org/apache/hadoop/mapred/TestReduceTaskFetchFail.java
+index 106b82d..2e342bc 100644
+--- src/test/org/apache/hadoop/mapred/TestReduceTaskFetchFail.java
++++ src/test/org/apache/hadoop/mapred/TestReduceTaskFetchFail.java
+@@ -39,10 +39,8 @@ public class TestReduceTaskFetchFail {
+     public String getJobFile() { return "/foo"; }
+ 
+     public class TestReduceCopier extends ReduceCopier {
+-      public TestReduceCopier(TaskUmbilicalProtocol umbilical, JobConf conf,
+-                        TaskReporter reporter
+-                        )throws ClassNotFoundException, IOException {
+-        super(umbilical, conf, reporter);
++      public void init(ShuffleConsumerPlugin.Context context)throws ClassNotFoundException, IOException {
++        super.init(context);
+       }
+ 
+       public void checkAndInformJobTracker(int failures, TaskAttemptID mapId, boolean readError) {
+@@ -69,8 +67,10 @@ public class TestReduceTaskFetchFail {
+     TaskAttemptID tid =  new TaskAttemptID();
+     TestReduceTask rTask = new TestReduceTask();
+     rTask.setConf(conf);
++    ShuffleConsumerPlugin.Context context = new ShuffleConsumerPlugin.Context(rTask, mockUmbilical, conf, mockTaskReporter);
+ 
+-    ReduceTask.ReduceCopier reduceCopier = rTask.new TestReduceCopier(mockUmbilical, conf, mockTaskReporter);
++    ReduceTask.ReduceCopier reduceCopier = rTask.new TestReduceCopier();
++    reduceCopier.init(context);
+     reduceCopier.checkAndInformJobTracker(1, tid, false);
+ 
+     verify(mockTaskReporter, never()).progress();
+@@ -82,7 +82,9 @@ public class TestReduceTaskFetchFail {
+     conf.setInt("mapreduce.reduce.shuffle.maxfetchfailures", 3);
+ 
+     rTask.setConf(conf);
+-    reduceCopier = rTask.new TestReduceCopier(mockUmbilical, conf, mockTaskReporter);
++    context = new ShuffleConsumerPlugin.Context(rTask, mockUmbilical, conf, mockTaskReporter);
++    reduceCopier = rTask.new TestReduceCopier();
++    reduceCopier.init(context);
+ 
+     reduceCopier.checkAndInformJobTracker(1, tid, false);
+     verify(mockTaskReporter, times(1)).progress();
+@@ -103,7 +105,9 @@ public class TestReduceTaskFetchFail {
+     conf.setBoolean("mapreduce.reduce.shuffle.notify.readerror", false);
+ 
+     rTask.setConf(conf);
+-    reduceCopier = rTask.new TestReduceCopier(mockUmbilical, conf, mockTaskReporter);
++    context = new ShuffleConsumerPlugin.Context(rTask, mockUmbilical, conf, mockTaskReporter);
++    reduceCopier = rTask.new TestReduceCopier();
++    reduceCopier.init(context);
+ 
+     reduceCopier.checkAndInformJobTracker(7, tid, true);
+     verify(mockTaskReporter, times(4)).progress();
+diff --git src/test/org/apache/hadoop/mapred/TestShufflePlugin.java src/test/org/apache/hadoop/mapred/TestShufflePlugin.java
+new file mode 100644
+index 0000000..6b0dad8
+--- /dev/null
++++ src/test/org/apache/hadoop/mapred/TestShufflePlugin.java
+@@ -0,0 +1,188 @@
++/**
++ * Licensed to the Apache Software Foundation (ASF) under one
++ * or more contributor license agreements.  See the NOTICE file
++ * distributed with this work for additional information
++ * regarding copyright ownership.  The ASF licenses this file
++ * to you under the Apache License, Version 2.0 (the
++ * "License"); you may not use this file except in compliance
++ * with the License.  You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.apache.hadoop.mapred;
++
++import org.junit.Test;
++import static org.junit.Assert.*;
++import static org.mockito.Mockito.*;
++
++import org.apache.hadoop.mapred.Task.TaskReporter;
++import org.apache.hadoop.fs.LocalFileSystem;
++import java.io.IOException;
++import org.apache.hadoop.fs.FileSystem;
++import org.apache.hadoop.util.ReflectionUtils;
++import org.apache.hadoop.mapreduce.JobContext;
++
++/**
++ * A JUnit test for testing availability and accessibility of main API that is needed
++ * for sub-classes of ShuffleProviderPlugin and ShuffleConsumerPlugin.
++ * The importance of this test is for preserving API with 3rd party plugins.
++ */
++public class TestShufflePlugin {
++
++  static class TestShuffleConsumerPlugin implements ShuffleConsumerPlugin {
++    @Override
++    public void init(ShuffleConsumerPlugin.Context context) {
++      // just verify that Context has kept its public interface
++      context.getReduceTask();
++      context.getConf();
++      context.getUmbilical();
++      context.getReporter();
++    }
++    @Override
++    public boolean fetchOutputs() throws IOException{
++      return true;
++    }
++    @Override
++    public Throwable getMergeThrowable(){
++      return null;
++    }
++    @Override
++    public RawKeyValueIterator createKVIterator(JobConf job, FileSystem fs, Reporter reporter) throws IOException{
++      return null;
++    }
++    @Override
++    public void close(){
++    }
++  }
++
++  @Test
++  /**
++   * A testing method instructing core hadoop to load an external ShuffleConsumerPlugin
++   * as if it came from a 3rd party.
++   */
++  public void testConsumerPluginAbility() {
++
++    try{
++      // create JobConf with mapreduce.job.shuffle.consumer.plugin=TestShuffleConsumerPlugin
++      JobConf jobConf = new JobConf();
++      jobConf.setClass(JobContext.SHUFFLE_CONSUMER_PLUGIN_ATTR,
++          TestShufflePlugin.TestShuffleConsumerPlugin.class,
++          ShuffleConsumerPlugin.class);
++
++      ShuffleConsumerPlugin shuffleConsumerPlugin = null;
++      Class<? extends ShuffleConsumerPlugin> clazz =
++          jobConf.getClass(JobContext.SHUFFLE_CONSUMER_PLUGIN_ATTR, null, ShuffleConsumerPlugin.class);
++      assertNotNull("Unable to get " + JobContext.SHUFFLE_CONSUMER_PLUGIN_ATTR, clazz);
++
++      // load 3rd party plugin through core's factory method
++      shuffleConsumerPlugin = ReflectionUtils.newInstance(clazz, jobConf);
++      assertNotNull("Unable to load " + JobContext.SHUFFLE_CONSUMER_PLUGIN_ATTR, shuffleConsumerPlugin);
++    }
++    catch (Exception e) {
++      assertTrue("Threw exception:" + e, false);
++    }
++  }
++
++  static class TestShuffleProviderPlugin implements ShuffleProviderPlugin {
++    @Override
++    public void initialize(TaskTracker tt) {
++    }
++    @Override
++    public void destroy(){
++    }
++  }
++
++  @Test
++  /**
++   * A testing method instructing core hadoop to load an external ShuffleConsumerPlugin
++   * as if it came from a 3rd party.
++   */
++  public void testProviderPluginAbility() {
++
++    try{
++      // create JobConf with mapreduce.job.shuffle.provider.plugin=TestShuffleProviderPlugin
++      JobConf jobConf = new JobConf();
++      jobConf.setClass(TaskTracker.SHUFFLE_PROVIDER_PLUGIN_CLASSES,
++          TestShufflePlugin.TestShuffleProviderPlugin.class,
++          ShuffleProviderPlugin.class);
++
++      ShuffleProviderPlugin shuffleProviderPlugin = null;
++      Class<? extends ShuffleProviderPlugin> clazz =
++          jobConf.getClass(TaskTracker.SHUFFLE_PROVIDER_PLUGIN_CLASSES, null, ShuffleProviderPlugin.class);
++      assertNotNull("Unable to get " + TaskTracker.SHUFFLE_PROVIDER_PLUGIN_CLASSES, clazz);
++
++      // load 3rd party plugin through core's factory method
++      shuffleProviderPlugin = ReflectionUtils.newInstance(clazz, jobConf);
++      assertNotNull("Unable to load " + TaskTracker.SHUFFLE_PROVIDER_PLUGIN_CLASSES, shuffleProviderPlugin);
++    }
++    catch (Exception e) {
++      assertTrue("Threw exception:" + e, false);
++    }
++  }
++
++  @Test
++  /**
++   * A method for testing availability and accessibility of API that is needed for sub-classes of ShuffleProviderPlugin
++   */
++  public void testProvider() {
++    //mock creation
++    ShuffleProviderPlugin mockShuffleProvider = mock(ShuffleProviderPlugin.class);
++    TaskTracker mockTT = mock(TaskTracker.class);
++    TaskController mockTaskController = mock(TaskController.class);
++
++    mockShuffleProvider.initialize(mockTT);
++    mockShuffleProvider.destroy();
++    try {
++      mockTT.getJobConf();
++      mockTT.getJobConf(mock(JobID.class));
++      mockTT.getIntermediateOutputDir("","","");
++      mockTT.getTaskController();
++      mockTaskController.getRunAsUser(mock(JobConf.class));
++    }
++    catch (Exception e){
++      assertTrue("Threw exception:" + e, false);
++    }
++  }
++
++  @Test
++  /**
++   * A method for testing availability and accessibility of API that is needed for sub-classes of ShuffleConsumerPlugin
++   */
++  public void testConsumer() {
++    //mock creation
++    ShuffleConsumerPlugin mockShuffleConsumer = mock(ShuffleConsumerPlugin.class);
++    ReduceTask mockReduceTask = mock(ReduceTask.class);
++    JobConf mockJobConf = mock(JobConf.class);
++    TaskUmbilicalProtocol mockUmbilical = mock(TaskUmbilicalProtocol.class);
++    TaskReporter mockReporter = mock(TaskReporter.class);
++    LocalFileSystem mockLocalFileSystem = mock(LocalFileSystem.class);
++
++    mockReduceTask.getTaskID();
++    mockReduceTask.getJobID();
++    mockReduceTask.getNumMaps();
++    mockReduceTask.getPartition();
++    mockReduceTask.getJobFile();
++    mockReduceTask.getJvmContext();
++
++    mockReporter.progress();
++
++    try {
++      String [] dirs = mockJobConf.getLocalDirs();
++      ShuffleConsumerPlugin.Context context = new ShuffleConsumerPlugin.Context(mockReduceTask, mockUmbilical, mockJobConf, mockReporter);
++      mockShuffleConsumer.init(context);
++      mockShuffleConsumer.fetchOutputs();
++      mockShuffleConsumer.createKVIterator(mockJobConf, mockLocalFileSystem.getRaw(), mockReporter);
++      mockShuffleConsumer.close();
++    }
++    catch (Exception e){
++      assertTrue("Threw exception:" + e, false);
++    }
++  }
++}
