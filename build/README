@@ -185,6 +185,21 @@ Required options:
 				Task will fail in case the redcuer need to use smaller buffer size than 'mapred.rdma.buf.size.min'.
 			</description>
 		</property>
+
+                <property>
+                        <name>mapred.rdma.shuffle.total.size</name>
+                        <value>2g</value>
+                        <description>
+				The total amount of memory per reducer allocated for UDA's RDMA shuffle phase and levitated merge algorithm.
+				The value is a long number or human readable format. You can used the following suffix (case insensitive):
+					k(kilo), m(mega), g(giga)
+				For example: use '2g' for 2GB , or '2048m' as well, also possible using '2097152k' or just '2147483648'
+				If value is not set for this parameter or value is set to 0, then the total amount of memory for RDMA will be calculated using combination of:
+					1. -Xmx on JAVA_OPTS for reducer. ( mapred.reduce.child.java.opts)
+					2. mapred.job.shuffle.input.buffer.percent
+					* total amount of RDMA memory per reducer will be (1)*(2)
+                        </description>
+                </property>	
 		
 		<property>
 			<name>mapred.rdma.compression.buffer.ratio</name>
