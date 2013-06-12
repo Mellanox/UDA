@@ -21,6 +21,10 @@
 
 set -ex
 
+if [[ -z $JAVA_HOME ]] ; then
+	export JAVA_HOME=/usr/java/latest
+fi
+
 cd `dirname $0`/
 mkdir -p ./build/utils/m4/ #temp till merge with master
 ./autogen.sh
