@@ -430,7 +430,7 @@ std::string UdaBridge_invoke_getConfData_callback(const char* paramName, const c
 	const char *nativeString = env->GetStringUTFChars( (jstring) jdata, 0);
 	std::string value(nativeString); // !!!
 	env->ReleaseStringUTFChars( (jstring)jdata, nativeString);
-	log(lsDEBUG, "UdaBridge_invoke_getConfData_callback: paramName=%s, defaultValue=%s, retValue=%s", paramName, defaultValue, nativeString);
+	log(lsDEBUG, "UdaBridge_invoke_getConfData_callback: paramName=%s, defaultValue=%s, retValue=%s", paramName, defaultValue, value.c_str());
 	return value;
 }
 
