@@ -38,6 +38,8 @@ extern int netlev_dbg_flag;
 extern merging_state_t merging_sm; 
 extern uint32_t wqes_perconn;
 
+#define RECONNECT_TRIES 2
+
 static void client_comp_ibv_recv(netlev_wqe_t *wqe)
 {
 	struct ibv_send_wr *bad_sr;
@@ -223,138 +225,154 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 	struct connreq_data    xdata;
 	int rc=0;
 	errno = 0;
+	int retryCount=1;
+	bool connected = false;
 
 	sin.sin_addr.s_addr = ipaddr;
 	sin.sin_family = AF_INET;
 	sin.sin_port = htons(port);
 
-	if (rdma_create_id(ctx->cm_channel, &cm_id, NULL, RDMA_PS_TCP) != 0) {
-		log(lsERROR, "rdma_create_id failed, (errno=%d %m)",errno);
-		throw new UdaException("rdma_create_id failed");
-		return NULL;
-	}
-
-	if (rdma_resolve_addr(cm_id, NULL, (struct sockaddr*)&sin, NETLEV_TIMEOUT_MS)) {
-		log(lsERROR, "rdma_resolve_addr failed, (errno=%d %m)",errno);
-		throw new UdaException("rdma_resolve_addr failed");
-		return NULL;
-	}
-
-	if (rdma_get_cm_event(ctx->cm_channel, &cm_event)) {
-		log(lsERROR, "rdma_get_cm_event failed, (errno=%d %m)",errno);
-		throw new UdaException("rdma_get_cm_event failed");
-		return NULL;
-	}
-
-	if (cm_event->event != RDMA_CM_EVENT_ADDR_RESOLVED) {
-		rdma_ack_cm_event(cm_event);
-		log(lsERROR, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
-		throw new UdaException("unexpected CM event");
-		return NULL;
-	}
-	rdma_ack_cm_event(cm_event);
-
-	if (rdma_resolve_route(cm_id, NETLEV_TIMEOUT_MS)) {
-		log(lsERROR, "rdma_resolve_route failed, (errno=%d %m)",errno);
-		throw new UdaException("rdma_resolve_route failed");
-		return NULL;
-	}
-
-	if (rdma_get_cm_event(ctx->cm_channel, &cm_event)) {
-		log(lsERROR, "rdma_get_cm_event failed, (errno=%d %m)",errno);
-		throw new UdaException("rdma_get_cm_event failed");
-		return NULL;
-	}
-
-	if (cm_event->event != RDMA_CM_EVENT_ROUTE_RESOLVED) {
-		rdma_ack_cm_event(cm_event);
-		log(lsWARN, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
-		//TODO: consider throw new UdaException("unexpected CM event");
-		return NULL;
-	}
-	rdma_ack_cm_event(cm_event);
-
-	dev = netlev_dev_find(cm_id, &ctx->hdr_dev_list);
-	if (!dev) {
-		dev = (netlev_dev_t*) malloc(sizeof(netlev_dev_t));
-		if (dev == NULL) {
-			log(lsERROR, "failed to allocate memory for netlev_dev");
-			throw new UdaException("failed to allocate memory for netlev_dev");
-			return NULL;
-		}
-		dev->ibv_ctx = cm_id->verbs;
-		if ( netlev_dev_init(dev) != 0) {
-			free(dev);
+	do{
+		if (rdma_create_id(ctx->cm_channel, &cm_id, NULL, RDMA_PS_TCP) != 0) {
+			log(lsERROR, "rdma_create_id failed, (errno=%d %m)",errno);
+			throw new UdaException("rdma_create_id failed");
 			return NULL;
 		}
 
-		struct memory_pool *mem_pool = NULL;
-		list_for_each_entry(mem_pool, registered_mem, register_mem_list) {
-			rc = netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
-			if (rc) {
-				log(lsERROR, "UDA critical error: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
-				throw new UdaException("failure in netlev_init_rdma_mem");
+		if (rdma_resolve_addr(cm_id, NULL, (struct sockaddr*)&sin, NETLEV_TIMEOUT_MS)) {
+			log(lsERROR, "rdma_resolve_addr failed, (errno=%d %m)",errno);
+			throw new UdaException("rdma_resolve_addr failed");
+			return NULL;
+		}
+
+		if (rdma_get_cm_event(ctx->cm_channel, &cm_event)) {
+			log(lsERROR, "rdma_get_cm_event failed, (errno=%d %m)",errno);
+			throw new UdaException("rdma_get_cm_event failed");
+			return NULL;
+		}
+
+		if (cm_event->event != RDMA_CM_EVENT_ADDR_RESOLVED) {
+			rdma_ack_cm_event(cm_event);
+			log(lsERROR, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
+			throw new UdaException("unexpected CM event");
+			return NULL;
+		}
+		rdma_ack_cm_event(cm_event);
+
+		if (rdma_resolve_route(cm_id, NETLEV_TIMEOUT_MS)) {
+			log(lsERROR, "rdma_resolve_route failed, (errno=%d %m)",errno);
+			throw new UdaException("rdma_resolve_route failed");
+			return NULL;
+		}
+
+		if (rdma_get_cm_event(ctx->cm_channel, &cm_event)) {
+			log(lsERROR, "rdma_get_cm_event failed, (errno=%d %m)",errno);
+			throw new UdaException("rdma_get_cm_event failed");
+			return NULL;
+		}
+
+		if (cm_event->event != RDMA_CM_EVENT_ROUTE_RESOLVED) {
+			rdma_ack_cm_event(cm_event);
+			log(lsWARN, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
+			//TODO: consider throw new UdaException("unexpected CM event");
+			return NULL;
+		}
+		rdma_ack_cm_event(cm_event);
+
+		dev = netlev_dev_find(cm_id, &ctx->hdr_dev_list);
+		if (!dev) {
+			dev = (netlev_dev_t*) malloc(sizeof(netlev_dev_t));
+			if (dev == NULL) {
+				log(lsERROR, "failed to allocate memory for netlev_dev");
+				throw new UdaException("failed to allocate memory for netlev_dev");
+				return NULL;
 			}
+			dev->ibv_ctx = cm_id->verbs;
+			if ( netlev_dev_init(dev) != 0) {
+				free(dev);
+				return NULL;
+			}
+
+			struct memory_pool *mem_pool = NULL;
+			list_for_each_entry(mem_pool, registered_mem, register_mem_list) {
+				rc = netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
+				if (rc) {
+					log(lsERROR, "UDA critical error: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
+					throw new UdaException("failure in netlev_init_rdma_mem");
+				}
+			}
+
+			netlev_event_add(ctx->epoll_fd, dev->cq_channel->fd,
+					EPOLLIN, client_cq_handler,
+					dev, &ctx->hdr_event_list);
+
+			list_add_tail(&dev->list, &ctx->hdr_dev_list);
+		} else {
+			log(lsDEBUG, "device found");
 		}
 
-		netlev_event_add(ctx->epoll_fd, dev->cq_channel->fd,
-				EPOLLIN, client_cq_handler,
-				dev, &ctx->hdr_event_list);
+		conn = netlev_conn_alloc(dev, cm_id);
+		if (!conn) {
+			goto err_conn_alloc;
+		}
 
-		list_add_tail(&dev->list, &ctx->hdr_dev_list);
-	} else {
-		log(lsDEBUG, "device found");
-	}
+		/* Save an extra one for credit flow */
+		memset(&xdata, 0, sizeof(xdata));
+		xdata.qp = cm_id->qp->qp_num;
+		xdata.credits = wqes_perconn - 1;
+		xdata.rdma_mem_rkey = dev->rdma_mem->mr->rkey;
 
-	conn = netlev_conn_alloc(dev, cm_id);
-	if (!conn) {
+		memset(&conn_param, 0, sizeof (conn_param));
+		conn_param.responder_resources = 1;
+		conn_param.initiator_depth = 1;
+		conn_param.retry_count = RDMA_DEFAULT_RNR_RETRY;
+		conn_param.rnr_retry_count = RDMA_DEFAULT_RNR_RETRY;
+		conn_param.private_data = &xdata;
+		conn_param.private_data_len = sizeof(xdata);
+
+		if (rdma_connect(cm_id, &conn_param)) {
+			log(lsERROR, "rdma_connect failed, (errno=%d %m)",errno);
+			goto err_rdma_connect;
+		}
+
+		if (rdma_get_cm_event(ctx->cm_channel, &cm_event)) {
+			log(lsERROR, "rdma_get_cm_event err, (errno=%d %m)",errno);
+			goto err_rdma_connect;
+		}
+
+		if (cm_event->event != RDMA_CM_EVENT_ESTABLISHED) {
+			log(lsERROR, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
+			rdma_ack_cm_event(cm_event);
+			//goto err_rdma_connect;
+			netlev_conn_free(conn);
+			log(lsINFO, "Failed to connect to server. Try #%d",retryCount);
+			retryCount++;
+
+		}else{
+			log(lsINFO, "Successfully got RDMA_CM_EVENT_ESTABLISHED with peer %x:%d", (int)ipaddr, port);
+			conn->peerIPAddr = ipaddr;
+			list_add_tail(&conn->list, &ctx->hdr_conn_list);
+
+			if (!cm_event->param.conn.private_data ||
+					(cm_event->param.conn.private_data_len < sizeof(conn->peerinfo))) {
+				output_stderr("%s: bad private data len %d",
+						__func__, cm_event->param.conn.private_data_len);
+			}
+			memcpy(&conn->peerinfo, cm_event->param.conn.private_data, sizeof(conn->peerinfo));
+			conn->credits = conn->peerinfo.credits;
+			log(lsDEBUG,"Client conn->credits in the beginning is %d", conn->credits);
+			conn->returning = 0;
+			rdma_ack_cm_event(cm_event);
+			connected = true;
+		}
+
+	}while(retryCount<=RECONNECT_TRIES && !connected);
+
+	if(retryCount>RECONNECT_TRIES){
+		log(lsERROR, "Failed to connect to server. Tried for %d times",RECONNECT_TRIES);
 		goto err_conn_alloc;
 	}
 
-	/* Save an extra one for credit flow */
-	memset(&xdata, 0, sizeof(xdata));
-	xdata.qp = cm_id->qp->qp_num;
-	xdata.credits = wqes_perconn - 1;
-	xdata.rdma_mem_rkey = dev->rdma_mem->mr->rkey;
-
-	memset(&conn_param, 0, sizeof (conn_param));
-	conn_param.responder_resources = 1;
-	conn_param.initiator_depth = 1;
-	conn_param.retry_count = RDMA_DEFAULT_RNR_RETRY;
-	conn_param.rnr_retry_count = RDMA_DEFAULT_RNR_RETRY;
-	conn_param.private_data = &xdata;
-	conn_param.private_data_len = sizeof(xdata);
-
-	if (rdma_connect(cm_id, &conn_param)) {
-		log(lsERROR, "rdma_connect failed, (errno=%d %m)",errno);
-		goto err_rdma_connect;
-	}
-
-	if (rdma_get_cm_event(ctx->cm_channel, &cm_event)) {
-		log(lsERROR, "rdma_get_cm_event err, (errno=%d %m)",errno);
-		goto err_rdma_connect;
-	}
-
-	if (cm_event->event != RDMA_CM_EVENT_ESTABLISHED) {
-		log(lsERROR, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
-		rdma_ack_cm_event(cm_event);
-		goto err_rdma_connect;
-	}
-
-	log(lsINFO, "Successfully got RDMA_CM_EVENT_ESTABLISHED with peer %x:%d", (int)ipaddr, port);
-	conn->peerIPAddr = ipaddr;
-	list_add_tail(&conn->list, &ctx->hdr_conn_list);
-
-	if (!cm_event->param.conn.private_data ||
-			(cm_event->param.conn.private_data_len < sizeof(conn->peerinfo))) {
-		output_stderr("%s: bad private data len %d",
-				__func__, cm_event->param.conn.private_data_len);
-	}
-	memcpy(&conn->peerinfo, cm_event->param.conn.private_data, sizeof(conn->peerinfo));
-	conn->credits = conn->peerinfo.credits;
-	log(lsDEBUG,"Client conn->credits in the beginning is %d", conn->credits);
-	conn->returning = 0;
-	rdma_ack_cm_event(cm_event);
 	return conn;
 
 err_rdma_connect:
@@ -362,8 +380,6 @@ err_rdma_connect:
 err_conn_alloc:
 	//    rdma_destroy_id(cm_id); //unnecessary, since destroyed in netlev_conn_alloc and netlev_conn_free
 	rdma_destroy_event_channel(ctx->cm_channel);
-	output_stderr("[%s,%d] connection failed",
-			__FILE__,__LINE__);
 	log(lsERROR, "[%s,%d] connection failed", __FILE__,__LINE__);
 	throw new UdaException("connection failed");
 	return NULL;
