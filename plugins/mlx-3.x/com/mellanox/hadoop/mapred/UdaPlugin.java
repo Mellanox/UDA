@@ -56,12 +56,15 @@ import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 import org.apache.hadoop.conf.Configuration;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
+
 
 abstract class UdaPlugin {
 	protected List<String> mCmdParams = new ArrayList<String>();
 	protected static Log LOG;
-	protected static int log_level;
-
+	protected static int log_level = -1; // Initialisation value for calcAndCompareLogLevel() first run
 	protected static JobConf mjobConf;
 	
 	public UdaPlugin(JobConf jobConf) {
@@ -77,22 +80,38 @@ abstract class UdaPlugin {
 		LOG = LogFactory.getLog(logging_name);
 	}
 	
-	//* retrieve and set the logging level
-	private static void calcLogLevel(){
-		log_level = (LOG.isFatalEnabled() ? 1 : 0) + (LOG.isErrorEnabled() ? 1 : 0) +  
+	//* retrieves and sets the logging level, if log_level was changed return true, else return false.
+	private static boolean calcAndCompareLogLevel(){
+		int curr_log_level = (LOG.isFatalEnabled() ? 1 : 0) + (LOG.isErrorEnabled() ? 1 : 0) +  
 					(LOG.isWarnEnabled() ? 1 : 0) +(LOG.isInfoEnabled() ? 1 : 0) + 
 					(LOG.isDebugEnabled() ? 1 : 0) + (LOG.isTraceEnabled() ? 1 : 0);
+		if(curr_log_level == log_level)
+			return false;
+		else
+		{
+			log_level = curr_log_level;
+			return true;
+		}
 	}
 	
 	//* configuring all that is needed for logging
 	protected static void prepareLog(String logging_name){
 		setLog(logging_name);
-		calcLogLevel();
+		calcAndCompareLogLevel();	
 	}
 	
 	protected void launchCppSide(boolean isNetMerger, UdaCallable _callable) {
 		
-		LOG.info("UDA: Launching C++ thru JNI");
+		
+		//only if this is the provider, start the periodic log check task.
+		if(!isNetMerger)
+		{
+			LOG.debug("starting periodic log check task");
+			Timer timer = new Timer();
+			timer.schedule(new TaskLogLevel(), 0, 1000);
+		}
+		
+		LOG.debug("Launching C++ thru JNI");
 		buildCmdParams();
 
 		LOG.info("going to execute C++ thru JNI with argc=: " + mCmdParams.size() + " cmd: " + mCmdParams);    	  
@@ -112,13 +131,26 @@ abstract class UdaPlugin {
 		}
 	}
 
+	// Class represents the period task of log-level checking & setting in C++ 
+	class TaskLogLevel extends TimerTask{
+		public void run()
+		{
+			// check if log level has changed
+			if(calcAndCompareLogLevel())
+			{
+				// set log level in C++
+				UdaBridge.setLogLevel(log_level);
+				LOG.info("Logging level was cahanged");
+			}
+		}
+	}
+
 }
 
 class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 
 	static{
-		String logging_name = UdaPlugin.class.getName() + ".Consumer";
-		prepareLog(logging_name);
+		prepareLog(ShuffleConsumerPlugin.class.getCanonicalName());
 	}
 	
 	final UdaShuffleConsumerPlugin udaShuffleConsumer;
@@ -133,7 +165,6 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	private final int         mReportCount  = 20;
 	private J2CQueue<K,V>     j2c_queue     = null;
 
-
 	//* kv buf status 
 	private final int         kv_buf_recv_ready = 1;
 	private final int         kv_buf_redc_ready = 2;
@@ -141,6 +172,8 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	private final int         kv_buf_size = 1 << 20;   /* 1 MB */
 	private final int         kv_buf_num = 2;
 	private KVBuf[]           kv_bufs = null;
+
+	private final static float 	  DEFAULT_SHUFFLE_INPUT_PERCENT = 0.7f;
 
 	private void init_kv_bufs() {
 		kv_bufs = new KVBuf[kv_buf_num];
@@ -168,6 +201,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mCmdParams.add("-s");
 		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
 
+
 	}
 
 	public UdaPluginRT(UdaShuffleConsumerPlugin udaShuffleConsumer, ReduceTask reduceTask, JobConf jobConf, Reporter reporter,
@@ -176,34 +210,64 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		this.udaShuffleConsumer = udaShuffleConsumer;
 		this.reduceTask = reduceTask;
 		
-		int maxRdmaBufferSize= jobConf.getInt("mapred.rdma.buf.size", 1024);
-		int minRdmaBufferSize=jobConf.getInt("mapred.rdma.buf.size.min", 16);
+		String totalRdmaSizeStr = jobConf.get("mapred.rdma.shuffle.total.size", "0"); // default 0 means ignoring this parameter and use instead -Xmx and mapred.job.shuffle.input.buffer.percent
+		long totalRdmaSize = StringUtils.TraditionalBinaryPrefix.string2long(totalRdmaSizeStr);
+		long maxRdmaBufferSize= jobConf.getLong("mapred.rdma.buf.size", 1024);
+		long minRdmaBufferSize=jobConf.getLong("mapred.rdma.buf.size.min", 16);
+		long shuffleMemorySize = totalRdmaSize;
+		StringBuilder meminfoSb = new StringBuilder();
+		meminfoSb.append("UDA: numMaps=").append(numMaps);
+		meminfoSb.append(", maxRdmaBufferSize=").append(maxRdmaBufferSize);
+		meminfoSb.append("KB, minRdmaBufferSize=").append(minRdmaBufferSize).append("KB");
+		meminfoSb.append("KB, rdmaShuffleTotalSize=").append(totalRdmaSize);
+		
+		if (totalRdmaSize < 0) {
+			LOG.warn("Illegal paramter value: mapred.rdma.shuffle.total.size=" +  totalRdmaSize);
+		}
+
+		if (totalRdmaSize <= 0) {	
 		long maxHeapSize = Runtime.getRuntime().maxMemory();
-		float shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", 0.7f);
-		long shuffleMemorySize = (long)(maxHeapSize * shuffleInputBufferPercent);
+			double shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", DEFAULT_SHUFFLE_INPUT_PERCENT);
+			if ((shuffleInputBufferPercent < 0) || (shuffleInputBufferPercent > 1)) {
+				LOG.warn("UDA: mapred.job.shuffle.input.buffer.percent is out of range - set to default: " + DEFAULT_SHUFFLE_INPUT_PERCENT);
+				shuffleInputBufferPercent = DEFAULT_SHUFFLE_INPUT_PERCENT;
+			}
+			shuffleMemorySize = (long)(maxHeapSize * shuffleInputBufferPercent);
 		
-		LOG.debug("UDA: numMaps=" + numMaps + 
-				", maxRdmaBufferSize=" + maxRdmaBufferSize + "KB, " + 
-				"minRdmaBufferSize=" + minRdmaBufferSize + "KB, " +
-				"maxHeapSize=" + maxHeapSize + "B, " +
-				"shuffleInputBufferPercent=" + shuffleInputBufferPercent + 
-				"==> shuffleMemorySize=" + shuffleMemorySize + "B");
+			LOG.info("Using JAVA Xmx with mapred.job.shuffle.input.buffer.percent to limit UDA shuffle memory");
+				
+			meminfoSb.append(", maxHeapSize=").append(maxHeapSize).append("B");
+			meminfoSb.append(", shuffleInputBufferPercent=").append(shuffleInputBufferPercent);			
+			meminfoSb.append("==> shuffleMemorySize=").append(shuffleMemorySize).append("B");
+			
+			LOG.info("RDMA shuffle memory is limited to " + shuffleMemorySize/1024/1024 + "MB");
+		} 
+		else {
+			LOG.info("Using mapred.rdma.shuffle.total.size to limit UDA shuffle memory");
+			LOG.info("RDMA shuffle memory is limited to " + totalRdmaSize/1024/1024 + "MB");
+		}
 		
+		LOG.debug(meminfoSb.toString());
 		LOG.info("UDA: user prefer rdma.buf.size=" + maxRdmaBufferSize + "KB");
 		LOG.info("UDA: minimum rdma.buf.size=" + minRdmaBufferSize + "KB");
 
-		int rdmaBufferSize=maxRdmaBufferSize * 1024; // for comparing rdmaBuffSize to shuffleMemorySize in Bytes
-		if (shuffleMemorySize < ((long)numMaps * rdmaBufferSize * 2) ) { // double buffer
-			rdmaBufferSize= (int)(shuffleMemorySize / (numMaps * 2) );
+		long rdmaBufferSize=maxRdmaBufferSize * 1024; // for comparing rdmaBuffSize to shuffleMemorySize in Bytes
+		if (shuffleMemorySize <  numMaps * rdmaBufferSize * 2) { // 2 for double buffer
+			rdmaBufferSize= shuffleMemorySize / (numMaps * 2);
 			//*** Can't get pagesize from java, avoid using hardcoded pagesize, c will make the alignment */ 
 		
 			if (rdmaBufferSize < minRdmaBufferSize * 1024) {
 				throw new OutOfMemoryError("UDA: Not enough memory for rdma buffers: shuffleMemorySize=" + shuffleMemorySize + "B, mapred.rdma.buf.size.min=" + minRdmaBufferSize + "KB");
 			}
-			LOG.warn("UDA: Not enough memory for rdma.buf.size=" + maxRdmaBufferSize + "KB");
+			LOG.warn("UDA: using calulated RDMA buffer size=" + rdmaBufferSize + "B (not aligned yet) instead of max size=" + maxRdmaBufferSize + "KB");
 		}		
+		
+		if(jobConf.getSpeculativeExecution()) { // (getMapSpeculativeExecution() || getReduceSpeculativeExecution())
+			LOG.info("UDA has limited support for map task speculative execution");
+		}
+		
 		LOG.info("UDA: number of segments to fetch: " + numMaps);
-		LOG.info("UDA: Passing to MofSupplier rdma.buf.size=" + rdmaBufferSize + "B  (not aligned to pagesize)");
+		LOG.info("UDA: Passing to C rdma.buf.size=" + rdmaBufferSize + "B  (before alignment to pagesize)");
 		
 		/* init variables */
 		init_kv_bufs(); 
@@ -223,10 +287,27 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(reduceId.getJobID().toString());
 		mParams.add(reduceId.toString());
 		mParams.add(jobConf.get("mapred.netmerger.hybrid.lpq.size", "0"));
-		mParams.add(Integer.toString(rdmaBufferSize)); // in Bytes
-		mParams.add(Integer.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment 
+		mParams.add(Long.toString(rdmaBufferSize)); // in Bytes
+		mParams.add(Long.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment			 
 		mParams.add(jobConf.getOutputKeyClass().getName());
 		
+		boolean compression = jobConf.getCompressMapOutput(); //"true" or "false"
+		String alg =null;
+        if(compression){
+            alg = jobConf.get("mapred.map.output.compression.codec", null);
+		}
+		mParams.add(alg); 
+		
+		String bufferSize=Integer.toString(256*1024);		
+		if(alg!=null){
+             if(alg.contains("lzo.LzoCodec")){
+                bufferSize = jobConf.get("io.compression.codec.lzo.buffersize", bufferSize);
+            }else if(alg.contains("SnappyCodec")){
+                bufferSize = jobConf.get("io.compression.codec.snappy.buffersize", bufferSize);
+            }
+        }		
+		mParams.add(bufferSize);
+	
 		String [] dirs = jobConf.getLocalDirs();
 		ArrayList<String> dirsCanBeCreated = new ArrayList<String>();
 		//checking if the directories can be created
@@ -244,11 +325,12 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 			mParams.add(dirsCanBeCreated.get(i));
 		}
 
+		LOG.info("mParams array is " + mParams);
 		LOG.info("UDA: sending INIT_COMMAND");    	  
 		String msg = UdaCmd.formCmd(UdaCmd.INIT_COMMAND, mParams);
 		UdaBridge.doCommand(msg);
 		this.mProgress = new Progress(); 
-		this.mProgress.set((float)(1/2));
+		this.mProgress.set(0.5f);
 	}
 
 //	public void sendFetchReq (MapOutputLocation loc) {
@@ -348,6 +430,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 	}
 
 
+	
 	/* kv buf object, j2c_queue uses 
  the kv object inside.
 	 */
@@ -473,9 +556,11 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		public void close() {
 			for (int i = 0; i < kv_buf_num; ++i) {
 				KVBuf buf = kv_bufs[i];
+				if (LOG.isTraceEnabled()) LOG.trace(">>> before synchronized on kv_bufs #" + i);
 				synchronized (buf) {
 					buf.notifyAll();
 				}
+				if (LOG.isTraceEnabled()) LOG.trace("<<< after  synchronized on kv_bufs #" + i);
 			}
 		}
 
@@ -490,8 +575,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 class UdaPluginSH extends UdaPlugin {    
 
 	static{
-		String logging_name = UdaPlugin.class.getName() + ".Provider";
-		prepareLog(logging_name);
+		prepareLog(UdaPluginSH.class.getCanonicalName());
 	}
 
 	private Vector<String>     mParams       = new Vector<String>();
@@ -546,33 +630,37 @@ class UdaPluginSH extends UdaPlugin {
 		UdaBridge.doCommand(msg);        
 	}
 	
-	
 	//this code is copied from ShuffleHandler.sendMapOutput
 	static IndexRecordBridge getPathIndex(String jobIDStr, String mapId, int reduce){
 		 String user = userRsrc.get(jobIDStr);
-//		String user = "katyak";
-	     IndexRecordBridge data = null;
 	        
-	     JobID jobID = JobID.forName(jobIDStr);
-	     ApplicationId appID = Records.newRecord(ApplicationId.class);
-	     appID.setClusterTimestamp(Long.parseLong(jobID.getJtIdentifier()));
-	     appID.setId(jobID.getId());
-  
-	     final String base =
-	         ContainerLocalizer.USERCACHE + "/" + user + "/"
-	            + ContainerLocalizer.APPCACHE + "/"
-	            + ConverterUtils.toString(appID) + "/output" + "/" + mapId;
-	     LOG.debug("DEBUG0 " + base);
-	     // Index file
-	     try{
-	        Path indexFileName = lDirAlloc.getLocalPathToRead(
-	            base + "/file.out.index", mjobConf);
-	        // Map-output file
-	        Path mapOutputFileName = lDirAlloc.getLocalPathToRead(
-	            base + "/file.out", mjobConf);
-	        LOG.debug("DEBUG1 " + base + " : " + mapOutputFileName + " : " +
-	            indexFileName);
-			 // TODO: is this correct ?? - why user and not runAsUserName like in hadoop-1 ??
+///////////////////////
+     JobID jobID = JobID.forName(jobIDStr);
+      ApplicationId appID = ApplicationId.newInstance(
+          Long.parseLong(jobID.getJtIdentifier()), jobID.getId());
+      final String base =
+          ContainerLocalizer.USERCACHE + "/" + user + "/"
+              + ContainerLocalizer.APPCACHE + "/"
+              + ConverterUtils.toString(appID) + "/output" + "/" + mapId;
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("DEBUG0 " + base);
+      }
+      // Index file
+	 IndexRecordBridge data = null;
+     try{
+      Path indexFileName = lDirAlloc.getLocalPathToRead(
+          base + "/file.out.index", mjobConf);
+      // Map-output file
+      Path mapOutputFileName = lDirAlloc.getLocalPathToRead(
+          base + "/file.out", mjobConf);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("DEBUG1 " + base + " : " + mapOutputFileName + " : "
+            + indexFileName);
+      }
+			
+///////////////////////
+			 // TODO: is this correct ?? - why user and not runAsUserName like in hadoop-1 ?? 
+			 // on 2nd thought, this sounds correct, because probably we registered the runAsUser and not the "user"
 		   data = indexCache.getIndexInformationBridge(mapId, reduce, indexFileName, user);
 		   data.pathMOF = mapOutputFileName.toString();
 	     }catch (IOException e){
