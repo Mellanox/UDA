@@ -1,0 +1,23 @@
+Copyright: Apache License v2.0
+
+Information from the binary package:
+Name        : libuda
+Version     : __DEB_UDA_VERSION
+Release     : __DEB_UDA_RELEASE
+Architecture: __DEB_UDA_ARCH   
+Install Date: (not installed)
+Group       : __DEB_UDA_GROUP
+Size        : __DEB_UDA_SIZE
+License     : __DEB_UDA_LICENSE
+Signature   : (none)
+Build Date  : __DEB_UDA_DATE
+Build Host  : __DEB_UDA_HOST
+Packager    : __DEB_UDA_PACKAGER 
+Vendor      : Mellanox
+URL         : http://www.mellanox.com/
+Summary     : __DEB_UDA_SUMMARY
+Description :
+__DEB_UDA_DESCRIP
+
+
+

@@ -1,0 +1,69 @@
+#!/usr/bin/make -f
+
+PACKAGE=$(shell dh_listpackages)
+
+build:
+	dh_testdir
+
+clean:
+	dh_testdir
+	dh_testroot
+	dh_clean -d
+	
+binary-replace:
+	mv debian/changelog debian/changelog.template
+	mv debian/control debian/control.template
+	mv debian/copyright debian/copyright.template
+	echo $DEB_UDA_DESCRIP > debian/description
+#	sed  -e "s/__DEB_UDA_VERSION/${DEB_UDA_VERSION}/g" -e "s/__DEB_UDA_RELEASE/${DEB_UDA_RELEASE}/g" -e "s/__DEB_UDA_DATE/${DEB_UDA_DATE}/g" -e "s/__DEB_UDA_PACKAGER/${DEB_UDA_PACKAGER}/g"  debian/changelog.template > debian/changelog
+	sed  -e "s/__DEB_UDA_ARCH/${DEB_UDA_ARCH}/g" -e "s/__DEB_UDA_PACKAGER/${DEB_UDA_PACKAGER}/g"  debian/control.template > debian/control
+#	sed  -e "s/__DEB_UDA_VERSION/${DEB_UDA_VERSION}/g" -e "s/__DEB_UDA_RELEASE/${DEB_UDA_RELEASE}/g" -e "s/__DEB_UDA_DATE/${DEB_UDA_DATE}/g" -e "s/__DEB_UDA_ARCH/${DEB_UDA_ARCH}/g" -e "s/__DEB_UDA_PACKAGER/${DEB_UDA_PACKAGER}/g" -e "s/__DEB_UDA_SIZE/${DEB_UDA_SIZE}/g"  debian/copyright.template   > debian/copyright
+#		sed   -e "s/__DEB_UDA_PACKAGER/${DEB_UDA_PACKAGER}/g" -e "s/__DEB_UDA_SIZE/${DEB_UDA_SIZE}/g"  debian/copyright.template   > debian/copyright
+
+    #workaround since sed does not like \n.
+	cat debian/control | awk -v temp="`cat debian/description`" 'BEGIN{}($1 !~ "Description"){print $0}($1~"Description"){print $1 " " temp}' > debian/control2
+	mv debian/control2 debian/control
+	
+	rm debian/changelog.template
+	rm debian/control.template
+	rm debian/copyright.template
+	
+binary-indep: build
+
+binary-arch: build
+	dh_testdir
+	dh_testroot
+	dh_prep
+	dh_installdirs
+
+	dh_installdocs
+	dh_installchangelogs
+
+# Copy the packages's files.
+	find . -maxdepth 1 -mindepth 1 -not -name debian -print0 | \
+		xargs -0 -r -i cp -a {} debian/$(PACKAGE)
+
+#
+# If you need to move files around in debian/$(PACKAGE) or do some
+# binary patching, do it here
+#
+
+	
+
+
+# This has been known to break on some wacky binaries.
+#	dh_strip
+	dh_compress
+#	dh_fixperms
+	dh_makeshlibs
+	dh_installdeb
+	-dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+	
+binary: binary-indep binary-arch
+.PHONY: build clean binary-replace binary-indep binary-arch binary
+
+	

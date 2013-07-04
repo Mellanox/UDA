@@ -1,0 +1,9 @@
+Source: libuda
+Priority: extra
+Maintainer: __DEB_UDA_PACKAGER 
+
+Package: libuda
+Architecture: __DEB_UDA_ARCH
+Depends: libaio1
+Description: __DEB_UDA_DESCRIP
+

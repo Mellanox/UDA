@@ -1,0 +1,3 @@
+#!/bin/bash
+(cd /usr/lib64/uda; tar -xf utils.tgz)
+(cd /usr/lib64/uda; ln  -sf uda-hadoop-1.x-v2.jar uda-hadoop-1.x.jar )
