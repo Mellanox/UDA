@@ -149,7 +149,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		prepareLog(ShuffleConsumerPlugin.class.getCanonicalName());
 	}
 	
-	final UdaShuffleConsumerPlugin udaShuffleConsumer;
+	final UdaShuffleConsumerPluginShared udaShuffleConsumer;
 	final ReduceTask reduceTask;
 
 	private Reporter      mTaskReporter = null;    
@@ -197,10 +197,10 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		
 		mCmdParams.add("-s");
 		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
-
+		
 	}
 
-	public UdaPluginRT(UdaShuffleConsumerPlugin udaShuffleConsumer, ReduceTask reduceTask, JobConf jobConf, Reporter reporter,
+	public UdaPluginRT(UdaShuffleConsumerPluginShared udaShuffleConsumer, ReduceTask reduceTask, JobConf jobConf, Reporter reporter,
 			int numMaps) throws IOException {
 		super(jobConf);
 		this.udaShuffleConsumer = udaShuffleConsumer;
@@ -222,16 +222,16 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		}
 
 		if (totalRdmaSize <= 0) {	
-		long maxHeapSize = Runtime.getRuntime().maxMemory();
-		double shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", DEFAULT_SHUFFLE_INPUT_PERCENT);
-		if ((shuffleInputBufferPercent < 0) || (shuffleInputBufferPercent > 1)) {
-			LOG.warn("UDA: mapred.job.shuffle.input.buffer.percent is out of range - set to default: " + DEFAULT_SHUFFLE_INPUT_PERCENT);
-			shuffleInputBufferPercent = DEFAULT_SHUFFLE_INPUT_PERCENT;
-		}
+			long maxHeapSize = Runtime.getRuntime().maxMemory();
+			double shuffleInputBufferPercent = jobConf.getFloat("mapred.job.shuffle.input.buffer.percent", DEFAULT_SHUFFLE_INPUT_PERCENT);
+			if ((shuffleInputBufferPercent < 0) || (shuffleInputBufferPercent > 1)) {
+				LOG.warn("UDA: mapred.job.shuffle.input.buffer.percent is out of range - set to default: " + DEFAULT_SHUFFLE_INPUT_PERCENT);
+				shuffleInputBufferPercent = DEFAULT_SHUFFLE_INPUT_PERCENT;
+			}
 			shuffleMemorySize = (long)(maxHeapSize * shuffleInputBufferPercent);
-		
+			
 			LOG.info("Using JAVA Xmx with mapred.job.shuffle.input.buffer.percent to limit UDA shuffle memory");
-		
+				
 			meminfoSb.append(", maxHeapSize=").append(maxHeapSize).append("B");
 			meminfoSb.append(", shuffleInputBufferPercent=").append(shuffleInputBufferPercent);			
 			meminfoSb.append("==> shuffleMemorySize=").append(shuffleMemorySize).append("B");
