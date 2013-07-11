@@ -130,7 +130,7 @@ install -m 0644 %{SOURCE11} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_1x_cdh42_jar}
 (cd %{uda_dir}; ln  -sf %{uda_hadoop_1x_v2_jar} uda-hadoop-1.x.jar )
 
 %postun
-rm -rf %{uda_dir}
+[ ! -z "$1" ] && [ $1 -le 0 ] && rm -rf %{uda_dir} || true
 
 %clean
 rm -rf $RPM_BUILD_ROOT
