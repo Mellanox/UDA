@@ -19,12 +19,9 @@
 package com.mellanox.hadoop.mapred;
 
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.JobID;
-
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.ShuffleConsumerPlugin;
-//import org.apache.hadoop.mapred.ShuffleConsumerPlugin.Context;
 import org.apache.hadoop.mapred.RawKeyValueIterator;
 import org.apache.hadoop.mapred.TaskID;
 import org.apache.hadoop.mapred.Task;
@@ -56,320 +53,78 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;  // TODO: probably concurrency is not needed 
 
 import java.io.IOException;
-import org.apache.hadoop.mapred.Task;
-//import org.apache.hadoop.mapred.Task.TaskReporter;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.fs.FileSystem;
 
 import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapreduce.task.reduce.Shuffle;
 import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.io.compress.CompressionCodec;
-import org.apache.hadoop.mapred.Task.CombineOutputCollector;
-//import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.hadoop.util.Progress;
-//import org.apache.hadoop.mapred.TaskAttemptID;
 
 import org.apache.hadoop.mapred.Counters;
 import org.apache.hadoop.mapred.TaskStatus;
-import org.apache.hadoop.mapred.MapOutputFile;
 
-//import org.apache.hadoop.mapred.ReduceTask.ReduceCopier.MapOutputLocation;
-/**
-	* Abstraction to track a map-output.
-*/
-class MapOutputLocation {
-	TaskAttemptID taskAttemptId;
-	TaskID taskId;
-	String ttHost;
-	URL taskOutput;
-	
-	public MapOutputLocation(TaskAttemptID taskAttemptId, 
-	String ttHost, URL taskOutput) {
-        this.taskAttemptId = taskAttemptId;
-        this.taskId = this.taskAttemptId.getTaskID();
-        this.ttHost = ttHost;
-        this.taskOutput = taskOutput;
+import org.apache.hadoop.fs.FSError;
+
+import java.util.Set;
+import java.util.TreeSet;
+
+import org.apache.hadoop.mapred.UdaMapredBridge;
+
+
+
+public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin<K, V>, UdaConsumerPluginCallable{
+
+	UdaShuffleConsumerPluginShared  udaPlugin = new UdaShuffleConsumerPluginShared(this);
+
+  @Override // callback from UdaConsumerPluginCallable
+	public boolean pluginFetchOutputs(ShuffleConsumerPlugin plugin) throws IOException{
+		return true; //TODO: avner - clarify this is for vanilla !!
+	}
+
+  @Override // callback from UdaConsumerPluginCallable
+	public RawKeyValueIterator pluginCreateKVIterator(ShuffleConsumerPlugin plugin, JobConf job, FileSystem fs, Reporter reporter)
+																										throws IOException, InterruptedException{
+		return plugin.run(); //TODO: avner - clarify this is for vanilla !!
+	}
+
+  @Override // callback from UdaConsumerPluginCallable
+	public Class getVanillaPluginClass(){
+		return null;
+	}
+
+  @Override // callback from UdaConsumerPluginCallable
+	public MapTaskCompletionEventsUpdate pluginGetMapCompletionEvents(IntWritable fromEventId, int maxEventsToFetch) throws IOException{
+		return udaPlugin.umbilical.getMapCompletionEvents(udaPlugin.reduceTask.getJobID(), 
+																											fromEventId.get(), 
+																											maxEventsToFetch,
+																											udaPlugin.reduceTask.getTaskID()
+																											//, udaPlugin.reduceTask.getJvmContext() - this was for hadoop-1.x
+																											);
 	}
 	
-	public TaskAttemptID getTaskAttemptId() {
-        return taskAttemptId;
-	}
-	
-	public TaskID getTaskId() {
-        return taskId;
-	}
-	
-	public String getHost() {
-        return ttHost;
-	}
-	
-	public URL getOutputLocation() {
-        return taskOutput;
-	}
-}
-
-
-
-public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin<K, V>{
-	
-	protected ReduceTask reduceTask;
-	protected TaskAttemptID reduceId;
-	protected TaskUmbilicalProtocol umbilical; // Reference to the umbilical object
-	protected JobConf jobConf;
-	protected FileSystem localFS;
-
-	protected Reporter reporter;
-	private static final Log LOG = LogFactory.getLog(ShuffleConsumerPlugin.class.getCanonicalName());
-	
-	// This is the channel used to transfer the data between RDMA C++ and Hadoop
-	private UdaPluginRT rdmaChannel;
-	
-	/**
-		* initialize this ShuffleConsumer instance.  
-	*/
-  public  void init(ShuffleConsumerPlugin.Context<K, V> context) {
-	  
-
-		this.reduceTask = (ReduceTask)context.getReduceTask();
-		this.reduceId = this.reduceTask.getTaskID();
-		
-		this.umbilical = context.getUmbilical();
-		this.jobConf = context.getJobConf();
-		this.localFS = context.getLocalFS();
-		this.reporter = context.getReporter();
-
+  static public ShuffleConsumerPlugin.Context staticContext; // TODO: avner - try to avoid static
+  public void init(ShuffleConsumerPlugin.Context<K, V> context) {
+  staticContext = context;
 		try {
-//			configureClasspath(this.jobConf);
-			this.rdmaChannel = new UdaPluginRT<K,V>(this, this.reduceTask, this.jobConf, this.reporter, this.reduceTask.getNumMaps());
-		} catch (java.io.IOException e) {
-			LOG.error("UdaShuffleConsumerPlugin: init got exception");
+			udaPlugin.init((ReduceTask)context.getReduceTask(), context.getUmbilical(), context.getJobConf(), context.getReporter(), context.getLocalFS());
+			// DoNOT call in hadoop-3, udaPlugin.configureClasspath(this.jobConf);
 		}
-		
+		catch (Exception e) {
+			udaPlugin.LOG.error("error occured at plugin init");
+		}
 	}
-	
-
 
 	public RawKeyValueIterator run() throws IOException, InterruptedException{
-		if (fetchOutputs())
-			return createKVIterator(jobConf, localFS, reporter);
-		else 
-			return null;
+		if (udaPlugin.fetchOutputs()) {
+			return udaPlugin.createKVIterator(udaPlugin.jobConf, udaPlugin.fs, udaPlugin.reporter);
+		}
+		else {
+			throw new IOException("critical failure in udaPlugin.fetchOutputs()");
+		}
 	}
 
-
-	/** 
-		* A flag to indicate when to exit getMapEvents thread 
-	*/
-	protected volatile boolean exitGetMapEvents = false; //TODO: no need volatile
-	
-	public boolean fetchOutputs() {
-		GetMapEventsThread getMapEventsThread = null;
-		// start the map events thread
-		getMapEventsThread = new GetMapEventsThread();
-		getMapEventsThread.start();         
-		
-		LOG.info("UdaShuffleConsumerPlugin: Wait for fetching");
-		synchronized(this) {
-			try {
-				this.wait(); 
-				} catch (InterruptedException e) {
-			}       
-		}
-		LOG.info("UdaShuffleConsumerPlugin: Fetching is done"); 
-		// all done, inform the copiers to exit
-		exitGetMapEvents= true;
-		try {
-			//here only stop the thread, but don't close it, 
-			//because we need this channel to return the values later.
-			getMapEventsThread.join();
-			LOG.info("getMapsEventsThread joined.");
-			} catch (InterruptedException ie) {
-			LOG.info("getMapsEventsThread/rdmaChannelThread threw an exception: " +
-			StringUtils.stringifyException(ie));
-		}
-		return true;
-	}   
-	
-	public RawKeyValueIterator createKVIterator(JobConf job, FileSystem fs, Reporter reporter) throws IOException {
-		return this.rdmaChannel.createKVIterator_rdma(job,fs,reporter);
-	}
-	
 	public void close() {
-		this.rdmaChannel.close();
-	}
-	
-	
-	
-	
-/*	
-	protected void configureClasspath(JobConf conf)
-	throws IOException {
-		
-		// get the task and the current classloader which will become the parent
-		Task task = reduceTask;
-		ClassLoader parent = conf.getClassLoader();   
-		
-		// get the work directory which holds the elements we are dynamically
-		// adding to the classpath
-		File workDir = new File(task.getJobFile()).getParentFile();
-		ArrayList<URL> urllist = new ArrayList<URL>();
-		
-		// add the jars and directories to the classpath
-		String jar = conf.getJar();
-		if (jar != null) {      
-			File jobCacheDir = new File(new Path(jar).getParent().toString());
-			
-			File[] libs = new File(jobCacheDir, "lib").listFiles();
-			if (libs != null) {
-				for (int i = 0; i < libs.length; i++) {
-					urllist.add(libs[i].toURL());
-				}
-			}
-			urllist.add(new File(jobCacheDir, "classes").toURL());
-			urllist.add(jobCacheDir.toURL());
-			
-		}
-		urllist.add(workDir.toURL());
-		
-		// create a new classloader with the old classloader as its parent
-		// then set that classloader as the one used by the current jobconf
-		URL[] urls = urllist.toArray(new URL[urllist.size()]);
-		URLClassLoader loader = new URLClassLoader(urls, parent);
-		conf.setClassLoader(loader);
-	}
-//*/
-	
-    private class GetMapEventsThread extends Thread {
-		
-		private IntWritable fromEventId = new IntWritable(0);
-		private static final long SLEEP_TIME = 1000;
-		
-		
-		
-		
-		public GetMapEventsThread() {
-			setName("Thread for polling Map Completion Events");
-			setDaemon(true);
-		}
-		
-		@Override
-		public void run() {
-			
-			LOG.info(reduceTask.getTaskID() + " Thread started: " + getName());
-			
-			do {
-				try {
-					int numNewMaps = getMapCompletionEvents();
-					if (numNewMaps > 0) {
-						//              synchronized (copyResultsOrNewEventsLock) {
-						//                numEventsFetched += numNewMaps;
-						//                copyResultsOrNewEventsLock.notifyAll();
-						//              }
-					}
-					if (LOG.isDebugEnabled()) {
-						if (numNewMaps > 0) {
-							LOG.debug(reduceTask.getTaskID() + ": " +  
-							"Got " + numNewMaps + " new map-outputs"); 
-						}
-					}
-					Thread.sleep(SLEEP_TIME);
-				} 
-				catch (InterruptedException e) {
-					LOG.warn(reduceTask.getTaskID() +
-					" GetMapEventsThread returning after an " +
-					" interrupted exception");
-					return;
-				}
-				catch (Throwable t) {
-					String msg = reduceTask.getTaskID()
-					+ " GetMapEventsThread Ignoring exception : " 
-					+ StringUtils.stringifyException(t);
-					// pluginReportFatalError(reduceTask, reduceTask.getTaskID(), t, msg); - AVNER TODO !!!
-				}
-			} while (!exitGetMapEvents);
-			
-			LOG.info("GetMapEventsThread exiting");
-			
-		}
-		
-		/** Max events to fetch in one go from the tasktracker */
-		private static final int MAX_EVENTS_TO_FETCH = 10000;
-		
-		/**
-			* The map for (Hosts, List of MapIds from this Host) maintaining
-			* map output locations
-		*/
-		private final Map<String, List<MapOutputLocation>> mapLocations = 
-		new ConcurrentHashMap<String, List<MapOutputLocation>>();
-		
-		/** 
-			* Queries the {@link TaskTracker} for a set of map-completion events 
-			* from a given event ID.
-			* @throws IOException
-		*/  
-		private int getMapCompletionEvents() throws IOException {
-			
-			int numNewMaps = 0;
-			MapTaskCompletionEventsUpdate update = 
-			umbilical.getMapCompletionEvents(reduceTask.getJobID(), 
-			fromEventId.get(), 
-			MAX_EVENTS_TO_FETCH,
-			reduceTask.getTaskID()
-			/*, reduceTask.getJvmContext() - this was for hadoop-1.x*/
-			);
-			
-			TaskCompletionEvent events[] = update.getMapTaskCompletionEvents();
-			
-			// Check if the reset is required.
-			// Since there is no ordering of the task completion events at the 
-			// reducer, the only option to sync with the new jobtracker is to reset 
-			// the events index
-			if (update.shouldReset()) {
-				fromEventId.set(0);
-				//          obsoleteMapIds.clear(); // clear the obsolete map
-				//          mapLocations.clear(); // clear the map locations mapping
-			}
-			
-			// Update the last seen event ID
-			fromEventId.set(fromEventId.get() + events.length);
-			
-			// Process the TaskCompletionEvents:
-			// 1. Save the SUCCEEDED maps in knownOutputs to fetch the outputs.
-			// 2. Save the OBSOLETE/FAILED/KILLED maps in obsoleteOutputs to stop 
-			//    fetching from those maps.
-			// 3. Remove TIPFAILED maps from neededOutputs since we don't need their
-			//    outputs at all.
-			for (TaskCompletionEvent event : events) {
-				switch (event.getTaskStatus()) {
-					case SUCCEEDED:
-					{
-						URI u = URI.create(event.getTaskTrackerHttp());
-						String host = u.getHost();
-						TaskAttemptID taskId = event.getTaskAttemptId();
-						rdmaChannel.sendFetchReq(host, taskId.getJobID().toString()  , taskId.toString());  // Avner: notify RDMA
-						numNewMaps ++;
-					}
-					break;
-					case FAILED:
-					case KILLED:
-					case OBSOLETE:
-					{
-						//              obsoleteMapIds.add(event.getTaskAttemptId());
-						LOG.info("Ignoring obsolete output of " + event.getTaskStatus() + 
-						" map-task: '" + event.getTaskAttemptId() + "'");
-					}
-					break;
-					case TIPFAILED:
-					{
-						//              copiedMapOutputs.add(event.getTaskAttemptId().getTaskID());
-						LOG.info("Ignoring output of failed map TIP: '" +  
-						event.getTaskAttemptId() + "'");
-					}
-					break;
-				}
-			}
-			return numNewMaps;
-		}
-	}
+		udaPlugin.close();
+	}	
 }

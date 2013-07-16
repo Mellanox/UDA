@@ -18,5 +18,29 @@
 
 package org.apache.hadoop.mapred;
 
+import java.io.IOException;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.Task;
+import org.apache.hadoop.mapred.Task.TaskReporter;
+import org.apache.hadoop.util.ReflectionUtils;
+import org.apache.hadoop.fs.FileSystem;
+
+import com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin;
+
 public class UdaMapredBridge {
+	
+	public static ShuffleConsumerPlugin getShuffleConsumerPlugin(Class<? extends ShuffleConsumerPlugin> clazz, ReduceTask reduceTask, 
+			TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws ClassNotFoundException, IOException  {
+	
+		ShuffleConsumerPlugin plugin = null;
+
+		if (clazz == null) {
+			clazz = org.apache.hadoop.mapreduce.task.reduce.Shuffle.class;
+		}
+
+		plugin = ReflectionUtils.newInstance(clazz, conf);
+		plugin.init(UdaShuffleConsumerPlugin.staticContext);
+		return plugin;
+	}
+
 }

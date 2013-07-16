@@ -63,14 +63,31 @@ public class UdaShuffleConsumerPlugin<K, V> extends ShuffleConsumerPlugin implem
 
 	UdaShuffleConsumerPluginShared  udaPlugin = new UdaShuffleConsumerPluginShared(this);
 
-	public RawKeyValueIterator pluginCreateKVIterator(ShuffleConsumerPlugin plugin, JobConf job, FileSystem fs, Reporter reporter) throws IOException{
+  @Override // callback from UdaConsumerPluginCallable
+	public RawKeyValueIterator pluginCreateKVIterator(ShuffleConsumerPlugin plugin, JobConf job, FileSystem fs, Reporter reporter)
+																										throws IOException, InterruptedException{
 		return plugin.createKVIterator(job, fs, reporter);
 	}
 
+  @Override // callback from UdaConsumerPluginCallable
 	public Class getVanillaPluginClass(){
 		return null;
 	}
 
+  @Override // callback from UdaConsumerPluginCallable
+	public boolean pluginFetchOutputs(ShuffleConsumerPlugin plugin) throws IOException{
+		return plugin.fetchOutputs();
+	}
+
+  @Override // callback from UdaConsumerPluginCallable
+	public MapTaskCompletionEventsUpdate pluginGetMapCompletionEvents(IntWritable fromEventId, int maxEventsToFetch) throws IOException{
+		return udaPlugin.umbilical.getMapCompletionEvents(udaPlugin.reduceTask.getJobID(), 
+																											fromEventId.get(), 
+																											maxEventsToFetch,
+																											udaPlugin.reduceTask.getTaskID(), 
+																											udaPlugin.reduceTask.getJvmContext());
+	}
+	
   @Override
 	public void init(ReduceTask reduceTask, TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws IOException {
 		udaPlugin.init(reduceTask, umbilical, conf, reporter);
