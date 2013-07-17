@@ -17,14 +17,12 @@
 **
 */
 package com.mellanox.hadoop.mapred;
-
 import org.apache.hadoop.mapred.*;
 
 import java.io.File;
 import java.io.IOException;
 import java.lang.management.MemoryType;
 import java.lang.management.MemoryUsage;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -36,7 +34,7 @@ import java.util.logging.MemoryHandler;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.mapred.Reporter;
-
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.hadoop.util.Progress;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocalDirAllocator;
@@ -84,62 +82,11 @@ class UdaPluginTT extends UdaPlugin {
 	}
 	
 	protected void buildCmdParams() {
-		mCmdParams.clear();
-		
-	
-		mCmdParams.add("-w");
-		mCmdParams.add(mjobConf.get("mapred.rdma.wqe.per.conn", "256"));
-		mCmdParams.add("-r");
-		mCmdParams.add(mjobConf.get("mapred.rdma.cma.port", "9011"));      
-		mCmdParams.add("-m");
-		mCmdParams.add("1");
-		
-		mCmdParams.add("-g");
-		mCmdParams.add(System.getProperty("hadoop.log.dir"));
-		
-		mCmdParams.add("-s");
-		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
-
-	}
-
-
-	public void jobOver(String jobId) {
-		mParams.clear();
-		mParams.add(jobId);
-		String msg = UdaCmd.formCmd(UdaCmd.JOB_OVER_COMMAND, mParams);
-		LOG.info("UDA: sending JOBOVER:(" + msg + ")");
-		UdaBridge.doCommand(msg);
-	}  
-	
-	public void notifyMapDone(String userName, String jobId, String mapId, Path fileOut, Path fileOutIndex) {
-			Path fout = fileOut;
-			Path fidx = fileOutIndex;
-			
-			int upper = 6;
-			for (int i = 0; i < upper; ++i) {
-				fout = fout.getParent();
-				fidx = fidx.getParent();
-			} 
-
-			//we need "jobId + mapId" to identify a maptask
-			mParams.clear();
-			mParams.add(jobId);
-			mParams.add(mapId);
-			mParams.add(fout.toString()); 
-			mParams.add(fidx.toString());
-			mParams.add(userName);
-			String msg = UdaCmd.formCmd(UdaCmd.NEW_MAP_COMMAND, mParams);
-			UdaBridge.doCommand(msg);
-
-			if (LOG.isInfoEnabled()) LOG.info("UDA: notified Finshed Map:(" + msg + ")");
+		UdaShuffleProviderPluginShared.buildCmdParams(mCmdParams, mjobConf);
 	}
 
 	public void close() {
-
-		mParams.clear();
-		String msg = UdaCmd.formCmd(UdaCmd.EXIT_COMMAND, mParams);
-		LOG.info("UDA: sending EXIT_COMMAND");    	  
-		UdaBridge.doCommand(msg);        
+		UdaShuffleProviderPluginShared.close(LOG);
 	}
 	
 	

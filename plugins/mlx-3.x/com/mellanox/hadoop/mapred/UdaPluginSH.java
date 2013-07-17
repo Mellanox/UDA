@@ -92,30 +92,11 @@ class UdaPluginSH extends UdaPlugin {
 	
 	
 	protected void buildCmdParams() {
-		mCmdParams.clear();
-		
-		mCmdParams.add("-w");
-		mCmdParams.add(mjobConf.get("mapred.rdma.wqe.per.conn", "256"));
-		mCmdParams.add("-r");
-		mCmdParams.add(mjobConf.get("mapred.rdma.cma.port", "9011"));      
-		mCmdParams.add("-m");
-		mCmdParams.add("1");
-		
-		mCmdParams.add("-g");
-		mCmdParams.add(System.getProperty("hadoop.log.dir"));
-		
-		mCmdParams.add("-s");
-		mCmdParams.add(mjobConf.get("mapred.rdma.buf.size", "1024"));
-
-}
-
+		UdaShuffleProviderPluginShared.buildCmdParams(mCmdParams, mjobConf);
+	}
 
 	public void close() {
-
-		mParams.clear();
-		String msg = UdaCmd.formCmd(UdaCmd.EXIT_COMMAND, mParams);
-		LOG.info("UDA: sending EXIT_COMMAND");    	  
-		UdaBridge.doCommand(msg);        
+		UdaShuffleProviderPluginShared.close(LOG);
 	}
 	
 	//this code is copied from ShuffleHandler.sendMapOutput
