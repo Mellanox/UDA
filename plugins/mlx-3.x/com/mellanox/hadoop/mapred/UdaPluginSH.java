@@ -17,7 +17,6 @@
 **
 */
 package com.mellanox.hadoop.mapred;
-import org.apache.hadoop.mapred.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -58,6 +57,11 @@ import org.apache.hadoop.conf.Configuration;
 
 import java.util.Timer;
 import java.util.TimerTask;
+
+import org.apache.hadoop.mapred.JobID;
+import org.apache.hadoop.mapred.IndexCacheBridge;
+import org.apache.hadoop.mapred.IndexRecordBridge;
+import org.apache.hadoop.mapred.JobConf;
 
 
 class UdaPluginSH extends UdaPlugin {    

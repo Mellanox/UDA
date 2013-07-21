@@ -18,8 +18,6 @@
 */
 package com.mellanox.hadoop.mapred;
 
-import org.apache.hadoop.mapred.*;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
@@ -34,6 +32,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.LocalDirAllocator;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TaskAttemptID;
+import org.apache.hadoop.mapred.TaskTracker;
+import org.apache.hadoop.mapred.ShuffleProviderPlugin;
+import org.apache.hadoop.mapred.JobID;
 
 public class UdaShuffleProviderPlugin implements ShuffleProviderPlugin{
 

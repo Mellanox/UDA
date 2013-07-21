@@ -18,18 +18,31 @@
 */
 package com.mellanox.hadoop.mapred;
 
+import java.io.File;
+import java.io.IOException;
+
+import java.net.URI;
+import java.net.URL;
+import java.net.URLClassLoader;
+
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;  // TODO: probably concurrency is not needed 
+
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.ShuffleConsumerPlugin;
 import org.apache.hadoop.mapred.RawKeyValueIterator;
 import org.apache.hadoop.mapred.TaskID;
-import org.apache.hadoop.mapred.Task;
+import org.apache.hadoop.mapred.TaskAttemptID;
 import org.apache.hadoop.mapred.MapTaskCompletionEventsUpdate;
 import org.apache.hadoop.mapred.TaskCompletionEvent;
-import org.apache.hadoop.mapred.TaskAttemptID;
 import org.apache.hadoop.mapred.TaskUmbilicalProtocol;
 import org.apache.hadoop.mapred.ReduceTask;
+import org.apache.hadoop.mapred.Task;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -39,43 +52,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.io.IntWritable;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URL;
-import java.net.URLClassLoader;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.LinkedList;
-import java.util.Collections;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;  // TODO: probably concurrency is not needed 
-
-import java.io.IOException;
-import org.apache.hadoop.util.ReflectionUtils;
-import org.apache.hadoop.fs.FileSystem;
-
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.fs.LocalDirAllocator;
-import org.apache.hadoop.io.compress.CompressionCodec;
-import org.apache.hadoop.util.Progress;
-
-import org.apache.hadoop.mapred.Counters;
-import org.apache.hadoop.mapred.TaskStatus;
-
-//import org.apache.hadoop.mapreduce.task.reduce.Shuffle;
-//import org.apache.hadoop.mapred.Task.CombineOutputCollector;
-//import org.apache.hadoop.mapred.MapOutputFile;
-
-
-
-import java.util.Set;
-import java.util.TreeSet;
-
-
 import org.apache.hadoop.mapred.UdaMapredBridge;
-import org.apache.hadoop.fs.FSError;
 
 /**
 	* Abstraction to track a map-output.
