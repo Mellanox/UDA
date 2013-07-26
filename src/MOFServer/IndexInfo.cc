@@ -162,7 +162,7 @@ DataEngine::start()
             if(req) {
             	log(lsDEBUG, "DataEngine: received shuffle request - JOBID=%s REDUCEID=%d MAP=%s offset=%lld", req->m_jobid.c_str(), req->reduceID, req->m_map.c_str(), req->map_offset);
             	if (req->chunk_size > this->rdma_buf_size) {
-            		log(lsERROR, "shuffle request chunk size is larger than rdma buffer(chunk_size=%ld rdma_buf_size=%ld)", req->chunk_size, this->rdma_buf_size);
+            		log(lsERROR, "shuffle request chunk size is larger than rdma buffer(chunk_size=%d rdma_buf_size=%d)", req->chunk_size, this->rdma_buf_size);
             		// TODO: report TT for task failure
             		delete req;
             	}
