@@ -1,7 +1,9 @@
 #!/bin/bash
 
 set -ex
-BUILD_DIR=`dirname $0`
+ORIGDIR=`pwd`
+cd `dirname $0`
+BUILD_DIR=`pwd` # prefer absolute path
 cd $BUILD_DIR/.. # Aparently, git commands (especially git archive) prefer the top level dir without path argument??
 
 #one time setup per user
@@ -23,4 +25,4 @@ $BUILD_DIR/../src/premake.sh
 #build C++ and JAVA, and then create RPM
 echo ======== making RPM ...
 $BUILD_DIR/makerpm.sh 
-cd -
+cd $ORIGDIR
