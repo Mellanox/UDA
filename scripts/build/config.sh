@@ -5,7 +5,8 @@ export TMP_CLONE_DIR="/tmp"
 if [[ -z $JAVA_HOME ]] ; then
 	export JAVA_HOME=/usr/java/latest
 fi
-export ANT_PATH=`which ant`
+export ANT_PATH="/usr/local/ant-1.8.2/bin/ant"
+export DEB_FROM_RPM_SCRIPT_PATH="/.autodirect/mtrswgwork/katyak/uda/build"
 
 # Hadoop Parameters
 export HADOOP_BRANCH="hadoop-1.1.2-vanilla"
@@ -25,3 +26,8 @@ export NATIVE=TRUE
 
 # Build Parameters
 export BUILDPARAMS="-Djava5.home=$JAVA_HOME"
+export BUILD_DEB_FILE=false;
+OS=$(lsb_release -si)
+if [ $OS == UBUNTU ]; then
+	BUILD_DEB_FILE=true;
+fi

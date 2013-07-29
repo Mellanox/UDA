@@ -48,9 +48,13 @@ ${ANT_PATH} $BUILDPARAMS clean package
 cd $TMP_CLONE_DIR
 echo -e "\nDone 4!"
 
-# Installing RPM
-echo -e "\n---------- 5. Building the UDA RPM... ----------"
+# Building RPM/DEB
+echo -e "\n---------- 5. Building the installation file... ----------"
 bash ${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}/build/buildrpm.sh
+if [ $BUILD_DEB_FILE == true ]; then
+	echo -e "\n creating .deb file..."
+	${DEB_FROM_RPM_SCRIPT_PATH}/${DEB_FROM_RPM_SCRIPT_NAME} "${TMP_CLONE_DIR}" "${DEB_FROM_RPM_SCRIPT_PATH}/debian"
+fi
 echo -e "\nDone 5!"
  
 # Finish
