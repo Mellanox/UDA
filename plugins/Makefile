@@ -1,5 +1,4 @@
-SUBDIRS = mlx-1.x-v2/  mlx-1.x-v1/  mlx-1.x-cdh-4.2/ mlx-3.x/  # mlx-CDH3u4/
-#SUBDIRS = mlx-1.x-v3/  mlx-1.x-v2/ mlx-1.x-v1/  mlx-1.x-cdh-4.2/ mlx-3.x/  # mlx-CDH3u4/
+SUBDIRS = mlx-1.x-v3/  mlx-1.x-v2/ mlx-1.x-v1/  mlx-1.x-cdh-4.2/ mlx-3.x/
 
 .PHONY: all $(SUBDIRS)
      

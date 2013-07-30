@@ -21,6 +21,7 @@
 %define doc_dir  %{uda_dir}
 
 %define uda_lib                 libuda.so
+%define uda_hadoop_1x_v3_jar    uda-hadoop-1.x-v3.jar
 %define uda_hadoop_1x_v2_jar    uda-hadoop-1.x-v2.jar
 %define uda_hadoop_1x_v1_jar    uda-hadoop-1.x-v1.jar
 %define uda_hadoop_1x_cdh42_jar uda-hadoop-1.x-cdh-4.2.jar
@@ -84,6 +85,7 @@ Source8:        %{uda_source}
 Source9:        %{uda_journal}
 Source10:       %{uda_hadoop_1x_v1_jar}
 Source11:       %{uda_hadoop_1x_cdh42_jar}
+Source12:       %{uda_hadoop_1x_v3_jar}
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 #BuildArch:      noarch
@@ -124,6 +126,7 @@ install -m 0644 %{SOURCE8} $RPM_BUILD_ROOT%{doc_dir}/%{uda_source}
 install -m 0644 %{SOURCE9} $RPM_BUILD_ROOT%{doc_dir}/%{uda_journal}
 install -m 0644 %{SOURCE10} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_1x_v1_jar}
 install -m 0644 %{SOURCE11} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_1x_cdh42_jar}
+install -m 0644 %{SOURCE12} $RPM_BUILD_ROOT%{uda_dir}/%{uda_hadoop_1x_v3_jar}
 
 %post
 (cd %{uda_dir}; tar -xf %{uda_utils})
@@ -150,5 +153,6 @@ rm -rf $RPM_BUILD_ROOT
 %{doc_dir}/%{uda_journal}
 %{uda_dir}/%{uda_hadoop_1x_v1_jar}
 %{uda_dir}/%{uda_hadoop_1x_cdh42_jar}
+%{uda_dir}/%{uda_hadoop_1x_v3_jar}
 
 %changelog
