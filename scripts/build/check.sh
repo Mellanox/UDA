@@ -48,5 +48,14 @@ if [ $? != 0 ]; then
 	echo -e "\n${RED}Error: MLNX_OFED is not installed on the machine!${NONE}\n"
         exit 1
 fi
+if [ ! -e ~/rpmbuild ]; then
+        echo -e "\n${RED}Error: The rpm build directory is missing in user home directory.${NONE}\n"
+        echo -e "\n${RED}Try reinstalling MLNX_OFED from /.autodirect/mswg/release/MLNX_OFED/${NONE}\n"
+        exit 1
+elif [ ! -e ~/rpmbuild/SOURCES/uda-CDH3u4.jar ]; then
+        echo -e "\n${RED}Error: A JAR file is missing! uda-CDH3u4.jar is not found.${NONE}\n"
+        echo -e "\n${RED}Try reinstalling MLNX_OFED from /.autodirect/mswg/release/MLNX_OFED/${NONE}\n"
+        exit 1	
+fi
 
 # All checks pass

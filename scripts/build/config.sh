@@ -5,9 +5,9 @@
 
 # General Parameters
 export TMP_CLONE_DIR="/tmp"
-if [[ -z $JAVA_HOME ]] ; then
+#if [[ -z $JAVA_HOME ]] ; then
 	export JAVA_HOME=/usr/java/latest
-fi
+#fi
 export ANT_PATH="/usr/local/ant-1.8.2/bin/ant"
 export LOG_FILE="${TMP_CLONE_DIR}/build_log.txt"
 export DEB_FROM_RPM_SCRIPT_PATH="/.autodirect/mtrswgwork/katyak/uda/build"

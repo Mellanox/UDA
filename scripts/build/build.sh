@@ -10,7 +10,7 @@ source ./config.sh
 # Check for needed configurations and files
 source ./check.sh
 cd $TMP_CLONE_DIR
-rm -rf $HADOOP_BRANCH_DIR $UDA_BRANCH_DIR $LOG_FILE
+rm -rf $HADOOP_BRANCH_DIR $UDA_BRANCH_DIR $LOG_FILE ~/rpmbuild/RPMS/*
 
 # Hadoop fetch phase
 echo -e "\n${CYAN}---------- 1. Fetching Hadoop... ----------${NONE}"
@@ -20,7 +20,7 @@ cd $HADOOP_BRANCH_DIR
 git checkout $HADOOP_BRANCH
 tar -xzf $HADOOP_FILENAME
 cd $TMP_CLONE_DIR
-echo -e "\nDone (1 / 5)!"
+echo -e "\n${GREEN}Done (1 / 5)!${NONE}"
 
 # UDA fetch phase
 echo -e "\n${CYAN}---------- 2. Fetching UDA... ----------${NONE}"
@@ -29,7 +29,7 @@ git clone $UDA_GIT_PATH $UDA_BRANCH_DIR
 cd $UDA_BRANCH_DIR
 git checkout $PATCH_BRANCH
 cd $TMP_CLONE_DIR
-echo -e "\nDone (2 / 5)!"
+echo -e "\n${GREEN}Done (2 / 5)!${NONE}"
 
 # Patching hadoop
 echo -e "\n${CYAN}---------- 3. Pathing Hadoop... ----------${NONE}"
@@ -38,7 +38,7 @@ PATCHED_HADOOP_DIR=${TMP_CLONE_DIR}/${HADOOP_BRANCH_DIR}/${HADOOP_DIR}
 cd $PATCHED_HADOOP_DIR
 patch -s -p0 < $patch_file
 cd $TMP_CLONE_DIR
-echo -e "\nDone (3 / 5)!"
+echo -e "\n${GREEN}Done (3 / 5)!${NONE}"
 
 # Building hadoop
 echo -e "\n${CYAN}---------- 4. Building the patched Hadoop... ----------${NONE}"
@@ -50,7 +50,7 @@ cp -f ${BUILD_XML_FILE} ${PATCHED_HADOOP_DIR} 					# Bug fix #
 echo -e "\nBuild in progress! If needed, see ${LOG_FILE} for details."
 ${ANT_PATH} $BUILDPARAMS clean package > ${LOG_FILE}
 cd $TMP_CLONE_DIR
-echo -e "\nDone (4 / 5)!"
+echo -e "\n${GREEN}Done (4 / 5)!${NONE}"
 
 # Building RPM/DEB
 echo -e "\n${CYAN}---------- 5. Building the installation files... ----------${NONE}"
@@ -61,10 +61,10 @@ if [ $BUILD_DEB_FILE == true ]; then
 	${DEB_FROM_RPM_SCRIPT_PATH}/${DEB_FROM_RPM_SCRIPT_NAME} "${TMP_CLONE_DIR}" "${DEB_FROM_RPM_SCRIPT_PATH}/debian"
 fi
 cd $TMP_CLONE_DIR
-echo -e "\nDone (5 / 5)!"
+echo -e "\n${GREEN}Done (5 / 5)!${NONE}"
  
 # Finish
 touch BUILD_SUCCESSFUL
-echo -e "\n{GREEN}******************* All DONE! *******************${NONE}"
+echo -e "\n${GREEN}******************* All DONE! *******************${NONE}"
 tput sgr0
 exit 0
