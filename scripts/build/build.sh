@@ -8,7 +8,7 @@ set -e
 # Configure environment parameters
 source ./config.sh
 # Check for needed configurations and files
-source ./check.sh
+source ./env_check.sh
 cd $TMP_CLONE_DIR
 rm -rf $HADOOP_BRANCH_DIR $UDA_BRANCH_DIR $LOG_FILE ~/rpmbuild/RPMS/*
 
