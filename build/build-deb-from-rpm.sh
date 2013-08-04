@@ -1,10 +1,10 @@
 #!/bin/bash
 function usage {
 	echo "this script creates .deb from .rpm. "
-	echo "parameters passed:" 	
+	echo "parameters passed:"
 	echo "	1. path to rpm"
 	echo "	2. path to debian direcory containing necessary files. for example /.autodirect/mtrswgwork/katyak/uda/build/debian"
-	echo ".deb is created inside /tmp directory"
+	echo "	3. path to where the .deb is created"
 	echo "script will fail if libaio1 is not installed on the machine(not included in Ubuntu)"
 }
 
@@ -18,12 +18,18 @@ if [ -z "$2" ]; then
 	exit 1
 fi
 
+if [ -z "$3" ]; then
+	usage
+	exit 1
+fi
+
 
 #rpm_name="/volt/katyak/rpmbuild/RPMS/x86_64/libuda-3.1.11-0.866.el6.x86_64.rpm"
 #pathToDebianDir="/.autodirect/mtrswgwork/katyak/uda/build/debian"
 
 rpm_name=$1
 path_debian_dir=$2
+path_target_dir=$3
 
 #must make sure rpm is intalled - for queries
 sudo apt-get install rpm
@@ -53,7 +59,7 @@ mkdir /tmp/libuda
 if [ $? -ne 0 ]; then
 	echo “CRITICAL: Failed to create new directory!!!”
 	exit 1
-fi 
+fi
 
 rpm2cpio $rpm_name | lzma -t -q > /dev/null 2>&1
 rpm2cpio $rpm_name | (cd /tmp/libuda;  cpio --extract --make-directories --no-absolute-filenames --preserve-modification-time) 2>&1
@@ -86,3 +92,6 @@ cd ..
 ./debian/rules binary  2>&1
 #rm -rf /tmp/libuda
 
+echo -e "\nSaving the UDA .deb file in ${path_target_dir}..."
+mv -f /tmp/*.deb ${path_target_dir}
+echo "Saved!"

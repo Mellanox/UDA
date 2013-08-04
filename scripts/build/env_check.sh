@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## JUNE 2013 ##
-## Env check for UDA Hadoop build script ##
+## Environment check for UDA Hadoop build script ##
 
 # Checks to see if clone direcory is valid
 if [ ! -e ${TMP_CLONE_DIR} ]; then
@@ -38,7 +38,7 @@ fi
 
 
 # Checks to see if "deb_from_rpm" script path is valid
-if [ ! -e ${DEB_FROM_RPM_SCRIPT_PATH} ] || [ ! -d ${DEB_FROM_RPM_SCRIPT_PATH} ]; then
+if [ ${DEB_FROM_RPM_SCRIPT_PATH} == "" ]; then
 	echo -e "\n${RED}Error: The path of the .deb from .rpm conversion script is invalid!${NONE}\n"
 	exit 1
 fi
@@ -63,6 +63,19 @@ elif [ ! -e ~/rpmbuild/SOURCES/uda-CDH3u4.jar ]; then
         echo -e "\n${RED}Error: A JAR file is missing! uda-CDH3u4.jar is not found.${NONE}\n"
         echo -e "\n${RED}Try reinstalling MLNX_OFED from /.autodirect/mswg/release/MLNX_OFED/${NONE}\n"
         exit 1	
+fi
+
+# Checks configuration
+if [ $BUILD_HADOOPS == "FALSE" ] && [ $BUILD_RPM == "FALSE" ]; then
+	echo -e "\n${RED}Error: You have not asked to build something.${NONE}\n"
+        echo -e "\n${RED}Change either BUILD_HADOOPS or BUILD_RPM to TRUE in config.sh${NONE}\n"
+        exit 1
+fi
+
+if [ $BUILD_RPM == "FALSE" ] && [ $BUILD_DEB == "TRUE" ]; then
+	echo -e "\n${RED}Error: You can't build a .deb file without building a .rpm file.${NONE}\n"
+        echo -e "\n${RED}Change BUILD_RPM to TRUE in config.sh${NONE}\n"
+        exit 1
 fi
 
 # All checks pass
