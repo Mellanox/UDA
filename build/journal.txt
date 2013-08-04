@@ -3,6 +3,19 @@
 #
 
 ================================
+Version: 3.2.1-0.beta - 2013-08-04
+================================
+
+NEW FEATURES:
+	Feature #277295 Supports hadoop-2.0.5-alpha and latest hadoop-3.0 
+
+	Feature #169025:  supports .deb packaging for Ubuntu
+
+	Feature #206964 Supports new config param mapred.rdma.shuffle.total.size for controlling UDA memory
+	in reducers regardless of the java heap size of the process.  This lets a user configure precise memory
+	for java and UDA.  See Readme.
+
+================================
 Version: 3.1.11-0 - 2013-05-31
 ================================
 
