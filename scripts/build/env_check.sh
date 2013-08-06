@@ -12,6 +12,15 @@ elif [ ! -d ${TMP_CLONE_DIR} ]; then
         exit 1
 fi
 
+# Checks to see if the target direcory is valid
+if [ ! -e ${BUILD_TARGET_DESTINATION} ]; then
+	echo -e "\n${RED}Error: The target directory given does not exits!${NONE}\n"
+	exit 1
+elif [ ! -d ${BUILD_TARGET_DESTINATION} ]; then
+	echo -e "\n${RED}Error: The target directory given is not a directory!${NONE}\n"
+        exit 1
+fi
+
 # Checks to see if hadoops git is valid
 if [ ! -e ${HADOOP_GIT_PATH} ]; then
 	echo -e "\n${RED}Error: hadoops git not found!${NONE}\n"
@@ -55,15 +64,15 @@ if [ $? != 0 ]; then
 	echo -e "\n${RED}Error: MLNX_OFED is not installed on the machine!${NONE}\n"
         exit 1
 fi
-if [ ! -e ~/rpmbuild ]; then
-        echo -e "\n${RED}Error: The rpm build directory is missing in user home directory.${NONE}\n"
-        echo -e "\n${RED}Try reinstalling MLNX_OFED from /.autodirect/mswg/release/MLNX_OFED/${NONE}\n"
-        exit 1
-elif [ ! -e ~/rpmbuild/SOURCES/uda-CDH3u4.jar ]; then
-        echo -e "\n${RED}Error: A JAR file is missing! uda-CDH3u4.jar is not found.${NONE}\n"
-        echo -e "\n${RED}Try reinstalling MLNX_OFED from /.autodirect/mswg/release/MLNX_OFED/${NONE}\n"
-        exit 1	
-fi
+#if [ ! -e ~/rpmbuild ]; then
+#        echo -e "\n${RED}Error: The rpm build directory is missing in user home directory.${NONE}\n"
+#        echo -e "\n${RED}Try reinstalling MLNX_OFED from /.autodirect/mswg/release/MLNX_OFED/${NONE}\n"
+#        exit 1
+#elif [ ! -e ~/rpmbuild/SOURCES/uda-CDH3u4.jar ]; then
+#        echo -e "\n${RED}Error: A JAR file is missing! uda-CDH3u4.jar is not found.${NONE}\n"
+#        echo -e "\n${RED}Try reinstalling MLNX_OFED from /.autodirect/mswg/release/MLNX_OFED/${NONE}\n"
+#        exit 1	
+#fi
 
 # Checks configuration
 if [ $BUILD_HADOOPS == "FALSE" ] && [ $BUILD_RPM == "FALSE" ]; then

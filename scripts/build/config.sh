@@ -6,7 +6,7 @@
 # Build Configuration
 export BUILD_HADOOPS=TRUE
 export BUILD_RPM=TRUE
-export BUILD_DEB=FALSE
+export BUILD_DEB=TRUE
 export BUILD_TARGET_DESTINATION=`pwd`/target
 export BUILD_DIR=`pwd` 		# Do not change
 export DB_DIR=${BUILD_DIR}/db 	# Do not change
@@ -21,10 +21,15 @@ export hadoop200cdh421_PATCH="CDH-MR1-4.2.1-half.patch"
 export hadoop205alpha_PATCH="HADOOP-2.x.y.patch"
 export hadoop3_PATCH="HADOOP-3.x.y.patch"
 
+# Hadoop Ignored Versions
+# Note: If you want to add another hadoop version that will be ignored
+# and not build, add it's name here, separated by "|".
+export IGNORE_LIST='hadoop-3|hadoop-other|hadoop-4'
+
 # General Parameters
 export TMP_CLONE_DIR="/tmp"
 export JAVA_HOME=/usr/java/latest
-export ANT_PATH="/usr/local/ant-1.8.2/bin/ant"
+export ANT_PATH=${BUILD_DIR}/ant/bin/ant
 export LOG_FILE="${TMP_CLONE_DIR}/build_log.txt"
 
 # Hadoops Parameters
@@ -47,9 +52,16 @@ export NATIVE_BUILD=TRUE
 # Build Parameters
 export BUILD_PARAMS="-Djava5.home=$JAVA_HOME"
 export BUILD_XML_FILE="`pwd`/build.xml"
-export DEB_FROM_RPM_SCRIPT_PATH="${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}/build/"
+#export DEB_FROM_RPM_SCRIPT_PATH="${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}/build"
+export DEB_FROM_RPM_SCRIPT_PATH="/.autodirect/mtrswgwork/alongr/uda/build"
 export DEB_FROM_RPM_SCRIPT_NAME="build-deb-from-rpm.sh"
-export UBUNTU_SERVER=rswbob02
+export UBUNTU_SERVER=mtlbuild-001-027
+
+# Mailing Parameters
+export MAILING_LIST='alongr'
+export REPORT_SUBJECT='UDA Daily Build Status'
+export MAILING_SCRIPT_PATH=${BUILD_DIR}
+export MAILING_SCRIPT_NAME="mailSender.py"
 
 # Text Color Parameters
 NONE='\033[00m'

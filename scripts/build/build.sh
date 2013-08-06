@@ -4,7 +4,7 @@
 ## UDA Hadoop Build Script ##
 
 echo -e "\n******************* Build in progress... *******************"
-set -e
+#set -e
 # Configure environment parameters
 source ./config.sh
 # Check for needed configurations and files
@@ -15,31 +15,34 @@ bash ./clean.sh
 cd $TMP_CLONE_DIR
 
 # Hadoops fetch phase
-echo -e "\n${CYAN}---------- 1. Fetching Hadoops... ----------${NONE}"
+echo -e "\n${CYAN}---------- Step 1. Fetching Hadoops... ----------${NONE}"
 mkdir "$HADOOP_BRANCH_DIR"
 git clone $HADOOP_GIT_PATH $HADOOP_BRANCH_DIR
-echo -e "\n${GREEN}Done (1 / 4)!${NONE}"
+echo -e "\n${GREEN}Step 1 Done!${NONE}"
 
 # UDA fetch phase
-echo -e "\n${CYAN}---------- 2. Fetching UDA... ----------${NONE}"
+echo -e "\n${CYAN}---------- Step 2. Fetching UDA... ----------${NONE}"
 mkdir "$UDA_BRANCH_DIR"
 git clone $UDA_GIT_PATH $UDA_BRANCH_DIR
-echo -e "\n${GREEN}Done (2 / 4)!${NONE}"
+echo -e "\n${GREEN}Step 2 Done!${NONE}"
 
 # Check for changes
-echo -e "\n${CYAN}---------- 3. Checking for latest changes... ----------${NONE}"
+echo -e "\n${CYAN}---------- Step 3. Checking for latest changes... ----------${NONE}"
 source ${BUILD_DIR}/changes_check.sh
 if [ $CHANGED == 0 ]; then
 	echo -e "\n${GREEN}No changes made since last build.${NONE}"
+	echo -e "\n${GREEN}Sending report...${NONE}"
+	ssh -X $USER@$UBUNTU_SERVER 'bash -s' < ${BUILD_DIR}/mailer.sh "${MAILING_SCRIPT_PATH}/${MAILING_SCRIPT_NAME}" "$MAILING_LIST"
+	echo -e "${GREEN}Sent!${NONE}"
 	touch BUILD_SUCCESSFUL
 	echo -e "\n${GREEN}******************* All DONE! *******************${NONE}"
 	exit 0
 fi
 cd $TMP_CLONE_DIR
-echo -e "\n${GREEN}Done (3 / 4)!${NONE}"
+echo -e "\n${GREEN}Step 3 Done!${NONE}"
 
 # Build Changed
-echo -e "\n${CYAN}---------- 4. Building... ----------${NONE}"
+echo -e "\n${CYAN}---------- Step 4. Building... ----------${NONE}"
 # Build Hadoops
 if [ $BUILD_HADOOPS == "TRUE" ]; then
 	echo -e "\n${YELLOW}--- Building hadoops! ---${NONE}"
@@ -49,7 +52,7 @@ if [ $BUILD_HADOOPS == "TRUE" ]; then
 		# Hadoops fetch phase
 		cd $HADOOP_BRANCH_DIR
 		git checkout $branch
-		tar -xzf $HADOOP_FILENAME #####CHANGE TO $branch
+		tar -xzf ${branch}.tar.gz
 		cd $TMP_CLONE_DIR
 
 		# UDA fetch phase
@@ -62,7 +65,7 @@ if [ $BUILD_HADOOPS == "TRUE" ]; then
 		branch_map=`echo hadoop-1.1.2-vanilla | sed -e 's/-//g' | sed -e 's/\.//g'`"_PATCH"
 		patch_name=${!branch_map}
 		patch_file=${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}/plugins/${patch_name}
-		PATCHED_HADOOP_DIR=${TMP_CLONE_DIR}/${HADOOP_BRANCH_DIR}/${HADOOP_DIR}
+		PATCHED_HADOOP_DIR=${TMP_CLONE_DIR}/${HADOOP_BRANCH_DIR}/${branch}
 		cd $PATCHED_HADOOP_DIR
 		patch -s -p0 < $patch_file
 		cd $TMP_CLONE_DIR
@@ -88,9 +91,11 @@ if [ $BUILD_HADOOPS == "TRUE" ]; then
 
 	done
 
-	# Update latest hadoops
+	# Update latest hadoops and patches
 	rm -f ${DB_DIR}/latest_hadoops
 	mv ${DB_DIR}/new_latest_hadoops ${DB_DIR}/latest_hadoops
+	rm -f ${DB_DIR}/latest_patches
+	mv ${DB_DIR}/new_latest_patches ${DB_DIR}/latest_patches
 	echo -e "\n${GREEN}Finished building hadoops.${NONE}"
 
 fi
@@ -105,16 +110,14 @@ if [ $BUILD_RPM == "TRUE" ]; then
 		bash build/buildrpm.sh
 
 		# Store built .rpm file to target directory
-		cp -rf ~/rpmbuild/RPMS/x86_64/*.rpm ${BUILD_TARGET_DESTINATION}
+		echo -e "\nSaving the UDA .rpm file in ${BUILD_TARGET_DESTINATION}..."
+		mv -f ~/rpmbuild/RPMS/x86_64/*.rpm ${BUILD_TARGET_DESTINATION}
+		echo "Saved!"
 
 		if [ $BUILD_DEB == "TRUE" ]; then
 			echo -e "\n${YELLOW}--- Building the .deb file ---${NONE}"
-			rpm_filename=`ls ${BUILD_TARGET_DESTINATION}/* | grep .rpm | cut -d / -f 2`
-			ssh root@$UBUNTU_SERVER 'bash -s' < ${DEB_FROM_RPM_SCRIPT_PATH}/${DEB_FROM_RPM_SCRIPT_NAME} "${BUILD_TARGET_DESTINATION}/${rpm_filename}" "${DEB_FROM_RPM_SCRIPT_PATH}/debian"
-
-			# Store built .deb file to target directory
-			cp -rf /tmp/*.deb ${BUILD_TARGET_DESTINATION}
-
+			rpm_filename=`ls ${BUILD_TARGET_DESTINATION} | grep .rpm | cut -d / -f 2`
+			ssh -X root@$UBUNTU_SERVER 'bash -s' < ${DEB_FROM_RPM_SCRIPT_PATH}/${DEB_FROM_RPM_SCRIPT_NAME} "${BUILD_TARGET_DESTINATION}/${rpm_filename}" "${DEB_FROM_RPM_SCRIPT_PATH}/debian" "${BUILD_TARGET_DESTINATION}"
 		fi
 
 		# Return to clone directory
@@ -129,9 +132,12 @@ if [ $BUILD_RPM == "TRUE" ]; then
 
 fi
 
-echo -e "\n${GREEN}Done (4 / 4)!${NONE}"
+echo -e "\n${GREEN}Step 4 Done!${NONE}"
 
 # Finish
+echo -e "\n${GREEN}Sending report...${NONE}"
+ssh -X $USER@$UBUNTU_SERVER 'bash -s' < ${BUILD_DIR}/mailer.sh "${MAILING_SCRIPT_PATH}/${MAILING_SCRIPT_NAME}" "$MAILING_LIST"
+echo -e "${GREEN}Sent!${NONE}"
 touch BUILD_SUCCESSFUL
 echo -e "\n${GREEN}******************* All DONE! *******************${NONE}"
 echo -e "\n${GREEN}The built products can be found in ${BUILD_TARGET_DESTINATION}${NONE}"

@@ -1,0 +1,10 @@
+Date: Wed Sep 19 12:47:49 2012 +0000 	/cdh3u4.patch
+Date: Wed Jun 12 23:36:40 2013 +0300 	/CDH-MR1-4.1.2-v2-F3.patch
+Date: Tue May 21 19:08:26 2013 +0300 	/CDH-MR1-4.2.1-half.patch
+Date: Mon Mar 4 10:44:24 2013 +0200 	/HADOOP-1.x.y.patch
+Date: Thu May 23 13:39:35 2013 +0300 	/HADOOP-1.x.y-v1.patch
+Date: Thu May 23 13:39:35 2013 +0300 	/HADOOP-1.x.y-v2.patch
+Date: Wed Jul 31 20:23:10 2013 +0300 	/HADOOP-1.x.y-v3.patch
+Date: Tue Jul 30 18:30:51 2013 +0300 	/HADOOP-2.0.patch
+Date: Wed Sep 19 13:03:20 2012 +0000 	/HADOOP-3.0.patch
+Date: Tue Dec 11 12:11:17 2012 +0200 	/HDP_HADOOP-1.0.3.16.patch
