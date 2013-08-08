@@ -32,7 +32,7 @@ path_debian_dir=$2
 path_target_dir=$3
 
 #must make sure rpm is intalled - for queries
-sudo apt-get install rpm
+sudo apt-get -y install rpm debhelper
 #quering the rpm:
 version=`rpm -qp --queryformat %{VERSION} $rpm_name`
 release=`rpm -qp --queryformat %{RELEASE} $rpm_name`
