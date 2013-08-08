@@ -57,7 +57,7 @@ if [ $BUILD_HADOOPS == "TRUE" ]; then
 
 		# UDA fetch phase
 		cd $UDA_BRANCH_DIR
-		git checkout $PATCHS_BRANCH
+		git checkout $PATCHES_BRANCH
 		cd $TMP_CLONE_DIR
 
 		# Patching hadoop

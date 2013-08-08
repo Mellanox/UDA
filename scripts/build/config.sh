@@ -36,25 +36,23 @@ export LOG_FILE="${TMP_CLONE_DIR}/build_log.txt"
 export HADOOP_GIT_PATH="/.autodirect/mswg/git/accl/hadoops.git"
 export HADOOP_BRANCH_DIR="hadoops"
 
-# Specific Hadoop Parameters
-export HADOOP_BRANCH="hadoop-1.1.2-vanilla"      ### Remove
-export HADOOP_FILENAME="hadoop-1.1.2.tar.gz"	 ### Remove
-export HADOOP_DIR=`echo ${HADOOP_FILENAME:0:12}` ### Remove
-
 # UDA Parameters
 export UDA_GIT_PATH="/.autodirect/mswg/git/accl/uda.git"
 export UDA_BRANCH_DIR="uda"
 
-# Patchs Parameters
-export PATCHS_BRANCH="master"
-export NATIVE_BUILD=TRUE
+# Patches Parameters
+export PATCHES_BRANCH="master"
 
 # Build Parameters
+export NATIVE_BUILD=TRUE
 export BUILD_PARAMS="-Djava5.home=$JAVA_HOME"
 export BUILD_XML_FILE="`pwd`/build.xml"
-#export DEB_FROM_RPM_SCRIPT_PATH="${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}/build"
-export DEB_FROM_RPM_SCRIPT_PATH="/.autodirect/mtrswgwork/alongr/uda/build"
+export DEB_FROM_RPM_SCRIPT_PATH="/.autodirect/mtrswgwork/alongr/uda/build" #"${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}/build"
 export DEB_FROM_RPM_SCRIPT_NAME="build-deb-from-rpm.sh"
+
+# Servers
+export MAIN_SERVER=mtlbuild-001-025
+export BACKUP_SERVER=mtlbuild-001-026
 export UBUNTU_SERVER=mtlbuild-001-027
 
 # Mailing Parameters
@@ -63,7 +61,7 @@ export REPORT_SUBJECT='UDA Daily Build Status'
 export MAILING_SCRIPT_PATH=${BUILD_DIR}
 export MAILING_SCRIPT_NAME="mailSender.py"
 
-# Text Color Parameters
+# Text Colors
 NONE='\033[00m'
 RED='\033[01;31m'
 GREEN='\033[01;32m'
