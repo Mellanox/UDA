@@ -10,18 +10,55 @@ then
         exit 1
 fi
 
+#################### TEMPORARY - added by oriz at 9/4/13 ######################
+       	     # THIS SCRIPT MUST BE RESEARCHED AND REWRITE ASAP #
+if [[ $USER == "oriz" ]] || [[ $USER == "eladi"  ]]; then
+	echo pdsh -w $SLAVES_BY_COMMAS "rm -rf  /data2/regression_data/data/* /data3/regression_data/data/* /data4/regression_data/data/* /data5/regression_data/data/*"
+	pdsh -w $SLAVES_BY_COMMAS "rm -rf  /data2/regression_data/data/* /data3/regression_data/data/* /data4/regression_data/data/* /data5/regression_data/data/*"
+fi
+###############################################################################
+
 disks=$(cat $MY_HADOOP_HOME/conf/core-site.xml | grep -A 1 ">hadoop.tmp.dir<")
 
 aa=`echo $disks | awk 'BEGIN { FS = "name> <value>"} ; { print $2}'`
 
 cc=`echo $aa | awk 'BEGIN { FS = "<"} ; { print $1}'`
 echo $(basename $0): "removing $cc"
-#bb=`echo $cc | awk 'BEGIN { FS = "," } ; { print NF }'`
 
 partitions=`echo $cc | sed 's/\,/\ /g'`
 echo " partitions $partitions"
 rm -rf $partitions
-$MY_HADOOP_HOME/bin/slaves.sh  rm -rf $partitions
+isRemoved=$?
+
+if (( $isRemoved != 0 )); then
+	echo "$(basename $0) couldn't remove $partitions core-site.xml exiting.... :("
+	exit 5
+fi
+
+for part in $partitions; do
+	last_char=`echo $part | sed 's/^.*\(.\{1\}\)$/\1/'`
+	if [[ $last_char == "/" ]]; then
+		part=${part%?}
+	fi
+	minus=`expr length ${part##*/}`
+	ll=`expr length $part`; dir=${part:0:($ll-$minus)}; mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir"; rm -rf $dir/test; exit 5; else rm -rf $dir/test; fi;
+done
+
+slaves=`cat $MY_HADOOP_HOME/conf/slaves`
+for slave in $slaves; do
+
+	ssh $slave rm -rf $partitions; isRemoved=$?; if ((  $isRemoved != 0 )); then echo "couldn't remove $partitions from $slave core-site.xml EXITING... ";  exit 0; fi
+	for part in $partitions; do
+		last_char=`echo $part | sed 's/^.*\(.\{1\}\)$/\1/'`
+        	if [[ $last_char == "/" ]]; then
+                	part=${part%?}
+        	fi
+        	minus=`expr length ${part##*/}`
+        	ll=`expr length $part`; dir=${part:0:($ll-$minus)}; ssh $slave mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir in $slave" ; ssh $slave rm -rf $dir/test; exit 5; else ssh $slave rm -rf $dir/test; fi;
+	done
+
+done
+
 
 disks=$(cat $MY_HADOOP_HOME/conf/hdfs-site.xml | grep -A 1 ">dfs.data.dir<")
 
@@ -32,7 +69,37 @@ bb=`echo $cc | awk 'BEGIN { FS = "," } ; { print NF }'`
 partitions=`echo $cc | sed 's/\,/\ /g'`
 echo " partitions $partitions"
 rm -rf $partitions
-$MY_HADOOP_HOME/bin/slaves.sh  rm -rf $partitions
+
+isRemoved=$?
+
+if (( $isRemoved != 0 )); then
+	echo "$(basename $0) couldn't remove $partitions hdfs-site.xml exiting..... :( "
+	exit 5
+fi	
+
+for part in $partitions; do
+	last_char=`echo $part | sed 's/^.*\(.\{1\}\)$/\1/'`
+        if [[ $last_char == "/" ]]; then
+           part=${part%?}
+        fi
+        minus=`expr length ${part##*/}`
+        ll=`expr length $part`; dir=${part:0:($ll-$minus)}; mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir"; exit 5; else rm -rf $dir/test; fi;
+done
+	
+slaves=`cat $MY_HADOOP_HOME/conf/slaves`
+for slave in $slaves; do
+	ssh $slave rm -rf $partitions; isRemoved=$?; if ((  $isRemoved != 0 )); then echo "couldn't remove $partitions from $slave hdfs-site.xml EXITING... ";  exit 0; fi
+	for part in $partitions; do
+		last_char=`echo $part | sed 's/^.*\(.\{1\}\)$/\1/'`
+                if [[ $last_char == "/" ]]; then
+                        part=${part%?}
+                fi
+                minus=`expr length ${part##*/}`
+                ll=`expr length $part`; dir=${part:0:($ll-$minus)}; ssh $slave mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir in $slave"; ssh $slave rm -rf $dir/test; exit 5; else ssh $slave rm -rf $dir/test; fi;
+        done
+
+done
+
 
 disks=$(cat $MY_HADOOP_HOME/conf/hdfs-site.xml | grep -A 1 ">dfs.name.dir<")
 
@@ -43,9 +110,36 @@ echo $(basename $0): "removing $cc"
 partitions=`echo $cc | sed 's/\,/\ /g'`
 echo " partitions $partitions"
 rm -rf $partitions
-$MY_HADOOP_HOME/bin/slaves.sh  rm -rf $partitions
+isRemoved=$?
 
+if (( $isRemoved != 0 )); then
+	echo "$(basename $0) couldn't remove $partitions hdfs-site.xml exiting.... :("
+	exit 5
+fi
+	
+for part in $partitions; do
+	last_char=`echo $part | sed 's/^.*\(.\{1\}\)$/\1/'`
+        if [[ $last_char == "/" ]]; then
+             part=${part%?}
+        fi
+        minus=`expr length ${part##*/}`
+        ll=`expr length $part`; dir=${part:0:($ll-$minus)}; mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir in master"; exit 0; else rm -rf $dir/test; fi;
+done
 
+	
+slaves=`cat $MY_HADOOP_HOME/conf/slaves`
+for slave in $slaves; do
+	ssh $slave rm -rf $partitions; isRemoved=$?; if ((  $isRemoved != 0 )); then echo "couldn't remove $partitions from $slave hdfs-site.xml EXITING... ";  exit 0; fi
+	for part in $partitions; do
+		last_char=`echo $part | sed 's/^.*\(.\{1\}\)$/\1/'`
+                if [[ $last_char == "/" ]]; then
+                        part=${part%?}
+                fi
+                minus=`expr length ${part##*/}`
+                ll=`expr length $part`; dir=${part:0:($ll-$minus)}; ssh $slave mkdir $dir/test; if (( $?!=0 )); then echo "cant write in $dir in $slave"; ssh $slave rm -rf $dir/test;  exit 0; else ssh $slave rm -rf $dir/test; fi;
+        done
+
+done
 
  echo "$(basename $0) formating namenode"
         format_output=`bin/hadoop namenode -format 2>&1`
@@ -84,12 +178,13 @@ echo
                           then
                                echo GREAT FORMAT ALL DISKS FORMATTED!!
                           else
-				echo NOT A GOOD FORMAT!!
+				echo NOT A GOOD FORMAT!! not all disks have been formated..
 				exit 1;
 			  fi
 				
 
 	done
 
-
+	
+	echo "--------->>><<<--------"
 	

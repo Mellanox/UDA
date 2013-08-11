@@ -7,9 +7,9 @@ then
         exit 1
 fi
 
-if [ -z "$HADOOP_CONFIGURATION_DIR" ]
+if [ -z "$HADOOP_CONF_DIR" ]
 then 
-	HADOOP_CONFIGURATION_DIR=$MY_HADOOP_HOME/conf
+	HADOOP_CONF_DIR=$MY_HADOOP_HOME/conf
 fi
 
 cd $MY_HADOOP_HOME
@@ -22,8 +22,8 @@ sleep 2
 
 
 echo "$(basename $0): kill java/python/c++ process"
-sudo pkill -9 '(java|python|NetMerger|MOFSupplier)'
-sudo bin/slaves.sh pkill -9 \'\(java\|python\|NetMerger\|MOFSupplier\)\'
+pkill '(java|python|NetMerger|MOFSupplier)'
+bin/slaves.sh pkill \'\(java\|python\|NetMerger\|MOFSupplier\)\'
 sleep 2
 
 # check for processes that did not respond to termination signals
@@ -31,10 +31,9 @@ live_processes=$(( `bin/slaves.sh ps -e | egrep -c '(MOFSupplier|NetMerger|java)
 
 if [ $live_processes != 0 ]
 then
-	echo LIVE PROCESSES ARE: $live_processes
 	echo "$(basename $0): process are still alive after kill --> using kill -9"
-	sudo pkill -9 '(java|python|NetMerger|MOFSupplier)'
-	sudo bin/slaves.sh pkill -9 \'\(java\|python\|NetMerger\|MOFSupplier\)\'
+	pkill -9 '(java|python|NetMerger|MOFSupplier)'
+	bin/slaves.sh pkill -9 \'\(java\|python\|NetMerger\|MOFSupplier\)\'
 fi
 
 sleep 2
@@ -43,14 +42,12 @@ live_processes=$(( `bin/slaves.sh ps -e | egrep -c '(MOFSupplier|NetMerger|java)
 
 if [ $live_processes != 0 ]
 then
-	echo "LIVE PROCESSES ARE (SECOND TIME):" $live_processes
 	#echo "LIVA PROCESSES ARE: " `bin/slaves.sh ps -e | egrep '(MOFSupplier|NetMerger|java)'`
 	#echo `ps -e | egrep '(MOFSupplier|NetMerger|java)'`  
 	defunct_processes=$((`ps -e | egrep '(MOFSupplier|NetMerger|java)' | egrep -c '\<defunct\>'` + `bin/slaves.sh ps -e | egrep '(MOFSupplier|NetMerger|java)'| egrep -c '\<defunct\>' `))
 	#echo defunct_processes: $defunct_processes
 	if (($live_processes > $defunct_processes))
 	then
-		echo DEFUNCT PROCESSES ARE: `ps -e | egrep '(MOFSupplier|NetMerger|java)' | egrep '\<defunct\>'` + `bin/slaves.sh ps -e | egrep '(MOFSupplier|NetMerger|java)'| egrep '\<defunct\>' `
 		#bin/slaves.sh ps -ef | grep -E '(MOFSupplier|NetMerger|java)'
 		echo "$(basename $0): ERROR: failed to kill processes"
 		exit 1;
@@ -74,12 +71,6 @@ then
 	echo "$(basename $0) formating namenode"
 	echo "going to fm_part"
 	$(dirname $0)/fm_part.sh 
-	format_ans=$?
-	if (( $format_ans==5 ));
-	then
-		echo "format failed!!"
-		exit $SEC
-	fi
 	#format_output=`bin/hadoop namenode -format 2>&1`
 	#echo $format_output
 

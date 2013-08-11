@@ -1,60 +1,66 @@
+
 #!/bin/bash
 
-export SEC=7 # Safe Exit Code - using when need to exit without considering it as error
-export CEC=6  # Continue Exit Code - using when need to skip the exiting-script and continue running
-export EEC1=10 # Error Exit Code 1
-export EEC2=11 # Error Exit Code 2
-export SLEEPING_FOR_READING=5 # time to sleep that the user will see the printed message
-export WINDOES_DIR_PREFIX="\\mtrlabfs01"
-export CURRENT_DATE=`date +"%Y-%m-%d_%H.%M.%S"`
-echoPrefix=$(basename $0)
+sourcing()
+{
+	if (($phaseError==0));then
+		source $1
+	else
+		echo "$echoPrefix: skiping on sourcing $1"
+	fi
+}
 
 errorHandler ()
 {	
-	# there is a scenario that error occured but the return value will be 0 - 
-	# when start_hadoopExcel.sh or mkteragenExcel.sh prints their usage-print,
-	# (which it a unsuccessfull scenario for this script's purposes).
-	# in such case this script won't recognized the problem
 	phaseError=1
 	if (($1 == $SEC));then
 		exit 0
-	elif (($1 == $EEC1)) || (($1 == $EEC2)); then
+	elif (($1 == $EEC1)) || (($1 == $EEC2)) || (($1 == $EEC3)); then
 	    echo "$echoPrefix: exiting during the $2 phase"
 			# in any case
 		INPUT_FLAG=0
 		CONTROL_FLAG=0
 		CONFIGURE_FLAG=0
-		SETUP_FLAG=0
+		SETUP_CLUSTER_FLAG=0
+		SETUP_TESTS_FLAG=0
 		EXECUTE_FLAG=0
-		VIEW_FLAG=0
+		COLLECT_FLAG=0
 		ANALIZE_FLAG=0
+		VIEW_FLAG=0
 		EXIT_FLAG=0
 		# COLLECT_FLAG and DISTRIBUTE)FLAG are not changed
 		
 		if (($1 == $EEC1));then
 			export REPORT_SUBJECT="Daily regression runtime failure"
-			export REPORT_MESSAGE="<html><body> `cat $ERROR_LOG` </body></html>"
+			export REPORT_MESSAGE="$REPORT_MESSAGE <html><body> `cat $ERROR_LOG` </body></html>"
+			export REPORT_MAILING_LIST="$USER"
 		fi
 		
 		case $2 in
 			prepare		) 
-				COLLECT_FLAG=0
 				if (($1 == $EEC1));then
 					export REPORT_SUBJECT="Daily regression runtime failure"
 					export REPORT_MESSAGE="<html><body> during $2 phase: error creating $TMP_DIR </body></html>"
+					export REPORT_MAILING_LIST="${USER}@mellanox.com"
+				fi
+			;;
+			prepare-setup|prepare-cluster	)
+				PREPARE_FLAG=0				
+				if (($1 == $EEC3));then
+						export REPORT_SUBJECT="Daily regression runtime failure"
+						export REPORT_MESSAGE="<html><body> during $2 phase: setup-preReq's error occured </body></html>"
+						export REPORT_MAILING_LIST="${USER}@mellanox.com"
 				fi
 			;;
 			input		)  
-				COLLECT_FLAG=0
 			;;
 			control		)
-				COLLECT_FLAG=0
 			;;
 			configure	)
-				COLLECT_FLAG=0
 			;;
-			setup		)  
-				COLLECT_FLAG=0
+			setup-tests	)  
+			;;
+			setup-cluster	)  
 			;;
 			execute		) 
 			;;
@@ -62,15 +68,17 @@ errorHandler ()
 				if (($1 == $EEC1));then # this lines are for double error - both in execute and collect phases
 					export REPORT_SUBJECT="Daily regression runtime failure"
 					export REPORT_MESSAGE="<html><body> during $2 phase: `cat $ERROR_LOG` </body></html>"
+					export REPORT_MAILING_LIST="${USER}@mellanox.com"
 				fi
 			;;
-			view		) 
-			;;
 			analize	)
+			;;
+			view		) 
 			;;
 			distribute	)
 			;;
 		esac	
+		exit_status=1
 	elif (($1 != 0)) && (($1 != $CEC));then
 		echo "$echoPrefix: exiting during the $2 phase according to unknown runtime error. exit code was $1"
 		exit 1
@@ -83,6 +91,11 @@ flowManager()
 {
 	controlVal=1
 	case $1 in
+		prepare-setup|prepare-cluster	)  
+			if (($PREPARE_FLAG==0));then
+				controlVal=0
+			fi 
+		;;
 		input	)  
 			if (($INPUT_FLAG==0));then
 				controlVal=0
@@ -98,8 +111,13 @@ flowManager()
 				controlVal=0
 			fi 
 		;;
-		setup		)  
-			if (($SETUP_FLAG==0));then
+		setup-tests		)
+			if (($SETUP_TESTS_FLAG==0));then
+				controlVal=0
+			fi 
+		;;
+		setup-cluster	)  
+			if (($SETUP_CLUSTER_FLAG==0));then
 				controlVal=0
 			fi 
 		;;
@@ -113,17 +131,17 @@ flowManager()
 				controlVal=0
 			fi
 		;;
-		view		)  
-			if (($VIEW_FLAG==0));then
-				controlVal=0
-			fi
-		;;
-		analize	)  
+		analyze|analyze-env	)  
 			if (($ANALIZE_FLAG==0));then
 				controlVal=0
 			fi
 			if [ -n "$REPORT_INPUT" ] && (($COLLECT_FLAG==0));then
-				export STATISTICS_INPUT_DIR=$REPORT_INPUT
+				export REPORT_INPUT_DIR=$REPORT_INPUT
+			fi
+		;;
+		view|view-env		)  
+			if (($VIEW_FLAG==0));then
+				controlVal=0
 			fi
 		;;
 		distribute	)  
@@ -139,31 +157,31 @@ flowManager()
 	esac
 }
 
-if [[ -z $TMP_DIR ]];then
-	echo "$echoPrefix: please export TMP_DIR"
-	exit 0
+echoPrefix=$(basename $0)
+exit_status=0
+PREPARE_FLAG=1
+
+if [[ -z $SCRIPTS_DIR ]];then
+	echo "$echoPrefix: please export SCRIPTS_DIR"
+	exit 1
 fi
 
-if [[ -z $SCRIPTS_DIR ]] && [[ -z $SVN_SCRIPTS ]];then
-	echo "$echoPrefix: please export SCRIPTS_DIR or SVN_SCRIPTS"
-	exit 0
-	#export SCRIPTS_DIR="/labhome/oriz/scripts/commit2"
-elif [[ -n $SVN_SCRIPTS ]];then
-	export SCRIPTS_DIR=$TMP_DIR/scripts
-	mkdir $SCRIPTS_DIR
-	cd $SCRIPTS_DIR
-	svn co $SVN_HADOOP/*
+if [[ -z $BASE_DIR ]];then
+	echo "$echoPrefix: please export BASE_DIR"
+	exit 1
 fi
 
-source $SCRIPTS_DIR/defaultsMain.sh
+source $SCRIPTS_DIR/defaultsConf.sh
+source $SCRIPTS_DIR/reportConf.sh
+source $SCRIPTS_DIR/namesConf.sh
+source $SCRIPTS_DIR/preReqConfiguration.sh
+export SOURCES_DIR=$BASE_DIR/sources
 
 	# prepare phase
 echo "$echoPrefix: *** Prepare phase ***"
 bash $SCRIPTS_DIR/prepareMain.sh
 errorHandler $? "prepare"
-if (($phaseError==0));then
-	source $TMP_DIR/prepareExports.sh
-fi
+sourcing $SOURCES_DIR/prepareExports.sh
 
 	# input phase
 flowManager "input"
@@ -171,86 +189,136 @@ if (($controlVal==1));then
 	echo "$echoPrefix: *** Input phase ***"
 	bash $SCRIPTS_DIR/inputMain.sh $@
 	errorHandler $? "input"
-	if (($phaseError==0));then
-		source $TMP_DIR/inputExports.sh
-	fi
+	sourcing $SOURCES_DIR/inputExports.sh
 fi
 
 	# control phase
 flowManager "control"
 if (($controlVal==1));then
 	echo "$echoPrefix: *** Control phase ***"
-	bash $SCRIPTS_DIR/controlMain.sh $@
+	bash $SCRIPTS_DIR/controlMain.sh
 	errorHandler $? "control"
-	if (($phaseError==0));then
-		source $TMP_DIR/controlExports.sh
-	fi
+	sourcing $SOURCES_DIR/controlExports.sh
 fi
 
-	# configure phase - building the configuration files and the test files
-flowManager "configure"
+	# configure cluster phase - building the configuration files and the test files
+flowManager "configure-cluster"
 if (($controlVal==1));then
-	echo "$echoPrefix: *** Configuration phase ***"
-	bash $SCRIPTS_DIR/configureMain.sh
-	errorHandler $? "configure"
-	if (($phaseError==0));then
-		source $TMP_DIR/configureExports.sh
-	fi
+	echo "$echoPrefix: *** Cluster-configuration phase ***"
+	bash $SCRIPTS_DIR/configureClusterMain.sh
+	errorHandler $? "configure-cluster"
+	sourcing $SOURCES_DIR/configureClusterExports.sh
 fi
 
-	# setup-cluster phase
-flowManager "setup"
+for clusterEnv in $ALL_ENVS
+do
+		# configure phase - building the configuration files and the test files
+	flowManager "configure-tests"
+	if (($controlVal==1));then
+		echo "$echoPrefix: *** Tests-configuration phase ***"
+		bash $SCRIPTS_DIR/configureTestsMain.sh $clusterEnv
+		errorHandler $? "configure"
+		sourcing $SOURCES_DIR/configureTestsExports.sh
+	fi
+done
+
+flowManager "prepare-cluster"
 if (($controlVal==1));then
-	echo "$echoPrefix: *** Cluster-setup phase ***"
-	bash $SCRIPTS_DIR/setupMain.sh
-	errorHandler $? "setup"
-	if (($phaseError==0));then
-		source $TMP_DIR/setupExports.sh
-	fi
+	echo "$echoPrefix: *** Cluster-prepare phase ***"
+	bash $SCRIPTS_DIR/prepareCluster.sh
+	errorHandler $? "prepare-cluster"
+	sourcing $SOURCES_DIR/prepareClusterExports.sh
 fi
 
-	# execution phase
-flowManager "execute"
+for clusterEnv in $ALL_ENVS
+do
+	echo "$echoPrefix: setting $clusterEnv"
+
+		# prepare phase
+	flowManager "prepare-setup"
+	if (($controlVal==1));then
+		echo "$echoPrefix: *** Prepare phase ***"
+		bash $SCRIPTS_DIR/prepareSetup.sh $clusterEnv
+		errorHandler $? "prepare-setup" 
+		source $SOURCES_DIR/prepareSetupExports.sh
+	fi
+	
+		# setup-cluster phase
+	flowManager "setup-cluster"
+	if (($controlVal==1));then
+		echo "$echoPrefix: *** Cluster-setup phase ***"
+		bash $SCRIPTS_DIR/setupClusterMain.sh
+		errorHandler $? "setup-cluster"
+		sourcing $SOURCES_DIR/setupClusterExports.sh
+	fi
+
+	for testsSetup in $ALL_TESTS_SETUPS_NAMES
+	do
+		setupConfsDir=$TESTS_CONF_DIR/$clusterEnv/$testsSetup
+		
+			# setup-cluster phase
+		flowManager "setup-tests"
+		if (($controlVal==1));then
+			echo "$echoPrefix: *** Cluster-setup phase ***"
+			bash $SCRIPTS_DIR/setupTestsMain.sh $setupConfsDir
+			errorHandler $? "setup-tests"
+			sourcing $SOURCES_DIR/setupTestsExports.sh
+		fi
+		
+			# execution phase
+		flowManager "execute"
+		if (($controlVal==1));then
+			echo "$echoPrefix: *** Execution phase ***"
+			bash $SCRIPTS_DIR/executeMain.sh $setupConfsDir
+			errorHandler $? "execute"
+			sourcing $SOURCES_DIR/executeExports.sh
+		fi
+	done
+	
+		# data-collecting phase
+	flowManager "collect"
+	if (($controlVal==1));then
+		echo "$echoPrefix: *** Data-collection phase ***"
+		bash $SCRIPTS_DIR/collectMain.sh
+		errorHandler $? "collect"
+		sourcing $SOURCES_DIR/collectExports.sh
+	fi
+	
+		# analize phase
+	flowManager "analyze-env"
+	if (($controlVal==1));then
+		echo "$echoPrefix: *** Analyze-env phase ***"
+		bash $SCRIPTS_DIR/analizeEnv.sh
+		errorHandler $? "analyze"
+		sourcing $SOURCES_DIR/analyzeEnvExports.sh
+	fi
+
+		# view phase
+	flowManager "view-env"	
+	if (($controlVal==1));then
+		echo "$echoPrefix: *** View-env phase ***"
+		bash $SCRIPTS_DIR/viewEnv.sh
+		errorHandler $? "view"
+		sourcing $SOURCES_DIR/viewEnvExports.sh
+	fi
+done
+
+	# analize phase
+flowManager "analyze"
 if (($controlVal==1));then
-	echo "$echoPrefix: *** Execution phase ***"
-	bash $SCRIPTS_DIR/executeTerasort.sh
-	errorHandler $? "execute"
-	if (($phaseError==0));then
-		source $TMP_DIR/executeExports.sh
-	fi
+	echo "$echoPrefix: *** Analyze phase ***"
+	bash $SCRIPTS_DIR/analizeMain.sh
+	errorHandler $? "analyze"
+	sourcing $SOURCES_DIR/analyzeExports.sh
 fi
-
-	# data-collecting phase
-flowManager "collect"
-if (($controlVal==1));then
-	echo "$echoPrefix: *** Data-collection phase ***"
-	bash $SCRIPTS_DIR/collectMain.sh
-	errorHandler $? "collect"
-	if (($phaseError==0));then
-		source $TMP_DIR/collectExports.sh
-	fi
-fi
-
+	
 	# view phase
 flowManager "view"	
 if (($controlVal==1));then
 	echo "$echoPrefix: *** View phase ***"
-	bash $SCRIPTS_DIR/viewTerasort.sh
+	bash $SCRIPTS_DIR/viewMain.sh
 	errorHandler $? "view"
-	if (($phaseError==0));then
-		source $TMP_DIR/viewExports.sh
-	fi
-fi
-
-	# analize phase
-flowManager "analize"
-if (($controlVal==1));then
-	echo "$echoPrefix: *** Analize phase ***"
-	bash $SCRIPTS_DIR/analizeTerasort.sh
-	errorHandler $? "analize"
-	if (($phaseError==0));then
-		source $TMP_DIR/analizeExports.sh 
-	fi
+	sourcing $SOURCES_DIR/viewExports.sh
 fi
 
 	# distribution phase
@@ -259,9 +327,7 @@ if (($controlVal==1));then
 	echo "$echoPrefix: *** Result-distribution phase ***"
 	bash $SCRIPTS_DIR/distributeMain.sh
 	errorHandler $? "distribute"
-	if (($phaseError==0));then
-		source $TMP_DIR/distributeExports.sh 
-	fi
+	sourcing $SOURCES_DIR/distributeExports.sh 
 fi
 
 	# exit phase
@@ -269,9 +335,10 @@ flowManager "exit"
 if (($controlVal==1));then
 	echo "$echoPrefix: *** exit phase ***"
 	bash $SCRIPTS_DIR/exitMain.sh
-	if (($phaseError==0));then
-		errorHandler $? "exit"
-	fi
+	errorHandler $? "exit"
 fi
 
 echo "$echoPrefix: *** Finish ***"
+echo -e \\n\\n\\n\\n\\n
+exit $exit_status
+

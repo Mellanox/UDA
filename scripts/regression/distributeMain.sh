@@ -1,6 +1,6 @@
 #!/bin/bash
 #REPORT_MAILING_LIST="shania,oriz"
-echoPrefix=$(basename $0)
+echoPrefix=`eval $ECHO_PATTERN`
 allContacts=`echo $REPORT_MAILING_LIST | awk 'BEGIN {RS=",";}{print  $1}'`;
 
 count=0
@@ -25,15 +25,23 @@ if (($messageType==1));then
 	message=$REPORT_MESSAGE
 elif (($messageType==0));then
 	message=`cat $REPORT_MESSAGE`
-	echo "echoPrefix: report directory: $REPORT_MESSAGE"
+	echo "$echoPrefix: report directory is $REPORT_MESSAGE"
 else
 	message="echoPrefix: wrong type of message: `cat $REPORT_MESSAGE`"
 	echo $message
 fi
 
-echo "$echoPrefix: sending mail to $recipientList"
+# special mail for compreassion  - NEED TO REWRITE APPROPRIATLY
+if (( $CODE_COVE_FLAG==1 ));then 
+	echo "$echoPrefix: covselect --file $CODE_COVERAGE_AGGREIGATED_COVFILE -i $CODE_COVERAGE_EXCLUDE_PATH"
+	covselect --file $CODE_COVERAGE_AGGREIGATED_COVFILE -i $CODE_COVERAGE_EXCLUDE_PATH
+	echo "$echoPrefix: eval $CODE_COVERAGE_COMMIT_SCRIPT_PATH --branch $GIT_BRANCH --product $PRODUCT_NAME --team $TEAM_NAME --version $VERSION_SHORT_FORMAT --path $CODE_COVERAGE_COMMIT_DIR"
+	eval $CODE_COVERAGE_COMMIT_SCRIPT_PATH --branch $GIT_BRANCH --product $PRODUCT_NAME --team $TEAM_NAME --version $VERSION_SHORT_FORMAT --path $CODE_COVERAGE_COMMIT_DIR 
+fi
+
+echo "$echoPrefix: sending mail to $recipientList" | tee $STATUS_DIR/mailRecipient.txt
 python $SCRIPTS_DIR/mailSender.py "$subject" "$message" "`date`" "$USER" "$recipientList"
 
 echo "
 	#!/bin/sh
-" > $TMP_DIR/distributeExports.sh
+" > $SOURCES_DIR/distributeExports.sh

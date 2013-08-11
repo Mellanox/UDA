@@ -6,23 +6,21 @@ configureFlag=0
 executeFlag=0
 distributeFlag=0
 analizeFlag=0
-setupClusterFlag=0
+setupFlag=0
 	# not user-defined"
-setupTestsFlag=1
 controlFlag=1
 collectFlag=1
 viewFlag=1
 exitFlag=1
  # --
-codeCoverageFlag=0
 testRunFlag=0
-zipFlag=0
-saveHdfsFlag=0
+coFlag=0	
+rpmFlag=0
 linesToExecute=-1
-currentConfDir=""
+currentTestsDir=""
 csvFile=""
-confFolderDir=""
-hadoopHome=""
+testsFolderDir=""
+hadoopDir=""
 resServer=""
 localResultsDir=""
 dataSetType=""
@@ -42,19 +40,10 @@ reportInput=""
 coresDir=""
 coresPattern=""
 rpmBuildDir=""
-reportName=""
-gitHadoopsDir=""
-gitHadoopVersion=""
-gitMasterDir=""
-hugePagesCount=""
-currentRpmDir=""
-logNumMtt=""
-logMttsPerSeg=""
-
-###########################
-
-clusterConfFile=""
-interfaceName=""
+hdfsPrefix=""
+teragenDir=""
+terasortDir=""
+teravalDir=""
 
 # the defalut for logs.server is the master
 
@@ -98,23 +87,22 @@ usage $0
 "
 }
 
-while getopts ":beadstzihD:" Option
+while getopts ":beadcrstD:" Option
 do
 	case ${Option} in
     		"b"     ) configureFlag=1 ;;
-			"s"     ) setupClusterFlag=1 ;;
-	    	"e"     ) executeFlag=1 ;; 
-			"a"		) analizeFlag=1 ;; 
+	    	"e"     ) executeFlag=1 ;;
+			"a"		) analizeFlag=1 ;;
 			"d"		) distributeFlag=1 ;;
-			"t"     ) testRunFlag=1 ;; 
-			"z"		) zipFlag=1 ;;
-			"i"     ) codeCoverageFlag=1 ;;
-			"h"     ) saveHdfsFlag=1 ;;
+			"c"     ) coFlag=1 ;;
+			"r"		) rpmFlag=1 ;;
+			"s"     ) setupFlag=1 ;;
+			"t"     ) testRunFlag=1 ;;
     		"D"     ) 
 			param=${OPTARG:0:`expr index $OPTARG =`-1}
 			value=${OPTARG:`expr index $OPTARG =`}
 			case ${param} in
-				hadoop.home		) hadoopHome=$value ;;
+				hadoop.home		) hadoopDir=$value ;;
 				hadoop.classpath	) hadoopClassPath=$value ;;
 				csv		) csvFile=$value ;;
 				svn.hadoop	) svnHadoop=$value ;;
@@ -123,18 +111,16 @@ do
 				svn.revision	) svnRevision=$value ;;
 				rpm.jar			) rpmJar=$value ;;
 				rpm.build		) rpmBuildDir=$value ;;
-				rpm.current		) currentRpmDir=$value ;;
 				#scripts		) scriptsDir=$value;;			
-				conf.folder	) confFolderDir=$value;;			
-				conf.current	) currentConfDir=$value;;	 		
+				tests.folder	) testsFolderDir=$value;;			
+				tests.current	) currentTestsDir=$value;;	 		
 				tests.num	) linesToExecute=$value;;	 		
 				logs.server	) resServer=$value;;			
 				logs.local.dir		) localResultsDir=$value;;
 				results.nfs.dir		) nfsResultsDir=$value;;
 				dataset.type	) dataSetType=$value;;
-				report.current	) reportInput=$value;;
+				report.input	) reportInput=$value;;
 				report.mailing.list	) reportMailingList=$value;;
-				report.name	) reportName=$value;;
 				report.subject		) reportSubject=$value;;
 				report.comment	) reportComment=$value;;
 				ram.size	) ramSize=$value;;
@@ -142,14 +128,10 @@ do
 				#cores.uda	) udaCoresDir=$value;;
 				cores.dir	) coresDir=$value;;	
 				cores.pattern	) coresPattern=$value;;
-				git.hadoops.dir	) gitHadoopsDir=$value;;
-				git.hadoop.version	) gitHadoopVersion=$value;;
-				git.master.dir	) gitMasterDir=$value;;
-				hugepages.count	) hugePagesCount=$value;;
-				lzo.jar			) lzoJar=$value ;;
-				#############################
-				cluster.csv			) clusterConfFile=$value ;;
-				interface	) interfaceName=$value ;;
+				hdfs.prefix	) hdfsPrefix=$value;;
+				teragen.dir	) teragenDir=$value;;
+				terasort.dir	) terasortDir=$value;;
+				teraval.dir	) teravalDir=$value;;
 				*     		) echo "Unknown parameter chosen. enter -h for help"; exit $SEC ;;   # Default.	
 			esac
 			;;
@@ -161,12 +143,12 @@ if [ -z "$csvFile" ];then
 	csvFile=$DEFAULT_CSV_FILE
 fi
 
-if [ -z "$confFolderDir" ];then
-	confFolderDir=$DEFAULT_CONF_FOLDER_DIR
+if [ -z "$testsFolderDir" ];then
+	testsFolderDir=$DEFAULT_TEST_FOLDER_DIR
 fi
 
-if [ -z "$hadoopHome" ];then
-    hadoopHome=$DEFAULT_MY_HADOOP_HOME
+if [ -z "$hadoopDir" ];then
+    hadoopDir=$DEFAULT_HADOOP_DIR
 fi
 
 if [ -z "$hadoopClasspath" ];then
@@ -190,7 +172,7 @@ if [ -z "$svnTrunk" ];then
 fi
 
 if [ -z "$svnRpmBuild" ];then
-    svnRpmBuild=$DEFAULT_TRUNK_RPM_BUILD_RELATIVE_PATH
+    svnRpmBuild=$DEFAULT_SVN_RPM_BUILD
 fi
 
 if [ -z "$svnRevision" ];then
@@ -221,10 +203,6 @@ if [ -z "$reportSubject" ];then
     reportSubject=$DEFAULT_REPORT_SUBJECT
 fi
 
-if [ -z "$reportName" ];then
-    reportName=$DEFAULT_REPORT_NAME
-fi
-
 if [ -z "$reportInput" ];then
     reportInput=$DEFAULT_REPORT_INPUT
 fi
@@ -241,42 +219,28 @@ if [ -z "$rpmBuildDir" ];then
     rpmBuildDir=$DEFAULT_RPMBUILD_DIR
 fi
 
+if [ -z "$hdfsPrefix" ];then
+    hdfsPrefix=$DEFAULT_HDFS_PREFIX
+fi
+
+if [ -z "$teragenDir" ];then
+    teragenDir=$DEFAULT_TERAGEN_DIR
+fi
+
+if [ -z "$terasortDir" ];then
+    terasortDir=$DEFAULT_TERASORT_DIR
+fi
+
+if [ -z "$teravalDir" ];then
+    teravalDir=$DEFAULT_TERAVAL_DIR
+fi
+
+#currentNfsResultsDir=$CURRENT_NFS_RESULTS_DIR
 if [ -z "$nfsResultsDir" ];then
     nfsResultsDir=$DEFAULT_NFS_RESULTS_DIR
-fi
-
-if [ -z "$gitHadoopsDir" ];then
-    gitHadoopsDir=$DEFAULT_GIT_HADOOPS_DIR
-fi
-
-if [ -z "$gitHadoopVersion" ];then
-    gitHadoopVersion=$DEFAULT_GIT_HADOOP_DIRNAME
-fi
-
-if [ -z "$gitMasterDir" ];then
-    gitMasterDir=$DEFAULT_GIT_MASTER_DIR
-fi
-
-if [ -z "$hugePagesCount" ];then
-    hugePagesCount=$DEFAULT_HUGE_PAGES_COUNT
-fi
-
-if [ -z "$currentRpmDir" ];then
-    currentRpmDir=$DEFAULT_CURRENT_RPM_DIR
-fi
-
-if [ -z "$lzoJar" ];then
-    lzoJar=$DEFAULT_LZO_JAR
-fi
-
-#####################################
-
-if [ -z "$clusterConfFile" ];then
-    clusterConfFile=$DEFAULT_CLUSTER_CONF_FILE
-fi
-
-if [ -z "$interfaceName" ];then
-    interfaceName=$DEFAULT_INTERFACE
+#else
+#	mv -f $CURRENT_NFS_RESULTS_DIR $nfsResultsDir
+#	currentNfsResultsDir=$nfsResultsDir/$CURRENT_DATE
 fi
 
 echo "
@@ -285,8 +249,7 @@ echo "
 		# control flags
 	export CONTROL_FLAG=$controlFlag
 	export CONFIGURE_FLAG=$configureFlag
-	export SETUP_CLUSTER_FLAG=$setupClusterFlag
-	export SETUP_TESTS_FLAG=$setupTestsFlag
+	export SETUP_FLAG=$setupFlag
 	export EXECUTE_FLAG=$executeFlag
 	export COLLECT_FLAG=$collectFlag
 	export VIEW_FLAG=$viewFlag	
@@ -295,38 +258,36 @@ echo "
 	export EXIT_FLAG=$exitFlag
 		# another flags
 	export TEST_RUN_FLAG=$testRunFlag
-	export ZIP_FLAG=$zipFlag
-	export CODE_COVE_FLAG=$codeCoverageFlag
-	export SAVE_HDFS_FLAG=$saveHdfsFlag
+	export CO_FLAG=$coFlag
+	export RPM_FLAG=$rpmFlag
 		# general envs
-	export MY_HADOOP_HOME='$hadoopHome'
-	export MY_HADOOP_HOME_CLIENT='$hadoopHome'
+	export HADOOP_DIR='$hadoopDir'
 	export CSV_FILE='$csvFile'
-	export CONF_FOLDER_DIR='$confFolderDir'
-	export CURRENT_CONFS_DIR='$currentConfDir'
+	export TEST_FOLDER_DIR='$testsFolderDir'
+	export CURRENT_TESTS_DIR='$currentTestsDir'
 	export LINE_TO_EXECUTE=$linesToExecute
-	export RES_SERVER='$resServer'
+	export #RES_SERVER='$resServer'
+	export LOCAL_RESULTS_DIR='$localResultsDir'
 	export DATA_SET_TYPE='$dataSetType'
 	export NFS_RESULTS_DIR='$nfsResultsDir'
-	export SVN_HADOOP='$svnHadoop'
-	export SVN_REVISION='$svnRevision'
-	export RPM_JAR='$rpmJar'
+	#export SVN_HADOOP='$svnHadoop'
+	#export SVN_TRUNK='$svnTrunk'
+	#export SVN_RPM_BUILD='$svnRpmBuild'
+	#export SVN_REVISION='$svnRevision'
+	#export RPM_JAR='$rpmJar'
 	export REPORT_MAILING_LIST='$reportMailingList'
-	export REPORT_NAME='$reportName'
 	export REPORT_COMMENT='$reportComment'
 	export REPORT_INPUT='$reportInput'
 	export REPORT_SUBJECT='$reportSubject'
 	export RAM_SIZE=$ramSize
-	export GIT_HADOOPS_DIR='$gitHadoopsDir'
-	export GIT_HADOOP_DIRNAME='$gitHadoopVersion'
-	export GIT_MASTER_DIR='$gitMasterDir'
-	export HUGE_PAGES_COUNT='$hugePagesCount'
-	export CURRENT_RPM_DIR='$currentRpmDir'
-	export LZO_JAR='$lzoJar'
-	
-	##################################
-	
-	export CLUSTER_CONF_FILE='$clusterConfFile'
-	export INTERFACE='$interfaceName'
-	export CORES_DIR='$coresDir'
-" > $SOURCES_DIR/inputExports.sh
+	#export JAVA_HOME='$javaHome'
+	#export HADOOP_CLASSPATH='$hadoopClasspath' 
+	#export CORES_DIR='$coresDir'
+	#export CORES_PATTERN='$coresPattern'
+	#export RPMBUILD_DIR='$rpmBuildDir'
+	#export CURRENT_NFS_RESULTS_DIR=$currentNfsResultsDir
+	export HDFS_PREFIX='$hdfsPrefix'
+	export TERAGEN_DIR='$teragenDir'
+	export TERASORT_DIR='$terasortDir'
+	export TERAVAL_DIR='$teravalDir'
+" > $TMP_DIR/inputExports.sh

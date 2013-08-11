@@ -1,28 +1,36 @@
 #!/bin/bash
 
-echoPrefix=$(basename $0)
-recentNfsResultsDir=$NFS_RESULTS_DIR/recentLogs
-echo $recentNfsResultsDir
-rm -rf $recentNfsResultsDir
-echo $recentNfsResultsDir
+echoPrefix=`eval $ECHO_PATTERN`
+recentNfsResultsDir=$RECENT_JOB_DIR
 mkdir $recentNfsResultsDir
-#CURRENT_NFS_RESULTS_DIR
-cp -rf $CURRENT_NFS_RESULTS_DIR $recentNfsResultsDir
+chgrp -R $GROUP_NAME $recentNfsResultsDir
+chgrp -R $GROUP_NAME $CURRENT_NFS_RESULTS_DIR
+
+#cp -rf $CURRENT_NFS_RESULTS_DIR/* $recentNfsResultsDir TODO: uncomment it
 
 errorLog=$CURRENT_NFS_RESULTS_DIR/`basename $ERROR_LOG`
 if ! cat $errorLog | grep -c "";then
 	rm -f $errorLog
 fi
 
+#if [[ -n $RESTART_CLUSTER_CONF_FLAG ]];then
+#	sudo pdsh -w $RELEVANT_SLAVES_BY_COMMAS "bash $EXIT_SCRIPTS_SLAVES | tee $STATUS_DIR/exitScriptValidation.txt"
+#fi
+
 # zipping the results
-cd $CURRENT_NFS_RESULTS_DIR/..
-#gzip -rf $CURRENT_NFS_RESULTS_DIR
-if ! tar zcf $CURRENT_NFS_RESULTS_DIR.tgz $CURRENT_NFS_RESULTS_DIR 2> /dev/null
-then
-	echo "$echoPrefix: error creating tgz file. Please, Try manually: tar zcf $CURRENT_NFS_RESULTS_DIR.tgz $CURRENT_NFS_RESULTS_DIR" | tee $ERROR_LOG
-	exit 1
+if (($ZIP_FLAG==1));then
+	cd $CURRENT_NFS_RESULTS_DIR/..
+	#gzip -rf $CURRENT_NFS_RESULTS_DIR
+	if ! tar zcf $CURRENT_NFS_RESULTS_DIR.tgz $CURRENT_NFS_RESULTS_DIR 2> $DEV_NULL_PATH
+	then
+		echo "$echoPrefix: error creating tgz file. Please, Try manually: tar zcf $CURRENT_NFS_RESULTS_DIR.tgz $CURRENT_NFS_RESULTS_DIR" | tee $ERROR_LOG
+		exit 1
+	fi
+	echo "$echoPrefix: `basename $CURRENT_NFS_RESULTS_DIR` had compressed successfully"
+	echo "$echoPrefix: deleting the directory $CURRENT_NFS_RESULTS_DIR"
+	rm -rf $CURRENT_NFS_RESULTS_DIR/
 fi
-#rm -rf $CURRENT_NFS_RESULTS_DIR
+
 
 #failFlag=0
 

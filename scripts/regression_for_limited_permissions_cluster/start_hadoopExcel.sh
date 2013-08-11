@@ -18,6 +18,8 @@
 #Modified by IdanWe on 10-10-2011
 # - make teragen only if '-teragen' passed and not in any case of restart
 
+NUMBER_OF_ATTEMPTS_LIVE_NODES=30
+
 if [ -z "$MY_HADOOP_HOME" ]
 then
         echo "$(basename $0): please export MY_HADOOP_HOME"
@@ -29,9 +31,9 @@ then
 	SCRIPTS_DIR=$(dirname $0)
 fi
 
-if [ -z "$HADOOP_CONFIGURATION_DIR" ] 
+if [ -z "$HADOOP_CONF_DIR" ] 
 then
-	HADOOP_CONFIGURATION_DIR="$MY_HADOOP_HOME/conf"
+	HADOOP_CONF_DIR="$MY_HADOOP_HOME/conf"
 fi
 
 if [ ! -z $1 ] && [ $1 -eq $1 2>/dev/null ] # check if $1 is a number
@@ -45,7 +47,7 @@ else
         exit 0 
 fi
 
-if [[ $@ = *-restart* ]] || [[ $@ = *-teragen* ]] || (($FORMAT_DFS && ! $SAVE_HDFS_FLAG))
+if [[ $@ = *-restart* ]] || [[ $@ = *-teragen* ]]
 then
 	restart=1
 	echo "$(basename $0): FORCED RESTART - reformat DFS"
@@ -114,7 +116,7 @@ do
 
 
 	# count the number of unmarked hosts on slaves conf file 
-	expected_number_nodes=`cat "$HADOOP_CONFIGURATION_DIR/slaves" | grep ^[[:alnum:]] -c`
+	expected_number_nodes=`cat "$HADOOP_CONF_DIR/slaves" | grep ^[[:alnum:]] -c`
 
 	actual_number_nodes=0
 	attempt=0
@@ -163,7 +165,6 @@ do
 		if [ $actual_number_nodes -gt  $expected_number_nodes ]
 	        then
 	                echo "$(basename $0):  ERROR too many tasktrackers are alive - please check for live nodes that are not on the slaves list"
-					bin/stop-all.sh
 	                curr_try=$((curr_try + 1))
 	                continue
 	        fi
@@ -183,9 +184,10 @@ do
 	echo "$(basename $0): MapReduce  is up : $actual_number_nodes/$expected_number_nodes tasktracker are alive"
 	
 	hadoop_is_up=1
+
 done
 
-if (($hadoop_is_up==1))
+if [ $hadoop_is_up=true ]
 then
 	echo "$(basename $0): all $expected_number_nodes nodes are alive"
 	if [[  $@ = *-teragen* ]] 

@@ -1,39 +1,66 @@
 #!/bin/bash
 
-echoPrefix=$(basename $0)
+#if [[ -n $A_M ]];then
+#	echo $CEC
+#fi
+echoPrefix=`eval $ECHO_PATTERN`
+#reportSubject=$REPORT_SUBJECT
+recentNfsResultsDir=$NFS_RESULTS_DIR/$RECENT_JOB_DIR_NAME
+sudo rm -rf $recentNfsResultsDir
 
-reportSubject=$REPORT_SUBJECT
 if (($TEST_RUN_FLAG == 1));then
-	currentNfsResultsDir=$NFS_RESULTS_DIR/testRun_$CURRENT_DATE
+	dirType=$TEST_RUN_DIR_PREFIX
 else
-	currentNfsResultsDir=$NFS_RESULTS_DIR/smoke_$CURRENT_DATE
+	dirType=${DAILY_REGRESSION_PREFIX}$SMOKE_RUN_DIR_PREFIX
 fi
+currentNfsTotalResultsDir=$NFS_RESULTS_DIR/${dirType}_$CURRENT_DATE
+currentNfsEnvResultsDir=$currentNfsTotalResultsDir/$ENV_FIXED_NAME
 
-if ! mkdir $currentNfsResultsDir;then
-	echo "$echoPrefix: failling to create $currentNfsResultsDir" | tee $ERROR_LOG
+if ! mkdir -p $currentNfsEnvResultsDir;then
+	echo "$echoPrefix: failling to create $currentNfsEnvResultsDir" | tee $ERROR_LOG
 	exit $EEC1
 fi
+echo "$echoPrefix: the NFS collect dir is $currentNfsEnvResultsDir"
 
 	# copying the logs dirs
-echo "$echoPrefix: the NFS collect dir is $CURRENT_NFS_RESULTS_DIR"
 echo "$echoPrefix: collecting logs"
-scp -r $RES_SERVER:$CURRENT_LOCAL_RESULTS_DIR $currentNfsResultsDir > /dev/null
-cp -r $ERROR_LOG $currentNfsResultsDir > /dev/null
-#cp -rf $recentNfsResultsDir $CURRENT_NFS_RESULTS_DIR
+logsDestDir=$currentNfsEnvResultsDir/$LOGS_DIR_NAME
+mkdir -p $logsDestDir
+scp -r $RES_SERVER:$CURRENT_LOCAL_RESULTS_DIR/* $logsDestDir > $DEV_NULL_PATH
 	# copying the tests dirs
 echo "$echoPrefix: collecting test-files"
-cp -r $TESTS_PATH $currentNfsResultsDir > /dev/null
+confsDestDir=$currentNfsEnvResultsDir/$TESTS_CONF_DIR_NAME
+mkdir $confsDestDir
+cp -r $TESTS_CONF_DIR/* $confsDestDir > $DEV_NULL_PATH
 	# copying the csv configuration file
 echo "$echoPrefix: collecting csv-configuration-file"
-cp $CSV_FILE $currentNfsResultsDir > /dev/null
+cp $TEST_CONF_FILE $currentNfsEnvResultsDir > $DEV_NULL_PATH
+	# copying the coverity files
+#echo "$echoPrefix: collecting code coverage files"
 
-chmod -R 775 $currentNfsResultsDir
+if (($CODE_COVE_FLAG == 1)); then
+	for machine in $MASTER $SLAVES_BY_SPACES;do
+		#echo "ssh $machine scp $COVFILE $RES_SERVER:/tmp/${machine}_coverage.cov"
+		newCovfileName=${ENV_FIXED_NAME}_${machine}${CODE_COVERAGE_FILE_SUFFIX}
+		sudo chown -R $USER $CODE_COVERAGE_FINAL_DIR
+		sudo scp $machine:$CODE_COVERAGE_FILE $CODE_COVERAGE_FINAL_DIR/$newCovfileName
+	done
+fi 
 
-currentLogsDir=`ls $currentNfsResultsDir | grep logs`
-currentLogsDir=`basename $CURRENT_LOCAL_RESULTS_DIR`
+errorExist=`grep -c "" $ERROR_LOG`
+if (($errorExist != 0));then
+	echo "$echoPrefix: collecting the errors-log"
+	cp -r $ERROR_LOG $currentNfsEnvResultsDir > $DEV_NULL_PATH
+fi
 
+chmod -R $DIRS_PERMISSIONS $currentNfsEnvResultsDir
+#$CURRENT_NFS_RESULTS_DIR/$LOGS_DIR_NAME
 echo "
 	#!/bin/sh
-	export CURRENT_NFS_RESULTS_DIR='$currentNfsResultsDir'
-	export STATISTICS_INPUT_DIR='$currentNfsResultsDir/$currentLogsDir' # the same as CURRENT_NFS_RESULTS_LOGS_DIR
-" > $TMP_DIR/collectExports.sh
+	export CURRENT_NFS_RESULTS_DIR='$currentNfsTotalResultsDir'
+	export CURRENT_NFS_ENV_RESULTS_DIR='$currentNfsEnvResultsDir'
+	export REPORT_INPUT_DIR='$logsDestDir'
+	export COVERAGE_DEST_DIR='$CODE_COVERAGE_FINAL_DIR'
+	export RECENT_JOB_DIR='$recentNfsResultsDir'
+#export A_M='DELETE_ME'
+" > $SOURCES_DIR/collectExports.sh
