@@ -142,7 +142,7 @@ for slave in $slaves; do
 done
 
  echo "$(basename $0) formating namenode"
-        format_output=`bin/hadoop namenode -format 2>&1`
+        format_output=`eval $DFS_FORMAT 2>&1`
         echo $format_output
 
         if [[ $format_output != *successfully* ]]

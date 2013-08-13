@@ -160,12 +160,11 @@ editBuildFile()
 
 manageHadoop()
 {
-	local hadoopDir=$1
-	if [[ $hadoopVersion == "hadoop-1.1.2-vanilla" ]];then
+	if [[ $GIT_HADOOP_DIRNAME == "hadoop-1.1.2-vanilla" ]];then
 		tar -xzf hadoop-1.1.2-vanilla.tar.gz
 		hadoopHome="$hadoopHome/hadoop-1.1.2-vanilla"
 		editBuildFile "$hadoopHome" "docs, "
-	elif [[ $hadoopVersion == "hadoop-1.1.0-patched-v2" ]];then
+	elif [[ $GIT_HADOOP_DIRNAME == "hadoop-1.1.0-patched-v2" ]];then
 		editBuildFile "$hadoopHome" "docs, cn-docs, "
 	fi
 }
@@ -234,11 +233,9 @@ echo -n "" > $slavesExitScript
 if (($CO_FLAG==1));then
 	getBranchFromGit "$DEFAULT_GIT_HADOOPS_DIR" "$GIT_HADOOP_DIRNAME" "$setupEnvDir"
 	hadoopHome=$getBranchFromGitRetVal
-	hadoopVersion="$GIT_HADOOP_DIRNAME"
 else  # in case we're running a totaly-build and ready hadoop from NFS
 	getHadoopFromLocal
 	hadoopHome=$getHadoopRetVal
-	hadoopVersion="$LOCAL_HADOOP_DIR"
 fi
 manageHadoop
 
@@ -270,8 +267,8 @@ then
 		exit $EEC1
 	fi
 	
-	if [[ $hadoopVersion == "hadoop-1.1.2-vanilla" ]] || [[ $hadoopVersion == "hadoop-1.1.0-patched-v2" ]];then
-		echo "$echoPrefix: hadoop version is $hadoopVersion"  #building
+	if [[ $GIT_HADOOP_DIRNAME == "hadoop-1.1.2-vanilla" ]] || [[ $GIT_HADOOP_DIRNAME == "hadoop-1.1.0-patched-v2" ]];then
+		echo "$echoPrefix: hadoop version is $GIT_HADOOP_DIRNAME"  #building
 		snapshotFolder=`find $hadoopHome/build -maxdepth 1 -mindepth 1 -type d | grep "SNAPSHOT"`
 		matchCount=`echo $snapshotFolder | grep -c "SNAPSHOT"`
 		if (($matchCount != 1));then

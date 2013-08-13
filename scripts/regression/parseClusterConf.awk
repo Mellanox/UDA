@@ -140,16 +140,16 @@ BEGIN{
 	print "export ENV_FIXED_NAME='" envFixedName "'" >> envExports
 	
 	hadoopValue=values["hadoop"]
-	if (split(hadoopValue,tmp,"/") == 1) # there are no slashes in this field
+	print "export MY_HADOOP_HOME='" hadoopValue "'" >> envExports
+	splitsCount=split(hadoopValue,tmp,"/")
+	print "export GIT_HADOOP_DIRNAME='" tmp[splitsCount] "'" >> envExports
+	if (splitsCount == 1) # there are no slashes in this field
 	{
-		print "export GIT_HADOOP_DIRNAME='" hadoopValue "'" >> envExports
-		print "export MY_HADOOP_HOME='" hadoopValue "'" >> envExports
 		print "export CO_FLAG=1" >> envExports
 	}
 	else
 	{
 		print "export LOCAL_HADOOP_DIR='" hadoopValue "'" >> envExports
-		print "export MY_HADOOP_HOME='" hadoopValue "'" >> envExports
 		print "export CO_FLAG=0" >> envExports
 	}
 	

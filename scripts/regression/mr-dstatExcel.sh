@@ -100,7 +100,6 @@ echo -e \\n\\n
 ### Cheking preReqs
 
 preReqFlags=$PRE_REQ_TEST_FLAGS
-echo "preReqFlags=${preReqFlags}END"
 if [[ "$preReqFlags" == "-" ]];then
 	preReqFlags=$DEFAULT_PRE_REQ_TEST_FLAGS
 fi

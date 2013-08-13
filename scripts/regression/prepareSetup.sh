@@ -10,6 +10,10 @@ echo "$echoPrefix: sourcing $envDir/envExports.sh"
 source $envDir/preReqSetup.sh
 echo "$echoPrefix: sourcing $envDir/preReqSetup.sh"
 
+GIT_HADOOP_DIRNAME
+source $SCRIPTS_DIR/commandsOfHadoop1.sh
+echo "$echoPrefix: sourcing $SCRIPTS_DIR/commandsOfHadoop1.sh"
+
 statusDir=$envDir/$STATUS_DIR_NAME
 tmpDir=$envDir/$TMP_DIR_NAME
 codeCoverageIntermediateDir=""
@@ -48,6 +52,7 @@ fi
 currentDate=`eval $CURRENT_DATE_PATTERN`
 
 echo "`cat $envDir/envExports.sh`
+	`cat $SCRIPTS_DIR/commandsOfHadoop1.sh`
 	export ENV_DATE='$currentDate'
 	export ENV_NAME='$clusterEnv'
 	export ENV_DIR=$envDir

@@ -307,7 +307,8 @@ do
 done
 
 echo "$echoPrefix: stopping all hadoop processes"
-bin/stop-all.sh
+eval $DFS_STOP
+eval $MAPRED_STOP
 
 echo "
 	#!/bin/sh

@@ -17,41 +17,42 @@ cd $MY_HADOOP_HOME
 
 
 echo "$(basename $0): Stoping Hadoop"
-bin/stop-all.sh
+eval $DFS_STOP
+eval $MAPRED_STOP
 sleep 2 
 
 
 echo "$(basename $0): kill java/python/c++ process"
 sudo pkill -9 '(java|python|NetMerger|MOFSupplier)'
-sudo bin/slaves.sh pkill -9 \'\(java\|python\|NetMerger\|MOFSupplier\)\'
+sudo eval $EXEC_SLAVES pkill -9 \'\(java\|python\|NetMerger\|MOFSupplier\)\'
 sleep 2
 
 # check for processes that did not respond to termination signals
-live_processes=$(( `bin/slaves.sh ps -e | egrep -c '(MOFSupplier|NetMerger|java)'` + `ps -e | egrep -c '(MOFSupplier|NetMerger|java)'`  )) 
+live_processes=$(( `eval $EXEC_SLAVES ps -e | egrep -c '(MOFSupplier|NetMerger|java)'` + `ps -e | egrep -c '(MOFSupplier|NetMerger|java)'`  )) 
 
 if [ $live_processes != 0 ]
 then
 	echo LIVE PROCESSES ARE: $live_processes
 	echo "$(basename $0): process are still alive after kill --> using kill -9"
 	sudo pkill -9 '(java|python|NetMerger|MOFSupplier)'
-	sudo bin/slaves.sh pkill -9 \'\(java\|python\|NetMerger\|MOFSupplier\)\'
+	sudo eval $EXEC_SLAVES pkill -9 \'\(java\|python\|NetMerger\|MOFSupplier\)\'
 fi
 
 sleep 2
 # check if after kill -9 there are live processes
-live_processes=$(( `bin/slaves.sh ps -e | egrep -c '(MOFSupplier|NetMerger|java)'` + `ps -e | egrep -c '(MOFSupplier|NetMerger|java)'`  ))  
+live_processes=$(( `eval $EXEC_SLAVES ps -e | egrep -c '(MOFSupplier|NetMerger|java)'` + `ps -e | egrep -c '(MOFSupplier|NetMerger|java)'`  ))  
 
 if [ $live_processes != 0 ]
 then
 	echo "LIVE PROCESSES ARE (SECOND TIME):" $live_processes
-	#echo "LIVA PROCESSES ARE: " `bin/slaves.sh ps -e | egrep '(MOFSupplier|NetMerger|java)'`
+	#echo "LIVA PROCESSES ARE: " `eval $EXEC_SLAVES ps -e | egrep '(MOFSupplier|NetMerger|java)'`
 	#echo `ps -e | egrep '(MOFSupplier|NetMerger|java)'`  
-	defunct_processes=$((`ps -e | egrep '(MOFSupplier|NetMerger|java)' | egrep -c '\<defunct\>'` + `bin/slaves.sh ps -e | egrep '(MOFSupplier|NetMerger|java)'| egrep -c '\<defunct\>' `))
+	defunct_processes=$((`ps -e | egrep '(MOFSupplier|NetMerger|java)' | egrep -c '\<defunct\>'` + `eval $EXEC_SLAVES ps -e | egrep '(MOFSupplier|NetMerger|java)'| egrep -c '\<defunct\>' `))
 	#echo defunct_processes: $defunct_processes
 	if (($live_processes > $defunct_processes))
 	then
-		echo DEFUNCT PROCESSES ARE: `ps -e | egrep '(MOFSupplier|NetMerger|java)' | egrep '\<defunct\>'` + `bin/slaves.sh ps -e | egrep '(MOFSupplier|NetMerger|java)'| egrep '\<defunct\>' `
-		#bin/slaves.sh ps -ef | grep -E '(MOFSupplier|NetMerger|java)'
+		echo DEFUNCT PROCESSES ARE: `ps -e | egrep '(MOFSupplier|NetMerger|java)' | egrep '\<defunct\>'` + `eval $EXEC_SLAVES ps -e | egrep '(MOFSupplier|NetMerger|java)'| egrep '\<defunct\>' `
+		#eval $EXEC_SLAVES ps -ef | grep -E '(MOFSupplier|NetMerger|java)'
 		echo "$(basename $0): ERROR: failed to kill processes"
 		exit 1;
 	fi
@@ -63,7 +64,7 @@ then
 else
         echo "$(basename $0): Clear logs dir"
         rm -rf $MY_HADOOP_HOME/logs/*
-        bin/slaves.sh rm -rf $MY_HADOOP_HOME/logs/\*
+        eval $EXEC_SLAVES rm -rf $MY_HADOOP_HOME/logs/\*
 fi
 
 if [[  $@ = *-format* ]]
@@ -80,14 +81,6 @@ then
 		echo "format failed!!"
 		exit $SEC
 	fi
-	#format_output=`bin/hadoop namenode -format 2>&1`
-	#echo $format_output
-
-	#if [[ $format_output != *successfully* ]]
-	#then
-	#	echo "$(basename $0): ERROR - failed to format DFS"
-	#	exit 1;
-	#fi
 	sleep 6
 
 fi
