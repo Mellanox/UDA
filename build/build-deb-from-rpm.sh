@@ -5,6 +5,7 @@ function usage {
 	echo "	1. path to rpm"
 	echo "	2. path to debian direcory containing necessary files. for example /.autodirect/mtrswgwork/katyak/uda/build/debian"
 	echo "	3. path to where the .deb is created"
+	echo "	4. a username of a user permitted to create the .deb in the path given"
 	echo "script will fail if libaio1 is not installed on the machine(not included in Ubuntu)"
 }
 
@@ -23,6 +24,11 @@ if [ -z "$3" ]; then
 	exit 1
 fi
 
+if [ -z "$4" ]; then
+	usage
+	exit 1
+fi
+
 
 #rpm_name="/volt/katyak/rpmbuild/RPMS/x86_64/libuda-3.1.11-0.866.el6.x86_64.rpm"
 #pathToDebianDir="/.autodirect/mtrswgwork/katyak/uda/build/debian"
@@ -30,6 +36,7 @@ fi
 rpm_name=$1
 path_debian_dir=$2
 path_target_dir=$3
+permitted_user=$4
 
 #must make sure rpm is intalled - for queries
 sudo apt-get -y install rpm debhelper
@@ -93,5 +100,6 @@ cd ..
 #rm -rf /tmp/libuda
 
 echo -e "\nSaving the UDA .deb file in ${path_target_dir}..."
-mv -f /tmp/*.deb ${path_target_dir}
+sudo -u $permitted_user -H sh -c "cp -f /tmp/*.deb ${path_target_dir}/"
+rm -rf /tmp/*.db
 echo "Saved!"
