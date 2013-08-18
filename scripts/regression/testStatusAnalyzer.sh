@@ -19,7 +19,7 @@ memoryAllocationAnalyzer()
 		return 0
 	fi
 	
-	bufferSizes="`$sshPrefix grep -rh "After RDMA buffers registration" $testDir/slave*/userlogs/job*/attempt*r*/syslog | awk 'BEGIN{} {print $12}' | sort -u`"
+	bufferSizes="`$sshPrefix grep -rh "After RDMA memory" slave*/userlogs/job*/attempt*r*/syslog | awk '{ split($9,a,"="); print a[2] }' | sort -u`"
 	if [[ -z $bufferSizes ]];then
 		return 0
 	fi
