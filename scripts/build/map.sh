@@ -1,7 +1,9 @@
 #!/bin/bash
 
-## AUGUST 2013 ##
-## Map Data Stracture ##
+## 11 August 2013
+## ==================
+## Map Data Stracture
+## ==================
 
 # PUT Function
 # Usage: put <map> <key> <value>

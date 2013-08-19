@@ -1,51 +1,29 @@
 #!/bin/bash
-<<<<<<< HEAD
-#MAILING_LIST="shania,oriz"
-mailingScript=$1
-mailingList=$2
-=======
 
-mailingScript=$1
-subject=$2
-mailingList=$3
+## 11 August 2013
+## =====================
+## Report mailing Script
+## =====================
+## This script handles the report mailing after the build process is complete.
 
->>>>>>> Updating the latest build process scripts to gerrit
-allContacts=`echo $mailingList | awk 'BEGIN {RS=",";}{print  $1}'`;
+# Set mailing parameters
+MAIL_DETAILS=$1
 
-count=0
-for i in $allContacts;do
-	count=$((count+1))
-done
-iterator=0
-recipientList=""
-for i in $allContacts
-do
-	iterator=$((iterator+1))
-	recipientList="${recipientList}${i}@mellanox.com"
-	if (($iterator == $count));then
-		break;
-	fi
-	recipientList="${recipientList}, "
+subject=`cat $MAIL_DETAILS | sed -n '1 p'`
+message=`cat $MAIL_DETAILS | sed -n '2 p'`
+attachment=`cat $MAIL_DETAILS | sed -n '3 p'`
+recipients=`cat $MAIL_DETAILS | sed -n '4 p'`
+
+# Create message file
+echo "${message}" > message.html
+
+# Send report
+echo "Sending build report to $recipients..."
+mutt -e "set content_type=text/html" -a "${attachment}" -s "${subject}" -- ${recipients} < message.html > /dev/null 2>&1
+# Check for send failure
+while [ $? != 0 ]; do
+	mutt -e "set content_type=text/html" -a "${attachment}" -s "${subject}" -- ${recipients} < message.html > /dev/null 2>&1
 done
 
-<<<<<<< HEAD
-subject=$REPORT_SUBJECT
-=======
->>>>>>> Updating the latest build process scripts to gerrit
-#messageType=`echo $REPORT_MESSAGE | grep -c "<html>"`
-#if (($messageType==1));then
-#	message=$REPORT_MESSAGE
-#elif (($messageType==0));then
-#	message=`cat $REPORT_MESSAGE`
-#	echo "echoPrefix: report directory: $REPORT_MESSAGE"
-#else
-#	message="echoPrefix: wrong type of message: `cat $REPORT_MESSAGE`"
-#	echo $message
-#fi
-#
-echo "Sending build report to $recipientList..."
-<<<<<<< HEAD
-python $mailingScript "$subject" "hey" "`date`" "$USER" "$recipientList"
-=======
-python $mailingScript "$subject" "Build process completed successfully." "`date`" "$USER" "$recipientList"
->>>>>>> Updating the latest build process scripts to gerrit
+# Remove message file
+rm -f message.html

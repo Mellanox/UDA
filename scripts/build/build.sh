@@ -1,21 +1,15 @@
 #!/bin/bash
 
-## JUNE 2013 ##
-## UDA Hadoop Build Script ##
+## 11 August 2013
+## =======================
+## UDA Hadoop Build Script
+## =======================
+## This script builds all latest stored hadoops versions and patches them as needed.
+## This script builds the latest UDA rpm file.
+## This script builds the latest UDA deb file by converting the latest rpm file.
 
 echo -e "\n******************* Build in progress... *******************"
-#set -e
-<<<<<<< HEAD
-=======
-# Configure map functions
-source ./map.sh
->>>>>>> Updating the latest build process scripts to gerrit
-# Configure environment parameters
-source ./config.sh
-# Check for needed configurations and files
-source ./env_check.sh
-# Clean Running Environment
-bash ./clean.sh
+
 # Move to temporary directory
 cd $TMP_CLONE_DIR
 
@@ -34,18 +28,8 @@ echo -e "\n${GREEN}Step 2 Done!${NONE}"
 # Check for changes
 echo -e "\n${CYAN}---------- Step 3. Checking for latest changes... ----------${NONE}"
 source ${BUILD_DIR}/changes_check.sh
-<<<<<<< HEAD
-if [ $CHANGED == 0 ]; then
-	echo -e "\n${GREEN}No changes made since last build.${NONE}"
-	echo -e "\n${GREEN}Sending report...${NONE}"
-	ssh -X $USER@$UBUNTU_SERVER 'bash -s' < ${BUILD_DIR}/mailer.sh "${MAILING_SCRIPT_PATH}/${MAILING_SCRIPT_NAME}" "$MAILING_LIST"
-=======
 if [ $CHANGED_HADOOPS == 0 ] && [ $CHANGED_UDA == 0 ]; then
 	echo -e "\n${GREEN}No changes made since last build.${NONE}"
-	echo -e "\n${GREEN}Sending report...${NONE}"
-	ssh -X $USER@$UBUNTU_SERVER 'bash -s' < ${BUILD_DIR}/mailer.sh "${MAILING_SCRIPT_PATH}/${MAILING_SCRIPT_NAME}" "$MAIL_SUBJECT" "$MAILING_LIST"
->>>>>>> Updating the latest build process scripts to gerrit
-	echo -e "${GREEN}Sent!${NONE}"
 	touch BUILD_SUCCESSFUL
 	echo -e "\n${GREEN}******************* All DONE! *******************${NONE}"
 	exit 0
@@ -56,11 +40,7 @@ echo -e "\n${GREEN}Step 3 Done!${NONE}"
 # Build Changed
 echo -e "\n${CYAN}---------- Step 4. Building... ----------${NONE}"
 # Build Hadoops
-<<<<<<< HEAD
-if [ $BUILD_HADOOPS == "TRUE" ]; then
-=======
 if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
->>>>>>> Updating the latest build process scripts to gerrit
 	echo -e "\n${YELLOW}--- Building hadoops! ---${NONE}"
 	for branch in `cat ${DB_DIR}/changes_hadoops`;do
 
@@ -77,16 +57,9 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 		cd $TMP_CLONE_DIR
 
 		# Patching hadoop
-		echo -e "\n${PURPLE}--- Patching $branch... ---${NONE}"
-<<<<<<< HEAD
-		branch_map=`echo hadoop-1.1.2-vanilla | sed -e 's/-//g' | sed -e 's/\.//g'`"_PATCH"
-		patch_name=${!branch_map}
-=======
-		#branch_map=`echo hadoop-1.1.2-vanilla | sed -e 's/-//g' | sed -e 's/\.//g'`"_PATCH"
 		get "hpMap" $branch
-		#patch_name=${!branch_map}
 		patch_name=${value}
->>>>>>> Updating the latest build process scripts to gerrit
+		echo -e "\n${PURPLE}--- Patching $branch with $patch_name... ---${NONE}"
 		patch_file=${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}/plugins/${patch_name}
 		PATCHED_HADOOP_DIR=${TMP_CLONE_DIR}/${HADOOP_BRANCH_DIR}/${branch}
 		cd $PATCHED_HADOOP_DIR
@@ -99,14 +72,14 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 			BUILD_PARAMS="$BUILD_PARAMS -Dcompile.native=true"
 		fi
 		cd $PATCHED_HADOOP_DIR
-		cp -f ${BUILD_XML_FILE} ${PATCHED_HADOOP_DIR} 	# Bug fix #
-		echo -e "\nBuild in progress! If needed, see ${LOG_FILE} for details."
-		${ANT_PATH} $BUILD_PARAMS clean package > ${LOG_FILE}
+		sed -i 's/docs, //g' build.xml 	# Bug fix #
+		echo -e "\nBuild in progress! If needed, see ${LOG_DIR}/${LOG_FILE}.${branch}${DELIMITER}${patch_name} for details."
+		${ANT_PATH} $BUILD_PARAMS clean package > ${LOG_DIR}/${LOG_FILE}.${branch}${DELIMITER}${patch_name}
 		echo -e "\n${GREEN}$branch built!${NONE}"
 
 		# Store built patched hadoop to target directory in tar.gz form
 		echo -e "\nSaving the patched hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
-		tar -pczf ${BUILD_TARGET_DESTINATION}/$branch-with-$patch_name.tar.gz ./build/*
+		tar -pczf ${BUILD_TARGET_DESTINATION}/${branch}${DELIMITER}${patch_name}.tar.gz ./build/*
 		echo "Saved!"
 
 		# Return to clone directory
@@ -124,31 +97,6 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 fi
 
 # Build RPM/DEB
-<<<<<<< HEAD
-if [ $BUILD_RPM == "TRUE" ]; then
-	echo -e "\n${YELLOW}--- Building the .rpm file ---${NONE}"
-        for branch in `cat ${DB_DIR}/changes_uda`;do
-
-		cd $UDA_BRANCH_DIR
-                git checkout $branch
-		bash build/buildrpm.sh
-
-		# Store built .rpm file to target directory
-		echo -e "\nSaving the UDA .rpm file in ${BUILD_TARGET_DESTINATION}..."
-		mv -f ~/rpmbuild/RPMS/x86_64/*.rpm ${BUILD_TARGET_DESTINATION}
-		echo "Saved!"
-
-		if [ $BUILD_DEB == "TRUE" ]; then
-			echo -e "\n${YELLOW}--- Building the .deb file ---${NONE}"
-			rpm_filename=`ls ${BUILD_TARGET_DESTINATION} | grep .rpm | cut -d / -f 2`
-			ssh -X root@$UBUNTU_SERVER 'bash -s' < ${DEB_FROM_RPM_SCRIPT_PATH}/${DEB_FROM_RPM_SCRIPT_NAME} "${BUILD_TARGET_DESTINATION}/${rpm_filename}" "${DEB_FROM_RPM_SCRIPT_PATH}/debian" "${BUILD_TARGET_DESTINATION}"
-		fi
-
-		# Return to clone directory
-		cd $TMP_CLONE_DIR
-
-	done
-=======
 if [ $BUILD_RPM == "TRUE" ] && [ $CHANGED_UDA != 0 ]; then
 	echo -e "\n${YELLOW}--- Building the .rpm file ---${NONE}"
 
@@ -158,18 +106,44 @@ if [ $BUILD_RPM == "TRUE" ] && [ $CHANGED_UDA != 0 ]; then
 
 	# Store built .rpm file to target directory
 	echo -e "\nSaving the UDA .rpm file in ${BUILD_TARGET_DESTINATION}..."
-	mv -f ~/rpmbuild/RPMS/x86_64/*.rpm ${BUILD_TARGET_DESTINATION}
+	arch=`uname -m`
+	rpm_filename=`ls ~/rpmbuild/RPMS/$arch/`
+	mv -f ~/rpmbuild/RPMS/$arch/$rpm_filename ${BUILD_TARGET_DESTINATION}/$rpm_filename
 	echo "Saved!"
+
+	if [ $USE_BULLSEYE == "TRUE" ]; then
+		echo -e "\n${YELLOW}--- Building the .rpm file with Bullseye---${NONE}"
+        	echo -e "\n${PURPLE}--- Starting Bullseye... ---${NONE}"
+		export COVFILE=$BULLSEYE_COV_FILE
+
+		${BULLSEYE_DIR}/covselect --create --deleteAll --no-banner --quiet
+		echo -e "\nThe Bullseye file is ${COVFILE}."
+		${BULLSEYE_DIR}/cov01 --on
+		${BULLSEYE_DIR}/cov01 --status
+
+		bash build/buildrpm.sh
+
+		# Store built .rpm file with Bullseye to target directory
+		echo -e "\nSaving the UDA .rpm file with Bullseye in ${BUILD_TARGET_DESTINATION}..."
+		rpm_filename_bullseye=`echo $rpm_filename | sed 's/.rpm/_bullseye.rpm/g'`
+		mv -f ~/rpmbuild/RPMS/$arch/$rpm_filename ${BUILD_TARGET_DESTINATION}/$rpm_filename_bullseye
+		echo "Saved!"
+
+		echo -e "\n${PURPLE}--- Stoping Bullseye... ---${NONE}"
+		${BULLSEYE_DIR}/cov01 --off
+		echo -e "\nSaving the Bullseye file ${COVFILE} in ${BUILD_TARGET_DESTINATION}..."
+		mv -f ${COVFILE} ${BUILD_TARGET_DESTINATION}
+		echo "Saved!"
+		unset COVFILE
+	fi
 
 	if [ $BUILD_DEB == "TRUE" ]; then
 		echo -e "\n${YELLOW}--- Building the .deb file ---${NONE}"
-		rpm_filename=`ls ${BUILD_TARGET_DESTINATION} | grep .rpm | cut -d / -f 2`
-		ssh -X root@$UBUNTU_SERVER 'bash -s' < ${DEB_FROM_RPM_SCRIPT_PATH}/${DEB_FROM_RPM_SCRIPT_NAME} "${BUILD_TARGET_DESTINATION}/${rpm_filename}" "${DEB_FROM_RPM_SCRIPT_PATH}/debian" "${BUILD_TARGET_DESTINATION}"
+		ssh -X root@$UBUNTU_SERVER 'bash -s' < ${DEB_FROM_RPM_SCRIPT_DIR}/${DEB_FROM_RPM_SCRIPT_NAME} "${BUILD_TARGET_DESTINATION}/${rpm_filename}" "${DEB_FROM_RPM_SCRIPT_DIR}/debian" "${BUILD_TARGET_DESTINATION}" "${USER}"
 	fi
 
 	# Return to clone directory
 	cd $TMP_CLONE_DIR
->>>>>>> Updating the latest build process scripts to gerrit
 
 	# Update latest uda
         rm -f ${DB_DIR}/latest_uda
@@ -181,13 +155,6 @@ fi
 echo -e "\n${GREEN}Step 4 Done!${NONE}"
 
 # Finish
-echo -e "\n${GREEN}Sending report...${NONE}"
-<<<<<<< HEAD
-ssh -X $USER@$UBUNTU_SERVER 'bash -s' < ${BUILD_DIR}/mailer.sh "${MAILING_SCRIPT_PATH}/${MAILING_SCRIPT_NAME}" "$MAILING_LIST"
-=======
-ssh -X $USER@$UBUNTU_SERVER 'bash -s' < ${BUILD_DIR}/mailer.sh "${MAILING_SCRIPT_PATH}/${MAILING_SCRIPT_NAME}" "$MAIL_SUBJECT" "$MAILING_LIST"
->>>>>>> Updating the latest build process scripts to gerrit
-echo -e "${GREEN}Sent!${NONE}"
 touch BUILD_SUCCESSFUL
 echo -e "\n${GREEN}******************* All DONE! *******************${NONE}"
 echo -e "\n${GREEN}The built products can be found in ${BUILD_TARGET_DESTINATION}${NONE}"

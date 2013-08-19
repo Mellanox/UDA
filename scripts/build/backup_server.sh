@@ -1,12 +1,39 @@
 #!/bin/bash
 
-source ./config.sh
-ping -c 3 $MAIN_SERVER > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-	# The main server is offline
-	echo -e "\n${RED}The main build server is offline!${NONE}"
-	echo -e "\n${YELLOW}Building on backup server...${NONE}"
-	bash ./build.sh
+## 11 August 2013
+## ====================
+## Backup Server Script
+## ====================
+## This script runs on the build backup server and pings the main build server.
+## If it finds that the main server is down, it start the build process instead.
+
+# Set backup indication file
+INDICATION_FILE="/tmp/BACKUP_RAN_ON_`date +"%d-%m-%Y"`"
+
+# Get .ini configuration file
+INI_FILE=`grep "export INI_FILE" ./start.sh | cut -d "=" -f 2`
+
+# Validate .ini configuration file
+if [ ! -e ${INI_FILE} ]; then
+        echo "Error: The .ini configuration file does not exits!"
+	touch ${INDICATION_FILE}
+        exit 1
+elif [ ! -r ${INI_FILE} ]; then
+        echo "Error: No read permission for .ini configuration file!"
+	touch ${INDICATION_FILE}
+        exit 1
+else
+	MAIN_SERVER=`grep "MAIN_SERVER" $INI_FILE | cut -d "=" -f 2`
+	ping -c 3 $MAIN_SERVER > /dev/null 2>&1
+	if [ $? -ne 0 ]; then
+		# The main server is offline
+		echo -e "\nThe main build server is offline!"
+		echo -e "\n$Building on backup server..."
+		bash ./start.sh "${INI_FILE}"
+		touch ${INDICATION_FILE}
+		exit 0
+	fi
+	echo -e "\nThe main build server is online!\n"
+	touch ${INDICATION_FILE}
 	exit 0
 fi
-echo -e "\n${GREEN}The main build server is online!${NONE}\n"

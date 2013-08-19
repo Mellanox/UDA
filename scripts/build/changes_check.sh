@@ -1,36 +1,28 @@
 #!/bin/bash
 
-## JUNE 2013 ##
-## Check for changes in the UDA-Hadoop gits ##
+## 11 August 2013
+## ========================
+## Check for changes script
+## ========================
+## This script checks for the latest changes in the hadoops git and the uda git.
+## This script decides whether we need to build new hadoops based on hadoop versions changes and patches changes.
+## This script decides whether we need to build a new UDA rpm file based on UDA version changes.
+## Changes are evaluated based on files stored in ${DB_DIR} which this script generates.
+## Note that we assume env_check.sh run successfuly before runnnig this script.
 
-<<<<<<< HEAD
-# Get latest changes
-# in hadoops
-=======
 # Get latest changes in hadoops
->>>>>>> Updating the latest build process scripts to gerrit
 cd $TMP_CLONE_DIR
 cd $HADOOP_BRANCH_DIR
 for branch in `git branch -r | egrep -v 'HEAD|old|master'`;do
 	echo -e `git show --format="%ci" $branch | head -n 1` \\t$branch >> ${DB_DIR}/new_latest_hadoops
 done
-<<<<<<< HEAD
-# in uda
-cd $TMP_CLONE_DIR
-cd $UDA_BRANCH_DIR
-for branch in `git branch -r | grep master | grep -v HEAD`;do
-	echo -e `git show --format="%ci" $branch | head -n 1` \\t$branch  >> ${DB_DIR}/new_latest_uda
-done
-#in patches
-=======
 
 # Get latest changes in uda
 cd $TMP_CLONE_DIR
 cd $UDA_BRANCH_DIR
-cat ./build/journal.txt  >> ${DB_DIR}/new_latest_uda
+echo -e `git show --format="%ci" $UDA_BRANCH | head -n 1` \\t/$UDA_BRANCH  >> ${DB_DIR}/new_latest_uda
 
 # Get latest changes in patches
->>>>>>> Updating the latest build process scripts to gerrit
 cd $TMP_CLONE_DIR
 cd $UDA_BRANCH_DIR
 cd plugins/
@@ -40,59 +32,26 @@ done
 
 # Find changes and filter ignored versions
 diff ${DB_DIR}/new_latest_hadoops ${DB_DIR}/latest_hadoops | grep "<" | egrep -v ${IGNORE_LIST} | cut -d / -f 2 > ${DB_DIR}/changes_hadoops_temp
-<<<<<<< HEAD
 diff ${DB_DIR}/new_latest_uda ${DB_DIR}/latest_uda | grep "<" | cut -d / -f 2 > ${DB_DIR}/changes_uda
-=======
-diff ${DB_DIR}/new_latest_uda ${DB_DIR}/latest_uda > ${DB_DIR}/changes_uda
->>>>>>> Updating the latest build process scripts to gerrit
 diff ${DB_DIR}/new_latest_patches ${DB_DIR}/latest_patches | grep "<" | cut -d / -f 2 > ${DB_DIR}/changes_patches
 
 #Add hadoops based on patch change
+getKeySet "hpMap"
 for patch in `cat ${DB_DIR}/changes_patches`; do
-	ls ${BUILD_TARGET_DESTINATION} | grep $patch | awk 'BEGIN {FS="-with-"} {print $1}' >> ${DB_DIR}/changes_hadoops_temp
+	for hadoop in $keySet; do
+		get "hpMap" $hadoop
+		if [ $value == $patch ]; then
+			echo $hadoop >> ${DB_DIR}/changes_hadoops_temp
+		fi
+	done
 done
 
-###############################
-#echo **latest_patches**
-#cat ${DB_DIR}/latest_patches
-#echo **new_latest_patches**
-#cat ${DB_DIR}/new_latest_patches
-#echo **changes_hadoops_temp**
-#cat ${DB_DIR}/changes_hadoops_temp
-#echo **changes_patches**
-#cat ${DB_DIR}/changes_patches
-#echo **changes_hadoops**
-#cat ${DB_DIR}/changes_hadoops
-##############################
-
 # Remove duplicates and temp file
-sort -u ${DB_DIR}/changes_hadoops_temp > ${DB_DIR}/changes_hadoops
+sort -u ${DB_DIR}/changes_hadoops_temp | egrep -v ${IGNORE_LIST} > ${DB_DIR}/changes_hadoops
 rm -f ${DB_DIR}/changes_hadoops_temp
 
-###############################
-#echo **new_latest_hadoops**
-#cat ${DB_DIR}/new_latest_hadoops
-#echo **latest_hadoops**
-#cat ${DB_DIR}/latest_hadoops
-#echo **new_latest_uda**
-#cat ${DB_DIR}/new_latest_uda
-#echo **latest_uda**
-#cat ${DB_DIR}/latest_uda
-#echo **changes_hadoops**
-#cat ${DB_DIR}/changes_hadoops
-#echo **changes_uda**
-#cat ${DB_DIR}/changes_uda
-#exit
-##############################
-
-<<<<<<< HEAD
-let "CHANGE_HADOOPS = `wc -l ${DB_DIR}/changes_hadoops | cut -d " " -f 1`"
-let "CHANGE_UDA = `wc -l ${DB_DIR}/changes_uda | cut -d " " -f 1`"
-let "ret_value = $CHANGE_HADOOPS + $CHANGE_UDA"
-export CHANGED=$ret_value
-=======
+# Calculate number of changes
 let "NUM_OF_CHANGED_HADOOPS = `wc -l ${DB_DIR}/changes_hadoops | cut -d " " -f 1`"
 let "NUM_OF_CHANGED_UDA = `wc -l ${DB_DIR}/changes_uda | cut -d " " -f 1`"
 export CHANGED_HADOOPS=$NUM_OF_CHANGED_HADOOPS
 export CHANGED_UDA=$NUM_OF_CHANGED_UDA
->>>>>>> Updating the latest build process scripts to gerrit
