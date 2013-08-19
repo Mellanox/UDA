@@ -1,7 +1,15 @@
 #!/bin/bash
+<<<<<<< HEAD
 #MAILING_LIST="shania,oriz"
 mailingScript=$1
 mailingList=$2
+=======
+
+mailingScript=$1
+subject=$2
+mailingList=$3
+
+>>>>>>> Updating the latest build process scripts to gerrit
 allContacts=`echo $mailingList | awk 'BEGIN {RS=",";}{print  $1}'`;
 
 count=0
@@ -20,7 +28,10 @@ do
 	recipientList="${recipientList}, "
 done
 
+<<<<<<< HEAD
 subject=$REPORT_SUBJECT
+=======
+>>>>>>> Updating the latest build process scripts to gerrit
 #messageType=`echo $REPORT_MESSAGE | grep -c "<html>"`
 #if (($messageType==1));then
 #	message=$REPORT_MESSAGE
@@ -33,4 +44,8 @@ subject=$REPORT_SUBJECT
 #fi
 #
 echo "Sending build report to $recipientList..."
+<<<<<<< HEAD
 python $mailingScript "$subject" "hey" "`date`" "$USER" "$recipientList"
+=======
+python $mailingScript "$subject" "Build process completed successfully." "`date`" "$USER" "$recipientList"
+>>>>>>> Updating the latest build process scripts to gerrit
