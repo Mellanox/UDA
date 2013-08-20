@@ -101,5 +101,5 @@ cd ..
 
 echo -e "\nSaving the UDA .deb file in ${path_target_dir}..."
 sudo -u $permitted_user -H sh -c "cp -f /tmp/*.deb ${path_target_dir}/"
-rm -rf /tmp/*.db
+rm -rf /tmp/*.deb
 echo "Saved!"
