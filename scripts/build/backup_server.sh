@@ -11,10 +11,14 @@
 INDICATION_FILE="/tmp/BACKUP_RAN_ON_`date +"%d-%m-%Y"`"
 
 # Get .ini configuration file
-INI_FILE=`grep "export INI_FILE" ./start.sh | cut -d "=" -f 2`
+INI_FILE=$1
 
 # Validate .ini configuration file
-if [ ! -e ${INI_FILE} ]; then
+if [ -z $1 ]; then
+	echo "Error: Missing argument. The .ini configuration file must be given as an argument!"
+        touch ${INDICATION_FILE}
+        exit 1
+elif [ ! -e ${INI_FILE} ]; then
         echo "Error: The .ini configuration file does not exits!"
 	touch ${INDICATION_FILE}
         exit 1

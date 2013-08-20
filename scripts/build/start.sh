@@ -44,6 +44,10 @@ else
 	mkdir -p ${LOG_DIR}
         LOG=`cat $INI_FILE | grep "LOG_FILE=" | cut -d "=" -f 2 | sed 's/"//g'`
 
+	# Get the latest change date in the db of UDA
+	# This is used in case a commit history is shown
+	latest_uda_date=`cat ${DB_DIR}/latest_uda | cut -d " " -f 1`
+
         # Build and log
 	source ./build.sh | tee "${LOG_DIR}/${LOG}"
 
@@ -51,8 +55,8 @@ else
 	# Title
 	MAIL_MESSAGE="<h1>UDA Daily Build Report</h1><br>"
 	# Target
-	MAIL_MESSAGE=${MAIL_MESSAGE}"The built products can be found in <b>"${BUILD_POOL}"</b>.<br>"
-	MAIL_MESSAGE=${MAIL_MESSAGE}"To access the built products through Windows go to <b>"${BUILD_POOL_WINDOWS}"</b>.<br><br>"
+	MAIL_MESSAGE=${MAIL_MESSAGE}"The built products can be found in <b>"${BUILD_POOL}"</b><br>"
+	MAIL_MESSAGE=${MAIL_MESSAGE}"To access the built products through Windows go to <b>"${BUILD_POOL_WINDOWS}"</b><br><br>"
 	# Calculate changes made
 	let "NUM_OF_CHANGED_HADOOPS = `wc -l ${DB_DIR}/changes_hadoops | cut -d " " -f 1`"
 	let "NUM_OF_CHANGED_UDA = `wc -l ${DB_DIR}/changes_uda | cut -d " " -f 1`"
@@ -70,18 +74,17 @@ else
 		MAIL_MESSAGE=${MAIL_MESSAGE}"</ul><br>"
 		# Commit History
 		if [ $CHANGED_UDA != 0 ]; then
-			date=`cat ${DB_DIR}/latest_uda | cut -d " " -f 1`
-			MAIL_MESSAGE=${MAIL_MESSAGE}"The Lastest commits in UDA git:<br><ul>"
-			cd ${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}
-			MAIL_MESSAGE=${MAIL_MESSAGE}`git log --pretty=format:"<li>%an%x09%ad%x09%s</li>" --after={${date}}`
+			MAIL_MESSAGE=${MAIL_MESSAGE}"The lastest commits in UDA git:<br><ul>"
+			cd ${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}			
+			MAIL_MESSAGE=${MAIL_MESSAGE}`git log --pretty=format:"<li>%an%x09%ad%x09%s</li>" --after={${latest_uda_date}}`
 			MAIL_MESSAGE=${MAIL_MESSAGE}"</ul><br>"
 			cd ${BUILD_DIR}
 		fi
-		# Managing build pool
+
+		# Manage build pool
 		echo -e "\n${GREEN}Managing build pool directory...${NONE}"
 		source ./manage.sh
 		echo -e "${GREEN}Done!${NONE}"
-
 	fi
 
 	# Mail message HTML Warpper
@@ -91,17 +94,21 @@ else
 	for recipient in `echo ${MAILING_LIST} | sed 's/,/ /g'`; do
 		MAIL_RECIPIENTS="${recipient}@mellanox.com ${MAIL_RECIPIENTS}"
 	done
-	MAIL_DETAILS=`pwd`/mail_details
-	echo "${MAIL_SUBJECT}" >> $MAIL_DETAILS
-	echo "${MAIL_MESSAGE}" >> $MAIL_DETAILS
-	echo "${MAIL_ATTACHMENT}" >> $MAIL_DETAILS
-	echo "${MAIL_RECIPIENTS}" >> $MAIL_DETAILS
+	MAIL_DETAILS_FILE=`pwd`/mail_details
+	MAIL_MESSAGE_FILE=`pwd`/mail_message
+	echo "${MAIL_SUBJECT}" >> $MAIL_DETAILS_FILE
+	echo "${MAIL_ATTACHMENT}" >> $MAIL_DETAILS_FILE
+	echo "${MAIL_RECIPIENTS}" >> $MAIL_DETAILS_FILE
+	echo "${MAIL_MESSAGE}" >> $MAIL_MESSAGE_FILE
 
 	# Sending report
 	echo -e "\n${GREEN}Sending report...${NONE}"
-	ssh -X $USER@$UBUNTU_SERVER 'bash -s' < `pwd`/mailer.sh "$MAIL_DETAILS"
-	rm -rf $MAIL_DETAILS
+	ssh -X $USER@$UBUNTU_SERVER 'bash -s' < `pwd`/mailer.sh "$MAIL_DETAILS_FILE" "$MAIL_MESSAGE_FILE"
 	echo -e "${GREEN}Sent!${NONE}"
+
+	# Remove temporary mailing files
+	rm -rf $MAIL_DETAILS_FILE
+	rm -rf $MAIL_MESSAGE_FILE
 
 	# Remove temporary build target destination
 	rm -rf ${BUILD_TARGET_DESTINATION}
