@@ -74,6 +74,12 @@ if [ ! -e ${ANT_PATH} ]; then
         exit 1
 fi
 
+# Checks to see if maven path is valid
+if [ ! -e ${MAVEN_PATH} ]; then
+	echo -e "\n${RED}Error: maven not found!${NONE}\n"
+        exit 1
+fi
+
 # Checks to see if Bullseye path is valid
 if [ ${USE_BULLSEYE} == "TRUE" ] && [ ! -e ${BULLSEYE_DIR} ]; then
         echo -e "\n${RED}Error: Bullseye not found!${NONE}\n"
