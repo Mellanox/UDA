@@ -174,6 +174,6 @@ echo -e "${PURPLE}Updated!${NONE}"
 # Finish
 touch BUILD_SUCCESSFUL
 echo -e "\n${GREEN}******************* All DONE! *******************${NONE}"
-echo -e "\n${GREEN}The built products can be found in ${BUILD_TARGET_DESTINATION}${NONE}"
+echo -e "\nThe built products can be found in ${BUILD_POOL}"
 tput sgr0
 exit 0
