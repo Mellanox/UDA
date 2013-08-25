@@ -7,7 +7,7 @@
 ## This script cleans the running environment.
 
 # Remove old git directories
-rm -rf ${TMP_CLONE_DIR}/${HADOOP_BRANCH_DIR}
+rm -rf ${TMP_CLONE_DIR}/${HADOOP_DIR}
 rm -rf ${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}
 
 # Remove old temporary files

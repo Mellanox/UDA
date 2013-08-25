@@ -4,7 +4,7 @@
 ## ========================
 ## UDA Hadoop Report Script
 ## ========================
-## This script generated the report sent at the end of the build proccess.
+## This script generated the report sent at the end of the build process.
 
 # Edit mailing message
 

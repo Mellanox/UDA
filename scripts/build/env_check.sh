@@ -54,9 +54,12 @@ elif [ ! -e ${DB_DIR}/latest_patches ] && [ ${BUILD_HADOOPS} == "TRUE" ]; then
         touch ${DB_DIR}/latest_patches
 fi
 
-# Checks to see if hadoops git is valid
-if [ ! -e ${HADOOP_GIT_PATH} ]; then
-	echo -e "\n${RED}Error: hadoops git not found!${NONE}\n"
+# Checks to see if hadoops storage is valid
+if [ ! -e ${HADOOP_STORAGE_PATH} ]; then
+	echo -e "\n${RED}Error: hadoops storage not found!${NONE}\n"
+        exit 1
+elif [ ! -d ${HADOOP_STORAGE_PATH} ]; then
+        echo -e "\n${RED}Error: hadoops storage given is not a directory!${NONE}\n"
         exit 1
 fi
 

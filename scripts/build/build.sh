@@ -15,14 +15,18 @@ cd $TMP_CLONE_DIR
 
 # Hadoops fetch phase
 echo -e "\n${CYAN}---------- Step 1. Fetching Hadoops... ----------${NONE}"
-mkdir "$HADOOP_BRANCH_DIR"
-git clone $HADOOP_GIT_PATH $HADOOP_BRANCH_DIR
+ls -p ${HADOOPS_STORAGE_PATH} | grep "/" | grep -v "old"
+mkdir ${HADOOP_DIR}
 echo -e "\n${GREEN}Step 1 Done!${NONE}"
 
 # UDA fetch phase
 echo -e "\n${CYAN}---------- Step 2. Fetching UDA... ----------${NONE}"
 mkdir "$UDA_BRANCH_DIR"
 git clone $UDA_GIT_PATH $UDA_BRANCH_DIR
+if [ $? != 0 ]; then
+	echo -e "\n${RED}Error: failed to fetch uda git!${NONE}\n"
+        exit 1
+fi
 echo -e "\n${GREEN}Step 2 Done!${NONE}"
 
 # Check for changes
@@ -48,13 +52,14 @@ echo -e "\n${CYAN}---------- Step 4. Building... ----------${NONE}"
 # Build Hadoops
 if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 	echo -e "\n${YELLOW}--- Building hadoops! ---${NONE}"
-	for branch in `cat ${DB_DIR}/changes_hadoops`;do
+	for version in `cat ${DB_DIR}/changes_hadoops`;do
 
-		echo -e "\n${PURPLE}--- Working on $branch... ---${NONE}"
+		echo -e "\n${PURPLE}--- Working on $version... ---${NONE}"
 		# Hadoops fetch phase
-		cd $HADOOP_BRANCH_DIR
-		git checkout $branch
-		tar -xzf ${branch}.tar.gz
+		rm -rf ${HADOOP_DIR}/*
+		cd ${HADOOPS_STORAGE_PATH}/${version}
+		tar_filename=`basename *hadoop*.tar.gz .tar.gz`
+		tar -xzf ${tar_filename}.tar.gz -C ${TMP_CLONE_DIR}/${HADOOP_DIR}
 		cd $TMP_CLONE_DIR
 
 		# UDA fetch phase
@@ -63,11 +68,15 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 		cd $TMP_CLONE_DIR
 
 		# Patching hadoop
-		get "hpMap" $branch
+		get "hpMap" $version
 		patch_name=${value}
-		echo -e "\n${PURPLE}--- Patching $branch with $patch_name... ---${NONE}"
+		echo -e "\n${PURPLE}--- Patching $version with $patch_name... ---${NONE}"
 		patch_file=${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}/plugins/${patch_name}
-		PATCHED_HADOOP_DIR=${TMP_CLONE_DIR}/${HADOOP_BRANCH_DIR}/${branch}
+		PATCHED_HADOOP_DIR=${TMP_CLONE_DIR}/${HADOOP_DIR}/
+		# Check for nested directory
+		if [ `ls $PATCHED_HADOOP_DIR | wc -l` == 1 ]; then 
+			PATCHED_HADOOP_DIR=$PATCHED_HADOOP_DIR/`basename $PATCHED_HADOOP_DIR/*`
+		fi
 		cd $PATCHED_HADOOP_DIR
 		patch -s -p0 < $patch_file
 		cd $TMP_CLONE_DIR
@@ -75,22 +84,38 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 		# Building hadoop
 		echo -e "\n${PURPLE}--- Building a patched $branch... ---${NONE}"
 		if [ $NATIVE_BUILD == "TRUE" ]; then
-			BUILD_PARAMS="$BUILD_PARAMS -Dcompile.native=true"
+			ANT_BUILD_PARAMS="$ANT_BUILD_PARAMS -Dcompile.native=true"
 		fi
 		cd $PATCHED_HADOOP_DIR
-		sed -i 's/docs, //g' build.xml 	# Bug fix #
-		echo -e "\nBuild in progress! If needed, see ${LOG_DIR}/${LOG_FILE}.${branch}${DELIMITER}${patch_name} for details."
-		${ANT_PATH} $BUILD_PARAMS clean package > ${LOG_DIR}/${LOG_FILE}.${branch}${DELIMITER}${patch_name}
-		echo -e "\n${GREEN}$branch built!${NONE}"
+		echo -e "\nBuild in progress! If needed, see ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name} for details."
+		# Build according to version
+		if [[ "$version" == *hadoop-1* ]]; then
 
-		# Store built patched hadoop to target directory in tar.gz form
-		echo -e "\nSaving the patched hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
-		tar -pczf ${BUILD_TARGET_DESTINATION}/${branch}${DELIMITER}${patch_name}.tar.gz ./build/*
-		echo "Saved!"
+			sed -i 's/docs, //g' build.xml 	# Bug fix #
+			${ANT_PATH} $ANT_BUILD_PARAMS clean package > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}
+			echo -e "\n${GREEN}$version built!${NONE}"
+
+			# Store built patched hadoop to target directory in tar.gz form
+			echo -e "\nSaving the patched hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
+			tar -pczf ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.tar.gz ./build/*
+			echo "Saved!"
+
+		elif [[ "$version" == *hadoop-2* ]] || [ "$version" == *hadoop-3* ]; then
+
+			${MAVEN_PATH} package $MAVEN_BUILD_PARAMS
+			echo -e "\n${GREEN}$version built!${NONE}"
+
+			# Store built patched hadoop to target directory in tar.gz form
+			echo -e "\nSaving the patched hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
+			cp -f ./hadoop-dist/target/*.tar.gz ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.tar.gz
+			echo "Saved!"
+
+		else
+			echo -e "\n${RED}$version not supported!${NONE}"
+		fi
 
 		# Return to clone directory
 		cd $TMP_CLONE_DIR
-
 	done
 
 	# Update latest hadoops and patches

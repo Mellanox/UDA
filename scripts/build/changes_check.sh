@@ -11,11 +11,7 @@
 ## Note that we assume env_check.sh run successfuly before runnnig this script.
 
 # Get latest changes in hadoops
-cd $TMP_CLONE_DIR
-cd $HADOOP_BRANCH_DIR
-for branch in `git branch -r | egrep -v 'HEAD|old|master'`;do
-	echo -e `git show --format="%ci" $branch | head -n 1` \\t$branch >> ${DB_DIR}/new_latest_hadoops
-done
+ls -gh -p $HADOOPS_STORAGE_PATH | grep "/" | grep -v "old" >> ${DB_DIR}/new_latest_hadoops
 
 # Get latest changes in uda
 cd $TMP_CLONE_DIR
@@ -31,7 +27,7 @@ for patch in `ls *.patch`;do
 done
 
 # Find changes and filter ignored versions
-diff ${DB_DIR}/new_latest_hadoops ${DB_DIR}/latest_hadoops | grep "<" | egrep -v ${IGNORE_LIST} | cut -d / -f 2 > ${DB_DIR}/changes_hadoops_temp
+diff ${DB_DIR}/new_latest_hadoops ${DB_DIR}/latest_hadoops | grep "<" | egrep -v ${IGNORE_LIST} | cut -d " " -f 9 | cut -d / -f 1 > ${DB_DIR}/changes_hadoops_temp
 diff ${DB_DIR}/new_latest_uda ${DB_DIR}/latest_uda | grep "<" | cut -d / -f 2 > ${DB_DIR}/changes_uda
 diff ${DB_DIR}/new_latest_patches ${DB_DIR}/latest_patches | grep "<" | cut -d / -f 2 > ${DB_DIR}/changes_patches
 
@@ -49,6 +45,15 @@ done
 # Remove duplicates and temp file
 sort -u ${DB_DIR}/changes_hadoops_temp | egrep -v ${IGNORE_LIST} > ${DB_DIR}/changes_hadoops
 rm -f ${DB_DIR}/changes_hadoops_temp
+
+# Update changes based on configuration
+if [ $BUILD_HADOOPS == "FALSE" ]; then
+	touch ${DB_DIR}/changes_hadoops
+fi
+if [ $BUILD_RPM == "FALSE" ]; then
+	rm -rf ${DB_DIR}/changes_uda
+	touch ${DB_DIR}/changes_uda
+fi
 
 # Calculate number of changes
 let "NUM_OF_CHANGED_HADOOPS = `wc -l ${DB_DIR}/changes_hadoops | cut -d " " -f 1`"
