@@ -83,22 +83,34 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 
 		# Building hadoop
 		echo -e "\n${PURPLE}--- Building a patched $branch... ---${NONE}"
-		if [ $NATIVE_BUILD == "TRUE" ]; then
-			ANT_BUILD_PARAMS="$ANT_BUILD_PARAMS -Dcompile.native=true"
-		fi
 		cd $PATCHED_HADOOP_DIR
-		echo -e "\nBuild in progress! If needed, see ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name} for details."
+		echo -e "\nBuild in progress! If needed, see ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}.txt for details."
 		# Build according to version
 		if [[ "$version" == *hadoop-1* ]]; then
 
 			sed -i 's/docs, //g' build.xml 	# Bug fix #
-			${ANT_PATH} $ANT_BUILD_PARAMS clean package > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}
+			${ANT_PATH} $ANT_BUILD_PARAMS clean package > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}.txt
 			echo -e "\n${GREEN}$version built!${NONE}"
 
 			# Store built patched hadoop to target directory in tar.gz form
 			echo -e "\nSaving the patched hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
 			tar -pczf ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.tar.gz ./build/*
 			echo "Saved!"
+
+			if [ $NATIVE_BUILD == "TRUE" ]; then
+				ANT_BUILD_PARAMS="$ANT_BUILD_PARAMS -Dcompile.native=true"
+				echo -e "\n${YELLOW}--- Building $version as native---${NONE}"
+				# Remove old build
+				rm -rf ./build/
+				echo -e "\nBuild in progress! If needed, see ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}_native.txt for details."
+				${ANT_PATH} $ANT_BUILD_PARAMS clean package > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}_native.txt
+				echo -e "\n${GREEN}$version built as native!${NONE}"
+
+				# Store built patched native hadoop to target directory in tar.gz form
+				echo -e "\nSaving the patched native hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
+				tar -pczf ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}_native.tar.gz ./build/*
+				echo "Saved!"
+			fi
 
 		elif [[ "$version" == *hadoop-2* ]] || [ "$version" == *hadoop-3* ]; then
 
