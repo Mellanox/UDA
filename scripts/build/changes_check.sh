@@ -22,7 +22,7 @@ echo -e `git show --format="%ci" $UDA_BRANCH | head -n 1` \\t/$UDA_BRANCH  >> ${
 cd $TMP_CLONE_DIR
 cd $UDA_BRANCH_DIR
 cd plugins/
-for patch in `ls *.patch`;do
+for patch in `ls *.patch | sort`;do
 	echo -e `git log $patch | grep "Date" | tail -n 1` \\t/$patch  >> ${DB_DIR}/new_latest_patches
 done
 
@@ -42,7 +42,11 @@ for patch in `cat ${DB_DIR}/changes_patches`; do
 	done
 done
 
-# Remove duplicates and temp file
+# Add mandatory version
+for hadoop in `echo $MANDATORY_LIST | sed 's/|/ /g'`; do
+	echo $hadoop >> ${DB_DIR}/changes_hadoops_temp
+done
+# Remove duplicates, ignored versions and temp file
 sort -u ${DB_DIR}/changes_hadoops_temp | egrep -v ${IGNORE_LIST} > ${DB_DIR}/changes_hadoops
 rm -f ${DB_DIR}/changes_hadoops_temp
 

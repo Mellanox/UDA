@@ -7,6 +7,7 @@
 ## This script generated the report sent at the end of the build process.
 
 # Edit mailing message
+echo -e "\n${YELLOW}Generating report...${NONE}"
 
 # Title
 MAIL_MESSAGE="<h1>UDA Daily Build Report</h1><br>"
@@ -34,6 +35,7 @@ else
 	
 	# Commit History
 	if [ $CHANGED_UDA != 0 ]; then
+		echo -e "${PURPLE}Including commit history since ${latest_uda_date}...${NONE}"
 		MAIL_MESSAGE=${MAIL_MESSAGE}"The lastest commits in UDA git:<br><ul>"
 		cd ${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}			
 		MAIL_MESSAGE=${MAIL_MESSAGE}`git log --pretty=format:"<li>%an%x09%ad%x09%s</li>" --after={${latest_uda_date}}`
@@ -56,3 +58,5 @@ echo "${MAIL_SUBJECT}" >> $MAIL_DETAILS_FILE
 echo "${MAIL_ATTACHMENT}" >> $MAIL_DETAILS_FILE
 echo "${MAIL_RECIPIENTS}" >> $MAIL_DETAILS_FILE
 echo "${MAIL_MESSAGE}" >> $MAIL_MESSAGE_FILE
+
+echo -e "${YELLOW}Report Generated!${NONE}"

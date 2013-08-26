@@ -91,6 +91,6 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
                 # Create a softlink
                 filename=`echo $product | sed 's/.cov//g'`
                 ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/latest_daily_UDA_${UDA_BRANCH}_cov
-		 continue
+		continue
         fi
 done
