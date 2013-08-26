@@ -99,7 +99,10 @@ cd ..
 ./debian/rules binary  2>&1
 #rm -rf /tmp/libuda
 
+deb_filename=`basename /tmp/*.deb .deb`
+arch=`uname -m`
+new_deb_filename=`echo $deb_filename | sed 's/'${debArch}'/'${arch}'/g'`
 echo -e "\nSaving the UDA .deb file in ${path_target_dir}..."
-sudo -u $permitted_user -H sh -c "cp -f /tmp/*.deb ${path_target_dir}/"
+sudo -u $permitted_user -H sh -c "cp -f /tmp/${deb_filename}.deb ${path_target_dir}/${new_deb_filename}.deb"
 rm -rf /tmp/*.deb
 echo "Saved!"
