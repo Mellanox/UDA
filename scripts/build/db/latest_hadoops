@@ -1,6 +1,11 @@
-2013-07-31 10:46:58 +0300 	origin/hadoop-1.0.3.16-hdp
-2013-08-06 18:02:51 +0300 	origin/hadoop-1.1.2-vanilla
-2013-07-31 10:49:36 +0300 	origin/hadoop-1.2.0-vanilla
-2013-07-31 14:03:06 +0300 	origin/hadoop-2.0.0-cdh4.2.1
-2013-07-31 11:47:05 +0300 	origin/hadoop-2.0.5-alpha
-2013-07-31 13:58:55 +0300 	origin/hadoop-3
+dr-xr-Sr-- 2 hadoop_nis 4.0K Aug 20 16:33 cdh_hadoop-2.0.0-cdh4.1.2/
+dr-xr-Sr-- 2 hadoop_nis 4.0K Aug 20 16:34 cdh_hadoop-2.0.0-cdh4.1.3/
+dr-xr-Sr-- 2 hadoop_nis 4.0K Aug 20 16:34 cdh_hadoop-2.0.0-cdh4.2.1/
+dr-xr-Sr-- 2 hadoop_nis 4.0K Aug 20 16:33 cdh_hadoop-2.0.0-cdh4.3.0/
+dr-xr-Sr-- 2 hadoop_nis 4.0K Aug 21 11:22 cdh_hadoop-2.0.0-cdh4.4.0/
+dr-xr-Sr-- 2 hadoop_nis 4.0K Aug 20 16:34 hdp_hadoop-1.0.3.16-hdp/
+dr-xr-Sr-- 2 hadoop_nis 4.0K Aug 20 16:33 vanilla_hadoop-1.1.2/
+dr-xr-Sr-- 2 hadoop_nis 4.0K Aug 20 16:33 vanilla_hadoop-1.2.0/
+dr-xr-Sr-- 2 hadoop_nis 4.0K Aug 21 11:22 vanilla_hadoop-1.3.0/
+dr-xr-Sr-- 2 hadoop_nis 4.0K Aug 25 11:46 vanilla_hadoop-2.0.5-alpha/
+dr-xr-Sr-- 2 hadoop_nis 4.0K Aug 20 16:33 vanilla_hadoop-3/

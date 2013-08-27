@@ -33,7 +33,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
 		if [ -f ${BUILD_POOL}/uda/${product} ];then
 			old_folder=`date +"%Y_%m_%d"`
 			mkdir -p ${BUILD_POOL}/uda/${old_folder}
-			mv -f ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/uda/${old_folder}
+			mv -f ${BUILD_POOL}/uda/*_bullseye.rpm ${BUILD_POOL}/uda/${old_folder}
 		fi
                 # Move to proper place
                 mv -f ${BUILD_TARGET_DESTINATION}/$product ${BUILD_POOL}/uda/
@@ -50,7 +50,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
                 if [ -f ${BUILD_POOL}/uda/${product} ];then
                         old_folder=`date +"%Y_%m_%d"`
                         mkdir -p ${BUILD_POOL}/uda/${old_folder}
-                        mv -f ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/uda/${old_folder}
+                        mv -f ${BUILD_POOL}/uda/*.rpm ${BUILD_POOL}/uda/${old_folder}
                 fi
                 # Move to proper place
                 mv -f ${BUILD_TARGET_DESTINATION}/$product ${BUILD_POOL}/uda/
@@ -67,7 +67,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
                 if [ -f ${BUILD_POOL}/uda/${product} ];then
                         old_folder=`date +"%Y_%m_%d"`
                         mkdir -p ${BUILD_POOL}/uda/${old_folder}
-                        mv -f ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/uda/${old_folder}
+                        mv -f ${BUILD_POOL}/uda/*.deb ${BUILD_POOL}/uda/${old_folder}
                 fi
                 # Move to proper place
                 mv -f ${BUILD_TARGET_DESTINATION}/$product ${BUILD_POOL}/uda/

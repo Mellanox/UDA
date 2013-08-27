@@ -15,6 +15,7 @@ rm -f ${TMP_CLONE_DIR}/BUILD_SUCCESSFUL
 rm -f ${DB_DIR}/new_latest_hadoops
 rm -f ${DB_DIR}/new_latest_uda
 rm -f ${DB_DIR}/new_latest_patches
+rm -f ${DB_DIR}/changes_*
 
 # Remove old builds
 rm -rf ~/rpmbuild/RPMS/*

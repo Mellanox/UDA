@@ -16,19 +16,27 @@ ls -gh -p $HADOOPS_STORAGE_PATH | grep "/" | grep -v "old" >> ${DB_DIR}/new_late
 # Get latest changes in uda
 cd $TMP_CLONE_DIR
 cd $UDA_BRANCH_DIR
-echo -e `git show --format="%ci" $UDA_BRANCH | head -n 1` \\t/$UDA_BRANCH  >> ${DB_DIR}/new_latest_uda
+echo -e $UDA_BRANCH  >> ${DB_DIR}/new_latest_uda
+for file in `ls -p | grep -v "scripts/"`; do
+	echo -e `git log --follow $file | grep "Date" | head -n 1` \\t$file  >> ${DB_DIR}/new_latest_uda
+done
 
 # Get latest changes in patches
 cd $TMP_CLONE_DIR
 cd $UDA_BRANCH_DIR
 cd plugins/
 for patch in `ls *.patch | sort`;do
-	echo -e `git log $patch | grep "Date" | tail -n 1` \\t/$patch  >> ${DB_DIR}/new_latest_patches
+	echo -e `git log --follow $patch | grep "Date" | head -n 1` \\t/$patch  >> ${DB_DIR}/new_latest_patches
 done
 
 # Find changes and filter ignored versions
 diff ${DB_DIR}/new_latest_hadoops ${DB_DIR}/latest_hadoops | grep "<" | egrep -v ${IGNORE_LIST} | cut -d " " -f 9 | cut -d / -f 1 > ${DB_DIR}/changes_hadoops_temp
-diff ${DB_DIR}/new_latest_uda ${DB_DIR}/latest_uda | grep "<" | cut -d / -f 2 > ${DB_DIR}/changes_uda
+diff ${DB_DIR}/new_latest_uda ${DB_DIR}/latest_uda > /dev/null 2>&1
+if [ $? != 0 ]; then
+	echo $UDA_BRANCH > ${DB_DIR}/changes_uda
+else
+	touch ${DB_DIR}/changes_uda
+fi
 diff ${DB_DIR}/new_latest_patches ${DB_DIR}/latest_patches | grep "<" | cut -d / -f 2 > ${DB_DIR}/changes_patches
 
 #Add hadoops based on patch change
