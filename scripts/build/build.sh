@@ -35,11 +35,6 @@ source ${BUILD_DIR}/changes_check.sh
 if [ $CHANGED_HADOOPS == 0 ] && [ $CHANGED_UDA == 0 ]; then
 	echo -e "\n${GREEN}No changes made since last build.${NONE}"
 	
-	# Updating the db
-	echo -e "\n${PURPLE}Updating the db...${NONE}"
-	rm -f ${DB_DIR}/new_latest_*
-	echo -e "${PURPLE}Updated!${NONE}"
-
 	touch BUILD_SUCCESSFUL
 	echo -e "\n${GREEN}******************* All DONE! *******************${NONE}"
 	exit 0
@@ -133,9 +128,9 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 	# Update latest hadoops and patches
 	echo -e "\n${PURPLE}Updating the db with latest Hadoops and patches...${NONE}"
 	rm -f ${DB_DIR}/latest_hadoops
-	mv ${DB_DIR}/new_latest_hadoops ${DB_DIR}/latest_hadoops
+	mv -f ${DB_DIR}/new_latest_hadoops ${DB_DIR}/latest_hadoops
 	rm -f ${DB_DIR}/latest_patches
-	mv ${DB_DIR}/new_latest_patches ${DB_DIR}/latest_patches
+	mv -f ${DB_DIR}/new_latest_patches ${DB_DIR}/latest_patches
 	echo -e "${PURPLE}Updated!${NONE}"
 
 	echo -e "\n${GREEN}Finished building hadoops.${NONE}"
@@ -194,7 +189,7 @@ if [ $BUILD_RPM == "TRUE" ] && [ $CHANGED_UDA != 0 ]; then
 	# Update latest uda
 	echo -e "\n${PURPLE}Updating the db with latest UDA...${NONE}"
         rm -f ${DB_DIR}/latest_uda
-        mv ${DB_DIR}/new_latest_uda ${DB_DIR}/latest_uda
+        mv -f ${DB_DIR}/new_latest_uda ${DB_DIR}/latest_uda
 	echo -e "${PURPLE}Updated!${NONE}"
 
         echo -e "\n${GREEN}Finished building uda.${NONE}"
@@ -202,11 +197,6 @@ if [ $BUILD_RPM == "TRUE" ] && [ $CHANGED_UDA != 0 ]; then
 fi
 
 echo -e "\n${GREEN}Step 4 Done!${NONE}"
-
-# Updating the db
-echo -e "\n${PURPLE}Updating the db...${NONE}"
-rm -f ${DB_DIR}/new_latest_*
-echo -e "${PURPLE}Updated!${NONE}"
 
 # Finish
 touch BUILD_SUCCESSFUL
