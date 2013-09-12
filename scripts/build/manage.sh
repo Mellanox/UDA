@@ -25,6 +25,18 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
 		continue
 	fi
 
+	echo $product | grep ".jar" > /dev/null 2>&1
+	if [ $? == 0 ]; then
+		for version in ${product}; do
+			# Move to proper place
+			mv -f ${BUILD_TARGET_DESTINATION}/$version ${BUILD_POOL}/hadoops/
+			# Create a softlink
+			filename=`echo $version | sed 's/.jar//g'`
+			ln -fs ${BUILD_POOL}/hadoops/${version} ${BUILD_POOL}/latest_daily_${filename}
+		done
+		continue
+	fi
+
 	# Manage .rpm file with Bullseye enabled
 	# Important Note: This needs to be checked before .rpm without Bullseye
 	echo $product | grep "_bullseye.rpm" > /dev/null 2>&1

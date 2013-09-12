@@ -53,7 +53,12 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 		# Hadoops fetch phase
 		rm -rf ${HADOOP_DIR}/*
 		cd ${HADOOPS_STORAGE_PATH}/${version}
-		tar_filename=`basename *hadoop*.tar.gz .tar.gz`
+		if [[ "$version" == *vanilla* ]]; then
+			tar_filename=`basename *hadoop*.tar.gz .tar.gz`
+		elif [[ "$version" == *cdh* ]]; then
+			tar_filename=`basename *mr1*.tar.gz .tar.gz`
+		fi
+
 		tar -xzf ${tar_filename}.tar.gz -C ${TMP_CLONE_DIR}/${HADOOP_DIR}
 		cd $TMP_CLONE_DIR
 
@@ -77,11 +82,11 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 		cd $TMP_CLONE_DIR
 
 		# Building hadoop
-		echo -e "\n${PURPLE}--- Building a patched $branch... ---${NONE}"
+		echo -e "\n${PURPLE}--- Building a patched $version... ---${NONE}"
 		cd $PATCHED_HADOOP_DIR
 		echo -e "\nBuild in progress! If needed, see ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}.txt for details."
 		# Build according to version
-		if [[ "$version" == *hadoop-1* ]]; then
+		if [[ "$version" == *vanilla_hadoop-1* ]]; then
 
 			sed -i 's/docs, //g' build.xml 	# Bug fix #
 			${ANT_PATH} $ANT_BUILD_PARAMS clean package > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}.txt
@@ -107,7 +112,7 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 				echo "Saved!"
 			fi
 
-		elif [[ "$version" == *hadoop-2* ]] || [ "$version" == *hadoop-3* ]; then
+		elif [[ "$version" == *vanilla_hadoop-2* ]] || [[ "$version" == *vanilla_hadoop-3* ]]; then
 
 			${MAVEN_PATH} package $MAVEN_BUILD_PARAMS
 			echo -e "\n${GREEN}$version built!${NONE}"
@@ -116,6 +121,18 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 			echo -e "\nSaving the patched hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
 			cp -f ./hadoop-dist/target/*.tar.gz ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.tar.gz
 			echo "Saved!"
+
+		elif [[ "$version" == *cdh_hadoop-2.0.0-cdh4.1.2* ]] || [[ "$version" == *cdh_hadoop-2.0.0-cdh4.2.1* ]]; then
+
+			# Remove old build
+                        rm -rf ./build/
+                        ${ANT_PATH} jar > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}.txt
+                        echo -e "\n${GREEN}$version built!${NONE}"
+
+                        # Store the built patched hadoop jar build to target directory
+                        echo -e "\nSaving the patched hadoop jar file in ${BUILD_TARGET_DESTINATION}..."
+                        cp ./build/*.jar ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.jar
+                        echo "Saved!"
 
 		else
 			echo -e "\n${RED}$version not supported!${NONE}"
