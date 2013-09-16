@@ -19,7 +19,7 @@ echo "$echoPrefix: time1 is $time1"
 #testOutput 
 jobSucceeded=0
 cmd_status=8
-for i in `seq 1 $IS_JOb_STILL_RUNNING_FAILURE_TIMES`
+for i in `seq 1 $IS_JOB_STILL_RUNNING_FAILURE_TIMES`
 do
 	sleep $IS_JOb_STILL_RUNNING_SLEEP_TIME
 		doneCount=`grep -c -e "done" -e "Job complete" $testOutput`

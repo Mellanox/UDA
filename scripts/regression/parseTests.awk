@@ -170,15 +170,6 @@ function manageBooleanValueProps(booleanProps)
 	}
 }
 
-function plantInterfaceInProperties(pInterface)
-{
-	split(execParams["mapred.job.tracker"], temp, ":")
-	execParams["mapred.job.tracker"] = temp[1] pInterface ":" temp[2]
-
-	split(execParams["fs.default.name"], temp, ":")
-	execParams["fs.default.name"] = temp[1] ":" temp[2] pInterface ":" temp[3]
-}
-
 function makeListBySeperators(exportNameBeginning,dirsDict,dirLists)
 {
 	if (dirLists == "")
@@ -413,12 +404,7 @@ function restartHadoopHandler()
 		interfaceToPlant= "-" interface
 		
 	execSlaves=buildSlavesFiles(execParams["slaves"],interfaceToPlant,execDir)
-	#buildMastersFile(master interfaceToPlant)  # BE AWARE THAT THERE IS NO COMMA HERE - THIS IS SINGLE PARAMETERS
-	#masterWithInterface=master interfaceToPlant
-	#gsub(interfaceToPlant interfaceToPlant, interfaceToPlant, masterWithInterface) # for avoiding case that the interface is inserted twice to the master-name - when passing this script the master variable with the interface built-in
-	#buildMastersFile(masterWithInterface)
 	buildMastersFile(master)
-	#plantInterfaceInProperties(interfaceToPlant)
 	buildConfigurationFiles()
 }
 

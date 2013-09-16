@@ -31,16 +31,9 @@ if (($ZIP_FLAG==1));then
 	rm -rf $CURRENT_NFS_RESULTS_DIR/
 fi
 
-for machine in $ALL_MACHINES_BY_SPACES;
-do
-	practicalHostname=`ssh $machine hostname`
-	if [[ $practicalHostname != $machine ]];then
-		ssh $machine sudo hostname $machine
-		echo "$echoPrefix: machine named $practicalHostname changed to $machine"
-	fi
+for machine in $ALL_MACHINES_BY_SPACES;do
+	bash $SCRIPTS_DIR/functionsLib.sh "set_hostnames" "$machine" "$machine" 
 done
-
-#pdsh -w $MASTER,$SLAVES_BY_COMMAS "sudo hostname \`cat $CLEAN_MACHINE_NAME_FILE\`"
 
 #failFlag=0
 
