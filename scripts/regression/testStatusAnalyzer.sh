@@ -3,7 +3,7 @@
 checkFallback()
 {
 	fallbackDesc="$1"
-	if [ `$sshPrefix cat $testDir/slave*/userlogs/job*/attempt*r*/syslog | grep fallback | grep -c "$fallbackDesc"` -ne 0 ];then
+	if [ `$sshPrefix cat $testDir/slave*/$REDUCER_LOG_PATH | grep fallback | grep -c "$fallbackDesc"` -ne 0 ];then
 		retVal=0
 	else
 		retVal=1
@@ -18,17 +18,18 @@ memoryAllocationAnalyzer()
 		echo "export TEST_ERROR='UDA DID NOT RUN'" >> $testExports
 		return 0
 	fi
+	local providerVersions=`$sshPrefix grep -h \"The version is\" $testDir/slave*/$PROVIDER_LOG_PATH | awk '{ split($0,a,"The version is"); split(a[2],a," "); print a[1] }' | sort -u`
+	local bufferSizes=`$sshPrefix grep -h \"compression not configured: allocating\" $testDir/slave*/$REDUCER_LOG_PATH | awk '{ split($0,a," = "); split(a[2],a," "); print a[1]}' | sort -u`
 	
-	bufferSizes="`$sshPrefix grep -rh "After RDMA memory" slave*/userlogs/job*/attempt*r*/syslog | awk '{ split($9,a,"="); print a[2] }' | sort -u`"
 	if [[ -z $bufferSizes ]];then
 		return 0
 	fi
 	for rdmaInBytes in $bufferSizes
 	do
 		#rdmaInBytes=`echo \"${record}\" | awk 'BEGIN{} {print $12}'`
-		echo "$echoPrefix: the allocated rdma buffers size is ${rdmaInBytes} byts"
+		echo "$echoPrefix: The allocated RDMA buffers size is ${rdmaInBytes} bytes"
 		rdmaInKb=`echo "$rdmaInBytes/1024" | bc`
-		echo "$echoPrefix: the allocated rdma buffers size is ${rdmaInKb}Kb"
+		echo "$echoPrefix: The allocated RDMA buffers size is ${rdmaInKb}Kb"
 		
 		if [[ $rdmaSizeDest == "max" ]];then
 			if (($rdmaInKb != $RDMA_BUF_SIZE));then
@@ -46,20 +47,20 @@ memoryAllocationAnalyzer()
 	retVal=1		
 }
 
-memoryAllocationForCompressionAnalyzer() 
-{
-
+#memoryAllocationForCompressionAnalyzer() 
+#{
+#
 #"init compression configured. allocating rdmaBufferUsed=%d, uncompBufferUsed=%d totalBufferPerMof=%ld, splitPercentRdmaComp=%f", uncompBufferHardMin, totalBufferPerMof, splitPercentRdmaComp);
-
-	retVal=0
-	buffersSizesMessages="`$sshPrefix grep -rh "init compression configured. allocating" $testDir/slave*/userlogs/job*/attempt*r*/syslog`"
-	uncompBufferUsed=`echo $buffersSizesMessages | awk 'BEGIN{} {print $11}' | sort -u`
-	rdmaBufferUsed=`echo $buffersSizesMessages | awk 'BEGIN{} {print $11}' | sort -u`
+#
+#	retVal=0
+#	buffersSizesMessages="`$sshPrefix grep -rh "init compression configured. allocating" $testDir/slave*/$REDUCER_LOG_PATH`"
+#	uncompBufferUsed=`echo $buffersSizesMessages | awk 'BEGIN{} {print $11}' | sort -u`
+#	rdmaBufferUsed=`echo $buffersSizesMessages | awk 'BEGIN{} {print $11}' | sort -u`
 	
 	#echo "uncompBufferUsed values are: $uncompBufferUsed"
 	#echo "rdmaBufferUsed values are: $rdmaBufferUsed"			
-	echo THE buffersSizesMessages IS: $buffersSizesMessages
-}
+#	echo THE buffersSizesMessages IS: $buffersSizesMessages
+#}
 
 setupCompressionAnalyzer()
 {
@@ -72,13 +73,13 @@ setupCompressionAnalyzer()
 		if [[ -z $COMPRESSION ]];then
 			compressionValid=0
 		elif [[ $COMPRESSION == "Snappy" ]];then
-			count=`$sshPrefix  grep -c "INFO snappy.LoadSnappy: Snappy native library loaded" $testDir/testOutput.txt`
+			count=`$sshPrefix  grep -c \"INFO snappy.LoadSnappy: Snappy native library loaded\" $testDir/testOutput.txt`
 			echo count of snappy is: $count
 			if (($count != 1));then
 				compressionValid=0
 			fi
 		elif [[ $COMPRESSION == "Lzo" ]];then
-			count=`$sshPrefix grep -c 'INFO compress.CodecPool: Got brand-new compressor' $testDir/testOutput.txt`
+			count=`$sshPrefix grep -c \"INFO compress.CodecPool: Got brand-new compressor\" $testDir/testOutput.txt`
 			echo count of LZO is: $count
 			if (($count != 1));then
 				compressionValid=0
@@ -92,7 +93,7 @@ setupCompressionAnalyzer()
 			retVal=1
 		fi
 	else
-		echo "$echoPrefix: the test failed - it possible that the compression installation is corrupted"
+		echo "$echoPrefix: the test failed - it is possible that the compression installation is corrupted"
 		retVal=0
 	fi
 }
@@ -100,20 +101,24 @@ setupCompressionAnalyzer()
 checkUdaIsUp()
 {
 	retVal=0
-	local providerVersions=`$sshPrefix grep -h 'The version is' $testDir/slave*/hadoop*tasktracker*log* | awk 'BEGIN{} {print $8}' | sort -u`
-	local consumerVersions=`$sshPrefix grep -h 'UDA version is' $testDir/slave*/userlogs/job*/attempt*r*/syslog | awk 'BEGIN{} {print $8}' | sort -u`
-	local providerVersionsCount=`echo "$providerVersions" | awk 'BEGIN{RS=FS;count=0} {if ($1 ~ /[0-9.-]+/){count++}} END{print count}'`
-	local consumerVersionsCount=`echo "$consumerVersions" | awk 'BEGIN{RS=FS;count=0} {if ($1 ~ /[0-9.-]+/){count++}} END{print count}'`
-	
-	if (($providerVersionsCount > 1)) || (($consumerVersionsCount > 1)) ;then
-	echo "export TEST_ERROR='UDA providers or consumers have more than one UDA version'" >> $testExports
+	local providerVersions=`$sshPrefix grep -h \"The version is\" $testDir/slave*/$PROVIDER_LOG_PATH | awk '{ split($0,a,"The version is"); split(a[2],a," "); print a[1] }' | sort -u`
+	local consumerVersions=`$sshPrefix grep -h \"UDA version is\" $testDir/slave*/$REDUCER_LOG_PATH | awk '{ split($0,a,"UDA version is"); split(a[2],a," "); print a[1] }' | sort -u`
+	local numOfUdaOpen=`$sshPrefix cat $testDir/slave*/$REDUCER_LOG_PATH | grep -c "init - Using UdaShuffleConsumerPlugin"`
+	local numOfUdaClose=`$sshPrefix cat $testDir/slave*/$REDUCER_LOG_PATH | grep -c "====XXX Successfully closed UdaShuffleConsumerPlugin XXX===="`
+		
+	if [[ "$providerVersions" != "$consumerVersions" ]];then
+		echo "export TEST_ERROR='UDA providers or consumers have different UDA versions'" >> $testExports
 		checkUdaIsUpRetVal_rpmVersion="-1"
 		return 0
 	fi
 	
-	if [[ $providerVersions != $consumerVersions ]];then
-		echo "export TEST_ERROR='UDA providers or consumers have differant UDA versions'" >> $testExports
-		checkUdaIsUpRetVal_rpmVersion="-1"
+	if [[ "$numOfUdaOpen" != "$numOfUdaClose" ]]; then
+		echo "export TEST_ERROR='$numOfUdaOpen UDA sessions were initiated but only $numOfUdaClose sessions ended successfully'" >> $testExports
+		return 0
+	fi
+	
+	if (($numOfUdaOpen == 0));then
+		echo "export TEST_ERROR='No UDA sessions were initiated during this test - UDA did not run!'" >> $testExports
 		return 0
 	fi
 	
@@ -131,7 +136,7 @@ checkConsumerIsUp()
 {
 	retVal=0
 	
-	local consumerVersions=`$sshPrefix grep -h 'UDA version is' $testDir/slave*/userlogs/job*/attempt*r*/syslog | awk 'BEGIN{} {print $8}' | sort -u`
+	local consumerVersions=`$sshPrefix grep -h \"UDA version is\" $testDir/slave*/$REDUCER_LOG_PATH | awk '{ split($0,a,"UDA version is"); split(a[2],a," "); print a[1] }' | sort -u`
 	local consumerVersionsCount=`echo "$consumerVersions" | awk 'BEGIN{RS=FS;count=0} {if ($1 ~ /[0-9.-]+/){count++}} END{print count}'`
 	
 	if (($consumerVersionsCount > 1)) ;then
@@ -187,13 +192,7 @@ testToAnalyzerMapper()
 {
 	testID=$1
 	
-	# VUDA-43: some temporary line till writnig general solution
-	if [[ $testID == "VUDA-00" ]];then
-		managePerformanceTests
-		mapperRetVal=$retVal
-		return 0
-	fi
-	
+	# VUDA-43: some temporary lines till writing general solution
 	if [[ $testID == "VUDA-43" ]];then 
 		checkConsumerIsUp
 		if (($retVal == 0));then
@@ -202,6 +201,18 @@ testToAnalyzerMapper()
 		fi
 		checkFallback
 		inverseRetVal
+		mapperRetVal=$retVal
+		return 0
+	else
+		checkStatus "$exlTEST_STATUS"
+		if (($retVal == 0));then
+			mapperRetVal=$retVal
+			return 0
+		fi
+	fi
+	
+	if [[ $testID == "VUDA-00" ]];then
+		managePerformanceTests
 		mapperRetVal=$retVal
 		return 0
 	fi
@@ -245,7 +256,7 @@ testToAnalyzerMapper()
 				VUDA-19	) memoryAllocationAnalyzer "max" ;;
 				VUDA-30	) setupCompressionAnalyzer;;
 				VUDA-31	) rpmInstallationAnalyzer;;
-				VUDA-21|VUDA-9|VUDA-12|VUDA-47	) checkStatus "$exlTEST_STATUS";;
+				VUDA-21|VUDA-9|VUDA-12|VUDA-47	) echo "";;#checkStatus "$exlTEST_STATUS";;
 				VUDA-29	) managePerformanceTests;;
 				*	) echo "$testID has no Analyzer function" ;;   # Default.	
 			esac
@@ -258,10 +269,12 @@ echoPrefix=`eval $ECHO_PATTERN`
 testDir=$1
 performanceTestFlag=0
 
-sshPrefix=""
-if [[ $RES_SERVER != `hostname` ]];then
-	sshPrefix="ssh $RES_SERVER"
-fi
+# this logic found to cause problems - grep behave differantly via ssh!
+#sshPrefix=""
+#if [[ $RES_SERVER != `hostname` ]];then
+#	sshPrefix="ssh $RES_SERVER"
+#fi
+sshPrefix="ssh $RES_SERVER"
 
 testExports=$testDir/execLogExports.sh
 source $testExports

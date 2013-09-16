@@ -160,11 +160,11 @@ editBuildFile()
 
 manageHadoop()
 {
-	if [[ $GIT_HADOOP_DIRNAME == "hadoop-1.1.2-vanilla" ]];then
+	if [[ $HADOOP_DIRNAME == "hadoop-1.1.2-vanilla" ]];then
 		tar -xzf hadoop-1.1.2-vanilla.tar.gz
 		hadoopHome="$hadoopHome/hadoop-1.1.2-vanilla"
 		editBuildFile "$hadoopHome" "docs, "
-	elif [[ $GIT_HADOOP_DIRNAME == "hadoop-1.1.0-patched-v2" ]];then
+	elif [[ $HADOOP_DIRNAME == "hadoop-1.1.0-patched-v2" ]];then
 		editBuildFile "$hadoopHome" "docs, cn-docs, "
 	fi
 }
@@ -200,14 +200,29 @@ insertRowIntoFile()
 	row="$1"
 	indicator="$2"
 	destFile="$3"
+	forceNewRow="$4"
 	
 	tmpFile=$TMP_DIR/$TEMP_SUFFIX
 	
-	if (( `grep -c "$indicator" "$destFile"` != 0 )); then
+	if [[ -z "$forceNewRow" ]] && (( `grep -c "$indicator" "$destFile"` != 0 )); then
 		sed "/$indicator/ c $row" $destFile > $tmpFile
 		mv $tmpFile $destFile
 	else
 		echo "$row" >> "$destFile"
+	fi
+}
+	
+manageUdaJarLinking()
+{
+	machine=$1
+	if (($YARN_HADOOP_FLAG == 1));then
+		udaJarLinkDir=$myHadoopHome/$HADOOP_RESOURCES_DIR
+		links=`ssh $machine find $udaJarLinkDir -name $RPM_JAR`
+		if [[ -n $links ]];then
+			ssh $machine rm -rf $links
+		fi
+		echo "$echoPrefix: ssh $machine ln -s $UDA_RESOURCES_DIR/$RPM_JAR $udaJarLinkDir"
+		ssh $machine ln -s $UDA_RESOURCES_DIR/$RPM_JAR $udaJarLinkDir
 	fi
 }
 
@@ -222,7 +237,7 @@ udaBaseDir=$BASE_DIR
 setupEnvDir=$ENV_DIR
 covfileDirForTests=$CODE_COVERAGE_INTERMEDIATE_DIR
 
-envSourceFile=$setupEnvDir/envExports.sh
+envSourceFile=$setupEnvDir/$ENV_EXPORTS_FILENAME
 source $envSourceFile
 
 slavesExitScript=$STATUS_DIR/slavesExitScript.sh
@@ -231,7 +246,7 @@ echo -n "" > $slavesExitScript
 # preparing the master
 
 if (($CO_FLAG==1));then
-	getBranchFromGit "$DEFAULT_GIT_HADOOPS_DIR" "$GIT_HADOOP_DIRNAME" "$setupEnvDir"
+	getBranchFromGit "$DEFAULT_GIT_HADOOPS_DIR" "$HADOOP_DIRNAME" "$setupEnvDir"
 	hadoopHome=$getBranchFromGitRetVal
 else  # in case we're running a totaly-build and ready hadoop from NFS
 	getHadoopFromLocal
@@ -267,8 +282,8 @@ then
 		exit $EEC1
 	fi
 	
-	if [[ $GIT_HADOOP_DIRNAME == "hadoop-1.1.2-vanilla" ]] || [[ $GIT_HADOOP_DIRNAME == "hadoop-1.1.0-patched-v2" ]];then
-		echo "$echoPrefix: hadoop version is $GIT_HADOOP_DIRNAME"  #building
+	if [[ $HADOOP_DIRNAME == "hadoop-1.1.2-vanilla" ]] || [[ $HADOOP_DIRNAME == "hadoop-1.1.0-patched-v2" ]];then
+		echo "$echoPrefix: hadoop version is $HADOOP_DIRNAME"  #building
 		snapshotFolder=`find $hadoopHome/build -maxdepth 1 -mindepth 1 -type d | grep "SNAPSHOT"`
 		matchCount=`echo $snapshotFolder | grep -c "SNAPSHOT"`
 		if (($matchCount != 1));then
@@ -291,13 +306,26 @@ if [[ $myHadoopHome == "/" ]];then
 	exit $EEC1
 fi
 
-hadoopEnv=$myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/$HADOOP_ENVS_SCRIPT_NAME
+hadoopConfDir=$myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH
+hadoopEnv=$hadoopConfDir/$HADOOP_ENVS_SCRIPT_NAME
+hadoopClasspathLine="export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}"
 javaHomeLine="export JAVA_HOME=$JAVA_HOME"
 insertRowIntoFile "$javaHomeLine" "export JAVA_HOME=" "$hadoopEnv"
-hadoopClasspathLine="export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}"
-insertRowIntoFile "$hadoopClasspathLine" "export HADOOP_CLASSPATH=" "$hadoopEnv"
-hadoopOptsLine="export HADOOP_OPTS=\"\${HADOOP_OPTS} -Djava.net.preferIPv4Stack=true -DudaHostName=\`hostname\`-${INTERFACE} \""
-insertRowIntoFile "$hadoopOptsLine" "export HADOOP_OPTS=" "$hadoopEnv"
+if (($YARN_HADOOP_FLAG == 1));then
+	forcingNewRowClasspath="1"
+	yarnEnv=$hadoopConfDir/$YARN_ENVS_SCRIPT_NAME
+	insertRowIntoFile "$javaHomeLine" "export JAVA_HOME=" "$yarnEnv"
+	hadoopClientOptsLine="export HADOOP_CLIENT_OPTS=\"\${HADOOP_CLIENT_OPTS} -Djava.net.preferIPv4Stack=true\""
+	#insertRowIntoFile "$hadoopClientOptsLine" "export HADOOP_CLIENT_OPTS=" "$yarnEnv"
+	insertRowIntoFile "$hadoopClientOptsLine" "export HADOOP_CLIENT_OPTS=" "$hadoopEnv"
+	hadoopHomeLine="export HADOOP_HOME=$myHadoopHome"
+	insertRowIntoFile "$hadoopHomeLine" "export HADOOP_HOME=" "$hadoopEnv"
+else
+	forcingNewRowClasspath=""
+	hadoopOptsLine="export HADOOP_OPTS=\"\${HADOOP_OPTS} -Djava.net.preferIPv4Stack=true -DudaHostName=\`hostname\`-${INTERFACE} \""
+	insertRowIntoFile "$hadoopOptsLine" "export HADOOP_OPTS=" "$hadoopEnv"
+fi
+insertRowIntoFile "$hadoopClasspathLine" "export HADOOP_CLASSPATH=" "$hadoopEnv" "$forcingNewRowClasspath"
 
 #hadoopEnvTemp=$myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
 #sed "/export JAVA_HOME=/ c $javaHomeLine" $hadoopEnv > $hadoopEnvTemp
@@ -330,7 +358,7 @@ if [[ $COMPRESSION == "Lzo" ]]; then
 	#rm -f $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
 elif [[ $COMPRESSION == "Snappy" ]]
 then
-	for machine in $MASTER $SLAVES_BY_SPACES
+	for machine in $ENV_MACHINES_BY_SPACES
 	do
 		if ((`ssh $machine rpm -qa | grep -c snappy` == 0));then
 			echo "$echoPrefix: installing snappy: sudo yum -y install snappy snappy-devel snappy.i386 snappy-devel.i386"
@@ -419,6 +447,16 @@ if (($RPM_FLAG==1));then
 	fi
 fi	
 
+manageUdaJarLinking $MASTER
+
+if (($CHANGE_MACHINE_NAME_FLAG == 1));then
+	newMachineNameSuffix="-${INTERFACE}"
+else
+	newMachineNameSuffix=""
+fi
+
+bash $SCRIPTS_DIR/functionsLib.sh "set_hostnames" "$MASTER" "${MASTER}${newMachineNameSuffix}" 
+
 echo "$echoPrefix: killing all java processes"
 sudo pkill -9 java
 
@@ -450,6 +488,7 @@ do
 	sudo ssh $slave mkdir -p $myHadoopHome
 	sudo scp -r $myHadoopHome/* $slave:$myHadoopHome > $DEV_NULL_PATH # the redirection is just to ignore the scp long output
 	sudo ssh $slave sudo chown -R $USER $myHadoopHome
+	
 	if (($RPM_FLAG==1));then
 		if ssh $slave rpm -qa | grep -q libuda; then
 			echo "$echoPrefix: uninstalling the existing RPM"
@@ -465,6 +504,9 @@ do
 			exit $EEC1
 		fi
 	fi
+
+	manageUdaJarLinking $slave
+	bash $SCRIPTS_DIR/functionsLib.sh "set_hostnames" "$slave" "${slave}${newMachineNameSuffix}" 
 	
 	if (($CODE_COVE_FLAG==1)); then
 	echo "$echoPrefix: copying covfile: scp $covfileForTests $slave:$covfileForTests"
@@ -494,12 +536,16 @@ echo "
 	#!/bin/sh
 	`cat $envSourceFile`
 	export MY_HADOOP_HOME='$myHadoopHome'
+	export HADOOP_CONF_DIR='$MY_HADOOP_HOME/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH'
 	export HEADLINE='$headline'
 	if [[ -n '$currentRpm' ]];then
 		export INSTALLED_RPM='$currentRpm'
 		export RPM_VERSION='$currentRpmVersion'
 		export VERSION_SHORT_FORMAT='$shortFormatVersion'
 	fi
+	#if [[ -n '$hadoopConfDir' ]];then
+		export HADOOP_CONF_DIR='$hadoopConfDir'
+	#fi
 	#export CURRENT_DATE='$CURRENT_DATE'
 	export UDA_CORES_DIR='$udaCores'
 	export EXIT_SCRIPTS_SLAVES='$slavesExitScript'

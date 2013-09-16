@@ -14,14 +14,13 @@ echo "$echoPrefix: - Number of slaves = $SLAVES_COUNT slaves"
 echo "$echoPrefix: - Number of local disks per node = $DISKS_COUNT (counts seperated commas on hdfs-site.xml)"
 echo "$echoPrefix: ---------------------------------------"
 
-if [[ $@ == *rmr* ]] && ((`bin/hadoop fs -ls $dataDir | grep -c $dataLabel*` != 0));then
-	echo bin/hadoop fs -rmr $dataDir/$dataLabel*
-	bin/hadoop fs -rmr $dataDir/$dataLabel*
+if [[ $@ == *rmr* ]] && ((`$HADOOP_FS -ls $dataDir | grep -c $dataLabel*` != 0));then
+	eval $HADOOP_FS_RMR $dataDir/$dataLabel*
 fi
 
 for i in `seq 1 $generateCount`; do
 	outputDir=$dataDir/${dataLabel}.${i}
-	if ((`bin/hadoop fs -ls / | grep -c $outputDir` == 1));then
+	if ((`$HADOOP_FS -ls / | grep -c $outputDir` == 1));then
 		echo "$echoPrefix: the output dir $outputDir is already existing. skipping generating data"
 		continue
 	fi
@@ -34,6 +33,5 @@ for i in `seq 1 $generateCount`; do
 done
 
 if [[ $@ == *clear* ]];then
-	echo bin/hadoop fs -rmr $dataDir/$dataLabel*
-	bin/hadoop fs -rmr $dataDir/$dataLabel*
+	eval $HADOOP_FS_RMR $dataDir/$dataLabel*
 fi

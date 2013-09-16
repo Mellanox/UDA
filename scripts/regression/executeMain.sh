@@ -116,7 +116,7 @@ getJarExplicitName()
 		exit $EEC1
 	fi
 	
-	export `echo $exportName`$EXPLICIT_JAR_SUFFIX="$explicitJarName"
+	export `echo $exportName`$EXPLICIT_JAR_SUFFIX="${JAR_FILE_RELATIVE_DIR}${explicitJarName}"
 }
 
 manageDataGenerationInfo()
@@ -174,17 +174,9 @@ do
 	source $testDir/exports.sh
 	source $testDir/preReqTest.sh
 
+	echo "------------------------------------------"
 	echo -e \\n\\n "$echoPrefix: -->>> executing $execName" \\n\\n
-		
 	echo "------------------------------------------"
-	echo "********** DATA_SET= $DATA_SET		**********"
-	echo "********** CLUSTER_NODES= $SLAVES_COUNT	**********"
-	echo "********** MAX_MAPPERS= $MAX_MAPPERS 	**********"
-	echo "********** MAX_REDUCERS= $MAX_REDUCERS 	**********"
-	echo "********** NSAMPLES= $NSAMPLES 		**********"
-	echo "********** TERAVALIDATE = $TERAVALIDATE 	**********"			
-	echo "------------------------------------------"
-	echo ""
 				
 	if (($RESTART_HADOOP==1))
 	then
@@ -193,7 +185,7 @@ do
 			cp $testDir/masters ${HADOOP_CONFIGURATION_DIR}/
 			cp $testDir/slaves ${HADOOP_CONFIGURATION_DIR}/
 		fi
-		
+
 		host=`head -1 $HADOOP_CONFIGURATION_DIR/slaves`
 		host_tail=`[[  $host =~ "-" ]] && echo $host | sed 's/.*-//' || echo lan`
 		for host in `cat $HADOOP_CONFIGURATION_DIR/slaves`; do
@@ -211,11 +203,9 @@ do
 		if (($UNSPREAD_CONF_FLAG == 0));then
 			copyConfFiles $HADOOP_CONFIGURATION_DIR/slaves
 		fi
-		#echo "$echoPrefix: Setting slave.host.name on master"
-		#bash ${SCRIPTS_DIR}/set_hadoop_slave_property.sh --hadoop-conf-dir=${HADOOP_CONFIGURATION_DIR} --host-suffix=${INTERFACE_ENDING} 
-		#echo "$echoPrefix: Setting slave.host.name on slaves"
-		#bin/slaves.sh ${SCRIPTS_DIR}/set_hadoop_slave_property.sh --hadoop-conf-dir=${HADOOP_CONFIGURATION_DIR} --host-suffix=${INTERFACE_ENDING}
-		if (($FIRST_STARTUP == 1)) && (($SAVE_HDFS_FLAG == 0));then
+		
+		#if (($FIRST_STARTUP == 1)) && (($SAVE_HDFS_FLAG == 0));then
+		if (($FORCE_DFS_FORMAT)) ||  (($FIRST_STARTUP && ! $SAVE_HDFS_FLAG));then
 			restartParam=" -restart"
 		else
 			restartParam=""

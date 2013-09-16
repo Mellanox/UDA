@@ -3,8 +3,9 @@
 slaves="$1"
 sudo pdsh -w "$slaves" "rm -rf /tmp/*"
 
-export SCRIPTS_DIR="/labhome/oriz/scripts/regression_dev"
-#export SCRIPTS_DIR="/.autodirect/mtrswgwork/UDA/daily_regressions/scripts/"
+#export SCRIPTS_DIR="/.autodirect/mtrswgwork/oriz/gerrit_regressionScripts/uda/scripts/regression"
+export SCRIPTS_DIR=`pwd`
+
 echo -e \\n\\n
 
 sleapTime=900
@@ -19,17 +20,5 @@ if (($day == 4));then
 	bullseyeFlag="-i"
 fi
 
-bash $SCRIPTS_DIR/commandExecuter.sh "bash $SCRIPTS_DIR/performBM_regression.sh $bullseyeFlag" $maxAttempt $sleapTime
-
-
-#dayModulo=`echo "scale=0; ${day}%2" | bc`
-#echo dayModulo is: $dayModulo
-#interface="ib0"
-#if (($dayModulo==0));then
-#	interface="eth4"
-#fi
-#if [ -n $2 ];then
-#	interface=$2
-#fi
-#echo interface is: $interface
+bash $SCRIPTS_DIR/functionsLib.sh "execute_command" $maxAttempt $sleapTime "bash $SCRIPTS_DIR/performBM_regression.sh $bullseyeFlag"
 

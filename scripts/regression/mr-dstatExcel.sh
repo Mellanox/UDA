@@ -6,7 +6,7 @@
 #	- collect the results by using scp and not by using NFS mounts
 
 
-#export HADOOP_SLAVE_SLEEP=0.1                         
+#export HADOOP_SLAVE_SLEEP=0.1                        
 
 getFiledDFSIO()
 {
@@ -26,7 +26,6 @@ then
 fi
 
 cd $MY_HADOOP_HOME
-SLAVES=$MY_HADOOP_HOME/bin/slaves.sh
 
 if [ -z "$1" ]
 then
@@ -66,6 +65,8 @@ if ! sudo ssh $RES_SERVER mkdir -p $collect_dir;then
 	echo $0: error creating $collect_dir on $RES_SERVER
 	exit 1
 fi
+
+echo "sudo ssh $RES_SERVER chown -R $USER $collect_dir"
 sudo ssh $RES_SERVER chown -R $USER $collect_dir
 
 echo LOG DIR IS: $collect_dir
@@ -84,13 +85,13 @@ echo "hostname: `hostname`" >> $log
 echo "user command is: $USER_CMD" >> $log
 
 #generate statistics
-echo "$echoPrefix: generating statistcs"
-sudo $SLAVES  pkill -f dstat
+echo "$echoPrefix: generating statistics"
+sudo $EXEC_SLAVES  pkill -f dstat
 sleep 1
 
-sudo $SLAVES  if mkdir -p $local_dir\; then dstat -f --aio --noheaders --output $local_dir/\`hostname\`.dstat.csv \> $DEV_NULL_PATH\; else echo error in dstat\; exit 2\; fi &
+sudo $EXEC_SLAVES  if mkdir -p $local_dir\; then dstat -f --aio --noheaders --output $local_dir/\`hostname\`.dstat.csv \> $DEV_NULL_PATH\; else echo error in dstat\; exit 2\; fi &
 sleep 2
-sudo $SLAVES chown -R $USER $local_dir
+sudo $EXEC_SLAVES chown -R $USER $local_dir
 
 #run user command
 echo -e \\n\\n
@@ -104,7 +105,7 @@ if [[ "$preReqFlags" == "-" ]];then
 	preReqFlags=$DEFAULT_PRE_REQ_TEST_FLAGS
 fi
 
-echo "$echoPrefix: cheching pre-requests: bash $SCRIPTS_DIR/preReq.sh $preReqFlags"
+echo "$echoPrefix: checking pre-requests: bash $SCRIPTS_DIR/preReq.sh $preReqFlags"
 bash $SCRIPTS_DIR/preReq.sh $preReqFlags
 if (($? == $EEC3));then 
 		echo "
@@ -174,10 +175,12 @@ if (($CACHE_FLUHSING == 1));then
 else
 	duration=$durationWithoutFlush	
 fi
+applicationId=`grep "$APPLICATION_ID_GREP_IDENTIFIER" $testOutput | awk '{print $7}'`
+jobId=`grep "$JOB_ID_GREP_IDENTIFIER" $testOutput | awk '{print $7}'`
 coresCountAfter=`ls $CORES_DIR | grep -c "core\."`
 #echo WITH: $durationWithFlush, WITHOUT: $durationWithoutFlush
 
-if [ `cat $testOutput | egrep -ic '(error|fail|exception)'` -ne 0 ];then 
+if [ `cat $testOutput | egrep -ic '("Job Failed"|exception)'` -ne 0 ];then 
 	echo "$echoPrefix: ERROR - found error/fail/exception"
 	cmd_status=4;
 	if [ `cat $testOutput | egrep -ic "map 100% reduce 100%"` -eq 1 ];then 
@@ -198,7 +201,7 @@ sleep 2
 kill %1 #kill above slaves for terminating all dstat commands
 sleep 1
 
-$SLAVES sudo pkill -f dstat
+$EXEC_SLAVES sudo pkill -f dstat
 
 #cd -
 
@@ -213,10 +216,19 @@ fi
 
 # producing history log
 if [[ $PROGRAM != "pi" ]];then
+	
+	if (($YARN_HADOOP_FLAG == 1));then
+		#bin/hadoop fs -ls /tmp/*/*/*/*/job_1378653723203_0002/*.jhist 
+		historyPath=`$HADOOP_FS -ls $PATH_TO_JOB_INFO/$jobId/$RELATIVE_PATH_TO_JOB_HISTORY_ON_DFS | tail -n 1 | awk '{print $8}'`
+		confPath=`$HADOOP_FS -ls $PATH_TO_JOB_INFO/$jobId/$RELATIVE_PATH_TO_JOB_CONF_ON_DFS | tail -n 1 | awk '{print $8}'`
+	else
+		historyPath=$hdfsJobDir
+		confPath=$hdfsJobDir/$RELATIVE_PATH_TO_JOB_CONF_ON_DFS
+	fi
 	jobHistory=$local_dir/$JOB_HISTORY_FILE_NAME
-	$MY_HADOOP_HOME/bin/hadoop job -history $hdfsJobDir | tee $local_dir/$JOB_HISTORY_FILE_NAME
-	$MY_HADOOP_HOME/bin/hadoop fs -copyToLocal $hdfsJobDir/_logs/history/*conf.xml $local_dir
-	testSucceed=`grep -c "Status: SUCCESS" $jobHistory`
+	eval $JOB_OPTIONS -history $historyPath | tee $jobHistory
+	eval $HADOOP_FS -copyToLocal $confPath $local_dir
+	testSucceed=`grep -c "$JOB_HISTORY_SUCCESS_OUTPUT" $jobHistory`
 fi
 
 echo "COMMAND IS: pdsh -w $MASTER,$RELEVANT_SLAVES_BY_COMMAS \"ps -ef | grep java\"" > $liveProcesses
@@ -241,21 +253,41 @@ then
 	inEqualOut="-1"
 	if (( $TERAVALIDATE != 0 )) && (( $cmd_status != 4 ));then
 		echo "$echoPrefix: Running TeraValidate"
-		teravalidate="${MY_HADOOP_HOME}/bin/hadoop jar $HADOOP_EXAMPLES_JAR_EXP teravalidate $TERASORT_DIR $TERAVAL_DIR"
+		teravalidate="$EXEC_JOB $HADOOP_EXAMPLES_JAR_EXP teravalidate $TERASORT_DIR $TERAVAL_DIR"
 		echo "$echoPrefix: $teravalidate"
 		eval $teravalidate
-		valll="${MY_HADOOP_HOME}/bin/hadoop fs -ls $TERAVAL_DIR"
+		valll="eval $HADOOP_FS -ls $TERAVAL_DIR"
 		eval $valll | tee $TMP_DIR/vallFile.txt
 		if (($? == 0));then
 			valSum=`cat $TMP_DIR/vallFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5 }  } END {print sum}'`
 		else
-			valSum="-1"
+			valSum=1
 		fi
 
 		echo ""
 		echo "$echoPrefix: val Sum is: $valSum"
 	
 		teraval=0
+		if (($YARN_HADOOP_FLAG == 1)); then
+			numOfOutputFiles=`cat $TMP_DIR/vallFile.txt | grep "part-" | wc -l` 
+			if (( $numOfOutputFiles != 1 )); then
+				valSum=1
+			else
+				
+				teravalOutputFileName=`cat $TMP_DIR/vallFile.txt | grep "part-" | awk '{split($8,tmp,"/");print tmp[3]}'
+` 
+				getFileCmd="$HADOOP_FS -copyToLocal $TERAVAL_DIR/$teravalOutputFileName $TMP_DIR/$teravalOutputFileName"
+				eval $getFileCmd
+				numOfLinesInOutputFile=`cat $TMP_DIR/$teravalOutputFileName | wc -l`
+				echo "$echoPrefix: teravalOutputFileName=$teravalOutputFileName getFileCmd=$getFileCmd numOfLinesInOutputFile=$numOfLinesInOutputFile"
+				if (( $numOfLinesInOutputFile != 1 )); then
+					valSum=1
+				else
+					valSum=0
+				fi
+			fi
+		fi
+		
 		if (( $valSum == 0))
 		then
 			teraval=1
@@ -269,23 +301,22 @@ then
 			rm -rf $TMP_DIR/vallFile.txt
 
 			echo "$echoPrefix: Removing $TERAVAL_DIR"
-			echo "$echoPrefix: bin/hadoop fs -rmr $TERAVAL_DIR"
-			bin/hadoop fs -rmr $TERAVAL_DIR
+			eval $HADOOP_FS_RMR $TERAVAL_DIR
 		else
 			echo "TERAVALIDATE FAILED" >> $log
 			echo -e \\n\\n
 			echo "$echoPrefix: THIS IS BAD TERAVALIDATE FAILED!! "
 			echo -e \\n\\n
-			exit 500 
+			testSucceed=0
 		fi
 
-		inputdir="bin/hadoop fs -ls ${TEST_INPUT_DIR}" 
+		inputdir="eval $HADOOP_FS -ls ${TEST_INPUT_DIR}" 
 		eval $inputdir | tee $TMP_DIR/inputFile.txt
 		inputSum=`cat $TMP_DIR/inputFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5}  } END {print sum}'`
 
 		echo "$echoPrefix: inputSum is: $inputSum"
 
-		outputdir="bin/hadoop fs -ls $TERASORT_DIR"
+		outputdir="eval $HADOOP_FS -ls $TERASORT_DIR"
 		$outputdir | tee $TMP_DIR/outputFile.txt
 		outputSum=`cat $TMP_DIR/outputFile.txt | awk 'BEGIN { sum=0 }{ if ($8 ~ /part-/) { sum=sum+$5}  } END {print sum}'`
 
@@ -311,7 +342,7 @@ then
 	fi
 elif [[ $PROGRAM == "sort" ]];then
 	echo "$echoPrefix: Running testmapredsort"
-	testmapredsort="${MY_HADOOP_HOME}/bin/hadoop jar hadoop-*test*.jar testmapredsort -sortInput $TEST_INPUT_DIR -sortOutput $SORT_DIR"
+	testmapredsort="$EXEC_JOB $HADOOP_TEST_JAR_EXP testmapredsort -sortInput $TEST_INPUT_DIR -sortOutput $SORT_DIR"
 	statusFile=$TMP_DIR/testmapredsortOutput.txt
 	eval $testmapredsort | tee $statusFile
 	if ((`grep -c "SUCCESS" $statusFile` == 0));then
@@ -324,11 +355,11 @@ then
 	mkdir -p $testOutputDir
 	sudo rm -rf $testOutputDir/*
 	echo "$echoPrefix: getting the job output files from the HDFS into $testOutputDir"
-	${MY_HADOOP_HOME}/bin/hadoop fs -copyToLocal $TEST_OUTPUT_DIR/part* $testOutputDir
+	eval $HADOOP_FS -copyToLocal $TEST_OUTPUT_DIR/part* $testOutputDir
 	filesCount=`ls $testOutputDir | grep -c ""`
 	
 	if (($filesCount>0));then
-		bin/hadoop fs -rmr $TEST_OUTPUT_DIR_VANILLA
+		eval $HADOOP_FS_RMR $TEST_OUTPUT_DIR_VANILLA
 		vanillaCmd="$USER_CMD_VANILLA -Dmapred.reduce.tasks=$filesCount $TEST_INPUT_DIR $TEST_OUTPUT_DIR_VANILLA"
 		echo "$echoPrefix: running wordcount with vanilla: $vanillaCmd"
 		vanillaCompareOutput=$local_dir/$job.txt
@@ -339,7 +370,7 @@ then
 
 		vanillaOutputDir=$TMP_DIR_LOCAL_DISK/$job/vanillaOutput_`eval $CURRENT_DATE_PATTERN`
 		mkdir -p $vanillaOutputDir
-		${MY_HADOOP_HOME}/bin/hadoop fs -copyToLocal $TEST_OUTPUT_DIR_VANILLA/part* $vanillaOutputDir
+		eval $HADOOP_FS -copyToLocal $TEST_OUTPUT_DIR_VANILLA/part* $vanillaOutputDir
 		status=`diff $testOutputDir $vanillaOutputDir`
 		if [[ -z $status ]];then
 			echo "$echoPrefix: output is correct"
@@ -419,6 +450,7 @@ echo -e \\n\\n
 echo "
 	#!/bin/sh
 	export exlTEST_STATUS=$testSucceed
+	export exAPP_ID=$applicationId
 	export exlPI_ESTIMATION=$piEstimation
 	export exlPI_SUCCEED=$piSucceed
 	export exlDURATION_WITH_FLUSH=$durationWithFlush
@@ -457,12 +489,29 @@ if (($?==0));then
 	rm -f $MY_HADOOP_HOME/hs_err_pid*
 fi
 
-$SLAVES ssh $RES_SERVER mkdir -p $collect_dir/slave-\`hostname\`/
-echo "$echoPrefix: $SLAVES scp -r $MY_HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/"
-$SLAVES scp -r $MY_HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/
-echo "$echoPrefix: $SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/"
-$SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/
-sudo $SLAVES scp $MY_HADOOP_HOME/hs_err_pid\* $RES_SERVER:$collect_dir/\;if \(\($?==0\)\)\;then rm -f $MY_HADOOP_HOME/hs_err_pid\*\;fi
+$EXEC_SLAVES ssh $RES_SERVER mkdir -p $collect_dir/slave-\`hostname\`/
+echo "$echoPrefix: $EXEC_SLAVES scp -r $MY_HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/"
+$EXEC_SLAVES scp -r $MY_HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/
+
+for slave in $RELEVANT_SLAVES_BY_SPACES;
+do
+	for logDir in $YARN_NODEMANAGER_LOGDIRS_BY_SPACES;
+	do
+		appDir=`ssh $slave find $logDir -type d -name $applicationId`
+		if [[ -z $appDir ]];then
+			continue
+		fi
+
+		scp -r $slave:$appDir $RES_SERVER:$collect_dir/slave-\`hostname\`/  > $DEV_NULL_PATH
+		if (($? == 0));then
+			sudo rm -rf $appDir
+		fi
+	done
+done
+
+echo "$echoPrefix: $EXEC_SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/"
+$EXEC_SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/
+sudo $EXEC_SLAVES scp $MY_HADOOP_HOME/hs_err_pid\* $RES_SERVER:$collect_dir/\;if \(\($?==0\)\)\;then rm -f $MY_HADOOP_HOME/hs_err_pid\*\;fi
 
 
 sudo ssh $RES_SERVER chown -R $USER $collect_dir
@@ -478,10 +527,12 @@ echo "$echoPrefix: collecting hadoop master conf dir"
 echo "$echoPrefix: scp -r $HADOOP_CONFIGURATION_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONFIGURATION_DIR) > $DEV_NULL_PATH"
 scp -r $HADOOP_CONFIGURATION_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONFIGURATION_DIR) > $DEV_NULL_PATH
 
-sudo $SLAVES rm -rf $local_dir
+sudo $EXEC_SLAVES rm -rf $local_dir
 
 echo "$echoPrefix: checking if the test passed"
 bash -x $SCRIPTS_DIR/testStatusAnalyzer.sh $collect_dir | tee $collect_dir/testAnalyzing.txt
+#bash -x $SCRIPTS_DIR/testStatusAnalyzer.sh $collect_dir 2>&1 | tee $collect_dir/testAnalyzing.txt
+
 
 #echo "$cmd_status is cmd_status"
 echo "$echoPrefix: exiting"

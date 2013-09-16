@@ -8,7 +8,7 @@ chgrp -R $GROUP_NAME $CURRENT_NFS_RESULTS_DIR
 
 #cp -rf $CURRENT_NFS_RESULTS_DIR/* $recentNfsResultsDir TODO: uncomment it
 
-errorLog=$CURRENT_NFS_RESULTS_DIR/`basename $ERROR_LOG`
+errorLog=$CURRENT_NFS_RESULTS_DIR/$ERROR_LOG_FILE_NAME
 if ! cat $errorLog | grep -c "";then
 	rm -f $errorLog
 fi
@@ -31,6 +31,16 @@ if (($ZIP_FLAG==1));then
 	rm -rf $CURRENT_NFS_RESULTS_DIR/
 fi
 
+for machine in $ALL_MACHINES_BY_SPACES;
+do
+	practicalHostname=`ssh $machine hostname`
+	if [[ $practicalHostname != $machine ]];then
+		ssh $machine sudo hostname $machine
+		echo "$echoPrefix: machine named $practicalHostname changed to $machine"
+	fi
+done
+
+#pdsh -w $MASTER,$SLAVES_BY_COMMAS "sudo hostname \`cat $CLEAN_MACHINE_NAME_FILE\`"
 
 #failFlag=0
 

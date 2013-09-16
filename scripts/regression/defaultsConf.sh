@@ -1,20 +1,20 @@
 #!/bin/bash
 
 	# the default hadoop version is currently hadoop-1.1.0-patched-v2
-export DEFAULT_CSV_FILE='/.autodirect/mtrswgwork/UDA/daily_regressions/configuration_files/regression-1.1.0.csv'
+#export DEFAULT_CSV_FILE='/.autodirect/mtrswgwork/UDA/daily_regressions/configuration_files/regression-1.1.0.csv'
 export DEFAULT_SVN_HADOOP='https://sirius.voltaire.com/repos/enterprise/uda/hadoops/hadoop-1.1.0-patched-v2'
 export DEFAULT_GIT_HADOOPS_DIR='/.autodirect/mswg/git/accl/hadoops.git' #'http://webdev01:8080/git/accl/hadoops.git'
-export DEFAULT_GIT_HADOOP_DIRNAME='hadoop-1.1.0-patched-v2' # hadoop-0.20.2-patched-v2
+export DEFAULT_HADOOP_DIRNAME='hadoop-1.1.0-patched-v2' # hadoop-0.20.2-patched-v2
 export DEFAULT_GIT_MASTER_DIR='ssh://r-webdev02:29418/accl/uda.git' #'/.autodirect/mswg/git/accl/uda' #'http://webdev01:8080/git/accl/uda.git'
 export DEFAULT_RPM_JAR='uda-hadoop-1.x.jar'
-export DEFAULT_LZO_JAR='/.autodirect/mtrswgwork/UDA/daily_regressions/resources/hortonworks-hadoop-lzo-cf4e7cb/build/hadoop-lzo-0.4.15.jar'
+#export DEFAULT_LZO_JAR='/.autodirect/mtrswgwork/UDA/daily_regressions/resources/hortonworks-hadoop-lzo-cf4e7cb/build/hadoop-lzo-0.4.15.jar'
 	# --
-export DEFAULT_CONF_FOLDER_DIR='/.autodirect/mtrswgwork/UDA/daily_regressions/tests_confs'
+export DEFAULT_CONF_FOLDER_DIR='/.autodirect/udagwork/uda_regression/tests_confs'
 export DEFAULT_MY_HADOOP_HOME='/hadoop-1.0.1'
 export DEFAULT_DATA_SET_TYPE='node'
-export DEFAULT_NFS_RESULTS_DIR='/.autodirect/mtrswgwork/UDA/daily_regressions/results'
+export DEFAULT_NFS_RESULTS_DIR='/.autodirect/udagwork/uda_regression/results'                #'/.autodirect/mtrswgwork/UDA/daily_regressions/results'
 export DEFAULT_SVN_REVISION=''
-export DEFAULT_REPORT_MAILING_LIST='alexr,avnerb,idanwe,katyak,amirh,dinal,eladi,alongr,yuriya,oriz'
+export DEFAULT_REPORT_MAILING_LIST='alexr,avnerb,idanwe,dinal,eladi,alongr,yuriya,oriz' #'alexr,avnerb,idanwe,katyak,amirh,dinal,eladi,alongr,yuriya,oriz'
 export DEFAULT_REPORT_NAME='regression'
 export DEFAULT_REPORT_SUBJECT='UDA Daily Regression Run Status'
 export DEFAULT_REPORT_COMMENT=''
@@ -43,7 +43,8 @@ export RPMBUILD_DIR='rpmbuild/RPMS/x86_64'
 export SVN_TRUNK='https://sirius.voltaire.com/repos/enterprise/uda/trunk'
 export TRUNK_RPM_BUILD_RELATIVE_PATH='build/buildrpm.sh'
 export MASTER_RPM_BUILD_RELATIVE_PATH='build/buildrpm.sh' 
-export HADOOP_CLASSPATH='${HADOOP_CLASSPATH}:/usr/lib64/uda/'
+export UDA_RESOURCES_DIR="/usr/lib64/uda"
+export HADOOP_CLASSPATH='${HADOOP_CLASSPATH}:'"${UDA_RESOURCES_DIR}/"
 export RELEASE_DIR='/.autodirect/mswg/release/uda/daily'
 export RELEASE_RPM_RELATIVE_DIR='rpm'
 export LOCAL_RESULTS_DIR='/data1/regression.collect'
@@ -95,20 +96,17 @@ export INPUT_DATA_REPLICATIONS_COUNT=2
 export DEFAULT_IB_MESSAGE_SIZE=0
 export IS_JOb_STILL_RUNNING_SLEEP_TIME=60
 export IS_JOb_STILL_RUNNING_FAILURE_TIMES=60
-export LZO_RESOURCE_FILES_PATH="/.autodirect/mtrswgwork/UDA/daily_regressions/resources/hortonworks-hadoop-lzo-cf4e7cb/build/native/Linux-amd64-64/.libs/"
+#export LZO_RESOURCE_FILES_PATH="/.autodirect/mtrswgwork/UDA/daily_regressions/resources/hortonworks-hadoop-lzo-cf4e7cb/build/native/Linux-amd64-64/.libs/"
 export LZO_USR_INCLUDE_DIR="/usr/include/lzo"
 export LZO_USR_LIB_DIR="/usr/lib64"
 export LZO_USR_LIB_FILES="liblzo2.a liblzo2.la liblzo2.so liblzo2.so.2 liblzo2.so.2.0.0"
 export UDA_LOG_LEVELS="ALL TRACE DEBUG INFO WARN ERROR FATAL NONE"
 export PROC_CORE_PATTERN_PATH="/proc/sys/kernel/core_pattern"
-export CODE_COVERAGE_EXCLUDE_PATH="/.autodirect/mtrswgwork/UDA/daily_regressions/bullseye/exclude"
-export UDA_PROVIDER_PROP="mapreduce.shuffle.provider.plugin.classes"
-export UDA_PROVIDER_VALUE=com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin,org.apache.hadoop.mapred.TaskTracker\$DefaultShuffleProvider
-export UDA_CONSUMER_PROP="mapreduce.job.reduce.shuffle.consumer.plugin.class"
-export UDA_CONSUMER_VALUE="com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin"
+export CODE_COVERAGE_EXCLUDE_PATH="/.autodirect/udagwork/uda_regression/bullseye/exclude"
 export DF_BLOCKSIZE_SCALE='--block-size=1m'
 export ECHO_BOLD=`tput bold`
 export ECHO_NORMAL=`tput sgr0`
 export SWAPOFF_PATH="/sbin/swapoff"
 export SWAPON_PATH="/sbin/swapon"
 export CPU_USAGE_SAMPLES_TO_AVERAGE_COUNT=5
+#export CLEAN_HOSTNAMES_LIST_PATH="/.autodirect/udagwork/uda_regression/clean_hostnames_list.txt"

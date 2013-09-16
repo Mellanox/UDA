@@ -9,7 +9,7 @@ testsConfDir=$BASE_DIR/$TESTS_CONF_DIR_NAME
 if ! sudo mkdir -p $testsConfDir;then
 	exit $EEC1
 fi
-rm -rf $BASE_DIR/*
+sudo rm -rf $BASE_DIR/*
 
 if ! sudo mkdir -p $SOURCES_DIR;then
 	exit $EEC1
@@ -25,10 +25,11 @@ if ! sudo mkdir -p $TMP_DIR_LOCAL_DISK;then
 fi
 rm -rf $TMP_DIR_LOCAL_DISK/*
 
-errorLog=$BASE_DIR/runtimeErrorLog.txt
-echo -n "" >  $errorLog
-
 sudo chown -R $USER $BASE_DIR
+
+errorLog=$BASE_DIR/$ERROR_LOG_FILE_NAME
+echo -n "" >  $errorLog
+cleanMachineNameFile=$BASE_DIR/$CLEAN_MACHINE_NAME_FILENAME
 
 # CHECKING PRE-REQs
 
@@ -47,4 +48,5 @@ echo "
 	export ENVS_CONF_DIR='$envDir'
 	export TESTS_CONF_DIR='$testsConfDir'
 	export CONFIGURATION_FILES_DIR='$configurtionFilesDir'
+	export CLEAN_MACHINE_NAME_FILE='$cleanMachineNameFile'
 " > $SOURCES_DIR/prepareExports.sh

@@ -35,6 +35,7 @@ function getHeadersAndProperties()
 	split("", DMprops)
 	split("", DMfiles)
 	split("", CMDprops)
+	split("", allProps)
 	split("", envParams)
 	split("", preReqProps)
 	
@@ -49,6 +50,7 @@ function getHeadersAndProperties()
 			DMprops[i]=substr($i,1,ind-1)	# gets the daemon-property
 			DMfiles[i]= substr($i,ind+1,length($i)+1-ind)	# gets the daemon-property correct configuration file
 			headers[i]=DMprops[i]
+			allProps[i]=DMprops[i]
 		}
 		else if (preInd > 0) # in case of preReq parameter
 		{
@@ -58,6 +60,7 @@ function getHeadersAndProperties()
 		else if (confParamsFlag) # there is no convention differance between non-daemon parameters and environment parameters (input/output dir etc.. so flag is needed to distinguish between them
 		{
 			CMDprops[i]=$i
+			allProps[i]=CMDprops[i]
 			headers[i]=$i
 		}
 		else if ($i ~/CONF_PARAMS/)
@@ -123,28 +126,16 @@ function manageMinusPrefixProps(minusProps)
 			execParams[minusProps[i]]="\"" execParams[minusProps[i]] "\""
 }
 
-function manageRandomWriteGenerateProps(randomWriteProps)
+function replaceMarksInAllProps()
 {
-	ret=""
-	for (i in randomWriteProps)
-		ret=ret "-D" randomWriteProps[i] "=" execParams[randomWriteProps[i]] " "
-		
-	return ret
-}
-
-function manageRandomTextWriteGenerateProps(randomTextWriteProps)
-{
-	ret=""
-	for (i in randomTextWriteProps)
-		ret=ret "-D" randomTextWriteProps[i] "=" execParams[randomTextWriteProps[i]] " "
-		
-	return ret
-}
-
-function manageMasterMachineProps(masterMachineProps)
-{
-	for (i in masterMachineProps)
-		sub(masterMark,master,execParams[masterMachineProps[i]])
+	for (mark in marks)
+	{
+		for (prop in allProps)
+		{
+			if (index(execParams[allProps[prop]],masterMark))
+				sub(marks[mark],master,execParams[allProps[prop]])
+		}
+	}
 }
 
 function formatNumber(num,digits)
@@ -188,6 +179,21 @@ function plantInterfaceInProperties(pInterface)
 	execParams["fs.default.name"] = temp[1] ":" temp[2] pInterface ":" temp[3]
 }
 
+function makeListBySeperators(exportNameBeginning,dirsDict,dirLists)
+{
+	if (dirLists == "")
+	{
+		for (i in dirsDict)
+			dirLists = dirLists " " i
+	}
+	print "export " exportNameBeginning "_BY_SPACES='" dirLists  "'"  >> setupsFile
+	listByCommas=dirLists
+	gsub(/[[:space:]]+/,",",listByCommas)
+	print "export " exportNameBeginning "_BY_COMMAS='" listByCommas "'" >> setupsFile
+	
+	return dirLists
+}
+
 function buildSlavesFiles(pSlavesCount,pInterface,pDir)
 {
 	currentSlaves=""
@@ -208,7 +214,6 @@ function buildSlavesFiles(pSlavesCount,pInterface,pDir)
 	print currentSlaves >> pDir "/slaves"
 
 	return slavesFinalNum
-
 }
 
 function buildMastersFile(pMaster)
@@ -259,6 +264,8 @@ function buildPreReqFile()
 
 function exportMenager()
 {	
+	manageAddParams()
+	
 	for (exportName in slavesDirsProps)
 	{
 		tmpValue = execParams[slavesDirsProps[exportName]]
@@ -270,36 +277,53 @@ function exportMenager()
 	}
 	
 	print "export PRE_REQ_TEST_FLAGS='-" execParams["pre_req_flags"] "'" >> exportsFile # this minus is to avoid input of "-" in the csv file
-	print "export MAX_MAPPERS="execParams["mapred.tasktracker.map.tasks.maximum"] >> exportsFile
-	print "export MAX_REDUCERS="execParams["mapred.tasktracker.reduce.tasks.maximum"] >> exportsFile
 	print "export PROGRAM='"execParams["program"] "'" >> exportsFile 
-	print "export DESIRED_MAPPERS="execParams["mapred.map.tasks"] >> exportsFile
-	print "export DESIRED_REDUCERS="execParams["mapred.reduce.tasks"] >> exportsFile
 	print "export NSAMPLES="execParams["samples"] >> exportsFile
 	print "export SLAVES_COUNT="execParams["slaves"] >> exportsFile
 	print "export IB_MESSAGE_SIZE="execParams["ib_message"] >> exportsFile 
-	#for (i in headers)
-	#	if (() || () | ())
-	#		print "FROM HEADERS: " headers[i]
-	#if ("nrFiles" in execParams)
-		print "export NR_FILES="execParams["nrFiles"] >> exportsFile
+	print "export NR_FILES="execParams["nrFiles"] >> exportsFile
 	print "export RDMA_BUF_SIZE="execParams["mapred.rdma.buf.size"] >> exportsFile
 	print "export RDMA_BUF_SIZE_MIN="execParams["mapred.rdma.buf.size.min"] >> exportsFile
-	print "export TEST_IDS="execParams["test_IDs"] >> exportsFile
-		
-	diskCount=split(execParams["dfs.data.dir"],srak,",")
-	print "export DISKS_COUNT="diskCount >> exportsFile
-	if (execParams[udaConsumerProp] == udaConsumerValue)
-		print "export SHUFFLE_CONSUMER=1" >> exportsFile
-	else 
-		print "export SHUFFLE_CONSUMER=0" >> exportsFile
-
-	if (execParams[udaProviderProp] == udaProviderValue)
-		print "export SHUFFLE_PROVIDER=1" >> exportsFile
-	else
-		print "export SHUFFLE_PROVIDER=0" >> exportsFile
+	print "export TEST_IDS="execParams["test_IDs"] >> exportsFile	
 	
-	manageAddParams()
+	if (yarnFlag == 1)
+	{	
+		#print "export JOBHISTORIES_DIR="execParams["mapreduce.jobtracker.jobhistory.location"] >> exportsFile
+		print "export NODEMANAGER_LOG_DIR="execParams["yarn.nodemanager.log-dirs"] >> exportsFile # Added by Elad to support Hadoop 2 and 3 log dirs
+		
+		print "export MAX_MAPPERS="execParams["mapreduce.tasktracker.map.tasks.maximum"] >> exportsFile
+		print "export MAX_REDUCERS="execParams["mapreduce.tasktracker.reduce.tasks.maximum"] >> exportsFile
+		print "export DESIRED_MAPPERS="execParams["mapreduce.job.maps"] >> exportsFile
+		print "export DESIRED_REDUCERS="execParams["mapreduce.job.reduces"] >> exportsFile
+
+		diskCount=split(execParams["dfs.datanode.data.dir"],srak,",")
+		print "export DISKS_COUNT="diskCount >> exportsFile
+		
+		if ((execParams[udaConsumerProp] == udaConsumerValue) && (execParams[udaConsumerProp2] == udaProviderValue2))
+			print "export SHUFFLE_CONSUMER=1" >> exportsFile
+		else 
+			print "export SHUFFLE_CONSUMER=0" >> exportsFile
+	}
+	else
+	{
+		print "export MAX_MAPPERS="execParams["mapred.tasktracker.map.tasks.maximum"] >> exportsFile
+		print "export MAX_REDUCERS="execParams["mapred.tasktracker.reduce.tasks.maximum"] >> exportsFile
+		print "export DESIRED_MAPPERS="execParams["mapred.map.tasks"] >> exportsFile
+		print "export DESIRED_REDUCERS="execParams["mapred.reduce.tasks"] >> exportsFile
+				
+		diskCount=split(execParams["dfs.data.dir"],srak,",")
+		print "export DISKS_COUNT="diskCount >> exportsFile
+		
+		if (execParams[udaConsumerProp] == udaConsumerValue)
+			print "export SHUFFLE_CONSUMER=1" >> exportsFile
+		else 
+			print "export SHUFFLE_CONSUMER=0" >> exportsFile
+
+		if (execParams[udaProviderProp] == udaProviderValue)
+			print "export SHUFFLE_PROVIDER=1" >> exportsFile
+		else
+			print "export SHUFFLE_PROVIDER=0" >> exportsFile
+	}
 }
 
 function manageAddParams()
@@ -312,8 +336,9 @@ function manageAddParams()
 	traceJob=0
 	cacheFlushing=0
 	deleteData=0
+	forceDfsFormat=0
 	
-	split(execParams["add_params"],params,/[[:space:]]*/)
+	split(execParams["add_params"],params,/[[:space:]]+/)
 	for (p in params)
 	{
 		if (params[p] == teravalFlag)
@@ -333,7 +358,9 @@ function manageAddParams()
 		else if (params[p] == deleteDataFlag)
 			deleteData=1
 		else if (params[p] == restartHadoopIndicator)
-			restartHadoopFlag=1					
+			restartHadoopFlag=1	
+		else if (params[p] == forceDfsFormatFlag)
+			forceDfsFormat=1				
 	}	
 
 	print "export TERAVALIDATE=" teraval >> exportsFile		
@@ -344,12 +371,13 @@ function manageAddParams()
 	print "export TRACE_JOB_FLAG="traceJob >> exportsFile
 	print "export CACHE_FLUHSING=" cacheFlushing >> exportsFile	
 	print "export DELETE_DATA=" deleteData >> exportsFile	
+	print "export FORCE_DFS_FORMAT=" forceDfsFormat >> exportsFile
 	
 	if ((execParams["program"]~/terasort/) || (execParams["program"]~/sort/) || (execParams["program"]~/wordcount/))
 		print "export DATA_SET="params[1] >> exportsFile
 	else if (execParams["program"]~/pi/)
 	{
-		len=split(execParams["add_params"],params,/[[:space:]]*/)
+		len=split(execParams["add_params"],params,/[[:space:]]+/)
 		if (len == 2)
 		{
 			piMappers=params[1]
@@ -384,9 +412,13 @@ function restartHadoopHandler()
 	if (interface ~ /[A-Za-z0-9_]+/)
 		interfaceToPlant= "-" interface
 		
-	plantInterfaceInProperties(interfaceToPlant)
 	execSlaves=buildSlavesFiles(execParams["slaves"],interfaceToPlant,execDir)
-	buildMastersFile(master interfaceToPlant)  # BE AWARE THAT THERE IS NO COMMA HERE - THIS IS SINGLE PARAMETERS
+	#buildMastersFile(master interfaceToPlant)  # BE AWARE THAT THERE IS NO COMMA HERE - THIS IS SINGLE PARAMETERS
+	#masterWithInterface=master interfaceToPlant
+	#gsub(interfaceToPlant interfaceToPlant, interfaceToPlant, masterWithInterface) # for avoiding case that the interface is inserted twice to the master-name - when passing this script the master variable with the interface built-in
+	#buildMastersFile(masterWithInterface)
+	buildMastersFile(master)
+	#plantInterfaceInProperties(interfaceToPlant)
 	buildConfigurationFiles()
 }
 
@@ -443,7 +475,7 @@ function checkRandomValues()
 {
 	for (i in execParams)
 	{
-		paramsCount=split(execParams[i],tmp,/[[:space:]]*/)
+		paramsCount=split(execParams[i],tmp,/[[:space:]]+/)
 		if ((paramsCount != 0) && (tmp[1] == randomIndicator))
 		{ 
 			aLim=tmp[2]
@@ -477,20 +509,30 @@ BEGIN{
 	forceGeneratingDataFlag="f"
 	traceJobFlag="j"
 	deleteDataFlag="d"
+	forceDfsFormatFlag="F"
 	restartHadoopIndicator="r"
 	emptyFieldFlag="x"
 	endTypeFlag="end_flag"
 	randomIndicator="RAND"
 
 	masterMark="{MASTER}"
+	marks[1]="{MASTER}"
 	
 		# the names of the configuration files
 	confFiles["mapred"]="mapred-site.xml"
 	confFiles["hdfs"]="hdfs-site.xml"
 	confFiles["core"]="core-site.xml"
+	confFiles["yarn"]="yarn-site.xml"
 	
 	log4jProps["provider_log_level"]="log4j.logger.org.apache.hadoop.mapred.ShuffleProviderPlugin"
 	log4jProps["consumer_log_level"]="log4j.logger.org.apache.hadoop.mapred.ShuffleConsumerPlugin"
+	log4jProps["log4j.logger.org.apache.hadoop.mapred"]="log4j.logger.org.apache.hadoop.mapred"
+	log4jProps["log4j.logger.org.apache.hadoop.mapred.ReduceTask"]="log4j.logger.org.apache.hadoop.mapred.ReduceTask"
+	log4jProps["log4j.logger.org.apache.hadoop.mapred.ShuffleConsumerPlugin"]="log4j.logger.org.apache.hadoop.mapred.ShuffleConsumerPlugin"
+	log4jProps["log4j.logger.org.apache.hadoop.mapreduce.task.reduce.Shuffle"]="log4j.logger.org.apache.hadoop.mapreduce.task.reduce.Shuffle"
+	log4jProps["log4j.logger.org.apache.hadoop.mapred.TaskTracker"]="log4j.logger.org.apache.hadoop.mapred.TaskTracker"
+	log4jProps["log4j.logger.org.apache.hadoop.mapred.UdaPluginSH"]="log4j.logger.org.apache.hadoop.mapred.UdaPluginSH"
+	log4jProps["log4j.logger.com.mellanox.hadoop.mapred.UdaShuffleHandler"]="log4j.logger.com.mellanox.hadoop.mapred.UdaShuffleHandler"
 
 		# properties with can have multiple values, seperating bt commas. because the awk is works with Comma Seperated file, those parameters should be seperating by other delimiter
 	commaDelimitedPropsDelimiter=";"
@@ -498,14 +540,27 @@ BEGIN{
 	commaDelimitedProps[2]="dfs.name.dir"
 	commaDelimitedProps[3]="hadoop.tmp.dir"
 	commaDelimitedProps[4]="mapred.local.dir"
-	commaDelimitedProps[5]="mapreduce.shuffle.provider.plugin.classes"
+	commaDelimitedProps[5]="dfs.datanode.data.dir"
+	commaDelimitedProps[6]="dfs.namenode.name.dir"
+	commaDelimitedProps[7]="mapreduce.shuffle.provider.plugin.classes"
+	commaDelimitedProps[8]="mapreduce.cluster.local.dir"
+	commaDelimitedProps[9]="yarn.nodemanager.aux-services"
+	commaDelimitedProps[10]="yarn.nodemanager.application-listeners"
+	commaDelimitedProps[11]="yarn.nodemanager.log-dirs"
+	commaDelimitedProps[12]="yarn.nodemanager.local-dirs"
 
 	slavesDelimiter=" "
 	dirPropsDelimiter=commaDelimitedPropsDelimiter
 	slavesDirsProps["DFS_DATA_DIR"]="dfs.data.dir"
-	slavesDirsProps["DFS_NAME_DIR"]="dfs.name.dir"
 	slavesDirsProps["HADOOP_TMP_DIR"]="hadoop.tmp.dir"
 	slavesDirsProps["MAPRED_LOCAL_DIR"]="mapred.local.dir"
+	slavesDirsProps["DFS_DATANODE_DATA_DIR"]="dfs.datanode.data.dir"
+	slavesDirsProps["MAPREDUCE_CLUSTER_LOCAL_DIR"]="mapreduce.cluster.local.dir"
+	slavesDirsProps["YARN_NODEMANAGER_LOGDIRS"]="yarn.nodemanager.log-dirs"
+	slavesDirsProps["YARN_NODEMANAGER_LOCALDIRS"]="yarn.nodemanager.local-dirs"
+
+	masterDirsProps["DFS_NAME_DIR"]="dfs.name.dir"
+	masterDirsProps["DFS_NAMENODE_NAME_DIR"]="dfs.namenode.name.dir"	
 	masterDirsProps["HADOOP_TMP_DIR"]="hadoop.tmp.dir"
 	
 	formatDfsProps["dfs.data.dir"]=0
@@ -520,29 +575,40 @@ BEGIN{
 	booleanValueProps[1]="mapred.map.tasks.speculative.execution"
 	booleanValueProps[2]="mapred.reduce.tasks.speculative.execution"
 	booleanValueProps[3]="keep.failed.task.files"
+	booleanValueProps[4]="dfs.permissions"
 
 	randomWriteGenerateProps[1]="test.randomwrite.min_key"
 	randomWriteGenerateProps[2]="test.randomwrite.max_key"
 	randomWriteGenerateProps[3]="test.randomwrite.min_value"
 	randomWriteGenerateProps[4]="test.randomwrite.max_value"
+	randomWriteGenerateProps[5]="mapreduce.randomwriter.minkey"
+	randomWriteGenerateProps[6]="mapreduce.randomwriter.maxkey"
+	randomWriteGenerateProps[7]="mapreduce.randomwriter.minvalue"
+	randomWriteGenerateProps[8]="mapreduce.randomwriter.maxvalue"
 	
 	randomTextWriteGenerateProps[1]="test.randomtextwrite.min_words_key"
 	randomTextWriteGenerateProps[2]="test.randomtextwrite.max_words_key"
 	randomTextWriteGenerateProps[3]="test.randomtextwrite.min_words_value"
 	randomTextWriteGenerateProps[4]="test.randomtextwrite.max_words_value"
+	randomTextWriteGenerateProps[5]="mapreduce.randomtextwriter.minwordskey"
+	randomTextWriteGenerateProps[6]="mapreduce.randomtextwriter.maxwordskey"
+	randomTextWriteGenerateProps[7]="mapreduce.randomtextwriter.minwordsvalue"
+	randomTextWriteGenerateProps[8]="mapreduce.randomtextwriter.maxwordsvalue"
 	
 	endingProps[1]="nrFiles"
 	endingProps[2]="fileSize"
 	endingProps[3]=endTypeFlag
+	
+	udaEnableProps[1]="mapreduce.job.reduce.shuffle.consumer.plugin.class"
+	udaEnableProps[2]="mapred.reducetask.shuffle.consumer.plugin"
 
-	masterMachineProps[1]="mapred.job.tracker"
-	masterMachineProps[2]="fs.default.name"
+	#masterMachineProps[1]="mapred.job.tracker"
+	#masterMachineProps[2]="fs.default.name"
 	
 	piMappersDefault=10
 	piSamplesDefault=100
 	
 	confFilesHeader="<?xml version=\"1.0\"?>\n<?xml-stylesheet type=\"text/xsl\" href=\"configuration.xsl\"?>\n<configuration>"
-	executionPrefix="bin/hadoop jar"
 	bashScriptsHeadline="#!/bin/sh"
 	setupsFileName="allSetupsExports.sh"
 	generalFileName="general.sh"
@@ -627,25 +693,19 @@ BEGIN{
 	manageMinusPrefixProps(minusPrefixProps)
 	manageBooleanValueProps(booleanValueProps)
 	manageCreatingDirProps(masterDirsProps, slavesDirsProps)
-	manageMasterMachineProps(masterMachineProps)
+	replaceMarksInAllProps()
 
 	buildPreReqFile()	
 
 	log4jParamsAndVals=manageLog4jPropsProps(log4jProps)
-	if (execParams["program"]~/wordcount/)
-	{
-		randomTextWriteDParams=manageRandomTextWriteGenerateProps(randomTextWriteGenerateProps)
-		print "export CMD_RANDOM_TEXT_WRITE_PARAMS='" randomTextWriteDParams "'" >> exportsFile
-	}
-	else if (execParams["program"]~/sort/)
-	{
-		randomWriteDParams=manageRandomWriteGenerateProps(randomWriteGenerateProps)
-		print "export CMD_RANDOM_WRITE_PARAMS='" randomWriteDParams "'" >> exportsFile
-	}
 	
 		# managing the parameters for the execution
-	confParams=""
+	udaCliParams=""
+	cliParamsWithoutUda=""
 	TestDFSIOParams=""
+	randomTextWriteDParams=""
+	randomWriteDParams=""
+	
 	for (i in CMDprops)
 	{
 		propName=CMDprops[i]
@@ -659,16 +719,40 @@ BEGIN{
 				else
 					TestDFSIOParams = TestDFSIOParams "-" propName " " propValue " "
 			}
+			else if (valueInDict(propName,udaEnableProps) == 1)
+			{
+				udaCliParams = udaCliParams "-D" propName "=" propValue " "	
+			}
+			else if (valueInDict(propName,randomTextWriteGenerateProps) == 1)
+			{ 
+				randomTextWriteDParams = randomTextWriteDParams "-D" propName "=" propValue " "	
+			}
+			else if (valueInDict(propName,randomWriteGenerateProps) == 1)
+			{
+				randomWriteDParams = randomWriteDParams "-D" propName "=" propValue " "	
+			}
 			else
-				confParams = confParams "-D" propName "=" propValue " "	
+			{
+				cliParamsWithoutUda = cliParamsWithoutUda "-D" propName "=" propValue " "	
+			}
 		}
 	}
 
-	print "export CMD_PREFIX='" executionPrefix "'" >> exportsFile
 	print "export CMD_JAR='" execParams["jar_dir"] "'" >> exportsFile
 	print "export CMD_PROGRAM='" execParams["program"] "'" >> exportsFile
-	print "export CMD_D_PARAMS='" confParams "'" >> exportsFile
+	print "export CMD_D_PARAMS='" cliParamsWithoutUda "'" >> exportsFile
 	print "export CMD_TEST_DFSIO_PARAMS='" TestDFSIOParams "'" >> exportsFile
+	print "export CMD_RANDOM_TEXT_WRITE_PARAMS='" randomTextWriteDParams "'" >> exportsFile
+	print "export CMD_RANDOM_WRITE_PARAMS='" randomWriteDParams "'" >> exportsFile
+	
+	if (disableUda == 1)
+	{
+		print "export CMD_UDA_ENABLE=''" >> exportsFile
+	}
+	else
+	{
+		print "export CMD_UDA_ENABLE='" udaCliParams "'" >> exportsFile
+	}
 	
 	if (totalTestsCount==1)
 		print "export FIRST_STARTUP=1" >> exportsFile
@@ -746,16 +830,11 @@ END{
 	print "export TOTAL_TESTS_COUNT=" totalTestsCount >> setupsFile
 	print "export SETUPS_COUNT=" setupsCounter >> setupsFile
 	print "export ALL_TESTS_SETUPS_NAMES='" allTestsSetupsNames "'">> setupsFile
-
-	dirsForMasterList=""
-	for (i in dirsForMaster)
-		dirsForMasterList = dirsForMasterList " " i
-	print "export ALL_MASTER_DIRS='" dirsForMasterList  "'"  >> setupsFile
 	
-	dirsForSlavesList=""
-	for (i in dirsForSlaves)
-		dirsForSlavesList = dirsForSlavesList " " i
-	print "export ALL_SLAVES_DIRS='" dirsForSlavesList  "'"  >> setupsFile
+	mastersDfsDirsList=makeListBySeperators("MASTER_DFS_DIRS", dirsForMaster, "")
+	slavesDfsDirsList=makeListBySeperators("SLAVES_DFS_DIRS" ,dirsForSlaves, "")
+	allDfsDirsList=mastersDfsDirsList " " slavesDfsDirsList
+	slavesDfsDirsList=makeListBySeperators("ALL_DFS_DIRS", "", allDfsDirsList)
 	
 	allTestsNames=""
 	for (i=1; i<=totalTestsCount; i++)

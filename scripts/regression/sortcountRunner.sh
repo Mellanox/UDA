@@ -21,7 +21,7 @@ ramSizeChaceFlushing ()
 {
 	local nmaps=$((SLAVES_COUNT*MAX_MAPPERS))
 	local dataSize=`echo "scale=0; $CACHE_FLUSHING_DATA_SIZE * $TERAGEN_GIGA_MULTIPLIER / 1" | bc` # DON'T REMOVE THAT "/ 1" ! the "scale=0" won't truncate the number without it 
-	local cmd="bin/hadoop jar $HADOOP_EXAMPLES_JAR_EXP teragen -Ddfs.replication=1 -Dmapred.map.tasks=${nmaps} ${dataSize}"
+	local cmd="eval $EXEC_JOB $HADOOP_EXAMPLES_JAR_EXP teragen -D${DFS_REPLICATIONS}=1 -D${MAP_TASKS}=${nmaps} ${dataSize}"
 	bash $SCRIPTS_DIR/generateData.sh "$cmd" "$CACHE_FLUSHING_DATA_DIR" "1" "$CACHE_FLUSHING_COUNT" "clear"
     errorHandler $? "Teragen Failed"
 }
@@ -32,7 +32,7 @@ teragenning ()
 	local nmaps=$((SLAVES_COUNT*MAX_MAPPERS))
 	local dataSize=`echo "scale=0; $FINAL_DATA_SET * $TERAGEN_GIGA_MULTIPLIER / 1" | bc` # DON'T REMOVE THAT "/ 1" ! the "scale=0" won't truncate the number without it
 	
-	local cmd="bin/hadoop jar $HADOOP_EXAMPLES_JAR_EXP teragen -Ddfs.replication=$INPUT_DATA_REPLICATIONS_COUNT -Dmapred.map.tasks=${nmaps} ${dataSize}"
+	local cmd="eval $EXEC_JOB $HADOOP_EXAMPLES_JAR_EXP teragen -D${DFS_REPLICATIONS}=$INPUT_DATA_REPLICATIONS_COUNT -D${MAP_TASKS}=${nmaps} ${dataSize}"
 	echo "$echoPrefix: teragenning"
 	bash $SCRIPTS_DIR/generateData.sh "$cmd" "$TERAGEN_DIR" "$GENERATE_COUNT" "$CURRENT_DATA_COUNT"
     errorHandler $? "Teragen Failed"
@@ -41,7 +41,7 @@ teragenning ()
 randomTextWriting ()
 {
 	local dataSize=`echo "scale=0; $FINAL_DATA_SET * $RANDOM_TEXT_WRITE_GIGA_MULTIPLIER / 1" | bc` # DON'T REMOVE THAT "/ 1" ! the "scale=0" won't truncate the number without it
-	local cmd="bin/hadoop jar $HADOOP_EXAMPLES_JAR_EXP randomtextwriter $CMD_RANDOM_TEXT_WRITE_PARAMS -Ddfs.replication=$INPUT_DATA_REPLICATIONS_COUNT -Dtest.randomtextwrite.total_bytes=${dataSize}"
+	local cmd="eval $EXEC_JOB $HADOOP_EXAMPLES_JAR_EXP randomtextwriter $CMD_RANDOM_TEXT_WRITE_PARAMS -D${DFS_REPLICATIONS}=$INPUT_DATA_REPLICATIONS_COUNT -D${RANDOM_TEXT_WRITER_DATASIZE}=${dataSize}"
 
 	echo "$echoPrefix: randomTextWriting"
 	bash $SCRIPTS_DIR/generateData.sh "$cmd" "$RANDOM_TEXT_WRITE_DIR" "$GENERATE_COUNT" "$CURRENT_DATA_COUNT"
@@ -51,7 +51,7 @@ randomTextWriting ()
 randomWriting ()
 {
 	local dataSize=`echo "scale=0; $FINAL_DATA_SET * $RANDOM_WRITE_GIGA_MULTIPLIER / 1" | bc` # DON'T REMOVE THAT "/ 1" ! the "scale=0" won't truncate the number without it
-	local cmd="bin/hadoop jar $HADOOP_EXAMPLES_JAR_EXP randomwriter $CMD_RANDOM_WRITE_PARAMS -Ddfs.replication=$INPUT_DATA_REPLICATIONS_COUNT -Dtest.randomwrite.total_bytes=${dataSize}"
+	local cmd="eval $EXEC_JOB $HADOOP_EXAMPLES_JAR_EXP randomwriter $CMD_RANDOM_WRITE_PARAMS -D${DFS_REPLICATIONS}=$INPUT_DATA_REPLICATIONS_COUNT -D${RANDOM_WRITER_DATASIZE}=${dataSize}"
 	
 	echo "$echoPrefix: randomWriting"
 	bash $SCRIPTS_DIR/generateData.sh "$cmd" "$RANDOM_WRITE_DIR" "$GENERATE_COUNT" "$CURRENT_DATA_COUNT"
@@ -85,23 +85,23 @@ generatingData()
 	# generating the correct data-source for the test
 	if (($TERAGEN == 1));then 
 		if (($FORCE_DATA_GENERATION == 1));then
-			bin/hadoop fs -rmr $TERAGEN_DIR
+			eval $HADOOP_FS_RMR $TERAGEN_DIR
 			teragenning
-		elif ((`bin/hadoop fs -ls $TERAGEN_DIR | grep -c $CURRENT_DATA_COUNT*` == 0));then
+		elif ((`$HADOOP_FS -ls $TERAGEN_DIR | grep -c $CURRENT_DATA_COUNT*` == 0));then
 			teragenning
 		fi
 	elif (($RANDOM_TEXT_WRITE == 1));then
 		if (($FORCE_DATA_GENERATION == 1));then
-			bin/hadoop fs -rmr $RANDOM_TEXT_WRITE_DIR
+			eval $HADOOP_FS_RMR $RANDOM_TEXT_WRITE_DIR
 			randomTextWriting
-		elif ((`bin/hadoop fs -ls $RANDOM_TEXT_WRITE_DIR | grep -c $CURRENT_DATA_COUNT*` == 0));then
+		elif ((`$HADOOP_FS -ls $RANDOM_TEXT_WRITE_DIR | grep -c $CURRENT_DATA_COUNT*` == 0));then
 			randomTextWriting
 		fi
 	elif (($RANDOM_WRITE == 1));then
 		if (($FORCE_DATA_GENERATION == 1));then
-			bin/hadoop fs -rmr $RANDOM_WRITE_DIR
+			eval $HADOOP_FS_RMR $RANDOM_WRITE_DIR
 			randomWriting
-		elif ((`bin/hadoop fs -ls $RANDOM_WRITE_DIR | grep -c $CURRENT_DATA_COUNT` == 0));then
+		elif ((`$HADOOP_FS -ls $RANDOM_WRITE_DIR | grep -c $CURRENT_DATA_COUNT` == 0));then
 			randomWriting
 		fi
 	fi
@@ -136,15 +136,14 @@ do
 	do
 
 		echo "$echoPrefix: Cleaning $outputDir HDFS library"
-		echo "$echoPrefix: bin/hadoop fs -rmr $outputDir"
-		bin/hadoop fs -rmr $outputDir
+		eval $HADOOP_FS_RMR $outputDir
 		sleep 10
 
 		echo "$echoPrefix: Running test on cluster of $clusterNodes slaves with $mappers mappers, $reducers reducers per TT"
 		# flushing the cache and cleaning log files
 		if (($CACHE_FLUHSING == 1));then
 			echo "$echoPrefix: Cleaning buffer caches" 
-			sudo bin/slaves.sh $SCRIPTS_DIR/cache_flush.sh
+			eval sudo $EXEC_SLAVES $SCRIPTS_DIR/cache_flush.sh
 		fi
 		#TODO: above will only flash OS cache; still need to flash disk cache
 		sleep 3
@@ -152,8 +151,8 @@ do
 		echo "$echoPrefix: Cleaning logs directories (history & userlogs)"
 		rm -rf $MY_HADOOP_HOME/$USERLOGS_RELATIVE_PATH/*
 		rm -rf $MY_HADOOP_HOME/$LOGS_HISTORY_RELATIVE_PATH/*
-		bin/slaves.sh rm -rf $MY_HADOOP_HOME/$USERLOGS_RELATIVE_PATH/*
-		bin/slaves.sh rm -rf $MY_HADOOP_HOME/$LOGS_HISTORY_RELATIVE_PATH/*
+		eval $EXEC_SLAVES rm -rf $MY_HADOOP_HOME/$USERLOGS_RELATIVE_PATH/*
+		eval $EXEC_SLAVES rm -rf $MY_HADOOP_HOME/$LOGS_HISTORY_RELATIVE_PATH/*
 
 		# finding the correct data-source for the terasort
 		if (($TERAGEN != 0));then
@@ -171,15 +170,7 @@ do
 				dataDir=$WORDCOUNT_DEFAULT_INPUT_DIR
 			fi
 		fi
-		# calculating the number of the next data to process
-		#if (($CACHE_FLUHSING == 1));then
-		#	tmp=$((lastDatasetNum+sample-1))
-		#	currentData=$((tmp%GENERATE_COUNT + 1))
-		#	chaceFlush #################################################################################
-		#else
-		#	currentData=1
-		#fi
-		################
+
 		currentData=1
 		if (($CACHE_FLUHSING == 1));then
 			chaceFlushManager
@@ -188,14 +179,14 @@ do
 		# this is the command to run:
 		export TEST_INPUT_DIR="$dataDir/${CURRENT_DATA_COUNT}.${currentData}"
 		export TEST_OUTPUT_DIR="$outputDir"
-		export USER_CMD="$CMD_PREFIX $HADOOP_EXAMPLES_JAR_EXP $CMD_PROGRAM $CMD_D_PARAMS $COMPRESSION_D_PARAMETERS $TEST_INPUT_DIR $TEST_OUTPUT_DIR"
-		#export USER_CMD="$CMD_PREFIX $CMD_JAR_EXP $CMD_PROGRAM $CMD_D_PARAMS $TEST_INPUT_DIR $TEST_OUTPUT_DIR"
+		export USER_CMD="$EXEC_JOB $HADOOP_EXAMPLES_JAR_EXP $CMD_PROGRAM $CMD_UDA_ENABLE $CMD_D_PARAMS $COMPRESSION_D_PARAMETERS $TEST_INPUT_DIR $TEST_OUTPUT_DIR"
+		#export USER_CMD="$EXEC_JOB $CMD_JAR_EXP $CMD_PROGRAM $CMD_UDA_ENABLE $CMD_D_PARAMS $TEST_INPUT_DIR $TEST_OUTPUT_DIR"
 		echo "$echoPrefix: the command is: $USER_CMD"
 		
 		if [[ $PROGRAM == "wordcount" ]];then
 			export TEST_OUTPUT_DIR_VANILLA="${WORDCOUNT_DIR}${WORDCOUNT_TEST_HDFS_DIR_SUFFIX}"
-			export USER_CMD_VANILLA="$CMD_PREFIX $HADOOP_EXAMPLES_JAR_EXP $CMD_PROGRAM $COMPRESSION_D_PARAMETERS"
-			#export USER_CMD_VANILLA="$CMD_PREFIX $CMD_JAR_EXP $CMD_PROGRAM"
+			export USER_CMD_VANILLA="$EXEC_JOB $HADOOP_EXAMPLES_JAR_EXP $CMD_PROGRAM $COMPRESSION_D_PARAMETERS"
+			#export USER_CMD_VANILLA="$EXEC_JOB $CMD_JAR_EXP $CMD_PROGRAM"
 		fi
 		
 		export LOG_PREFIX="${LOG_PREFIX}.N${FINAL_DATA_SET}G.N${mappers}m.N${reducers}r.log.${sample}"
@@ -251,7 +242,7 @@ done # sample
 	
 if (($DELETE_DATA==1));then
 	echo "$echoPrefix: deleting the datasets of $dataDir/$CURRENT_DATA_COUNT by user demand"
-	bin/hadoop fs -rmr $dataDir/$CURRENT_DATA_COUNT*
+	eval $HADOOP_FS_RMR $dataDir/$CURRENT_DATA_COUNT*
 fi
 
 echo "export ${PROGRAM}_LAST_DATASET_NUM='$currentData'" >> $TMP_DIR/sortcountRunnerExports.sh

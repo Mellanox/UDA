@@ -11,7 +11,7 @@ fi
 
 echo "$echoPrefix: building the tests-files at $confDir"
 
-envSourceFile=$BASE_DIR/$envName/envExports.sh
+envSourceFile=$BASE_DIR/$envName/$ENV_EXPORTS_FILENAME
 source $envSourceFile
 
 rawConfDir=$CONFIGURATION_FILES_DIR/$envName # THIS IS THE ONLY EXPORT INTERFERE MOVING THIS SCRIPT NEXT TO THE SETUPS-PARESR
@@ -27,7 +27,22 @@ cp "$TEST_CONF_FILE" $rawConfDir
 # 	one each cluster setup: script named "general.sh", that contains the needed exports
 #	for every test: exports-file and (if needed) configuration files (XMLs)
 
-awk -v seed=$RANDOM -v confsFolderDir=$confDir -v setupPrefix=$SETUP_DIR_PREFIX -v testDirPrefix=$TEST_DIR_PREFIX -v interface=$INTERFACE -v master="$MASTER" -v slavesBySpaces="$SLAVES_BY_SPACES" -v udaProviderProp="$UDA_PROVIDER_PROP" -v udaProviderValue="$UDA_PROVIDER_VALUE" -v udaConsumerProp="$UDA_CONSUMER_PROP" -v udaConsumerValue="$UDA_CONSUMER_VALUE" -f $SCRIPTS_DIR/parseTests.awk "$TEST_CONF_FILE"
+awk -v seed=$RANDOM \
+ -v confsFolderDir=$confDir \
+ -v setupPrefix=$SETUP_DIR_PREFIX \
+ -v testDirPrefix=$TEST_DIR_PREFIX \
+ -v yarnFlag=$YARN_HADOOP_FLAG \
+ -v interface=$INTERFACE \
+ -v master="$MASTER_FOR_XMLS" \
+ -v slavesBySpaces="$SLAVES_BY_SPACES" \
+ -v udaProviderProp="$UDA_PROVIDER_PROP" \
+ -v udaProviderValue="$UDA_PROVIDER_VALUE" \
+ -v udaConsumerProp="$UDA_CONSUMER_PROP" \
+ -v udaConsumerValue="$UDA_CONSUMER_VALUE" \
+ -v udaConsumerProp2="$UDA_CONSUMER_PROP2" \
+ -v udaConsumerValue2="$UDA_CONSUMER_VALUE2" \
+ -v disableUda="$DISABLE_UDA_FLAG" \
+ -f $SCRIPTS_DIR/parseTests.awk "$TEST_CONF_FILE"
 if (($?!=0));then
 	echo "$echoPrefix: error during executing the parser script" | tee $ERROR_LOG
 	exit $EEC1
@@ -50,5 +65,4 @@ fi
 
 echo "
 	#!/bin/sh
-	#`cat $confDir/allSetupsExports.sh`
 " > $SOURCES_DIR/configureTestsExports.sh

@@ -38,9 +38,9 @@ for sample in `seq 1 $NSAMPLES` ; do
 	#prepareTest
 	
 	echo "$echoPrefix: running pi"
-	eval bin/hadoop fs -rmr $PI_HDFS_TEMP_DIR/PiEstimator_TMP*
-	export USER_CMD="$CMD_PREFIX $HADOOP_EXAMPLES_JAR_EXP $CMD_PROGRAM $CMD_D_PARAMS $COMPRESSION_D_PARAMETERS $PI_MAPPERS $PI_SAMPLES"
-	#export USER_CMD="$CMD_PREFIX $CMD_JAR_EXP $CMD_PROGRAM $CMD_D_PARAMS $PI_MAPPERS $PI_SAMPLES"
+	eval $HADOOP_FS_RMR $PI_HDFS_TEMP_DIR/PiEstimator_TMP*
+	export USER_CMD="$EXEC_JOB $HADOOP_EXAMPLES_JAR_EXP $CMD_PROGRAM $CMD_UDA_ENABLE $CMD_D_PARAMS $COMPRESSION_D_PARAMETERS $PI_MAPPERS $PI_SAMPLES"
+	#export USER_CMD="$EXEC_JOB $CMD_JAR_EXP $CMD_PROGRAM $CMD_UDA_ENABLE $CMD_D_PARAMS $PI_MAPPERS $PI_SAMPLES"
 	bash $SCRIPTS_DIR/mr-dstatExcel.sh $collectionTempDir $collectionDestDir $executionFolder $execLogExports $PI_JOBS_DIR_NAME
 	#*****************#
 	source $collectionDestDir/execLogExports.sh

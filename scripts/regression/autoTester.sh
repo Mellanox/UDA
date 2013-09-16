@@ -203,8 +203,8 @@ fi
 
 	# configure cluster phase - building the configuration files and the test files
 flowManager "configure-cluster"
+echo "$echoPrefix: *** Cluster-configuration phase ***"
 if (($controlVal==1));then
-	echo "$echoPrefix: *** Cluster-configuration phase ***"
 	bash $SCRIPTS_DIR/configureClusterMain.sh
 	errorHandler $? "configure-cluster"
 	sourcing $SOURCES_DIR/configureClusterExports.sh

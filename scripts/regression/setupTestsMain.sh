@@ -25,7 +25,8 @@ setLogMtt ()
 	fi
 	
 	echo "$echoPrefix: restarting open-ibd"
-	bash $SCRIPTS_DIR/commandExecuter.sh "sudo ssh $node $OPENIBD_PATH restart" 5 600
+	bash $SCRIPTS_DIR/functionsLib.sh "execute_command" 5 600 "sudo ssh $node $OPENIBD_PATH restart" 
+	#bash $SCRIPTS_DIR/commandExecuter.sh "sudo ssh $node $OPENIBD_PATH restart" 5 600
 	if (($? != 0));then
 		echo "$echoPrefix: failing to restart the open-ibd" | tee $ERROR_LOG
 		exit $EEC1
@@ -97,7 +98,7 @@ setLog4j()
 
 setupConfsDir=$1
 echoPrefix=`eval $ECHO_PATTERN`
-master=`hostname`
+master=$MASTER
 logNumMttFlag=0
 
 source $setupConfsDir/general.sh
@@ -151,7 +152,8 @@ do
 done
 
 if (($logNumMttFlag==1));then
-	bash $SCRIPTS_DIR/commandExecuter.sh "pdsh -w $master,$SLAVES_BY_COMMAS echo" 15 60
+	bash $SCRIPTS_DIR/functionsLib.sh "execute_command" 15 60 "pdsh -w $master,$SLAVES_BY_COMMAS echo" # a way to wait till the ssh ability will recover
+	#bash $SCRIPTS_DIR/commandExecuter.sh "pdsh -w $master,$SLAVES_BY_COMMAS echo" 15 60
 fi
 
 echo "

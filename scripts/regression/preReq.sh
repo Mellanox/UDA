@@ -192,7 +192,7 @@ checkSpaceOnDir()
 	retVal_checkSpaceOnDir=$errorFlag
 }
 
-checkHdfsSpace()
+setDirsValues()
 {
 	setVarValue $MAPRED_LOCAL_DIR_MIN_SPACE $DEFAULT_MAPRED_LOCAL_DIR_MIN_SPACE
 	MAPRED_LOCAL_DIR_MIN_SPACE=$retVal_setVarValue # 2GB default value
@@ -205,6 +205,11 @@ checkHdfsSpace()
 
 	setVarValue $DFS_DATA_DIR_MIN_SPACE $DEFAULT_DFS_DATA_DIR_MIN_SPACE
 	DFS_DATA_DIR_MIN_SPACE=$retVal_setVarValue
+}
+
+checkHdfsSpace()
+{
+	setDirsValues
 
 	local errorFlag=0
 
@@ -282,6 +287,26 @@ checkCpuUsage()
 	checkFinish $errorFlag
 }
 
+checkInodes()
+{
+	setDirsValues
+	echo "$echoPrefix: ~~~ Checking INODES ~~~"
+	local errorFlag=0
+	local ALL="$MASTER $SLAVES_BY_SPACES"
+	for j in $ALL
+	do
+		for i in {$HADOOP_TMP_DIR_BY_SPACES,$DFS_NAME_DIR_BY_SPACES,$MAPRED_LOCAL_DIR_BY_SPACES,$DFS_DATA_DIR_BY_SPACES}
+		do
+			currentInodesRatio=`ssh $j df -i $i | tail -1 | awk -v def=$DEFAULT_MIN_INODES_PERCENT '{ print ((100-$5)<def)?1:0 }'`
+			if [ "$currentInodesRatio" == "1" ]; then
+				echo "$echoPrefix: ${bold}ERROR:${normal} Not enough free INODES on dir $i on slave $j"
+				errorFlag=1
+			fi
+		done
+	done
+	checkFinish $errorFlag
+}
+
 # Default values
 bold=`tput bold`
 normal=`tput sgr0`
@@ -302,8 +327,8 @@ setVarValue()
 {
 	local property=$1
 	local default=$2
-	if [ -z $property ]; then
-		if [ -z $default ]; then
+	if [ -z "$property" ]; then
+		if [ -z "$default" ]; then
 			echo "$echoPrefix: function setVarValue() failed - both property and default value are not set."
 			exit $EEC3
 		else
@@ -314,18 +339,19 @@ setVarValue()
 	fi
 }
 
-while getopts ":rlncwbiph" Option
+while getopts ":rlncwbiphd" Option
 do
 	case ${Option} in
 			"r"	) checkRamUsage ;; #ramFlag=1 ;;
 			"l"	) checkLocalLoggerSpace ;; #localLoggersSpaceFlag=1 ;; 
 			"n"	) checkNfsLoggerSpace ;; #nfsLoggersSpaceFlag=1 ;;
 			"c"	) checkCpuUsage ;; #cpuFlag=1 ;; 
-			"w"	) checkSwapoff ;;# swapoffFlag=1 ;; 
+			"w"	) checkSwapoff ;; #swapoffFlag=1 ;; 
 			"b"	) checkBaseFreeSpace ;; #baseFreeSpaceFlag=1 ;;
 			"i"	) checkBaseFreeSpaceInit ;; # baseFreeSpaceMasterInitFlag=1 ;;
-			"p"	) checkPermissions ;;#permissionsFlag=1 ;; 
+			"p"	) checkPermissions ;; #permissionsFlag=1 ;; 
 			"h"	) checkHdfsSpace ;; #hdfsSpaceFlag=1 ;;
+			"d" ) checkInodes ;; 
 			*	) echo "$echoPrefix: wrong input" ;  exit $SEC ;;   # Default.
 	esac
 done

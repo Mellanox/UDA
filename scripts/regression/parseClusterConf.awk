@@ -43,7 +43,8 @@ function manageFlags()
 	build=0
 	rpm=0
 	unspreadConf=0
-
+	disableUda=0
+	
 	split(values["flags"],params,/[[:space:]]*/)
 	for (p in params)
 	{
@@ -53,12 +54,14 @@ function manageFlags()
 			rpm=1
 		if (params[p] == unspreadConfFlag)
 			unspreadConf=1
-			
+		if (params[p] == disableUdaFlag)
+			disableUda=1
 	}
 	
 	print "export BUILD_FLAG=" build >> envExports
 	print "export RPM_FLAG=" rpm >> envExports
 	print "export UNSPREAD_CONF_FLAG=" unspreadConf >> envExports	
+	print "export DISABLE_UDA_FLAG=" disableUda >> envExports	
 		
 		# cleanning the array	
 	split("", params)	
@@ -91,6 +94,7 @@ BEGIN{
 	buildFlag="b"
 	rpmFlag="r"
 	unspreadConfFlag="u"
+	disableUdaFlag="disableUDA"
 	commaDelimitedPropsDelimiter=";"
 	
 	totalEnvs=0
@@ -102,9 +106,6 @@ BEGIN{
 	bashScriptsHeadline="#!/bin/sh"
 	generalEnvsExportsFile=sourcesDir"/generalEnvExports.sh"
 	system("echo '"bashScriptsHeadline "' > " generalEnvsExportsFile)
-
-	envExportFileName="envExports.sh"
-	preReqFileName="preReqSetup.sh"
 }
 
 ($1 ~ /environment_name/){
@@ -142,7 +143,8 @@ BEGIN{
 	hadoopValue=values["hadoop"]
 	print "export MY_HADOOP_HOME='" hadoopValue "'" >> envExports
 	splitsCount=split(hadoopValue,tmp,"/")
-	print "export GIT_HADOOP_DIRNAME='" tmp[splitsCount] "'" >> envExports
+	hadoopDirname=tmp[splitsCount]
+	print "export HADOOP_DIRNAME='" hadoopDirname "'" >> envExports
 	if (splitsCount == 1) # there are no slashes in this field
 	{
 		print "export CO_FLAG=1" >> envExports
@@ -152,10 +154,27 @@ BEGIN{
 		print "export LOCAL_HADOOP_DIR='" hadoopValue "'" >> envExports
 		print "export CO_FLAG=0" >> envExports
 	}
+
+	### parsing hadoopDirname from hadoop-x.y.z to x ###
+	splitsCount=split(hadoopDirname,tmp,"-")
+	splitsCount=split(tmp[2],tmp,".")
+	hadoopType=tmp[1]
+
+	if (hadoopType == 1)
+	{
+		yarnFlag=0
+		changeMachineNameFlag=0
+	}
+	else if ((hadoopType == 2) || (hadoopType == 2))
+	{
+		yarnFlag=1
+		changeMachineNameFlag=1
+	}
+	print "export HADOOP_TYPE='" hadoopType "'" >> envExports
+	print "export YARN_HADOOP_FLAG=" yarnFlag >> envExports
+	print "export CHANGE_MACHINE_NAME_FLAG=" changeMachineNameFlag >> envExports
 	
 	print "export RPM_JAR='" values["rpm_jar"] "'" >> envExports
-	print "export INTERFACE='" values["interface"] "'" >> envExports	
-
 	udaPlaceValue=values["rpm_dir"]
 	gitBranch=""
 	slashesDevs=split(udaPlaceValue, slashes ,"/")
@@ -197,22 +216,32 @@ BEGIN{
 
 	print "export HUGE_PAGES_COUNT='" values["huge_pages"] "'" >> envExports
 	print "export TEST_CONF_FILE='" values["test_conf_file"] "'" >> envExports
+	
+	interface=values["interface"]
 	master=values["master"]
+	masterForXmls=master"-"interface
+	print "export INTERFACE='" interface "'" >> envExports
 	print "export MASTER='" master "'" >> envExports
+	print "export MASTER_FOR_XMLS='" masterForXmls "'" >> envExports
 	# till we'll decide about the RES_SERVER policy:
 	print "export DEFAULT_RES_SERVER='" master  "'"  >> envExports
 	print "export RES_SERVER='" master  "'"  >> envExports
 	
 	slaves=values["slaves"]
-	gsub(commaDelimitedPropsDelimiter,",",slaves)
-	print "export SLAVES_BY_COMMAS='" slaves "'" >> envExports
-	slaves=values["slaves"]
-	gsub(commaDelimitedPropsDelimiter," ",slaves)
-	print "export SLAVES_BY_SPACES='" slaves "'" >> envExports
-	slaves=values["slaves"]
+	slavesByCommas=slaves
+	gsub(commaDelimitedPropsDelimiter,",",slavesByCommas)
+	print "export SLAVES_BY_COMMAS='" slavesByCommas "'" >> envExports
+	slavesBySpaces=slaves
+	gsub(commaDelimitedPropsDelimiter," ",slavesBySpaces)
+	print "export SLAVES_BY_SPACES='" slavesBySpaces "'" >> envExports
 	split(slaves, envSlaves, commaDelimitedPropsDelimiter)
 	for (slave in envSlaves)
 		allSlaves[envSlaves[slave]]=envSlaves[slave]
+	
+	envMachinesBySpaces= master " " slavesBySpaces
+	print "export ENV_MACHINES_BY_SPACES='" envMachinesBySpaces "'"  >> generalEnvsExportsFile
+	envMachinesByCommas= master "," slavesByCommas
+	print "export ENV_MACHINES_BY_COMMAS='" envMachinesByCommas "'"  >> generalEnvsExportsFile
 	
 	if (values["huge_pages"] ~ /[0-9]+/)
 		print "export HUGE_PAGES_FLAG=1" >> envExports
@@ -230,11 +259,17 @@ END{
 	allSlavesByCommas=""
 	for (slave in allSlaves)
 	{
-		allSlavesBySpaces= slave " " allSlavesByCommas
+		allSlavesBySpaces= slave " " allSlavesBySpaces
 		allSlavesByCommas= slave "," allSlavesByCommas
 	}
 	print "export ALL_SLAVES_BY_SPACES='" allSlavesBySpaces "'"  >> generalEnvsExportsFile
 	print "export ALL_SLAVES_BY_COMMAS='" allSlavesByCommas "'"  >> generalEnvsExportsFile
+	
+	allMachinesBySpaces= master " " allSlavesBySpaces
+	allMachinesByCommas= master "," allSlavesByCommas
+	print "export ALL_MACHINES_BY_SPACES='" allMachinesBySpaces "'"  >> generalEnvsExportsFile
+	print "export ALL_MACHINES_BY_COMMAS='" allMachinesByCommas "'"  >> generalEnvsExportsFile
+	
 	#print "export ERRORS='" errorDesc "'" >> generalEnvsExportsFile
 	#print errorDesc
 }

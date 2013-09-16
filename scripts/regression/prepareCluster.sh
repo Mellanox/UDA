@@ -4,9 +4,11 @@ echoPrefix=`eval $ECHO_PATTERN`
 
 pdsh -w $ALL_SLAVES_BY_COMMAS "sudo rm -rf $BASE_DIR; mkdir $BASE_DIR"
 
-# CHECKING PRE-REQs
+for machine in $ALL_MACHINES_BY_SPACES;do
+	bash $SCRIPTS_DIR/functionsLib.sh "set_hostnames" "$machine" "$machine" 
+done
 
-# checking the log-dirs free space
+# CHECKING PRE-REQs - checking the log-dirs free space
 echo "$echoPrefix: cheching pre-requests: bash $SCRIPTS_DIR/preReq.sh -n"
 bash $SCRIPTS_DIR/preReq.sh -n
 if (($? == $EEC3));then 

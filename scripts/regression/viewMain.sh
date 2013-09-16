@@ -4,7 +4,6 @@ echoPrefix=`eval $ECHO_PATTERN`
 headLine=$HEADLINE
 reportComment=$REPORT_COMMENT
 rpmLine="RPM: $INSTALLED_RPM"
-csvName=`basename $CSV_FILE`
 resultsDir=`awk -v dir=$CURRENT_NFS_RESULTS_DIR 'BEGIN{gsub("/.autodirect/", "" , dir); print dir}'`
 
 if (($COLLECT_FLAG == 1));then
@@ -34,8 +33,6 @@ echo "	<p><h3><font><i> $reportComment </i></font></h3></p>
 		<br>
 	" >> "$report"
 fi
-#<p><h4><a href=$WINDOES_DIR_PREFIX/$CURRENT_NFS_RESULTS_DIR/$csvName>Configuration File</a></h4></p>
-#echo "<p><h3><font color=$FONT_COLOR_2>Functionality tests passed $SUCCEEDED_TESTS out of $TOTAL_TESTS</font></h3></p>" >> "$report"
 
 for inter in $ENV_REPORT_DIRS;do
 	cat $inter >> "$report"
