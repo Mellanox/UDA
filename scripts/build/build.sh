@@ -53,7 +53,7 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 		# Hadoops fetch phase
 		rm -rf ${HADOOP_DIR}/*
 		cd ${HADOOPS_STORAGE_PATH}/${version}
-		if [[ "$version" == *vanilla* ]]; then
+		if [[ "$version" == *vanilla* ]] || [[ "$version" == *hdp* ]]; then
 			tar_filename=`basename *hadoop*.tar.gz .tar.gz`
 		elif [[ "$version" == *cdh* ]]; then
 			tar_filename=`basename *mr1*.tar.gz .tar.gz`
@@ -122,7 +122,7 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 			cp -f ./hadoop-dist/target/*.tar.gz ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.tar.gz
 			echo "Saved!"
 
-		elif [[ "$version" == *cdh_hadoop-2.0.0-cdh4.1.2* ]] || [[ "$version" == *cdh_hadoop-2.0.0-cdh4.2.1* ]]; then
+		elif [[ "$version" == *cdh_hadoop-2.0.0-cdh4.1.2* ]] || [[ "$version" == *cdh_hadoop-2.0.0-cdh4.2.1* ]] || [[ "$version" == *hdp_hadoop-1.0.3.16-hdp* ]]; then
 
 			# Remove old build
                         rm -rf ./build/
@@ -131,7 +131,8 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 
                         # Store the built patched hadoop jar build to target directory
                         echo -e "\nSaving the patched hadoop jar file in ${BUILD_TARGET_DESTINATION}..."
-                        cp ./build/*.jar ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.jar
+			jar_filename=`basename ./build/*core*.jar .jar`
+                        cp ./build/${jar_filename}.jar ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.jar
                         echo "Saved!"
 
 		else
