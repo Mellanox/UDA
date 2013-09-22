@@ -18,6 +18,7 @@
 */
 
 #include "SnappyDecompressor.h"
+#include "../config.h"
 
 snappy_status (*decompressor_func_ptr)(const char*, size_t, char*, size_t*);
 
@@ -44,7 +45,7 @@ void SnappyDecompressor::init() {
 void SnappyDecompressor::initDecompress() {
 	if (!snappy_loaded) {
 		// Load libsnappy.so
-		libsnappy = dlopen("libsnappy.so", RTLD_LAZY | RTLD_GLOBAL);
+		libsnappy = dlopen(HADOOP_SNAPPY_LIBRARY/*"libsnappy.so"*/, RTLD_LAZY | RTLD_GLOBAL);
 		if (!libsnappy) {
 			log(lsERROR, "Error loading snappy library ,%s", dlerror());
 			throw new UdaException("Error loading snappy library");

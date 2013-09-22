@@ -18,7 +18,7 @@
 
 AC_PREREQ(2.59)
 AC_INIT([libuda], [3.1], support@mellanox.com)
-
+AC_CONFIG_HEADER([config.h])
 AC_PREFIX_DEFAULT([`pwd`/bin])
 
 AC_PROG_LIBTOOL
@@ -46,7 +46,6 @@ AM_INIT_AUTOMAKE(foreign no-dist)
 
 ##AC_CONFIG_FILES([Makefile MOFServer/Makefile])
 AC_CONFIG_FILES([Makefile])
-
 
 AC_CONFIG_MACRO_DIR([./build/utils/m4])
 
@@ -93,5 +92,7 @@ AC_C_CONST
 AC_C_VOLATILE
 AC_FUNC_MALLOC
 AC_HEADER_STDBOOL
-AC_OUTPUT
 
+
+AC_CHECK_HEADERS([snappy-c.h], AC_COMPUTE_NEEDED_DSO(snappy,HADOOP_SNAPPY_LIBRARY), AC_MSG_WARN(Snappy headers were not found... building without snappy.))
+AC_OUTPUT
