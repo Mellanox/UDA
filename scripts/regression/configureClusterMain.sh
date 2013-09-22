@@ -6,7 +6,7 @@ sourcesDirForParser=$SOURCES_DIR
 
 cp "$CLUSTER_CONF_FILE" $CONFIGURATION_FILES_DIR
 
-echo "$echoPrefix: building the environments-files at $sourcesDirForParser"
+echo "$echoPrefix: building the environments-files at $sourcesDirForParser from $CLUSTER_CONF_FILE"                                      
 
 awk -v baseDir=$baseDirForParser \
  -v sourcesDir=$sourcesDirForParser \

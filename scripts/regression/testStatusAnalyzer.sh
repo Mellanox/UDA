@@ -188,6 +188,14 @@ managePerformanceTests()
 	performanceTestFlag=1
 }
 
+checkAndReturn()
+{
+	if (($retVal == 0));then
+		mapperRetVal=$retVal
+		return 0
+	fi
+}
+
 testToAnalyzerMapper()
 {
 	testID=$1
@@ -195,20 +203,14 @@ testToAnalyzerMapper()
 	# VUDA-43: some temporary lines till writing general solution
 	if [[ $testID == "VUDA-43" ]];then 
 		checkConsumerIsUp
-		if (($retVal == 0));then
-			mapperRetVal=$retVal
-			return 0
-		fi
+		checkAndReturn
 		checkFallback
 		inverseRetVal
 		mapperRetVal=$retVal
 		return 0
 	else
 		checkStatus "$exlTEST_STATUS"
-		if (($retVal == 0));then
-			mapperRetVal=$retVal
-			return 0
-		fi
+		checkAndReturn
 	fi
 	
 	if [[ $testID == "VUDA-00" ]];then
@@ -219,10 +221,7 @@ testToAnalyzerMapper()
 
 	if [[ $testID == "VUDA-35" ]];then 
 		checkUdaIsUp
-		if (($retVal == 0));then
-			mapperRetVal=$retVal
-			return 0
-		fi
+		checkAndReturn
 		checkFallback "illegal fetch request size of 0 or less bytes"
 		inverseRetVal
 		mapperRetVal=$retVal
@@ -231,35 +230,31 @@ testToAnalyzerMapper()
 
 	if [[ -n $COMPRESSION ]] && [[ $PROGRAM != "pi" ]] ;then	
 		setupCompressionAnalyzer
-		if (($retVal == 0));then
-				mapperRetVal=$retVal
-				return 0
-		fi
+		checkAndReturn
 	fi
-
-	checkUdaIsUp
-	if (($retVal == 0));then
-		mapperRetVal=$retVal
-		return 0
-	fi
-	checkFallback
+	
 	case ${testID} in
-		VUDA-11|VUDA-16|VUDA-20|VUDA-32|VUDA-33|VUDA-34|VUDA-36|VUDA-46	) inverseRetVal ;;
-		VUDA-35|VUDA-46 ) memoryAllocationForCompressionAnalyzer ;;
-		*	)
-			if (($retVal == 0));then
-				mapperRetVal=$retVal
-				return 0
-			fi
-			case ${testID} in
-				VUDA-17	) memoryAllocationAnalyzer "mid" ;;
-				VUDA-19	) memoryAllocationAnalyzer "max" ;;
-				VUDA-30	) setupCompressionAnalyzer;;
-				VUDA-31	) rpmInstallationAnalyzer;;
-				VUDA-21|VUDA-9|VUDA-12|VUDA-47	) echo "";;#checkStatus "$exlTEST_STATUS";;
-				VUDA-29	) managePerformanceTests;;
-				*	) echo "$testID has no Analyzer function" ;;   # Default.	
-			esac
+		VUDA-11|VUDA-16|VUDA-34|VUDA-36|VUDA-46 )
+			checkFallback
+			inverseRetVal
+			checkAndReturn
+			mapperRetVal=$retVal
+			return 0
+	esac
+			
+	checkUdaIsUp
+	checkAndReturn
+	checkFallback
+	checkAndReturn
+
+	case ${testID} in
+		VUDA-17	) memoryAllocationAnalyzer "mid" ;;
+		VUDA-19	) memoryAllocationAnalyzer "max" ;;
+		VUDA-30	) setupCompressionAnalyzer;;
+		VUDA-31	) rpmInstallationAnalyzer;;
+		VUDA-21|VUDA-9|VUDA-12|VUDA-47	) echo "";;#checkStatus "$exlTEST_STATUS";;
+		VUDA-29	) managePerformanceTests;;
+		*	) echo "$testID has no Analyzer function" ;;   # Default.	
 	esac
 	
 	mapperRetVal=$retVal

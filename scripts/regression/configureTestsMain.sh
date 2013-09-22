@@ -9,8 +9,6 @@ if ! mkdir -p $confDir;then
 	exit $EEC1
 fi
 
-echo "$echoPrefix: building the tests-files at $confDir"
-
 envSourceFile=$BASE_DIR/$envName/$ENV_EXPORTS_FILENAME
 source $envSourceFile
 
@@ -26,7 +24,7 @@ cp "$TEST_CONF_FILE" $rawConfDir
 # 	one for the whole session: script named "allSetupsExports.sh", that contains the needed exports
 # 	one each cluster setup: script named "general.sh", that contains the needed exports
 #	for every test: exports-file and (if needed) configuration files (XMLs)
-
+echo "$echoPrefix: building the tests-files at $confDir from $TEST_CONF_FILE"                                                            
 awk -v seed=$RANDOM \
  -v confsFolderDir=$confDir \
  -v setupPrefix=$SETUP_DIR_PREFIX \
