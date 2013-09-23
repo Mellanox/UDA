@@ -87,12 +87,12 @@ do
 	source $execDir/testLogExports.sh
 	
 	shuffP=$FAILURE_CODE
-	if (($SHUFFLE_PROVIDER == 1));then
+	if [[ "$SHUFFLE_PROVIDER" == "1" ]];then
 		shuffP=$SUCCESS_CODE
 	fi
 	
 	shuffC=$FAILURE_CODE
-	if (($SHUFFLE_CONSUMER == 1));then
+	if [[ "$SHUFFLE_CONSUMER" == "1" ]];then
 		shuffC=$SUCCESS_CODE
 	fi	
 	
