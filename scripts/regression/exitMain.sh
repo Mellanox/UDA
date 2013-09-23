@@ -13,15 +13,24 @@ if ! cat $errorLog | grep -c "";then
 	rm -f $errorLog
 fi
 
+#if ! cat $errorLog | grep -c "";then
+#	rm -f $errorLog
+#fi
+
 #if [[ -n $RESTART_CLUSTER_CONF_FLAG ]];then
 #	sudo pdsh -w $RELEVANT_SLAVES_BY_COMMAS "bash $EXIT_SCRIPTS_SLAVES | tee $STATUS_DIR/exitScriptValidation.txt"
 #fi
 
 # zipping the results
 if (($ZIP_FLAG==1));then
-	cd $CURRENT_NFS_RESULTS_DIR/..
+	cd `dirname $CURRENT_NFS_RESULTS_DIR`
+	jobName=`basename $CURRENT_NFS_RESULTS_DIR`
 	#gzip -rf $CURRENT_NFS_RESULTS_DIR
-	if ! tar zcf $CURRENT_NFS_RESULTS_DIR.tgz $CURRENT_NFS_RESULTS_DIR 2> $DEV_NULL_PATH
+	echo "$echoPrefix: Current dir is"
+	pwd
+	echo "$echoPrefix: Performing tar zcf $jobName.tgz $jobName"
+	tar zcf $jobName.tgz $jobName 2> $DEV_NULL_PATH
+	if [[ "$?" != "0" ]];
 	then
 		echo "$echoPrefix: error creating tgz file. Please, Try manually: tar zcf $CURRENT_NFS_RESULTS_DIR.tgz $CURRENT_NFS_RESULTS_DIR" | tee $ERROR_LOG
 		exit 1
