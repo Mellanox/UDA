@@ -114,13 +114,28 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 
 		elif [[ "$version" == *vanilla_hadoop-2* ]] || [[ "$version" == *vanilla_hadoop-3* ]]; then
 
-			${MAVEN_PATH} package $MAVEN_BUILD_PARAMS
+			${MAVEN_PATH} package $MAVEN_BUILD_PARAMS > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}.txt
 			echo -e "\n${GREEN}$version built!${NONE}"
 
 			# Store built patched hadoop to target directory in tar.gz form
 			echo -e "\nSaving the patched hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
 			cp -f ./hadoop-dist/target/*.tar.gz ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.tar.gz
 			echo "Saved!"
+
+			if [ $NATIVE_BUILD == "TRUE" ]; then
+				MAVEN_BUILD_PARAMS=$MAVEN_BUILD_PARAMS -Pnative
+                                echo -e "\n${YELLOW}--- Building $version as native---${NONE}"
+				# Remove old build
+                                rm -rf ./hadoop-dist/target/
+                                echo -e "\nBuild in progress! If needed, see ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}_native.txt for details."
+				${MAVEN_PATH} package $MAVEN_BUILD_PARAMS > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}_native.txt
+                                echo -e "\n${GREEN}$version built as native!${NONE}"
+
+                                # Store built patched native hadoop to target directory in tar.gz form
+                                echo -e "\nSaving the patched native hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
+				cp -f ./hadoop-dist/target/*.tar.gz ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}_native.tar.gz
+                                echo "Saved!"
+                        fi
 
 		elif [[ "$version" == *cdh_hadoop-2.0.0-cdh4.1.2* ]] || [[ "$version" == *cdh_hadoop-2.0.0-cdh4.2.1* ]] || [[ "$version" == *hdp_hadoop-1.0.3.16-hdp* ]]; then
 

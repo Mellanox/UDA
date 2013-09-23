@@ -83,6 +83,13 @@ if [ ! -e ${MAVEN_PATH} ]; then
         exit 1
 fi
 
+# Checks to see if cmake is installed
+which cmake > /dev/null 2>&1
+if [ $? != 0 ]; then
+	echo -e "\n${RED}Error: cmake not installed or found in PATH!${NONE}\n"
+        exit 1
+fi
+
 # Checks to see if Bullseye path is valid
 if [ ${USE_BULLSEYE} == "TRUE" ] && [ ! -e ${BULLSEYE_DIR} ]; then
         echo -e "\n${RED}Error: Bullseye not found!${NONE}\n"
