@@ -238,6 +238,7 @@ testToAnalyzerMapper()
 			checkFallback
 			inverseRetVal
 			checkAndReturn
+			checkStatus "$exlTEST_STATUS"
 			mapperRetVal=$retVal
 			return 0
 	esac
