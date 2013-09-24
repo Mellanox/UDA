@@ -20,6 +20,8 @@
 #include "SnappyDecompressor.h"
 #include "../config.h"
 
+#if defined HADOOP_SNAPPY_LIBRARY
+
 snappy_status (*decompressor_func_ptr)(const char*, size_t, char*, size_t*);
 
 SnappyDecompressor::SnappyDecompressor(int port, reduce_task_t* reduce_task) :
@@ -101,3 +103,6 @@ uint32_t SnappyDecompressor::getNumUncompressedBytes(char* buf) {
 uint32_t SnappyDecompressor::getBlockSizeOffset() {
 	return 8;
 }
+
+
+#endif //define HADOOP_SNAPPY_LIBRARY
