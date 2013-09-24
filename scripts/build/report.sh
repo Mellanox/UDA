@@ -10,7 +10,7 @@
 echo -e "\n${YELLOW}Generating report...${NONE}"
 
 # Title
-MAIL_MESSAGE="<h1>UDA Daily Build Report</h1><br>"
+MAIL_MESSAGE="<h1>UDA|HADOOP Daily Build Report</h1><br>"
 
 # Target
 MAIL_MESSAGE=${MAIL_MESSAGE}"The built products can be found in <b>"${BUILD_POOL}"</b><br>"

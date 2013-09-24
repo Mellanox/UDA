@@ -10,7 +10,7 @@
 MAIL_DETAILS=$1
 MAIL_MESSAGE=$2
 
-subject=`cat $MAIL_DETAILS | sed -n '1 p'`
+subject=`cat $MAIL_DETAILS | sed -n '1 p' | sed 's/_/ /g'`
 attachment=`cat $MAIL_DETAILS | sed -n '2 p'`
 recipients=`cat $MAIL_DETAILS | sed -n '3 p'`
 
