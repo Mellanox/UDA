@@ -20,23 +20,49 @@
 package org.apache.hadoop.mapred;
 
 import java.io.IOException;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.Task;
 import org.apache.hadoop.mapred.Task.TaskReporter;
 import org.apache.hadoop.mapred.ReduceTask;
 import org.apache.hadoop.util.ReflectionUtils;
-import org.apache.hadoop.fs.FileSystem;
+
+import com.mellanox.hadoop.mapred.UdaRuntimeException;
+import com.mellanox.hadoop.mapred.Utils;
 
 public class UdaMapredBridge {
 
+	static final Log LOG = LogFactory.getLog(ShuffleConsumerPlugin.class.getCanonicalName());
+
 	public static ShuffleConsumerPlugin getShuffleConsumerPlugin(Class<? extends ShuffleConsumerPlugin> clazz, ReduceTask reduceTask,
 			TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws ClassNotFoundException, IOException  {
+
+		String type="vanilla";
 
 		if (clazz == null) {
 			clazz = ReduceTask.ReduceCopier.class;
 		}
 		ShuffleConsumerPlugin plugin = ReflectionUtils.newInstance(clazz, conf);
-		ShuffleConsumerPlugin.Context context = new ShuffleConsumerPlugin.Context(reduceTask, umbilical, conf, (TaskReporter) reporter);
+		ShuffleConsumerPlugin.Context context;
+
+		// 1st - try loading the method according to its vanilla signature
+		context = (ShuffleConsumerPlugin.Context)Utils.invokeConstructorReflection(ShuffleConsumerPlugin.Context.class,
+						new Class[] {ReduceTask.class, TaskUmbilicalProtocol.class, JobConf.class, TaskReporter.class}, new Object[] {reduceTask, umbilical, conf, (TaskReporter) reporter});
+		// if failed - this is probably CDH => try loading the method according to its CDH signature
+		if (context == null) {
+			type="cdh";
+			context = (ShuffleConsumerPlugin.Context)Utils.invokeConstructorReflection(ShuffleConsumerPlugin.Context.class,
+					new Class[] {TaskUmbilicalProtocol.class, JobConf.class, TaskReporter.class, ReduceTask.class}, new Object[] {umbilical, conf, (TaskReporter) reporter, reduceTask});
+		}
+
+		// still failed => we can't help
+		if( context == null) {
+			throw new UdaRuntimeException("could not create new instance of ShuffleConsumerPlugin.Context, not when ising its vanilla signature neither when using its CDH signature");
+		}
+
+		LOG.info("creating ShuffleConsumerPlugin.Context with "+type+" signature");
+
 		plugin.init(context);
 		return plugin;
 	}

@@ -20,6 +20,7 @@
 Makefile.in
 src/Makefile
 aclocal.m4
+src/acinclude.m4
 autom4te.cache
 config.h
 config.h.in

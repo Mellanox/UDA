@@ -20,13 +20,13 @@ package com.mellanox.hadoop.mapred;
 
 @SuppressWarnings("serial")
 public class UdaRuntimeException extends RuntimeException {
-	UdaRuntimeException(){
+	public UdaRuntimeException(){
 		super();
 	}
-	UdaRuntimeException(String s){
+	public UdaRuntimeException(String s){
 		super(s);
 	}
-	UdaRuntimeException(String s, Throwable t){
+	public UdaRuntimeException(String s, Throwable t){
 		super(s, t);
 	}
 }

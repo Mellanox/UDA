@@ -24,6 +24,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.MapTaskCompletionEventsUpdate;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
 import org.apache.hadoop.io.IntWritable;
 
 public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin, UdaConsumerPluginCallable{
@@ -31,9 +34,28 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin, Ud
 	UdaShuffleConsumerPluginShared  udaPlugin = new UdaShuffleConsumerPluginShared(this);
 
   @Override // callback from UdaConsumerPluginCallable
-	public RawKeyValueIterator pluginCreateKVIterator(ShuffleConsumerPlugin plugin, JobConf job, FileSystem fs, Reporter reporter)
-																										throws IOException, InterruptedException{
-		return plugin.createKVIterator(job, fs, reporter);
+	public RawKeyValueIterator pluginCreateKVIterator(ShuffleConsumerPlugin plugin, JobConf job, FileSystem fs, Reporter reporter) throws IOException, InterruptedException {
+
+	  	String type="vanilla";
+	    Object iterator;
+	    // 1st - try loading the method according to its vanilla signature
+	    iterator = Utils.invokeFunctionReflection(ShuffleConsumerPlugin.class, "createKVIterator",
+	    		new Class[] {JobConf.class, FileSystem.class, Reporter.class}, plugin, new Object[] {job, fs, reporter});
+
+	    // if failed - this is probably CDH => try loading the method according to its CDH signature
+	    if (iterator == null) {
+	    	type="cdh";
+	    	iterator = Utils.invokeFunctionReflection(ShuffleConsumerPlugin.class, "createKVIterator", new Class[] {}, plugin, new Object[] {});
+	    }
+
+    	// still failed => we can't help
+    	if (iterator == null) {
+    		throw new UdaRuntimeException("can't find createKVIterator not when using its vanilla signature neither when using its CDH signature");
+    	}
+
+    	UdaShuffleConsumerPluginShared.LOG.info("loading createKVIterator function with "+type+" signature");
+
+	    return (RawKeyValueIterator)iterator;
 	}
 
   @Override // callback from UdaConsumerPluginCallable
@@ -62,7 +84,28 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin, Ud
 
   @Override
 	public void init(ShuffleConsumerPlugin.Context context) throws IOException {
-		udaPlugin.init(context.getReduceTask(), context.getUmbilical(), context.getConf(), context.getReporter());
+
+	    Class noparams[] = {};
+	    Object conf;
+	    String type="vanilla";
+
+	    // 1st - try loading the method according to its vanilla signature
+	    conf = Utils.invokeFunctionReflection(ShuffleConsumerPlugin.Context.class, "getConf", noparams, context, new Object[] {});
+	    
+	    // if failed - this is probably CDH => try loading the method according to its CDH signature
+	    if (conf == null) {
+	    	type="cdh";
+	    	conf = Utils.invokeFunctionReflection(ShuffleConsumerPlugin.Context.class, "getJobConf", noparams, context, new Object[] {});
+	    }
+
+	    // still failed => we can't help
+	    if (conf == null) {
+	    	throw new UdaRuntimeException("can't find getConf method of vanilla or getJobConf of CDH");
+	    }
+
+	    UdaShuffleConsumerPluginShared.LOG.info("loading conf with "+type+" signature");
+
+	    udaPlugin.init(context.getReduceTask(), context.getUmbilical(), (JobConf)conf,  context.getReporter());
 	}
 
   @Override
@@ -70,10 +113,16 @@ public class UdaShuffleConsumerPlugin<K, V> implements ShuffleConsumerPlugin, Ud
 		return udaPlugin.fetchOutputs();
 	}
 
-  @Override
 	public RawKeyValueIterator createKVIterator(JobConf job, FileSystem fs, Reporter reporter) throws IOException {
 		return udaPlugin.createKVIterator(job, fs, reporter);
 	}
+
+
+	public RawKeyValueIterator createKVIterator() throws IOException {
+		FileSystem fs =  FileSystem.getLocal(udaPlugin.jobConf).getRaw(); // Avner: TODO: check
+		return udaPlugin.createKVIterator(udaPlugin.jobConf, fs, udaPlugin.reporter);
+	}
+
 
   @Override
 	public void close() {
