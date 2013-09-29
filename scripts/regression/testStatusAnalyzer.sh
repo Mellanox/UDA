@@ -70,24 +70,32 @@ setupCompressionAnalyzer()
 	
 	if (($retVal == 1));then
 		retVal=0
-		if [[ -z $COMPRESSION ]];then
-			compressionValid=0
-		elif [[ $COMPRESSION == "Snappy" ]];then
-			count=`$sshPrefix  grep -c \"INFO snappy.LoadSnappy: Snappy native library loaded\" $testDir/testOutput.txt`
-			echo count of snappy is: $count
-			if (($count != 1));then
+		if [[ "$YARN_HADOOP_FLAG" == "1" ]]; then
+			if [[ $COMPRESSION == "Snappy" ]]; then
+				count=`$sshPrefix grep \"brand-new compressor\" $testDir/slave*/$REDUCER_LOG_PATH | grep -c "snappy"`
+				if (($count == 0)); then
+					compressionValid=0
+				fi
+			fi
+		else 
+			if [[ -z $COMPRESSION ]];then
+				compressionValid=0
+			elif [[ $COMPRESSION == "Snappy" ]];then
+				count=`$sshPrefix  grep -c \"INFO snappy.LoadSnappy: Snappy native library loaded\" $testDir/testOutput.txt`
+				echo count of snappy is: $count
+				if (($count != 1));then
+					compressionValid=0
+				fi
+			elif [[ $COMPRESSION == "Lzo" ]];then
+				count=`$sshPrefix grep -c \"INFO compress.CodecPool: Got brand-new compressor\" $testDir/testOutput.txt`
+				echo count of LZO is: $count
+				if (($count != 1));then
+					compressionValid=0
+				fi
+			else
 				compressionValid=0
 			fi
-		elif [[ $COMPRESSION == "Lzo" ]];then
-			count=`$sshPrefix grep -c \"INFO compress.CodecPool: Got brand-new compressor\" $testDir/testOutput.txt`
-			echo count of LZO is: $count
-			if (($count != 1));then
-				compressionValid=0
-			fi
-		else
-			compressionValid=0
 		fi
-		
 		if (($compressionValid==1));then
 			echo "$echoPrefix: installation of the compression is valid"
 			retVal=1
@@ -188,11 +196,27 @@ managePerformanceTests()
 	performanceTestFlag=1
 }
 
+setRetValAndExit()
+{
+	valToSet=$1
+	if (($valToSet == 0));then
+        echo "export TEST_STATUS=0" >> $testExports
+	elif (($valToSet == 1));then
+        echo "export TEST_STATUS=1" >> $testExports
+	elif (($valToSet == 2));then
+        echo "export TEST_STATUS=0" >> $testExports
+        echo "export SETUP_FAILURE=1" >> $testExports
+	elif (($valToSet == 3));then
+        echo "export TEST_STATUS=1" >> $testExports
+        echo "export SETUP_FAILURE=" >> $testExports # SETUP_FAILURE is null
+	fi
+	exit 0
+}
+
 checkAndReturn()
 {
 	if (($retVal == 0));then
-		mapperRetVal=$retVal
-		return 0
+		setRetValAndExit 0
 	fi
 }
 
@@ -206,8 +230,7 @@ testToAnalyzerMapper()
 		checkAndReturn
 		checkFallback
 		inverseRetVal
-		mapperRetVal=$retVal
-		return 0
+		setRetValAndExit $retVal
 	else
 		checkStatus "$exlTEST_STATUS"
 		checkAndReturn
@@ -215,8 +238,7 @@ testToAnalyzerMapper()
 	
 	if [[ $testID == "VUDA-00" ]];then
 		managePerformanceTests
-		mapperRetVal=$retVal
-		return 0
+		setRetValAndExit $retVal
 	fi
 
 	if [[ $testID == "VUDA-35" ]];then 
@@ -224,8 +246,7 @@ testToAnalyzerMapper()
 		checkAndReturn
 		checkFallback "illegal fetch request size of 0 or less bytes"
 		inverseRetVal
-		mapperRetVal=$retVal
-		return 0
+		setRetValAndExit $retVal
 	fi
 
 	if [[ -n $COMPRESSION ]] && [[ $PROGRAM != "pi" ]] ;then	
@@ -239,8 +260,7 @@ testToAnalyzerMapper()
 			inverseRetVal
 			checkAndReturn
 			checkStatus "$exlTEST_STATUS"
-			mapperRetVal=$retVal
-			return 0
+			setRetValAndExit $retVal
 	esac
 			
 	checkUdaIsUp
@@ -258,7 +278,7 @@ testToAnalyzerMapper()
 		*	) echo "$testID has no Analyzer function" ;;   # Default.	
 	esac
 	
-	mapperRetVal=$retVal
+	setRetValAndExit $retVal
 }
 
 echoPrefix=`eval $ECHO_PATTERN`
@@ -279,15 +299,5 @@ testToAnalyzerMapper $TEST_IDS
 
 echo "export PERFORNAMCE_TEST=$performanceTestFlag" >> $testExports
 
-if (($mapperRetVal == 0));then
-        echo "export TEST_STATUS=0" >> $testExports
-elif (($mapperRetVal == 1));then
-        echo "export TEST_STATUS=1" >> $testExports
-elif (($mapperRetVal == 2));then
-        echo "export TEST_STATUS=0" >> $testExports
-        echo "export SETUP_FAILURE=1" >> $testExports
-elif (($mapperRetVal == 3));then
-        echo "export TEST_STATUS=1" >> $testExports
-        echo "export SETUP_FAILURE=" >> $testExports # SETUP_FAILURE is null
-fi
+
 

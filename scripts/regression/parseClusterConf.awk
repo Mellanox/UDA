@@ -82,13 +82,15 @@ BEGIN{
 	
 	preReqIndicator="#"
 	
-	compressionCodecProp="mapred.map.output.compression.codec"	
+	compressionCodecPropHadoop1="mapred.map.output.compression.codec"	
+	compressionCodecPropYarn="mapreduce.map.output.compress.codec"
 	compressionCodecValues["Snappy"]="org.apache.hadoop.io.compress.SnappyCodec"
 	compressionCodecValues["BZip2"]="org.apache.hadoop.io.compress.BZip2Codec"
 	compressionCodecValues["Gzip"]="org.apache.hadoop.io.compress.GzipCodec"
 	compressionCodecValues["Lzo"]="com.hadoop.compression.lzo.LzoCodec"
 	
-	compressionEnablerProp="mapred.compress.map.output"
+	compressionEnablerPropHadoop1="mapred.compress.map.output"
+	compressionEnablerPropYarn="mapreduce.map.output.compress"
 	compressionEnablerValue="true"
 
 	buildFlag="b"
@@ -208,8 +210,17 @@ BEGIN{
 	if (compressionType ~ /[A-Za-z0-9_]+/)
 	{
 		compressionEnabler=""
-		compressionEnabler="-D"compressionEnablerProp"="compressionEnablerValue
-		compressionValueDParams="-D" compressionCodecProp "=" compressionCodecValues[compressionType] " " compressionEnabler
+		if (yarnFlag == 0)
+		{
+			compressionEnabler="-D"compressionEnablerPropHadoop1"="compressionEnablerValue
+			finalCompressionCodecProp = compressionCodecPropHadoop1
+		}
+		else
+		{
+			compressionEnabler="-D"compressionEnablerPropYarn"="compressionEnablerValue
+			finalCompressionCodecProp = compressionCodecPropYarn 
+		}
+		compressionValueDParams="-D" finalCompressionCodecProp "=" compressionCodecValues[compressionType] " " compressionEnabler
 	}
 	print "export COMPRESSION='" compressionType "'" >> envExports
 	print "export COMPRESSION_D_PARAMETERS='" compressionValueDParams "'" >> envExports
