@@ -3,6 +3,14 @@
 #
 
 ================================
+Version: 3.2.2-0 - 2013-09-30
+================================
+
+FIXED
+	Issue #333910: Make the search path of libsnappy.so in UDA aligned
+with matching search path in Hadoop
+
+================================
 Version: 3.2.1-0.beta - 2013-08-04
 ================================
 
