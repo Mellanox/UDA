@@ -121,7 +121,7 @@ do
 					
 		source $testDir/execLogExports.sh
 		
-		if (($PERFORNAMCE_TEST==0));then
+		if [[ -z "$PERFORNAMCE_TEST" ]] || [[ "$PERFORNAMCE_TEST" == "0" ]];then
 			continue
 		fi
 		

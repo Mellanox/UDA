@@ -210,6 +210,7 @@ setRetValAndExit()
         echo "export TEST_STATUS=1" >> $testExports
         echo "export SETUP_FAILURE=" >> $testExports # SETUP_FAILURE is null
 	fi
+	echo "export PERFORNAMCE_TEST=$performanceTestFlag" >> $testExports
 	exit 0
 }
 
@@ -297,7 +298,7 @@ source $testExports
 
 testToAnalyzerMapper $TEST_IDS
 
-echo "export PERFORNAMCE_TEST=$performanceTestFlag" >> $testExports
+
 
 
 
