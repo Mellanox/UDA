@@ -20,7 +20,10 @@ envReport=$CURRENT_NFS_ENV_RESULTS_DIR/${REPORT_INTERMEDIATE_NAME}
 #<!-- 
 #-->
 echo "	<p><h2><font color=$FONT_COLOR_1>$ENV_NAME</font></h2></p>
-		<p><h3><font>version: $hadoopVersion</font></h3></p>
+		<p><h3><font>Version: $hadoopVersion</font></h3></p>
+		<p><h3><font>Master: $MASTER</font></h3></p>
+		<p><h3><font>Slaves: $SLAVES_BY_COMMAS</font></h3></p>
+		<p><h3><font>Interface: $INTERFACE</font></h3></p>
 		<br>
 	" >> "$envReport"
 
