@@ -40,6 +40,7 @@ awk -v seed=$RANDOM \
  -v udaConsumerProp2="$UDA_CONSUMER_PROP2" \
  -v udaConsumerValue2="$UDA_CONSUMER_VALUE2" \
  -v disableUda="$DISABLE_UDA_FLAG" \
+ -v compressionDParams="$COMPRESSION_D_PARAMETERS" \
  -f $SCRIPTS_DIR/parseTests.awk "$TEST_CONF_FILE"
 if (($?!=0));then
 	echo "$echoPrefix: error during executing the parser script" | tee $ERROR_LOG

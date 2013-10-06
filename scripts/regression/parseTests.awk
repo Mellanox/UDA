@@ -275,7 +275,16 @@ function exportMenager()
 	print "export NR_FILES="execParams["nrFiles"] >> exportsFile
 	print "export RDMA_BUF_SIZE="execParams["mapred.rdma.buf.size"] >> exportsFile
 	print "export RDMA_BUF_SIZE_MIN="execParams["mapred.rdma.buf.size.min"] >> exportsFile
-	print "export TEST_IDS="execParams["test_IDs"] >> exportsFile	
+	print "export TEST_IDS="execParams["test_IDs"] >> exportsFile
+
+	if (execParams["compression"] == emptyFieldFlag)
+	{
+		print "export COMPRESSION_TEST_LEVEL=''" >> exportsFile
+	}
+	else
+	{
+		print "export COMPRESSION_TEST_LEVEL='"compressionDParams "'" >> exportsFile
+	}
 	
 	if (yarnFlag == 1)
 	{	

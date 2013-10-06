@@ -250,7 +250,7 @@ testToAnalyzerMapper()
 		setRetValAndExit $retVal
 	fi
 
-	if [[ -n $COMPRESSION ]] && [[ $PROGRAM != "pi" ]] ;then	
+	if [[ -n $COMPRESSION_TEST_LEVEL ]] && [[ $PROGRAM != "pi" ]] ;then	
 		setupCompressionAnalyzer
 		checkAndReturn
 	fi

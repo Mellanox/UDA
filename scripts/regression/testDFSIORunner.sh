@@ -38,7 +38,7 @@ DFSIOread(){
 	collectionDestDir=$currentLogsDir/$executionFolder
 	mkdir -p $collectionTempDir
 	execLogExports=$collectionTempDir/execLogExports.sh
-	export USER_CMD="$EXEC_JOB $HADOOP_TEST_JAR_EXP $CMD_PROGRAM $CMD_UDA_ENABLE $CMD_D_PARAMS $COMPRESSION_D_PARAMETERS $CMD_TEST_DFSIO_PARAMS -read"
+	export USER_CMD="$EXEC_JOB $HADOOP_TEST_JAR_EXP $CMD_PROGRAM $CMD_UDA_ENABLE $CMD_D_PARAMS $COMPRESSION_TEST_LEVEL $CMD_TEST_DFSIO_PARAMS -read"
 	bash $SCRIPTS_DIR/mr-dstatExcel.sh $collectionTempDir $collectionDestDir $executionFolder $execLogExports $TEST_DFSIO_READ_DIR
 }
 
