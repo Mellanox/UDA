@@ -16,14 +16,7 @@ allSetupTestsExports=$TESTS_CONF_DIR/$ENV_FIXED_NAME/allSetupsExports.sh
 source $allSetupTestsExports
 echo "$echoPrefix: sourcing $allSetupTestsExports"
 
-if (($HADOOP_TYPE == 1));then
-	hadoopCommandsScript=$SCRIPTS_DIR/commandsOfHadoop1.sh
-elif (($HADOOP_TYPE == 2)) || (($HADOOP_TYPE == 3));then
-	hadoopCommandsScript=$SCRIPTS_DIR/commandsOfHadoop2.sh
-else
-	echo "$echoPrefix: unknown hadoop type (HADOOP_TYPE=$HADOOP_TYPE)" | tee $ERROR_LOG
-	exit $EEC1
-fi
+hadoopCommandsScript=$SCRIPTS_DIR/$HADOOP_SPECIAL_SCRIPT_NAME
 echo "$echoPrefix: hadoop type is $HADOOP_TYPE. sourcing $hadoopCommandsScript" 
 source $hadoopCommandsScript
 
@@ -72,7 +65,7 @@ echo "`cat $envExportsFile`
 	`cat $allSetupTestsExports`
 	export ENV_DATE='$currentDate'
 	export ENV_NAME='$clusterEnv'
-	export ENV_DIR=$envDir
+	export ENV_DIR='$envDir'
 	export STATUS_DIR='$statusDir'
 	export TMP_DIR='$tmpDir'
 	export CODE_COVERAGE_INTERMEDIATE_DIR='$codeCoverageIntermediateDir'

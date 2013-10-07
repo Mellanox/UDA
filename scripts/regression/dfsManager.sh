@@ -46,6 +46,8 @@ setPermissions()
 	echo "$PREFIX setting permissions of $DFS_PERMISSIONS in $dirsToSet on $machines"
 	echo "sudo pdsh -w $machines chmod -R $DFS_PERMISSIONS $dirsToSet"
 	sudo pdsh -w $machines "chmod -R $DFS_PERMISSIONS $dirsToSet"
+	echo "sudo pdsh -w $machines chown -R $USER $dirsToSet"
+	sudo pdsh -w $machines "chown -R $USER $dirsToSet"
 }
 
 managePartitionsDeletion()

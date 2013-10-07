@@ -13,10 +13,6 @@ if ! cat $errorLog | grep -c "";then
 	rm -f $errorLog
 fi
 
-#if ! cat $errorLog | grep -c "";then
-#	rm -f $errorLog
-#fi
-
 #if [[ -n $RESTART_CLUSTER_CONF_FLAG ]];then
 #	sudo pdsh -w $RELEVANT_SLAVES_BY_COMMAS "bash $EXIT_SCRIPTS_SLAVES | tee $STATUS_DIR/exitScriptValidation.txt"
 #fi

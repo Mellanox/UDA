@@ -455,6 +455,10 @@ function setSetupExports()
 	}
 	print "export RELEVANT_SLAVES_BY_SPACES='" relevantSlavesSpace "'" >> generalFile
 	print "export RELEVANT_SLAVES_BY_COMMAS='" relevantSlavesComma "'" >> generalFile
+	relevantMachinesSpace=master " " relevantSlavesSpace
+	relevantMachinesComma=master "," relevantSlavesComma
+	print "export RELEVANT_MACHINES_BY_SPACES='" relevantMachinesSpace "'" >> generalFile
+	print "export RELEVANT_MACHINES_BY_COMMAS='" relevantMachinesComma "'" >> generalFile
 	print "export LOGGER_PARAMS_AND_VALS='" log4jParamsAndVals "'" >> generalFile
 	
 	#if ("log_num_mtt" in execParams)
@@ -846,6 +850,6 @@ END{
 			allTestsNames=allTestsNames " " allTestsNamesInverse[i]
 	print "export ALL_TESTS_NAMES='" allTestsNames "'"  >> setupsFile
 	
-	print "export ERRORS='" errorDesc "'" >> setupsFile
+	print "export TESTS_ERRORS='" errorDesc "'" >> setupsFile
 	print errorDesc
 }

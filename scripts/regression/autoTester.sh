@@ -56,7 +56,7 @@ errorHandler ()
 			;;
 			control		)
 			;;
-			configure	)
+			configure-cluster|configure-tests	)
 			;;
 			setup-tests	)  
 			;;
@@ -106,7 +106,7 @@ flowManager()
 				controlVal=0
 			fi 
 		;;
-		configure	)  
+		configure-cluster|configure-tests	)  
 			if (($CONFIGURE_FLAG==0));then
 				controlVal=0
 			fi 
@@ -217,7 +217,7 @@ do
 	if (($controlVal==1));then
 		echo "$echoPrefix: *** Tests-configuration phase ***"
 		bash $SCRIPTS_DIR/configureTestsMain.sh $clusterEnv
-		errorHandler $? "configure"
+		errorHandler $? "configure-tests"
 		sourcing $SOURCES_DIR/configureTestsExports.sh
 	fi
 done

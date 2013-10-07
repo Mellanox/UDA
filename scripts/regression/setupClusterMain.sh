@@ -204,11 +204,11 @@ insertRowIntoFile()
 	
 	tmpFile=$TMP_DIR/$TEMP_SUFFIX
 	
-	if [[ -z "$forceNewRow" ]] && (( `grep -c "$indicator" "$destFile"` != 0 )); then
+	if [[ -n "$forceNewRow" ]] || [ ! -e $destFile ];then
+		echo "$row" >> "$destFile"
+	else
 		sed "/$indicator/ c $row" $destFile > $tmpFile
 		mv $tmpFile $destFile
-	else
-		echo "$row" >> "$destFile"
 	fi
 }
 	
@@ -306,7 +306,7 @@ if [[ $myHadoopHome == "/" ]];then
 	exit $EEC1
 fi
 
-hadoopConfDir=$myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH
+hadoopConfDir=$myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH
 hadoopEnv=$hadoopConfDir/$HADOOP_ENVS_SCRIPT_NAME
 hadoopClasspathLine="export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}"
 javaHomeLine="export JAVA_HOME=$JAVA_HOME"
@@ -327,7 +327,7 @@ else
 fi
 insertRowIntoFile "$hadoopClasspathLine" "export HADOOP_CLASSPATH=" "$hadoopEnv" "$forcingNewRowClasspath"
 
-#hadoopEnvTemp=$myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
+#hadoopEnvTemp=$myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh
 #sed "/export JAVA_HOME=/ c $javaHomeLine" $hadoopEnv > $hadoopEnvTemp
 #sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $hadoopEnvTemp > $hadoopEnv
 #sed "/export HADOOP_OPTS=/ c export HADOOP_OPTS=\"\${HADOOP_OPTS} -Djava.net.preferIPv4Stack=true -DudaHostName=\`hostname\`-${INTERFACE} \"" $hadoopEnv > $hadoopEnvTemp
@@ -339,23 +339,23 @@ if [[ $COMPRESSION == "Lzo" ]]; then
 	manageLzoResourcesFlag=1	
 	lzoLocalResourcesDir=$manageLzoResourcesFlagRetVal
 
-	echo "$echoPrefix: sed /export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}:${RPM_JAR}${LZO_JAR} $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh > $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh"
-	sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}:${LZO_JAR}" $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
+	echo "$echoPrefix: sed /export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}:${RPM_JAR}${LZO_JAR} $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh > $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh"
+	sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}:${LZO_JAR}" $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh
 	
-	echo "$echoPrefix: cat $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh"
-	mv $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
-	if [[ `cat $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh` == *JAVA_LIBRARY_PATH* ]]; then
+	echo "$echoPrefix: cat $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh"
+	mv $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh
+	if [[ `cat $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh` == *JAVA_LIBRARY_PATH* ]]; then
 		echo "$echoPrefix: Changing JAVA_LIBRARY_PATH in hadoop-env"
-		sed "/export JAVA_LIBRARY_PATH=/ c export JAVA_LIBRARY_PATH=$lzoLocalResourcesDir" $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
-		#mv $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
+		sed "/export JAVA_LIBRARY_PATH=/ c export JAVA_LIBRARY_PATH=$lzoLocalResourcesDir" $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh
+		#mv $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh
 	else
 		echo "$echoPrefix: there's no JAVA_LIBRARY_PATH exported in hadoop-env.sh "
-		echo "export JAVA_LIBRARY_PATH=$lzoLocalResourcesDir" >> $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
+		echo "export JAVA_LIBRARY_PATH=$lzoLocalResourcesDir" >> $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh
 	fi
 #else
-	#sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
-	#mv $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh
-	#rm -f $myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env2.sh
+	#sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh
+	#mv $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh
+	#rm -f $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh
 elif [[ $COMPRESSION == "Snappy" ]]
 then
 	for machine in $ENV_MACHINES_BY_SPACES
@@ -376,7 +376,7 @@ if (($CODE_COVE_FLAG==1)); then
 	covfileForBuildName=${CODE_COVERAGE_TEMPLATE_COVFILE_FILE_NAME}${CODE_COVERAGE_FILE_SUFFIX}
 	covfileForTestsName=${ENV_FIXED_NAME}${CODE_COVERAGE_FILE_SUFFIX}
 	covfileForTests=$covfileDirForTests/$covfileForTestsName
-	envFile="$myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/hadoop-env.sh"
+	envFile="$myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh"
 	covfileRow="export COVFILE=$covfileForTests"
 	covfileIndicator="export COVFILE="
 	insertRowIntoFile "$covfileRow" "$covfileIndicator" "$envFile"
@@ -385,7 +385,7 @@ fi
 echo -e \\n
 echo "$echoPrefix: MY_HADOOP_HOME is $myHadoopHome"
 sudo chown -R $USER $myHadoopHome
-#confDir=$myHadoopHome/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH
+#confDir=$myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH
 #scp $TESTS_DIR/slaves $confDir # copy the general slaves file, whick contains all of the slaves in the configuration-csv file, for setting-up the cluster 
 echo -e \\n
 
@@ -535,8 +535,8 @@ echo "$echoPrefix: finishing setting-up the cluster, under $myHadoopHome"
 echo "
 	#!/bin/sh
 	`cat $envSourceFile`
-	export MY_HADOOP_HOME='$myHadoopHome'
-	export HADOOP_CONF_DIR='$MY_HADOOP_HOME/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH'
+	export MY_HADOOP_HOME='$myHadoopHome/$HADOOP_HOME_RELATIVE_DIR'
+	#export HADOOP_CONF_DIR='$MY_HADOOP_HOME/$HADOOP_CONF_DIR_RELATIVE_PATH'
 	export HEADLINE='$headline'
 	if [[ -n '$currentRpm' ]];then
 		export INSTALLED_RPM='$currentRpm'

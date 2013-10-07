@@ -53,9 +53,9 @@ chmod -R $DIRS_PERMISSIONS $confDir
 # using the general exports of the tests
 source $confDir/allSetupsExports.sh
 
-if [[ $ERRORS != "" ]];then
+if [[ $TESTS_ERRORS != "" ]];then
 	if (($CONFIGURE_FLAG == 0));then
-		echo "$echoPrefix: errors has found in the tests-files: $ERRORS" | tee $ERROR_LOG
+		echo "$echoPrefix: errors has found in the tests-files: $TESTS_ERRORS" | tee $ERROR_LOG
 	else
 		echo "$echoPrefix: errors has found in the tests-files" | tee $ERROR_LOG
 	fi

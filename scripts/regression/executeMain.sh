@@ -32,13 +32,13 @@ copyConfFiles()
 	#	The permanent fix should be in setupTestMain.sh where after restarting openibd on all
 	# 	slaves, we wait until they all return.
 		copycount=0
-		scp -r $HADOOP_CONFIGURATION_DIR/* $slave:$HADOOP_CONFIGURATION_DIR > $DEV_NULL_PATH
+		scp -r $HADOOP_CONF_DIR/* $slave:$HADOOP_CONF_DIR > $DEV_NULL_PATH
 		while [ $? -eq 1 ] && [ $copycount -lt 10 ];
 		do
 			echo "Failed to copy conf files to $slave, trying again in 5 seconds"
 			sleep 5
 			copycount=$[$copycount+1]
-			scp -r $HADOOP_CONFIGURATION_DIR/* $slave:$HADOOP_CONFIGURATION_DIR > $DEV_NULL_PATH
+			scp -r $HADOOP_CONF_DIR/* $slave:$HADOOP_CONF_DIR > $DEV_NULL_PATH
 		done
 		if (($?==1));then
 			echo "$echoPrefix: failed to copy conf files to $slave after 10 attempts - assuming node is down" | tee $ERROR_LOG
@@ -133,8 +133,10 @@ manageDataGenerationInfo()
 }
 
 setupConfsDir=$1
+#export $MY_HADOOP_HOME=$MY_HADOOP_HOME/$HADOOP_HOME_RELATIVE_DIR
 cd $MY_HADOOP_HOME
-export HADOOP_CONFIGURATION_DIR="$MY_HADOOP_HOME/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH"
+
+
 hadoopVersion=`echo $(basename $MY_HADOOP_HOME) | sed s/[.]/_/g`
 if [ -z "$hadoopVersion" ];then
 	hadoopVersion="unknown-hadoop-version"
@@ -181,16 +183,16 @@ do
 	if (($RESTART_HADOOP==1))
 	then
 		if (($UNSPREAD_CONF_FLAG == 0));then
-			cp $testDir/*.xml ${HADOOP_CONFIGURATION_DIR}/
-			cp $testDir/masters ${HADOOP_CONFIGURATION_DIR}/
-			cp $testDir/slaves ${HADOOP_CONFIGURATION_DIR}/
+			cp $testDir/*.xml ${HADOOP_CONF_DIR}/
+			cp $testDir/masters ${HADOOP_CONF_DIR}/
+			cp $testDir/slaves ${HADOOP_CONF_DIR}/
 		fi
 
-		host=`head -1 $HADOOP_CONFIGURATION_DIR/slaves`
+		host=`head -1 $HADOOP_CONF_DIR/slaves`
 		host_tail=`[[  $host =~ "-" ]] && echo $host | sed 's/.*-//' || echo lan`
-		for host in `cat $HADOOP_CONFIGURATION_DIR/slaves`; do
+		for host in `cat $HADOOP_CONF_DIR/slaves`; do
 				if [ $host_tail !=  `[[  $host =~ "-" ]] && echo $host | sed 's/.*-//' || echo lan` ];then
-					echo "$echoPrefix: slave\'s hostnames are not matching for the same network interface: `cat $HADOOP_CONFIGURATION_DIR/slaves`" | tee $ERROR_LOG
+					echo "$echoPrefix: slave\'s hostnames are not matching for the same network interface: `cat $HADOOP_CONF_DIR/slaves`" | tee $ERROR_LOG
 					exit $EEC1
 				fi
 		done
@@ -201,7 +203,7 @@ do
 		fi
 
 		if (($UNSPREAD_CONF_FLAG == 0));then
-			copyConfFiles $HADOOP_CONFIGURATION_DIR/slaves
+			copyConfFiles $HADOOP_CONF_DIR/slaves
 		fi
 		
 		#if (($FIRST_STARTUP == 1)) && (($SAVE_HDFS_FLAG == 0));then

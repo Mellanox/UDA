@@ -99,6 +99,11 @@ BEGIN{
 	disableUdaFlag="disableUDA"
 	commaDelimitedPropsDelimiter=";"
 	
+	hadoopSpecialScripts["1"]="commandsOfHadoop1.sh"
+	hadoopSpecialScripts["2"]="commandsOfHadoop2.sh"
+	hadoopSpecialScripts["3"]="commandsOfHadoop2.sh" # got the same one as 2
+	hadoopSpecialScripts["CDH"]="commandsOfHadoopCDH.sh"
+	
 	totalEnvs=0
 	digitsCount=2 # that means thet the execution folders will contains 2 digits number. 2 -> 02 for instance
 	errorDesc=""
@@ -145,6 +150,14 @@ BEGIN{
 	hadoopValue=values["hadoop"]
 	print "export MY_HADOOP_HOME='" hadoopValue "'" >> envExports
 	splitsCount=split(hadoopValue,tmp,"/")
+	# to support case when the input ends with "/"
+	len=length(hadoopValue)
+	lastChar=substr(hadoopValue,len,1)
+	if (lastChar == "/")
+	{
+		splitsCount--	
+	}
+	
 	hadoopDirname=tmp[splitsCount]
 	print "export HADOOP_DIRNAME='" hadoopDirname "'" >> envExports
 	if (splitsCount == 1) # there are no slashes in this field
@@ -161,20 +174,27 @@ BEGIN{
 	splitsCount=split(hadoopDirname,tmp,"-")
 	splitsCount=split(tmp[2],tmp,".")
 	hadoopType=tmp[1]
-
-	if (hadoopType == 1)
+	print "export HADOOP_TYPE='" hadoopType "'" >> envExports
+	
+	if ((hadoopType == "1") || (hadoopType == "CDH"))
 	{
 		yarnFlag=0
 		changeMachineNameFlag=0
 	}
-	else if ((hadoopType == 2) || (hadoopType == 2))
+	else if ((hadoopType == "2") || (hadoopType == "3"))
 	{
 		yarnFlag=1
 		changeMachineNameFlag=1
 	}
-	print "export HADOOP_TYPE='" hadoopType "'" >> envExports
-	print "export YARN_HADOOP_FLAG=" yarnFlag >> envExports
-	print "export CHANGE_MACHINE_NAME_FLAG=" changeMachineNameFlag >> envExports
+	else
+	{
+		errorDesc=errorDesc  "unknown hadoop type (hadoop type = " hadoopType ")"
+		next
+	}
+
+	print "export YARN_HADOOP_FLAG='" yarnFlag "'" >> envExports
+	print "export CHANGE_MACHINE_NAME_FLAG='" changeMachineNameFlag "'" >> envExports
+	print "export HADOOP_SPECIAL_SCRIPT_NAME='" hadoopSpecialScripts[hadoopType] "'" >> envExports
 	
 	print "export RPM_JAR='" values["rpm_jar"] "'" >> envExports
 	udaPlaceValue=values["rpm_dir"]

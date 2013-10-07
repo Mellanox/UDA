@@ -1,5 +1,8 @@
 #!/bin/bash
 
+export HADOOP_LOGS_RELATIVE_DIR="logs"
+export USERLOGS_RELATIVE_PATH="$HADOOP_LOGS_RELATIVE_DIR/userlogs"
+export LOGS_HISTORY_RELATIVE_PATH="$HADOOP_LOGS_RELATIVE_DIR/history"
 export EXEC_JOB="bin/hadoop jar"
 export EXEC_SLAVES="bin/slaves.sh"
 export HADOOP_FS="bin/hadoop fs"
@@ -15,10 +18,10 @@ export MAPRED_START="bin/start-mapred.sh"
 export MAPRED_STOP="bin/stop-mapred.sh"
 export MAPRED_SERVICE_NAME="MapReduce (JobTracker and TaskTrackers)"
 export JAR_FILE_RELATIVE_DIR="" # NEEDS TO INCLUDE / IN THE END, IF NOT NULL
-export JOB_LOG_PATH="logs/hadoop-*-jobtracker-*.log" # IN HADOOP 2 AND 3 ITS "logs/yarn-*-resourcemanager*.log"
-export REDUCER_LOG_PATH="userlogs/job*/attempt*r*/syslog" # IN HADOOP 2 AND 3 ITS "logs/app*/cont*/syslog"
-export PROVIDER_LOG_PATH="hadoop*tasktracker*log*" # IN HADOOP 2 AND 3 ITS "yarn*nodemanager*log"
-export HADOOP_CONFIGURATION_DIR_RELATIVE_PATH="conf"
+export JOB_LOG_PATH="$HADOOP_LOGS_RELATIVE_DIR/hadoop-*-jobtracker-*.log"
+export REDUCER_LOG_PATH="userlogs/job*/attempt*r*/syslog"
+export PROVIDER_LOG_PATH="hadoop*tasktracker*log*"
+export HADOOP_CONF_DIR_RELATIVE_PATH="conf"
 export UDA_PROVIDER_PROP="mapreduce.shuffle.provider.plugin.classes"
 export UDA_PROVIDER_VALUE=com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin,org.apache.hadoop.mapred.TaskTracker\$DefaultShuffleProvider
 export UDA_CONSUMER_PROP="mapreduce.job.reduce.shuffle.consumer.plugin.class"

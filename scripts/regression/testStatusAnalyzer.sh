@@ -21,6 +21,7 @@ memoryAllocationAnalyzer()
 	local providerVersions=`$sshPrefix grep -h \"The version is\" $testDir/slave*/$PROVIDER_LOG_PATH | awk '{ split($0,a,"The version is"); split(a[2],a," "); print a[1] }' | sort -u`
 	local bufferSizes=`$sshPrefix grep -h \"compression not configured: allocating\" $testDir/slave*/$REDUCER_LOG_PATH | awk '{ split($0,a," = "); split(a[2],a," "); print a[1]}' | sort -u`
 	
+		
 	if [[ -z $bufferSizes ]];then
 		return 0
 	fi
@@ -298,7 +299,7 @@ source $testExports
 
 testToAnalyzerMapper $TEST_IDS
 
-
+echo "export PERFORNAMCE_TEST=$performanceTestFlag" >> $testExports
 
 
 

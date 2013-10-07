@@ -125,7 +125,7 @@ echo "$echoPrefix: $killing all java processes"
 sudo pkill -9 java
 
 setLogMtt $master
-loggerFile=$MY_HADOOP_HOME/$HADOOP_CONFIGURATION_DIR_RELATIVE_PATH/$LOGGER_NAME
+loggerFile=$HADOOP_CONF_DIR/$LOGGER_NAME
 setLog4j "$loggerFile" "$LOGGER_PARAMS_AND_VALS"
 
 # preparing the slaves

@@ -15,13 +15,17 @@ awk -v baseDir=$baseDirForParser \
  -v preReqFileName=$ENV_PRE_REQ_EXPORTS_FILENAME \
  -f $SCRIPTS_DIR/parseClusterConf.awk $CLUSTER_CONF_FILE 
 
-
 if (($?!=0));then
 	echo "$echoPrefix: error during executing the cluser-setup's parser-script" | tee $ERROR_LOG
 	exit $EEC1
 fi
 
-#sudo chgrp -R $GROUP_NAME $sourcesDirForParser
-#sudo chown -R $USER $sourcesDirForParser
+generalEnvsExportsScript=$sourcesDirForParser/generalEnvExports.sh
+source $generalEnvsExportsScript
 
-echo "`cat $sourcesDirForParser/generalEnvExports.sh`" > $SOURCES_DIR/configureClusterExports.sh
+if [[ $ENVS_ERRORS != "" ]];then
+	echo "$echoPrefix: errors has found in the envs-files: $ENVS_ERRORS" | tee $ERROR_LOG
+    exit $EEC1
+fi
+
+echo "`cat $generalEnvsExportsScript`" > $SOURCES_DIR/configureClusterExports.sh

@@ -40,7 +40,7 @@ then
 	#echo defunct_processes: $defunct_processes
 	if (($live_processes > $defunct_processes))
 	then
-		echo DEFUNCT PROCESSES ARE: `ps -e | egrep '(MOFSupplier|NetMerger|java)' | egrep '\<defunct\>'` + `eval $EXEC_SLAVES ps -e | egrep '(MOFSupplier|NetMerger|java)'| egrep '\<defunct\>' `
+		echo DEFUNCT PROCESSES ARE: `ps -e | egrep '(MOFSupplier|NetMerger|java)' | egrep '\<defunct\>'` `eval $EXEC_SLAVES ps -e | egrep '(MOFSupplier|NetMerger|java)'| egrep '\<defunct\>' `
 		#eval $EXEC_SLAVES ps -ef | grep -E '(MOFSupplier|NetMerger|java)'
 		echo "$echoPrefix: ERROR: failed to kill processes"
 		exit 1;
@@ -52,8 +52,10 @@ then
         echo "$echoPrefix: Ignore logs (reset_all won't delete them)"
 else
         echo "$echoPrefix: Clear logs dir"
-        rm -rf $MY_HADOOP_HOME/logs/*
-        eval $EXEC_SLAVES rm -rf $MY_HADOOP_HOME/logs/\*
+		for logDir in $HADOOP_LOGS_RELATIVE_DIR;do
+			rm -rf $MY_HADOOP_HOME/$HADOOP_LOGS_RELATIVE_DIR/*
+			eval $EXEC_SLAVES rm -rf $MY_HADOOP_HOME/$HADOOP_LOGS_RELATIVE_DIR/\*
+		done
 fi
 
 if [[  $@ = *-format* ]]

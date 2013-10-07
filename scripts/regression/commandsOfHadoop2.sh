@@ -1,5 +1,8 @@
 #!/bin/bash
 
+export HADOOP_LOGS_RELATIVE_DIR="logs"
+export USERLOGS_RELATIVE_PATH="$HADOOP_LOGS_RELATIVE_DIR/userlogs"
+export LOGS_HISTORY_RELATIVE_PATH="$HADOOP_LOGS_RELATIVE_DIR/history"
 export EXEC_JOB="bin/hadoop jar"
 export EXEC_SLAVES="sbin/slaves.sh"
 export HADOOP_FS="bin/hadoop fs"
@@ -14,10 +17,10 @@ export MAPRED_START="sbin/start-yarn.sh"
 export MAPRED_STOP="sbin/stop-yarn.sh"
 export MAPRED_SERVICE_NAME="YARN"
 export JAR_FILE_RELATIVE_DIR="share/hadoop/mapreduce/" # NEEDS TO INCLUDE / IN THE END, IF NOT NULL
-export JOB_LOG_PATH="logs/yarn-*-resourcemanager*.log"
+export JOB_LOG_PATH="$HADOOP_LOGS_RELATIVE_DIR/yarn-*-resourcemanager*.log"
 export REDUCER_LOG_PATH="app*/cont*/syslog"
 export PROVIDER_LOG_PATH="yarn*nodemanager*log"
-export HADOOP_CONFIGURATION_DIR_RELATIVE_PATH="etc/hadoop"
+export HADOOP_CONF_DIR_RELATIVE_PATH="etc/hadoop"
 export RELATIVE_PATH_TO_JOB_CONF_ON_DFS="job.xml"
 export JOB_HISTORY_SUCCESS_OUTPUT="Status: SUCCEEDED"
 export DFS_PERMISSIONS=700
