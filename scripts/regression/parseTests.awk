@@ -277,7 +277,7 @@ function exportMenager()
 	print "export RDMA_BUF_SIZE_MIN="execParams["mapred.rdma.buf.size.min"] >> exportsFile
 	print "export TEST_IDS="execParams["test_IDs"] >> exportsFile
 
-	if (execParams["compression"] == emptyFieldFlag)
+	if (execParams["compression"] == emptyDefaultFlag)
 	{
 		print "export COMPRESSION_TEST_LEVEL=''" >> exportsFile
 	}
@@ -509,6 +509,7 @@ BEGIN{
 	emptyFieldFlag="x"
 	endTypeFlag="end_flag"
 	randomIndicator="RAND"
+	emptyDefaultFlag="NONE"
 
 	masterMark="{MASTER}"
 	marks[1]="{MASTER}"
