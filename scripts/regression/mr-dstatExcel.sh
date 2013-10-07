@@ -76,7 +76,7 @@ if ! mkdir -p $local_dir;then
 	exit 1
 fi
 
-echo "HADOOP_CONFIGURATION_DIR=$HADOOP_CONFIGURATION_DIR" >> $log
+echo "HADOOP_CONF_DIR=$HADOOP_CONF_DIR" >> $log
 echo "dir=$local_dir" >> $log
 echo "collect_dir=$collect_dir" >> $log
 echo "RES_SERVER=$RES_SERVER" >> $log
@@ -85,11 +85,15 @@ echo "hostname: `hostname`" >> $log
 echo "user command is: $USER_CMD" >> $log
 
 #generate statistics
-echo "$echoPrefix: generating statistics"
+
+echo "$echoPrefix: sudo $EXEC_SLAVES  pkill -f dstat"
+cat $HADOOP_CONF_DIR/slaves.sh
+$EXEC_SLAVES  echo "test" > /tmp/1.txt
 sudo $EXEC_SLAVES  pkill -f dstat
 sleep 1
 
-sudo $EXEC_SLAVES  if mkdir -p $local_dir\; then dstat -f --aio --noheaders --output $local_dir/\`hostname\`.dstat.csv \> $DEV_NULL_PATH\; else echo error in dstat\; exit 2\; fi &
+echo "$echoPrefix: generating statistics"
+sudo $EXEC_SLAVES  if mkdir -p $local_dir\; then dstat -f --noheaders --output $local_dir/\`hostname\`.${DSTAT_LOCAL_FILE_NAME} \> $DEV_NULL_PATH\; else echo error in dstat\; exit 2\; fi &
 sleep 2
 sudo $EXEC_SLAVES chown -R $USER $local_dir
 
@@ -231,10 +235,10 @@ if [[ $PROGRAM != "pi" ]];then
 	testSucceed=`grep -c "$JOB_HISTORY_SUCCESS_OUTPUT" $jobHistory`
 fi
 
-echo "COMMAND IS: pdsh -w $MASTER,$RELEVANT_SLAVES_BY_COMMAS \"ps -ef | grep java\"" > $liveProcesses
-pdsh -w $MASTER,$RELEVANT_SLAVES_BY_COMMAS "ps -ef | grep java" >> $liveProcesses
+echo "COMMAND IS: pdsh -w $RELEVANT_MACHINES_BY_COMMAS \"ps -ef | grep java\"" > $liveProcesses
+pdsh -w $RELEVANT_MACHINES_BY_COMMAS "ps -ef | grep java" >> $liveProcesses
 
-liveAttemps=`pdsh -w $MASTER,$RELEVANT_SLAVES_BY_COMMAS "ps -ef | grep java" | grep "attempt"`
+liveAttemps=`pdsh -w $RELEVANT_MACHINES_BY_COMMAS "ps -ef | grep java" | grep "attempt"`
 if [[ -n $liveAttemps ]];then
 	echo "$echoPrefix: THERE ARE STILL LIVE ATTEMPS - $liveAttemps"
 ############## need to un-comment it when UDA will support cleanning processes after fallback ###########################################
@@ -274,17 +278,18 @@ then
 				valSum=1
 			else
 				
-				teravalOutputFileName=`cat $TMP_DIR/vallFile.txt | grep "part-" | awk '{split($8,tmp,"/");print tmp[3]}'
-` 
-				getFileCmd="$HADOOP_FS -copyToLocal $TERAVAL_DIR/$teravalOutputFileName $TMP_DIR/$teravalOutputFileName"
+				teravalOutputFileName=`cat $TMP_DIR/vallFile.txt | grep "part-" | awk '{split($8,tmp,"/");print tmp[3]}'`
+				teravalOutputFile=$TMP_DIR/$teravalOutputFileName				
+				getFileCmd="$HADOOP_FS -copyToLocal $TERAVAL_DIR/$teravalOutputFileName $teravalOutputFile"
 				eval $getFileCmd
-				numOfLinesInOutputFile=`cat $TMP_DIR/$teravalOutputFileName | wc -l`
+				numOfLinesInOutputFile=`cat $teravalOutputFile | wc -l`
 				echo "$echoPrefix: teravalOutputFileName=$teravalOutputFileName getFileCmd=$getFileCmd numOfLinesInOutputFile=$numOfLinesInOutputFile"
 				if (( $numOfLinesInOutputFile != 1 )); then
 					valSum=1
 				else
 					valSum=0
 				fi
+				sudo rm -rf $teravalOutputFile
 			fi
 		fi
 		
@@ -479,55 +484,7 @@ if [[ -n $coresNames ]];then
 	echo $coresNames > $local_dir/cores.txt
 fi
 
-ssh $RES_SERVER mkdir -p $collect_dir/master-`hostname`/
-echo "$echoPrefix: scp -r $MY_HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/"
-scp -r $MY_HADOOP_HOME/logs/* $RES_SERVER:$collect_dir/master-`hostname`/
-echo "$echoPrefix: scp -r $local_dir/* $RES_SERVER:$collect_dir/"
-scp -r $local_dir/* $RES_SERVER:$collect_dir/
-sudo scp $MY_HADOOP_HOME/hs_err_pid* $RES_SERVER:$collect_dir/
-if (($?==0));then
-	rm -f $MY_HADOOP_HOME/hs_err_pid*
-fi
-
-$EXEC_SLAVES ssh $RES_SERVER mkdir -p $collect_dir/slave-\`hostname\`/
-echo "$echoPrefix: $EXEC_SLAVES scp -r $MY_HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/"
-$EXEC_SLAVES scp -r $MY_HADOOP_HOME/logs/\* $RES_SERVER:$collect_dir/slave-\`hostname\`/
-
-for slave in $RELEVANT_SLAVES_BY_SPACES;
-do
-	for logDir in $YARN_NODEMANAGER_LOGDIRS_BY_SPACES;
-	do
-		appDir=`ssh $slave find $logDir -type d -name $applicationId`
-		if [[ -z $appDir ]];then
-			continue
-		fi
-
-		scp -r $slave:$appDir $RES_SERVER:$collect_dir/slave-\`hostname\`/  > $DEV_NULL_PATH
-		if (($? == 0));then
-			sudo rm -rf $appDir
-		fi
-	done
-done
-
-echo "$echoPrefix: $EXEC_SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/"
-$EXEC_SLAVES scp -r $local_dir/\* $RES_SERVER:$collect_dir/
-sudo $EXEC_SLAVES scp $MY_HADOOP_HOME/hs_err_pid\* $RES_SERVER:$collect_dir/\;if \(\($?==0\)\)\;then rm -f $MY_HADOOP_HOME/hs_err_pid\*\;fi
-
-
-sudo ssh $RES_SERVER chown -R $USER $collect_dir
-
-echo "$echoPrefix: finished collecting statistics"
-
-#ls -lh --full-time $collect > $DEV_NULL_PATH # workaround - prevent "tar: file changed as we read it"
-
-#combine all the node's dstat to one file at cluster level
-ssh $RES_SERVER cat $collect_dir/\*.dstat.csv \| sort \| $SCRIPTS_DIR/reduce-dstat.awk \> $collect_dir/dstat-$job-cluster.csv
-
-echo "$echoPrefix: collecting hadoop master conf dir"
-echo "$echoPrefix: scp -r $HADOOP_CONFIGURATION_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONFIGURATION_DIR) > $DEV_NULL_PATH"
-scp -r $HADOOP_CONFIGURATION_DIR $RES_SERVER:$collect_dir/$(basename $HADOOP_CONFIGURATION_DIR) > $DEV_NULL_PATH
-
-sudo $EXEC_SLAVES rm -rf $local_dir
+bash $SCRIPTS_DIR/logsCollector.sh $collect_dir $local_dir $applicationId
 
 echo "$echoPrefix: checking if the test passed"
 bash -x $SCRIPTS_DIR/testStatusAnalyzer.sh $collect_dir | tee $collect_dir/testAnalyzing.txt
