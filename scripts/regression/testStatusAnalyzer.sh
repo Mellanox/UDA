@@ -1,13 +1,73 @@
 #!/bin/bash
 
+getReducersLogsPaths()
+{
+	reducersLogs=`$sshPrefix grep -rl \"UDA version is\" $testDir`
+	if [[ -z "$reducersLogs" ]]; then
+		echo "export TEST_ERROR='COULD NOT RETRIEVE REDUCERS LOGS PATHS'" >> $testExports
+		setRetValAndExit 0
+	fi
+}
+
+getBufferSizes()
+{
+	bufferSizes=""
+	for i in $reducersLogs;
+	do
+		newSize=`$sshPrefix cat $i | grep -h "compression not configured: allocating" | awk '{ split($0,a," = "); split(a[2],a," "); print a[1]}'`
+		bufferSizes="$bufferSizes $newSize"
+	done
+	bufferSizes=`echo $bufferSizes | tr ' ' '\n' | sort -u`
+}
+
+getSnappyCount()
+{
+snappyCount=0
+for i in $reducersLogs;
+do
+	snappyCount=`$sshPrefix cat $i | grep "brand-new compressor" | grep -c "snappy"`
+	if (($snappyCount > 0)); then
+		return 0
+	fi
+done
+
+}
+
+getConsumerVersions()
+{
+	consumerVersions=""
+	for i in $reducersLogs;
+	do
+		newConsumerVersion=`$sshPrefix cat $i | grep -h "UDA version is" | awk '{ split($0,a,"UDA version is"); split(a[2],a," "); print a[1] }'`
+		consumerVersions="$consumerVersions $newConsumerVersion"
+	done
+	consumerVersions=`echo $consumerVersions | tr ' ' '\n' | sort -u`
+}
+
+countUdaPrints()
+{
+	local print=$1
+	retVal_countUdaPrints=0
+	for i in $reducersLogs;
+	do
+		newCount=`$sshPrefix cat $i | grep -c "$print"`
+		retVal_countUdaPrints=$((retVal_countUdaPrints+newCount))
+	done
+}
+
 checkFallback()
 {
-	fallbackDesc="$1"
-	if [ `$sshPrefix cat $testDir/slave*/$REDUCER_LOG_PATH | grep fallback | grep -c "$fallbackDesc"` -ne 0 ];then
-		retVal=0
-	else
-		retVal=1
-	fi
+	local fallbackDesc="$1"
+	local flag=0
+	retVal=1
+	for i in $reducersLogs;
+	do
+		flag=`$sshPrefix cat $i | grep fallback | grep -c "$fallbackDesc"`
+		if (($flag != 0)); then
+			retVal=0
+			return 0
+		fi
+	done
 }
 
 memoryAllocationAnalyzer()
@@ -18,10 +78,11 @@ memoryAllocationAnalyzer()
 		echo "export TEST_ERROR='UDA DID NOT RUN'" >> $testExports
 		return 0
 	fi
-	local providerVersions=`$sshPrefix grep -h \"The version is\" $testDir/slave*/$PROVIDER_LOG_PATH | awk '{ split($0,a,"The version is"); split(a[2],a," "); print a[1] }' | sort -u`
-	local bufferSizes=`$sshPrefix grep -h \"compression not configured: allocating\" $testDir/slave*/$REDUCER_LOG_PATH | awk '{ split($0,a," = "); split(a[2],a," "); print a[1]}' | sort -u`
 	
-		
+	local providerVersions=`$sshPrefix grep -h \"The version is\" $testDir/slave*/$PROVIDER_LOG_PATH | awk '{ split($0,a,"The version is"); split(a[2],a," "); print a[1] }' | sort -u`
+	
+	getBufferSizes
+	
 	if [[ -z $bufferSizes ]];then
 		return 0
 	fi
@@ -73,8 +134,8 @@ setupCompressionAnalyzer()
 		retVal=0
 		if [[ "$YARN_HADOOP_FLAG" == "1" ]]; then
 			if [[ $COMPRESSION == "Snappy" ]]; then
-				count=`$sshPrefix grep \"brand-new compressor\" $testDir/slave*/$REDUCER_LOG_PATH | grep -c "snappy"`
-				if (($count == 0)); then
+				getSnappyCount
+				if (($snappyCount == 0)); then
 					compressionValid=0
 				fi
 			fi
@@ -111,9 +172,11 @@ checkUdaIsUp()
 {
 	retVal=0
 	local providerVersions=`$sshPrefix grep -h \"The version is\" $testDir/slave*/$PROVIDER_LOG_PATH | awk '{ split($0,a,"The version is"); split(a[2],a," "); print a[1] }' | sort -u`
-	local consumerVersions=`$sshPrefix grep -h \"UDA version is\" $testDir/slave*/$REDUCER_LOG_PATH | awk '{ split($0,a,"UDA version is"); split(a[2],a," "); print a[1] }' | sort -u`
-	local numOfUdaOpen=`$sshPrefix cat $testDir/slave*/$REDUCER_LOG_PATH | grep -c "init - Using UdaShuffleConsumerPlugin"`
-	local numOfUdaClose=`$sshPrefix cat $testDir/slave*/$REDUCER_LOG_PATH | grep -c "====XXX Successfully closed UdaShuffleConsumerPlugin XXX===="`
+	getConsumerVersions
+	countUdaPrints "init - Using UdaShuffleConsumerPlugin"
+	numOfUdaOpen=$retVal_countUdaPrints
+	countUdaPrints "====XXX Successfully closed UdaShuffleConsumerPlugin XXX===="
+	numOfUdaClose=$retVal_countUdaPrints
 		
 	if [[ "$providerVersions" != "$consumerVersions" ]];then
 		echo "export TEST_ERROR='UDA providers or consumers have different UDA versions'" >> $testExports
@@ -145,7 +208,7 @@ checkConsumerIsUp()
 {
 	retVal=0
 	
-	local consumerVersions=`$sshPrefix grep -h \"UDA version is\" $testDir/slave*/$REDUCER_LOG_PATH | awk '{ split($0,a,"UDA version is"); split(a[2],a," "); print a[1] }' | sort -u`
+	getConsumerVersions
 	local consumerVersionsCount=`echo "$consumerVersions" | awk 'BEGIN{RS=FS;count=0} {if ($1 ~ /[0-9.-]+/){count++}} END{print count}'`
 	
 	if (($consumerVersionsCount > 1)) ;then
@@ -226,6 +289,13 @@ testToAnalyzerMapper()
 {
 	testID=$1
 	
+	if [[ $testID == "VUDA-00" ]];then
+		managePerformanceTests
+		setRetValAndExit $retVal
+	fi
+	
+	getReducersLogsPaths # Relevant for cases other than vanilla runs
+	
 	# VUDA-43: some temporary lines till writing general solution
 	if [[ $testID == "VUDA-43" ]];then 
 		checkConsumerIsUp
@@ -236,11 +306,6 @@ testToAnalyzerMapper()
 	else
 		checkStatus "$exlTEST_STATUS"
 		checkAndReturn
-	fi
-	
-	if [[ $testID == "VUDA-00" ]];then
-		managePerformanceTests
-		setRetValAndExit $retVal
 	fi
 
 	if [[ $testID == "VUDA-35" ]];then 

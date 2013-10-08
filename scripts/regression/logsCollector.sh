@@ -50,7 +50,7 @@ getDfsLogs ()
 			if (($? == 0));then
 				sudo rm -rf $fullLogDir
 			else
-				echo "$echoPrefix: FAILED COPYING $slave:$fullLogDir to $RES_SERVER:slaveDir"
+				echo "$echoPrefix: FAILED COPYING $slave:$fullLogDir to $RES_SERVER:$slaveDir"
 			fi
 		done
 	done
