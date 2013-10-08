@@ -47,7 +47,7 @@ else
 	# Get the latest change date in the db of UDA
 	# This is used in case a commit history is shown
 	#export latest_uda_date=`cat ${DB_DIR}/latest_uda | cut -d " " -f 1`
-	export latest_uda_date=`ls -gGh -p --time-style="+%Y-%m-%d" ${BUILD_POOL}/latest_daily_UDA_${UDA_BRANCH}_rpm | cut -d " " -f 4`
+	export latest_uda_date=`ls -gGh -p --time-style="+%Y-%m-%d" ${BUILD_POOL}/UDA_${UDA_BRANCH}_rpm | cut -d " " -f 4`
 
         # Build and log
 	source ./build.sh | tee "${LOG_DIR}/${LOG}"

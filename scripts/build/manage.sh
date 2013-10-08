@@ -20,7 +20,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
 			mv -f ${BUILD_TARGET_DESTINATION}/$version ${BUILD_POOL}/hadoops/
 			# Create a softlink
 			filename=`echo $version | sed 's/.tar.gz//g'`
-			ln -fs ${BUILD_POOL}/hadoops/${version} ${BUILD_POOL}/latest_daily_${filename}
+			ln -fs ${BUILD_POOL}/hadoops/${version} ${BUILD_POOL}/${filename}
 		done
 		continue
 	fi
@@ -32,7 +32,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
 			mv -f ${BUILD_TARGET_DESTINATION}/$version ${BUILD_POOL}/hadoops/
 			# Create a softlink
 			filename=`echo $version | sed 's/.jar//g'`
-			ln -fs ${BUILD_POOL}/hadoops/${version} ${BUILD_POOL}/latest_daily_${filename}
+			ln -fs ${BUILD_POOL}/hadoops/${version} ${BUILD_POOL}/${filename}
 		done
 		continue
 	fi
@@ -51,7 +51,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
                 mv -f ${BUILD_TARGET_DESTINATION}/$product ${BUILD_POOL}/uda/
                 # Create a softlink
                 filename=`echo $product | sed 's/_bullseye.rpm//g'`
-                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/latest_daily_UDA_withBullseye_${UDA_BRANCH}_rpm
+                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/UDA_withBullseye_${UDA_BRANCH}_rpm
 		continue
         fi
 
@@ -68,7 +68,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
                 mv -f ${BUILD_TARGET_DESTINATION}/$product ${BUILD_POOL}/uda/
                 # Create a softlink
                 filename=`echo $product | sed 's/.rpm//g'`
-                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/latest_daily_UDA_${UDA_BRANCH}_rpm
+                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/UDA_${UDA_BRANCH}_rpm
 		continue
         fi
 
@@ -85,7 +85,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
                 mv -f ${BUILD_TARGET_DESTINATION}/$product ${BUILD_POOL}/uda/
                 # Create a softlink
                 filename=`echo $product | sed 's/.deb//g'`
-                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/latest_daily_UDA_${UDA_BRANCH}_deb
+                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/UDA_${UDA_BRANCH}_deb
 		continue
         fi
 
@@ -102,7 +102,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
                 mv -f ${BUILD_TARGET_DESTINATION}/$product ${BUILD_POOL}/uda/
                 # Create a softlink
                 filename=`echo $product | sed 's/.cov//g'`
-                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/latest_daily_UDA_${UDA_BRANCH}_cov
+                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/UDA_${UDA_BRANCH}_cov
 		continue
         fi
 done
