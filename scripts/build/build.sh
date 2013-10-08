@@ -57,6 +57,9 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 			tar_filename=`basename *hadoop*.tar.gz .tar.gz`
 		elif [[ "$version" == *cdh* ]]; then
 			tar_filename=`basename *mr1*.tar.gz .tar.gz`
+			if [[ ! -e $tar_filename.tar.gz ]]; then 
+				tar_filename=`basename *hadoop*.tar.gz .tar.gz`
+			fi
 		fi
 
 		tar -xzf ${tar_filename}.tar.gz -C ${TMP_CLONE_DIR}/${HADOOP_DIR}
@@ -71,14 +74,17 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 		get "hpMap" $version
 		patch_name=${value}
 		echo -e "\n${PURPLE}--- Patching $version with $patch_name... ---${NONE}"
-		patch_file=${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}/plugins/${patch_name}
 		PATCHED_HADOOP_DIR=${TMP_CLONE_DIR}/${HADOOP_DIR}/
 		# Check for nested directory
 		if [ `ls $PATCHED_HADOOP_DIR | wc -l` == 1 ]; then 
 			PATCHED_HADOOP_DIR=$PATCHED_HADOOP_DIR/`basename $PATCHED_HADOOP_DIR/*`
 		fi
-		cd $PATCHED_HADOOP_DIR
-		patch -s -p0 < $patch_file
+		# Execute patching if needed
+		if [[ "$patch_name" != NONE ]]; then
+			patch_file=${TMP_CLONE_DIR}/${UDA_BRANCH_DIR}/plugins/${patch_name}
+			cd $PATCHED_HADOOP_DIR
+			patch -s -p0 < $patch_file
+		fi
 		cd $TMP_CLONE_DIR
 
 		# Building hadoop
@@ -148,6 +154,17 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
                         echo -e "\nSaving the patched hadoop jar file in ${BUILD_TARGET_DESTINATION}..."
 			jar_filename=`basename ./build/*core*.jar .jar`
                         cp ./build/${jar_filename}.jar ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.jar
+                        echo "Saved!"
+
+		elif [[ "$version" == *cdh_hadoop-2.0.0-cdh4.4.0* ]]; then
+			mv bin-mapreduce1/ share/hadoop/mapreduce1/bin
+			mv share/hadoop/mapreduce1/ share/
+			echo "cdh_hadoop-2.0.0-cdh4.4.0 Build: Directories moved." > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}.txt
+                        echo -e "\n${GREEN}$version built!${NONE}"
+
+			# Store built patched hadoop to target directory in tar.gz form
+                        echo -e "\nSaving the patched hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
+                        tar -pczf ${BUILD_TARGET_DESTINATION}/${version}.tar.gz ./*
                         echo "Saved!"
 
 		else
