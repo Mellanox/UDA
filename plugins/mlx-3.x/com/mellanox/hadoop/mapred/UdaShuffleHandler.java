@@ -146,7 +146,7 @@ public class UdaShuffleHandler extends AuxiliaryService {
       return null;
     }
 //*/		
-    return null;
+    return ByteBuffer.allocate(0); // Avoid 'return null' here because of https://issues.apache.org/jira/browse/YARN-1256
   }
  }
 
