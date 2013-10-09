@@ -1,5 +1,15 @@
 #!/bin/bash
 
+attemptCommand()
+{
+	local cmd=$1
+	bash $SCRIPTS_DIR/functionsLib.sh "execute_command" 10 60 "$cmd"
+	if (($? != 0)); then
+		echo "$echoPrefix: Failed to execute $cmd after 5 retries" | tee $ERROR_LOG
+		exit $EEC1
+	fi
+}
+
 #if [[ -n $A_M ]];then
 #	echo $CEC
 #fi
@@ -16,25 +26,23 @@ fi
 currentNfsTotalResultsDir=$NFS_RESULTS_DIR/${dirType}_$CURRENT_DATE
 currentNfsEnvResultsDir=$currentNfsTotalResultsDir/$ENV_FIXED_NAME
 
-if ! mkdir -p $currentNfsEnvResultsDir;then
-	echo "$echoPrefix: failling to create $currentNfsEnvResultsDir" | tee $ERROR_LOG
-	exit $EEC1
-fi
+attemptCommand "mkdir -p $currentNfsEnvResultsDir"
+
 echo "$echoPrefix: the NFS collect dir is $currentNfsEnvResultsDir"
 
 	# copying the logs dirs
 echo "$echoPrefix: collecting logs"
 logsDestDir=$currentNfsEnvResultsDir/$LOGS_DIR_NAME
-mkdir -p $logsDestDir
-scp -r $RES_SERVER:$CURRENT_LOCAL_RESULTS_DIR/* $logsDestDir > $DEV_NULL_PATH
+attemptCommand "mkdir -p $logsDestDir"
+attemptCommand "scp -r $RES_SERVER:$CURRENT_LOCAL_RESULTS_DIR/* $logsDestDir > $DEV_NULL_PATH"
 	# copying the tests dirs
 echo "$echoPrefix: collecting test-files"
 confsDestDir=$currentNfsEnvResultsDir/$TESTS_CONF_DIR_NAME
-mkdir $confsDestDir
-cp -r $TESTS_CONF_DIR/* $confsDestDir > $DEV_NULL_PATH
+attemptCommand "mkdir $confsDestDir"
+attemptCommand "cp -r $TESTS_CONF_DIR/* $confsDestDir > $DEV_NULL_PATH"
 	# copying the csv configuration file
 echo "$echoPrefix: collecting csv-configuration-file"
-cp $TEST_CONF_FILE $currentNfsEnvResultsDir > $DEV_NULL_PATH
+attemptCommand "cp $TEST_CONF_FILE $currentNfsEnvResultsDir > $DEV_NULL_PATH"
 	# copying the coverity files
 #echo "$echoPrefix: collecting code coverage files"
 
