@@ -1,5 +1,4 @@
 #!/bin/bash
-
 export SCRIPTS_DIR=`pwd`
 source $SCRIPTS_DIR/defaultsConf.sh
 echoPrefix=`eval $ECHO_PATTERN`	
@@ -20,9 +19,15 @@ case ${flagsCase} in
 esac
 echo "$echoPrefix: control-flags are: $flags $additionalFlags" 
 
-export BASE_DIR="/data1/elad/tests"
+export BASE_DIR="/data1/web2ver"
 bash $SCRIPTS_DIR/autoTester.sh -$flags $additionalFlags \
--Dcluster.csv="/.autodirect/mtrswgwork/eladi/regression/csvs/cluster_conf.csv" \
--Dreport.mailing.list="eladi" 
+-Dcluster.csv="/.autodirect/mtrswgwork/eladi/regression/csvs/cluster_conf2.csv"
+#\-Dreport.mailing.list="eladi" 
 
-exit $?
+exit_status=$?
+
+if (($exit_status != 0)); then
+	echo "$echoPrefix: ERROR: REGRESSION FAILED"
+fi
+
+exit $exit_status
