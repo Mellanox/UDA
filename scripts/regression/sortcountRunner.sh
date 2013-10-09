@@ -149,9 +149,9 @@ do
 		sleep 3
 
 		echo "$echoPrefix: Cleaning logs directories (history & userlogs)"
-		rm -rf $MY_HADOOP_HOME/$USERLOGS_RELATIVE_PATH/*
+		rm -rf $MY_HADOOP_HOME/$USERLOGS_RELATIVE_DIR/*
 		rm -rf $MY_HADOOP_HOME/$LOGS_HISTORY_RELATIVE_PATH/*
-		eval $EXEC_SLAVES rm -rf $MY_HADOOP_HOME/$USERLOGS_RELATIVE_PATH/*
+		eval $EXEC_SLAVES rm -rf $MY_HADOOP_HOME/$USERLOGS_RELATIVE_DIR/*
 		eval $EXEC_SLAVES rm -rf $MY_HADOOP_HOME/$LOGS_HISTORY_RELATIVE_PATH/*
 
 		# finding the correct data-source for the terasort

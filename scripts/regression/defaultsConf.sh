@@ -109,4 +109,5 @@ export ECHO_NORMAL=`tput sgr0`
 export SWAPOFF_PATH="/sbin/swapoff"
 export SWAPON_PATH="/sbin/swapon"
 export CPU_USAGE_SAMPLES_TO_AVERAGE_COUNT=5
+export CDH_USERLOGS_RELATIVE_DIR="userlogs"
 #export CLEAN_HOSTNAMES_LIST_PATH="/.autodirect/udagwork/uda_regression/clean_hostnames_list.txt"

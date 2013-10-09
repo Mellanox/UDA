@@ -87,8 +87,6 @@ echo "user command is: $USER_CMD" >> $log
 #generate statistics
 
 echo "$echoPrefix: sudo $EXEC_SLAVES  pkill -f dstat"
-cat $HADOOP_CONF_DIR/slaves.sh
-$EXEC_SLAVES  echo "test" > /tmp/1.txt
 sudo $EXEC_SLAVES  pkill -f dstat
 sleep 1
 

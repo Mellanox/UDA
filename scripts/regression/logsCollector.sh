@@ -78,14 +78,11 @@ $EXEC_SLAVES ssh $RES_SERVER mkdir -p ${slaveLogsDirPrefix}\`hostname\`
 
 # getting logs locally from master and slaves
 concatenateVarsToSpaceSeparatedPathes $MY_HADOOP_HOME "$HADOOP_LOGS_RELATIVE_DIR" ""
-#allLocalPathes="$retPathes $localDir"
 getMSLocalLogs "$retPathes" $masterLogsDir ${slaveLogsDirPrefix}\`hostname\`
 getMSLocalLogs "$localDir" $collectDir $collectDir
 
 # getting logs from dfs
-getDfsLogs "$YARN_NODEMANAGER_LOGDIRS_BY_SPACES" $applicationId $masterLogsDir ${slaveLogsDirPrefix}\`hostname\`
-concatenateVarsToSpaceSeparatedPathes "" "$MAPRED_LOCAL_DIR_BY_SPACES" $USERLOGS_RELATIVE_PATH
-getDfsLogs "$retPathes" "" $masterLogsDir ${slaveLogsDirPrefix}\`hostname\`
+getDfsLogs "$DFS_DIR_FOR_LOGS_COLLECTION" $applicationId $masterLogsDir ${slaveLogsDirPrefix}\`hostname\`
 
 # getting logs from nfs and locally from master's regression data
 getNfsAndMasterLocalData $collectDir $HADOOP_CONF_DIR

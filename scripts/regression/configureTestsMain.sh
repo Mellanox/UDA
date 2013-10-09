@@ -30,6 +30,7 @@ awk -v seed=$RANDOM \
  -v setupPrefix=$SETUP_DIR_PREFIX \
  -v testDirPrefix=$TEST_DIR_PREFIX \
  -v yarnFlag=$YARN_HADOOP_FLAG \
+ -v cdhFlag=$CDH_HADOOP_FLAG \
  -v interface=$INTERFACE \
  -v master="$MASTER_FOR_XMLS" \
  -v slavesBySpaces="$SLAVES_BY_SPACES" \
@@ -41,6 +42,7 @@ awk -v seed=$RANDOM \
  -v udaConsumerValue2="$UDA_CONSUMER_VALUE2" \
  -v disableUda="$DISABLE_UDA_FLAG" \
  -v compressionDParams="$COMPRESSION_D_PARAMETERS" \
+ -v userlogsRelativeDir="$CDH_USERLOGS_RELATIVE_DIR" \
  -f $SCRIPTS_DIR/parseTests.awk "$TEST_CONF_FILE"
 if (($?!=0));then
 	echo "$echoPrefix: error during executing the parser script" | tee $ERROR_LOG

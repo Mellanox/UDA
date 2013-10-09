@@ -286,44 +286,7 @@ function exportMenager()
 		print "export COMPRESSION_TEST_LEVEL='"compressionDParams "'" >> exportsFile
 	}
 	
-	if (yarnFlag == 1)
-	{	
-		#print "export JOBHISTORIES_DIR="execParams["mapreduce.jobtracker.jobhistory.location"] >> exportsFile
-		print "export NODEMANAGER_LOG_DIR="execParams["yarn.nodemanager.log-dirs"] >> exportsFile # Added by Elad to support Hadoop 2 and 3 log dirs
-		
-		print "export MAX_MAPPERS="execParams["mapreduce.tasktracker.map.tasks.maximum"] >> exportsFile
-		print "export MAX_REDUCERS="execParams["mapreduce.tasktracker.reduce.tasks.maximum"] >> exportsFile
-		print "export DESIRED_MAPPERS="execParams["mapreduce.job.maps"] >> exportsFile
-		print "export DESIRED_REDUCERS="execParams["mapreduce.job.reduces"] >> exportsFile
-
-		diskCount=split(execParams["dfs.datanode.data.dir"],srak,",")
-		print "export DISKS_COUNT="diskCount >> exportsFile
-		
-		if ((execParams[udaConsumerProp] == udaConsumerValue) && (execParams[udaConsumerProp2] == udaProviderValue2))
-			print "export SHUFFLE_CONSUMER=1" >> exportsFile
-		else 
-			print "export SHUFFLE_CONSUMER=0" >> exportsFile
-	}
-	else
-	{
-		print "export MAX_MAPPERS="execParams["mapred.tasktracker.map.tasks.maximum"] >> exportsFile
-		print "export MAX_REDUCERS="execParams["mapred.tasktracker.reduce.tasks.maximum"] >> exportsFile
-		print "export DESIRED_MAPPERS="execParams["mapred.map.tasks"] >> exportsFile
-		print "export DESIRED_REDUCERS="execParams["mapred.reduce.tasks"] >> exportsFile
-				
-		diskCount=split(execParams["dfs.data.dir"],srak,",")
-		print "export DISKS_COUNT="diskCount >> exportsFile
-		
-		if (execParams[udaConsumerProp] == udaConsumerValue)
-			print "export SHUFFLE_CONSUMER=1" >> exportsFile
-		else 
-			print "export SHUFFLE_CONSUMER=0" >> exportsFile
-
-		if (execParams[udaProviderProp] == udaProviderValue)
-			print "export SHUFFLE_PROVIDER=1" >> exportsFile
-		else
-			print "export SHUFFLE_PROVIDER=0" >> exportsFile
-	}
+	manageSpecialHadoopExports()
 }
 
 function manageAddParams()
@@ -398,6 +361,63 @@ function manageAddParams()
 	
 		# cleanning the array	
 	split("", params)
+}
+
+function manageSpecialHadoopExports()
+{
+	dfsDirsList=""
+	if (yarnFlag == 1)
+	{	
+		#print "export JOBHISTORIES_DIR="execParams["mapreduce.jobtracker.jobhistory.location"] >> exportsFile
+		print "export NODEMANAGER_LOG_DIR="execParams["yarn.nodemanager.log-dirs"] >> exportsFile # Added by Elad to support Hadoop 2 and 3 log dirs
+		
+		print "export MAX_MAPPERS="execParams["mapreduce.tasktracker.map.tasks.maximum"] >> exportsFile
+		print "export MAX_REDUCERS="execParams["mapreduce.tasktracker.reduce.tasks.maximum"] >> exportsFile
+		print "export DESIRED_MAPPERS="execParams["mapreduce.job.maps"] >> exportsFile
+		print "export DESIRED_REDUCERS="execParams["mapreduce.job.reduces"] >> exportsFile
+
+		diskCount=split(execParams["dfs.datanode.data.dir"],srak,",")
+		print "export DISKS_COUNT="diskCount >> exportsFile
+		
+		if ((execParams[udaConsumerProp] == udaConsumerValue) && (execParams[udaConsumerProp2] == udaProviderValue2))
+			print "export SHUFFLE_CONSUMER=1" >> exportsFile
+		else 
+			print "export SHUFFLE_CONSUMER=0" >> exportsFile
+			
+		tmpValue = execParams["yarn.nodemanager.log-dirs"]
+		gsub(FS," ",tmpValue)
+		dfsDirsList=dfsDirsList " " tmpValue
+	}
+	else
+	{
+		print "export MAX_MAPPERS="execParams["mapred.tasktracker.map.tasks.maximum"] >> exportsFile
+		print "export MAX_REDUCERS="execParams["mapred.tasktracker.reduce.tasks.maximum"] >> exportsFile
+		print "export DESIRED_MAPPERS="execParams["mapred.map.tasks"] >> exportsFile
+		print "export DESIRED_REDUCERS="execParams["mapred.reduce.tasks"] >> exportsFile
+				
+		diskCount=split(execParams["dfs.data.dir"],srak,",")
+		print "export DISKS_COUNT="diskCount >> exportsFile
+		
+		if (execParams[udaConsumerProp] == udaConsumerValue)
+			print "export SHUFFLE_CONSUMER=1" >> exportsFile
+		else 
+			print "export SHUFFLE_CONSUMER=0" >> exportsFile
+
+		if (execParams[udaProviderProp] == udaProviderValue)
+			print "export SHUFFLE_PROVIDER=1" >> exportsFile
+		else
+			print "export SHUFFLE_PROVIDER=0" >> exportsFile
+	}
+
+	if (cdhFlag == 1)
+	{
+		split(execParams["mapred.local.dir"], temp, FS)
+		for (i in temp)
+		{
+			dfsDirsList=dfsDirsList " " temp[i] "/" userlogsRelativeDir
+		}
+	}
+	print "export DFS_DIR_FOR_LOGS_COLLECTION='" dfsDirsList "'" >> exportsFile
 }
 
 function restartHadoopHandler()
@@ -562,7 +582,7 @@ BEGIN{
 	masterDirsProps["DFS_NAME_DIR"]="dfs.name.dir"
 	masterDirsProps["DFS_NAMENODE_NAME_DIR"]="dfs.namenode.name.dir"	
 	masterDirsProps["HADOOP_TMP_DIR"]="hadoop.tmp.dir"
-	
+
 	formatDfsProps["dfs.data.dir"]=0
 	formatDfsProps["dfs.name.dir"]=0
 	formatDfsProps["hadoop.tmp.dir"]=0
@@ -573,8 +593,6 @@ BEGIN{
 	minusPrefixProps[3]="mapred.child.java.opts"		# for hadoop 0.20.2
     minusPrefixProps[4]="mapreduce.map.java.opts"       # for hadoop 2                                                             
     minusPrefixProps[5]="mapreduce.reduce.java.opts"    # for hadoop 2                                                     
-
-	
 	
 	booleanValueProps[1]="mapred.map.tasks.speculative.execution"
 	booleanValueProps[2]="mapred.reduce.tasks.speculative.execution"
@@ -666,7 +684,6 @@ BEGIN{
 	
 	totalTestsCount++
 	setupTestsCount++
-
 
 		# Creating the folder and exports file for the execution	
 	testCountFormatted=formatNumber(totalTestsCount,digitsCount)

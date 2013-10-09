@@ -102,7 +102,7 @@ BEGIN{
 	hadoopSpecialScripts["1"]="commandsOfHadoop1.sh"
 	hadoopSpecialScripts["2"]="commandsOfHadoop2.sh"
 	hadoopSpecialScripts["3"]="commandsOfHadoop2.sh" # got the same one as 2
-	hadoopSpecialScripts["CDH"]="commandsOfHadoopCDH.sh"
+	hadoopSpecialScripts[cdhMark]="commandsOfHadoopCDH.sh"
 	
 	totalEnvs=0
 	digitsCount=2 # that means thet the execution folders will contains 2 digits number. 2 -> 02 for instance
@@ -174,12 +174,22 @@ BEGIN{
 	splitsCount=split(hadoopDirname,tmp,"-")
 	splitsCount=split(tmp[2],tmp,".")
 	hadoopType=tmp[1]
+	
+	#splitsCount=split(hadoopDirname,tmp,"-")
+	#vanilla_hadoop-1.1.2-with-HADOOP-1.x.y.patch_native
+	
 	print "export HADOOP_TYPE='" hadoopType "'" >> envExports
 	
-	if ((hadoopType == "1") || (hadoopType == "CDH"))
+	yarnFlag=0
+	cdhFlag=0
+	changeMachineNameFlag=0
+	
+	if (hadoopType == "1")
 	{
-		yarnFlag=0
-		changeMachineNameFlag=0
+	}
+	else if (hadoopType ~ cdhMark)
+	{
+		cdhFlag=1
 	}
 	else if ((hadoopType == "2") || (hadoopType == "3"))
 	{
@@ -191,8 +201,8 @@ BEGIN{
 		errorDesc=errorDesc  "unknown hadoop type (hadoop type = " hadoopType ")"
 		next
 	}
-
 	print "export YARN_HADOOP_FLAG='" yarnFlag "'" >> envExports
+	print "export CDH_HADOOP_FLAG='" cdhFlag "'" >> envExports
 	print "export CHANGE_MACHINE_NAME_FLAG='" changeMachineNameFlag "'" >> envExports
 	print "export HADOOP_SPECIAL_SCRIPT_NAME='" hadoopSpecialScripts[hadoopType] "'" >> envExports
 	
@@ -301,6 +311,6 @@ END{
 	print "export ALL_MACHINES_BY_SPACES='" allMachinesBySpaces "'"  >> generalEnvsExportsFile
 	print "export ALL_MACHINES_BY_COMMAS='" allMachinesByCommas "'"  >> generalEnvsExportsFile
 	
-	#print "export ERRORS='" errorDesc "'" >> generalEnvsExportsFile
+	print "export ENVS_ERRORS='" errorDesc "'" >> generalEnvsExportsFile
 	#print errorDesc
 }

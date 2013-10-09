@@ -13,6 +13,8 @@ awk -v baseDir=$baseDirForParser \
  -v envDirPrefix=$ENV_DIR_PREFIX  \
  -v envExportFileName=$ENV_EXPORTS_FILENAME \
  -v preReqFileName=$ENV_PRE_REQ_EXPORTS_FILENAME \
+ -v cdhMark=$CDH_MARK \
+ -v hdpMark=$HDP_MARK \
  -f $SCRIPTS_DIR/parseClusterConf.awk $CLUSTER_CONF_FILE 
 
 if (($?!=0));then
