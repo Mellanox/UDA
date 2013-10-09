@@ -1,0 +1,24 @@
+<CASEDEF>
+	<global>
+		<Test>
+			<info>test</info>
+			<name>uda test</name>
+			<owner>AlonGr</owner>
+		</Test>
+		<Case>
+			<wrapper>./uda_wrapper.py</wrapper>
+			<tout>15000</tout>
+		</Case>
+	</global>
+	<case>
+		<info>uda test</info>
+		<name>run regression</name>
+		<tout>15000</tout>
+		<cmd>
+			<params>
+				<static_args>--param1 a --param2 b </static_args>
+			</params>
+		</cmd>
+	</case>
+</CASEDEF>
+
