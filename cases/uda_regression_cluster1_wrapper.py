@@ -9,7 +9,7 @@ from reg2_wrapper.utils.parser.cmd_argument import RunningStage
 class UdaWrapper(StandaloneWrapper):
 
     def get_command(self, running_stage=RunningStage.RUN):
-        return "./runRegression_2.sh"
+        return "./runRegression_1.sh"
 
 if __name__ == "__main__":
     wrapper = UdaWrapper("UDA Wrapper")

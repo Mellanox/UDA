@@ -472,7 +472,6 @@ then
 	currentRpmVersion=`echo $currentRpm | awk 'BEGIN{FS="libuda-"} {print $2}' | awk 'BEGIN{FS="."} {if ($4 ~ /[a-zA-Z]+/){print $1 "." $2 "." $3 "." $4 "." $5}else{print $1 "." $2 "." $3 "." $4}}'` # according to the format in BUILD.README file
 	shortFormatVersion=`echo $currentRpmVersion | awk 'BEGIN{FS="."} {print $1 "." $2 "." $3}' | awk 'BEGIN{FS="-"} {print $1}'`
 	echo "$echoPrefix: installing the rpm $currentRpm. parsed version is: $currentRpmVersion, short version is: $shortFormatVersion"
-	
 	manageRpmInstallation $MASTER $currentRpm
 fi	
 
