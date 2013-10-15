@@ -30,11 +30,11 @@ do
 		if (($TEST_STATUS == 1));then
 			succeededTests=$((succeededTests+1))
 		else
-			echo -n "Test name: ${testName}.   " >> $TESTLINK_TESTS_ERRORS
+			echo -n "Test name: ${testName}. $ROW_BREAKER " >> $TESTLINK_TESTS_ERRORS
 			if [ -n "$TEST_ERROR" ];then
-				echo "description: ${TEST_ERROR}.   " >> $TESTLINK_TESTS_ERRORS
+				echo "description: ${TEST_ERROR}. $ROW_BREAKER  " >> $TESTLINK_TESTS_ERRORS
 			fi
-			echo "directory: ${testDir}" >> $TESTLINK_TESTS_ERRORS
+			echo "directory: ${testDir} $ROW_BREAKER $ROW_BREAKER" >> $TESTLINK_TESTS_ERRORS
 		fi
 	done
 	

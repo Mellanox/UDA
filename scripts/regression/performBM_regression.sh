@@ -19,6 +19,11 @@ case ${flagsCase} in
 esac
 echo "$echoPrefix: control-flags are: $flags $additionalFlags" 
 
+if [[ "$USER" == "$VERIFICATION_USER" ]]; then
+        export ERROR_MAILING_LIST="$DEFAULT_ERROR_MAILING_LIST"
+else
+        export ERROR_MAILING_LIST="$USER"
+fi
 export BASE_DIR="/data1/web2ver"
 bash $SCRIPTS_DIR/autoTester.sh -$flags $additionalFlags \
 -Dcluster.csv="/.autodirect/mtrswgwork/eladi/regression/csvs/cluster_conf2.csv"

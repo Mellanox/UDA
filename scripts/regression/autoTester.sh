@@ -36,7 +36,7 @@ errorHandler ()
 		if (($exitStatus == $EEC1));then
 			export REPORT_SUBJECT="Daily regression runtime failure"
 			export REPORT_MESSAGE="$REPORT_MESSAGE <html><body> `cat $ERROR_LOG` </body></html>"
-			export REPORT_MAILING_LIST="$USER"
+			export REPORT_MAILING_LIST="$ERROR_MAILING_LIST"
 		fi
 		
 		case $phaseName in
@@ -44,14 +44,14 @@ errorHandler ()
 				if (($exitStatus == $EEC1));then
 					export REPORT_SUBJECT="Daily regression runtime failure"
 					export REPORT_MESSAGE="<html><body> during $2 phase: error creating $TMP_DIR </body></html>"
-					export REPORT_MAILING_LIST="${USER}@mellanox.com"
+					export REPORT_MAILING_LIST="$ERROR_MAILING_LIST"
 				fi
 			;;
 			prepare-setup|prepare-cluster	)			
 				if (($exitStatus == $EEC3));then
 						export REPORT_SUBJECT="Daily regression runtime failure"
 						export REPORT_MESSAGE="<html><body> during $2 phase: setup-preReq's error occured </body></html>"
-						export REPORT_MAILING_LIST="${USER}@mellanox.com"
+						export REPORT_MAILING_LIST="$ERROR_MAILING_LIST"
 				fi
 			;;
 			input		)  
@@ -70,7 +70,7 @@ errorHandler ()
 				if (($exitStatus == $EEC1));then # this lines are for double error - both in execute and collect phases
 					export REPORT_SUBJECT="Daily regression runtime failure"
 					export REPORT_MESSAGE="<html><body> during $2 phase: `cat $ERROR_LOG` </body></html>"
-					export REPORT_MAILING_LIST="${USER}@mellanox.com"
+					export REPORT_MAILING_LIST="$ERROR_MAILING_LIST"
 				fi
 			;;
 			analize	)

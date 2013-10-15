@@ -82,7 +82,11 @@ function getDefaultsIfNeeded()
 			execParams[headers[i]]=defaults[i]
 		else if ($i != emptyFieldFlag)
 			execParams[headers[i]]=$i
+
+		if (execParams[headers[i]] == "")
+			delete execParams[headers[i]]
 	}
+
 }
 
 function manageLog4jPropsProps(logProps)
@@ -574,6 +578,7 @@ BEGIN{
 	commaDelimitedProps[10]="yarn.nodemanager.application-listeners"
 	commaDelimitedProps[11]="yarn.nodemanager.log-dirs"
 	commaDelimitedProps[12]="yarn.nodemanager.local-dirs"
+	commaDelimitedProps[13]="mapreduce.job.shuffle.provider.services"
 
 	slavesDelimiter=" "
 	dirPropsDelimiter=commaDelimitedPropsDelimiter

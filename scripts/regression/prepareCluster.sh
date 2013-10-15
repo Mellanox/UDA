@@ -2,7 +2,7 @@
 
 echoPrefix=`eval $ECHO_PATTERN`
 
-pdsh -w $ALL_SLAVES_BY_COMMAS "sudo rm -rf $BASE_DIR; mkdir $BASE_DIR"
+sudo pdsh -w $ALL_SLAVES_BY_COMMAS "rm -rf $BASE_DIR; mkdir $BASE_DIR"
 
 for machine in $ALL_MACHINES_BY_SPACES;do
 	bash $SCRIPTS_DIR/functionsLib.sh "set_hostnames" "$machine" "$machine" 

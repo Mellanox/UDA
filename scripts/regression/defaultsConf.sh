@@ -14,7 +14,7 @@ export DEFAULT_MY_HADOOP_HOME='/hadoop-1.0.1'
 export DEFAULT_DATA_SET_TYPE='node'
 export DEFAULT_NFS_RESULTS_DIR='/.autodirect/udagwork/uda_regression/results'                #'/.autodirect/mtrswgwork/UDA/daily_regressions/results'
 export DEFAULT_SVN_REVISION=''
-export DEFAULT_REPORT_MAILING_LIST='alexr,avnerb,idanwe,dinal,eladi,alongr,yuriya,oriz' #'alexr,avnerb,idanwe,katyak,amirh,dinal,eladi,alongr,yuriya,oriz'
+export DEFAULT_REPORT_MAILING_LIST='alexr,avnerb,idanwe,dinal,eladi,alongr,yuriya,oriz,sreevathsa'
 export DEFAULT_REPORT_NAME='regression'
 export DEFAULT_REPORT_SUBJECT='UDA Daily Regression Run Status'
 export DEFAULT_REPORT_COMMENT=''
@@ -24,6 +24,7 @@ export DEFAULT_HUGE_PAGES_COUNT=-1
 export DEFAULT_CURRENT_RPM_DIR=""
 export DEFAULT_INTERFACE="ib0"
 export DEFAULT_CORES_DIR="/.autodirect/mtrswgwork/UDA/core_files_TEMP"
+export DEFAULT_ERROR_MAILING_LIST="oriz,eladi"
 
 	# not user defined variables
 export CURRENT_DATE_PATTERN='date +"%Y-%m-%d_%H.%M.%S"'
@@ -119,3 +120,4 @@ export BUILD_SERVER_PRODUCTS_DIR="/.autodirect/mswg/release/uda/daily_build"
 export BUILD_SERVER_COVFILE_NAME="UDA_master_cov"
 export BUILD_SERVER_DEFAULT_BRANCH="master"
 export LINK_INDICATOR="->"
+export VERIFICATION_USER="web2ver"

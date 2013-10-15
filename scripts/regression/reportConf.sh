@@ -54,3 +54,5 @@ export TERASORT_TESTS_NAMES="
 	<td>Failed Reduce Tasks</td>
 	<td>Killed Reduce Tasks</td>
 </tr>"
+
+export ROW_BREAKER="<br>"

@@ -2,6 +2,9 @@
 
 getReducersLogsPaths()
 {
+	if [[ -n "$reducersLogs" ]]; then
+		return 0
+	fi
 	reducersLogs=`$sshPrefix grep -rl \"UDA version is\" $testDir`
 	if [[ -z "$reducersLogs" ]]; then
 		echo "export TEST_ERROR='COULD NOT RETRIEVE REDUCERS LOGS PATHS'" >> $testExports
@@ -22,19 +25,12 @@ getBufferSizes()
 
 getSnappyCount()
 {
-snappyCount=0
-for i in $reducersLogs;
-do
-	snappyCount=`$sshPrefix cat $i | grep "brand-new compressor" | grep -c "snappy"`
-	if (($snappyCount > 0)); then
-		return 0
-	fi
-done
-
+	snappyCount=`$sshPrefix grep -r \"brand-new compressor\" $testDir | grep -c "snappy"`
 }
 
 getConsumerVersions()
 {
+	getReducersLogsPaths
 	consumerVersions=""
 	for i in $reducersLogs;
 	do
@@ -57,13 +53,13 @@ countUdaPrints()
 
 checkFallback()
 {
+	getReducersLogsPaths
 	local fallbackDesc="$1"
-	local flag=0
 	retVal=1
 	for i in $reducersLogs;
 	do
-		flag=`$sshPrefix cat $i | grep fallback | grep -c "$fallbackDesc"`
-		if (($flag != 0)); then
+		performedFallback=`$sshPrefix grep "fallback" $i | grep -c "$fallbackDesc"`
+		if (($performedFallback != 0)); then
 			retVal=0
 			return 0
 		fi
@@ -294,19 +290,24 @@ testToAnalyzerMapper()
 		setRetValAndExit $retVal
 	fi
 	
-	getReducersLogsPaths # Relevant for cases other than vanilla runs
+	case ${testID} in # FALLBACK TESTS
+		VUDA-16|VUDA-34|VUDA-43 )
+			if [[ $testID == "VUDA-43" ]];then 
+				checkConsumerIsUp
+				checkAndReturn
+			else 
+				checkStatus "$exlTEST_STATUS"
+				checkAndReturn
+			fi	
+			checkFallback
+			inverseRetVal
+			checkAndReturn
+			setRetValAndExit $retVal
+	esac
 	
-	# VUDA-43: some temporary lines till writing general solution
-	if [[ $testID == "VUDA-43" ]];then 
-		checkConsumerIsUp
-		checkAndReturn
-		checkFallback
-		inverseRetVal
-		setRetValAndExit $retVal
-	else
-		checkStatus "$exlTEST_STATUS"
-		checkAndReturn
-	fi
+	getReducersLogsPaths # Relevant for cases other than vanilla and fallback runs
+	checkStatus "$exlTEST_STATUS"
+	checkAndReturn
 
 	if [[ $testID == "VUDA-35" ]];then 
 		checkUdaIsUp
@@ -322,7 +323,7 @@ testToAnalyzerMapper()
 	fi
 	
 	case ${testID} in
-		VUDA-11|VUDA-16|VUDA-34|VUDA-36|VUDA-46 )
+		VUDA-11|VUDA-36|VUDA-46 )
 			checkFallback
 			inverseRetVal
 			checkAndReturn

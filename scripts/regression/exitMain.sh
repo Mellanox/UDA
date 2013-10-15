@@ -2,9 +2,9 @@
 
 echoPrefix=`eval $ECHO_PATTERN`
 recentNfsResultsDir=$RECENT_JOB_DIR
-mkdir $recentNfsResultsDir
-chgrp -R $GROUP_NAME $recentNfsResultsDir
-chgrp -R $GROUP_NAME $CURRENT_NFS_RESULTS_DIR
+sudo mkdir $recentNfsResultsDir
+#sudo chgrp -R $GROUP_NAME $recentNfsResultsDir
+#sudo chgrp -R $GROUP_NAME $CURRENT_NFS_RESULTS_DIR
 
 #cp -rf $CURRENT_NFS_RESULTS_DIR/* $recentNfsResultsDir TODO: uncomment it
 
