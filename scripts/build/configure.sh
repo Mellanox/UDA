@@ -32,7 +32,9 @@ done
 
 # Configure MAVEN path
 mvn_bin=`echo $MAVEN_PATH | sed 's/\/mvn//g'`
-export PATH=$PATH:${mvn_bin}
+
+# Export PATH
+export PATH=${BULLSEYE_DIR}:$PATH:${mvn_bin}
 
 # Configure text colors
 source ./colors.sh

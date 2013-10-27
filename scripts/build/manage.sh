@@ -51,7 +51,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
                 mv -f ${BUILD_TARGET_DESTINATION}/$product ${BUILD_POOL}/uda/
                 # Create a softlink
                 filename=`echo $product | sed 's/_bullseye.rpm//g'`
-                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/UDA_withBullseye_${UDA_BRANCH}_rpm
+                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/UDA_withBullseye_${UDA_BRANCH}.rpm
 		continue
         fi
 
@@ -68,7 +68,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
                 mv -f ${BUILD_TARGET_DESTINATION}/$product ${BUILD_POOL}/uda/
                 # Create a softlink
                 filename=`echo $product | sed 's/.rpm//g'`
-                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/UDA_${UDA_BRANCH}_rpm
+                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/UDA_${UDA_BRANCH}.rpm
 		continue
         fi
 

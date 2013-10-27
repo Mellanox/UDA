@@ -16,6 +16,10 @@ cd $TMP_CLONE_DIR
 # Hadoops fetch phase
 echo -e "\n${CYAN}---------- Step 1. Fetching Hadoops... ----------${NONE}"
 ls -p ${HADOOPS_STORAGE_PATH} | grep "/" | grep -v "old"
+echo -e "\n${YELLOW}--- Fetching latest vanilla hadoop! ---${NONE}"
+svn export ${HADOOP_LATEST_TRUNK} > ${HADOOPS_STORAGE_PATH}/${HADOOP_LATEST_NAME}/revision
+tar -pczf ${HADOOPS_STORAGE_PATH}/${HADOOP_LATEST_NAME}/${HADOOP_LATEST_NAME}.tar.gz ./trunk/*
+rm -rf ./trunk/
 mkdir ${HADOOP_DIR}
 echo -e "\n${GREEN}Step 1 Done!${NONE}"
 
@@ -100,7 +104,9 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 
 			# Store built patched hadoop to target directory in tar.gz form
 			echo -e "\nSaving the patched hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
-			tar -pczf ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.tar.gz ./build/*
+			SNAPSHOT_DIR=`ls -l ./build/ | egrep '^d' | grep "SNAPSHOT" | cut -d " " -f 12`
+			cd ./build/$SNAPSHOT_DIR/
+			tar -pczf ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.tar.gz ./*
 			echo "Saved!"
 
 			if [ $NATIVE_BUILD == "TRUE" ]; then
@@ -114,7 +120,9 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 
 				# Store built patched native hadoop to target directory in tar.gz form
 				echo -e "\nSaving the patched native hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
-				tar -pczf ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}_native.tar.gz ./build/*
+				SNAPSHOT_DIR=`ls -l ./build/ | egrep '^d' | grep "SNAPSHOT" | cut -d " " -f 12`
+				cd ./build/$SNAPSHOT_DIR/
+				tar -pczf ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}_native.tar.gz ./*
 				echo "Saved!"
 			fi
 
@@ -129,7 +137,7 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 			echo "Saved!"
 
 			if [ $NATIVE_BUILD == "TRUE" ]; then
-				MAVEN_BUILD_PARAMS=$MAVEN_BUILD_PARAMS -Pnative
+				MAVEN_BUILD_PARAMS="$MAVEN_BUILD_PARAMS -Pnative"
                                 echo -e "\n${YELLOW}--- Building $version as native---${NONE}"
 				# Remove old build
                                 rm -rf ./hadoop-dist/target/
@@ -157,8 +165,12 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
                         echo "Saved!"
 
 		elif [[ "$version" == *cdh_hadoop-2.0.0-cdh4.4.0* ]]; then
+
+			# Configurations for regression
 			mv bin-mapreduce1/ share/hadoop/mapreduce1/bin
+			mv etc/hadoop-mapreduce1 share/hadoop/mapreduce1/conf
 			mv share/hadoop/mapreduce1/ share/
+
 			echo "cdh_hadoop-2.0.0-cdh4.4.0 Build: Directories moved." > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}.txt
                         echo -e "\n${GREEN}$version built!${NONE}"
 
@@ -207,10 +219,10 @@ if [ $BUILD_RPM == "TRUE" ] && [ $CHANGED_UDA != 0 ]; then
         	echo -e "\n${PURPLE}--- Starting Bullseye... ---${NONE}"
 		export COVFILE=$BULLSEYE_COV_FILE
 
-		${BULLSEYE_DIR}/covselect --create --deleteAll --no-banner --quiet
+		# covselect --create --deleteAll ##--no-banner --quiet
 		echo -e "\nThe Bullseye file is ${COVFILE}."
-		${BULLSEYE_DIR}/cov01 --on
-		${BULLSEYE_DIR}/cov01 --status
+		cov01 --on
+		cov01 --status
 
 		bash build/buildrpm.sh
 
@@ -221,7 +233,8 @@ if [ $BUILD_RPM == "TRUE" ] && [ $CHANGED_UDA != 0 ]; then
 		echo "Saved!"
 
 		echo -e "\n${PURPLE}--- Stoping Bullseye... ---${NONE}"
-		${BULLSEYE_DIR}/cov01 --off
+		cov01 --off
+
 		echo -e "\nSaving the Bullseye file ${COVFILE} in ${BUILD_TARGET_DESTINATION}..."
 		mv -f ${COVFILE} ${BUILD_TARGET_DESTINATION}
 		echo "Saved!"
