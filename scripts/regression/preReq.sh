@@ -307,22 +307,6 @@ checkInodes()
 	checkFinish $errorFlag
 }
 
-# Default values
-bold=`tput bold`
-normal=`tput sgr0`
-
-echoPrefix=`eval $ECHO_PATTERN`
-
-ramFlag=0
-localLoggersSpaceFlag=0
-nfsLoggersSpaceFlag=0
-cpuFlag=0
-swapoffFlag=0
-osFreeSpaceFlag=0
-osFreeSpaceMasterInitFlag=0
-permissionsFlag=0
-hdfsSpaceFlag=0
-
 setVarValue()
 {
 	local property=$1
@@ -338,6 +322,22 @@ setVarValue()
 		retVal_setVarValue=$property
 	fi
 }
+
+# Default values
+bold=`tput bold`
+normal=`tput sgr0`
+
+echoPrefix=`eval $ECHO_PATTERN`
+
+ramFlag=0
+localLoggersSpaceFlag=0
+nfsLoggersSpaceFlag=0
+cpuFlag=0
+swapoffFlag=0
+osFreeSpaceFlag=0
+osFreeSpaceMasterInitFlag=0
+permissionsFlag=0
+hdfsSpaceFlag=0
 
 while getopts ":rlncwbiphd" Option
 do

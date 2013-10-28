@@ -88,8 +88,10 @@ export OPENIBD_PATH="/etc/init.d/openibd"
 export MLX_CONF_OPTIONS_LINE="options mlx4_core"
 export MOFED_CONF_PATH="/etc/modprobe.d/mofed.conf"
 export DEV_NULL_PATH="/dev/null"
-
-##################
+export ANT_PATH="/usr/local/ant-1.8.2/bin/ant"
+export ANT_JAVA_PROP="java5.home"
+export ANT_NATIVE_PROP="compile.native"
+export ANT_OPTIONS="clean package"
 export UDA_DEFAULT_BRANCH="master"
 export MASTER_PLUGINS_RELATIVE_PATH='plugins'
 export INPUT_DATA_REPLICATIONS_COUNT=2
@@ -110,4 +112,10 @@ export SWAPOFF_PATH="/sbin/swapoff"
 export SWAPON_PATH="/sbin/swapon"
 export CPU_USAGE_SAMPLES_TO_AVERAGE_COUNT=5
 export CDH_USERLOGS_RELATIVE_DIR="userlogs"
+export SNAPPY_LIB_PATH="/usr/lib64/libsnappy.so"
+export SNAPPY_PACKAGES="snappy snappy-devel snappy.i386 snappy-devel.i386"
 #export CLEAN_HOSTNAMES_LIST_PATH="/.autodirect/udagwork/uda_regression/clean_hostnames_list.txt"
+export BUILD_SERVER_PRODUCTS_DIR="/.autodirect/mswg/release/uda/daily_build"
+export BUILD_SERVER_COVFILE_NAME="UDA_master_cov"
+export BUILD_SERVER_DEFAULT_BRANCH="master"
+export LINK_INDICATOR="->"

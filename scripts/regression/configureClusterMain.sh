@@ -15,6 +15,12 @@ awk -v baseDir=$baseDirForParser \
  -v preReqFileName=$ENV_PRE_REQ_EXPORTS_FILENAME \
  -v cdhMark=$CDH_MARK \
  -v hdpMark=$HDP_MARK \
+ -v softModeFlag=$SOFT_MODE_FLAG \
+ -v preReqFlagsDefaults=$DEFAULT_PRE_REQ_SETUP_FLAGS \
+ -v specificExportsScriptPrefix=$SPECIFIC_EXPORTS_SCRIPTS_PREFIX \
+ -v buildServerDefaultBranch=$BUILD_SERVER_DEFAULT_BRANCH \
+ -v softModeFlag=$SOFT_MODE_FLAG \
+ -v preReqFlagsDefaults=$DEFAULT_PRE_REQ_SETUP_FLAGS \
  -f $SCRIPTS_DIR/parseClusterConf.awk $CLUSTER_CONF_FILE 
 
 if (($?!=0));then

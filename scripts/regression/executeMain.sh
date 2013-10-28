@@ -298,9 +298,11 @@ do
 	fi
 done
 
-echo "$echoPrefix: stopping all hadoop processes"
-eval $DFS_STOP
-eval $MAPRED_STOP
+if (($TEST_RUN_FLAG == 0));then
+	echo "$echoPrefix: stopping all hadoop processes"
+	eval $DFS_STOP
+	eval $MAPRED_STOP
+fi
 
 echo "
 	#!/bin/sh

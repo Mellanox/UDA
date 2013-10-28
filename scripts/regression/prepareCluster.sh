@@ -8,9 +8,11 @@ for machine in $ALL_MACHINES_BY_SPACES;do
 	bash $SCRIPTS_DIR/functionsLib.sh "set_hostnames" "$machine" "$machine" 
 done
 
-# CHECKING PRE-REQs - checking the log-dirs free space
-echo "$echoPrefix: cheching pre-requests: bash $SCRIPTS_DIR/preReq.sh -n"
-bash $SCRIPTS_DIR/preReq.sh -n
+# CHECKING PRE-REQs:
+# checking the master's OS-disk's free space
+# checking the log-dirs free space
+echo "$echoPrefix: cheching pre-requests: bash $SCRIPTS_DIR/preReq.sh $PRE_REQ_SESSION_FLAGS"
+bash $SCRIPTS_DIR/preReq.sh "$PRE_REQ_SESSION_FLAGS"
 if (($? == $EEC3));then 
 	exit $EEC3
 fi	

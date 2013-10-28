@@ -31,15 +31,6 @@ errorLog=$BASE_DIR/$ERROR_LOG_FILE_NAME
 echo -n "" >  $errorLog
 cleanMachineNameFile=$BASE_DIR/$CLEAN_MACHINE_NAME_FILENAME
 
-# CHECKING PRE-REQs
-
-# checking the master's OS-disk's free space
-echo "$echoPrefix: cheching pre-requests: bash $SCRIPTS_DIR/preReq.sh -i"
-bash $SCRIPTS_DIR/preReq.sh -i
-if (($? == $EEC3));then 
-	exit $EEC3
-fi	
-
 echo "
 	#!/bin/sh
 	export CURRENT_DATE='$currentDate'

@@ -102,13 +102,8 @@ echo -e \\n\\n
 
 ### Cheking preReqs
 
-preReqFlags=$PRE_REQ_TEST_FLAGS
-if [[ "$preReqFlags" == "-" ]];then
-	preReqFlags=$DEFAULT_PRE_REQ_TEST_FLAGS
-fi
-
-echo "$echoPrefix: checking pre-requests: bash $SCRIPTS_DIR/preReq.sh $preReqFlags"
-bash $SCRIPTS_DIR/preReq.sh $preReqFlags
+echo "$echoPrefix: checking pre-requests: bash $SCRIPTS_DIR/preReq.sh $PRE_REQ_TEST_FLAGS"
+bash $SCRIPTS_DIR/preReq.sh $PRE_REQ_TEST_FLAGS
 if (($? == $EEC3));then 
 		echo "
 		#!/bin/sh

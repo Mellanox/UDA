@@ -16,7 +16,7 @@ allSetupTestsExports=$TESTS_CONF_DIR/$ENV_FIXED_NAME/allSetupsExports.sh
 source $allSetupTestsExports
 echo "$echoPrefix: sourcing $allSetupTestsExports"
 
-hadoopCommandsScript=$SCRIPTS_DIR/$HADOOP_SPECIAL_SCRIPT_NAME
+hadoopCommandsScript=$SCRIPTS_DIR/$HADOOP_SPECIFIC_SCRIPT_NAME
 echo "$echoPrefix: hadoop type is $HADOOP_TYPE. sourcing $hadoopCommandsScript" 
 source $hadoopCommandsScript
 
@@ -27,10 +27,10 @@ if (($CODE_COVE_FLAG==1)); then
 	codeCoverageIntermediateDir=$envDir/$CODE_COVERAGE_ENV_LOCAL_DIR_NAME
 fi
 
-if ! sudo mkdir -p $TMP_DIR_LOCAL_DISK;then
+if ! mkdir -p $TMP_DIR_LOCAL_DISK;then
+	echo "$echoPrefix: failing creating TMP_DIR_LOCAL_DISK on $TMP_DIR_LOCAL_DISK"
 	exit $EEC1
 fi
-sudo chown -R $USER $TMP_DIR_LOCAL_DISK
 rm -rf $TMP_DIR_LOCAL_DISK/*
 
 errorLog=$envDir/runtimeErrorLog.txt
@@ -38,20 +38,15 @@ echo -n "" >  $errorLog
 
 for machine in $ENV_MACHINES_BY_SPACES
 do
-	sudo ssh $machine mkdir -p $tmpDir $statusDir $codeCoverageIntermediateDir
-	sudo ssh $machine chown -R $USER $tmpDir $statusDir $codeCoverageIntermediateDir
+	ssh $machine mkdir -p $tmpDir $statusDir $codeCoverageIntermediateDir
+	#ssh $machine chown -R $USER $tmpDir $statusDir $codeCoverageIntermediateDir
 	# makeing and checking the swapoff
-	echo "$echoPrefix: disabling swap is off"
+	echo "$echoPrefix: disabling swapiness on $machine"
 	sudo ssh $machine sudo $SWAPOFF_PATH -a
 done
 
-preReqFlags=$PRE_REQ_SETUP_FLAGS
-if [[ "$preReqFlags" == "-" ]];then
-	preReqFlags=$DEFAULT_PRE_REQ_SETUP_FLAGS
-fi
-
-echo "$echoPrefix: cheching pre-requests: bash $SCRIPTS_DIR/preReq.sh $preReqFlags"
-bash $SCRIPTS_DIR/preReq.sh $preReqFlags
+echo "$echoPrefix: cheching pre-requests: bash $SCRIPTS_DIR/preReq.sh $PRE_REQ_SETUP_FLAGS"
+bash $SCRIPTS_DIR/preReq.sh $PRE_REQ_SETUP_FLAGS
 if (($? == $EEC3));then 
 	exit $EEC3
 fi	

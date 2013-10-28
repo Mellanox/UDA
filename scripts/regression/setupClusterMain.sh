@@ -2,23 +2,23 @@
 
 getBranchFromGit() 
 {
-	gitProject=$1
-	gitBranch=$2
-	localBranchDir=$3
+	local gitProject=$1
+	local gitBranch=$2
+	local localBranchDir=$3
 	
 	if [[ -z $gitBranch ]];then
 		gitBranch=$UDA_DEFAULT_BRANCH
 	fi
 	
 	echo "$echoPrefix: getting branch $gitBranch from git"
-	gitBranchLocalDir=$localBranchDir/$gitBranch
+	local gitBranchLocalDir=$localBranchDir/$gitBranch
 	mkdir $gitBranchLocalDir
 	echo "$echoPrefix: git clone $gitProject $gitBranchLocalDir"
 	git clone $gitProject $gitBranchLocalDir
 	cd $gitBranchLocalDir/
-	currentVersionCount=`git branch -r | grep $gitBranch | grep -c ""`
+	local currentVersionCount=`git branch -r | grep $gitBranch | grep -c ""`
 	if [[ $gitBranch != master~* ]] && (($currentVersionCount == 0));then
-		currentVersion=`git branch -r | grep $gitBranch`
+		local currentVersion=`git branch -r | grep $gitBranch`
 		echo "$echoPrefix: error during getting the right hadoop version. [found: $currentVersion] " | tee $ERROR_LOG
 		exit $EEC1
 	else
@@ -45,8 +45,8 @@ getHadoopFromLocal()
 
 buildRpmGit()
 {
-	gitMasterTempDir=$1
-	rpmBuild=$gitMasterTempDir/$MASTER_RPM_BUILD_RELATIVE_PATH
+	local gitMasterTempDir=$1
+	local rpmBuild=$gitMasterTempDir/$MASTER_RPM_BUILD_RELATIVE_PATH
 	echo "$echoPrefix: building the rpm from $rpmBuild"
 	bash $rpmBuild > $STATUS_DIR/buildRpm.txt #building rpm
 	if ((`cat $STATUS_DIR/buildRpm.txt | grep -c "SUCCESS: Your RPM is under"` != 1));then
@@ -57,9 +57,9 @@ buildRpmGit()
 
 getUda()
 {
-	gitProject=$1
-	gitBranch=$2
-	localBranchDir=$3
+	local gitProject=$1
+	local gitBranch=$2
+	local localBranchDir=$3
 	if (($gitUdaFlag==0));then
 		getBranchFromGit "$gitProject" "$gitBranch" "$localBranchDir"
 		gitUdaFlag=1
@@ -72,15 +72,15 @@ getUda()
 
 setCoreDir()
 {
-	node=$1
-	fullCorePattern=$CORES_DIR/$CORES_PATTERN
-	kernelCorePattern="$KERNEL_CORE_PATTERN_PROPERTY = $fullCorePattern"
+	local node=$1
+	local fullCorePattern=$CORES_DIR/$CORES_PATTERN
+	local kernelCorePattern="$KERNEL_CORE_PATTERN_PROPERTY = $fullCorePattern"
 	
 	echo "$echoPrefix: setting core-pattern"
 	sudo ssh $node "echo $fullCorePattern | sudo tee $PROC_CORE_PATTERN_PATH"
 	# managing the core files location
-	kernelLineStatus=`ssh $node "grep -c $KERNEL_CORE_PATTERN_PROPERTY $SYSCTL_PATH"`
-	tempSysctl=$TMP_DIR/`basename $SYSCTL_PATH`
+	local kernelLineStatus=`ssh $node "grep -c $KERNEL_CORE_PATTERN_PROPERTY $SYSCTL_PATH"`
+	local tempSysctl=$TMP_DIR/`basename $SYSCTL_PATH`
 	if (($kernelLineStatus == 1));then # replacing the current line
 		sudo ssh $node "sed '/kernel.core_pattern/ c $kernelCorePattern' $SYSCTL_PATH > $tempSysctl; mv -f $tempSysctl $SYSCTL_PATH"
 	elif (($kernelLineStatus == 0));then # adding a new line
@@ -93,13 +93,14 @@ setCoreDir()
 
 setHugePages()
 {
-	node=$1
+	local node=$1
 
 	echo "$echoPrefix: setting huge pages"
-	showHugePagesCmd="grep HugePages_Total /proc/meminfo"
-	showShmMaxCmd="cat /proc/sys/kernel/shmmax"
-	lastHugePagesCount=`ssh $node $showHugePagesCmd | awk '{print $2}'`
-	lastShmMax=`ssh $node $showShmMaxCmd`
+	local showHugePagesCmd="grep HugePages_Total /proc/meminfo"
+	local showShmMaxCmd="cat /proc/sys/kernel/shmmax"
+	local lastHugePagesCount=`ssh $node $showHugePagesCmd | awk '{print $2}'`
+	local lastShmMax=`ssh $node $showShmMaxCmd`
+	local shmMaxNeeded=""
 	
 	if (($HUGE_PAGES_COUNT == 0));then
 		shmMaxNeeded=$SYSTEM_DEFAULT_SHM_MAX_SIZE
@@ -108,8 +109,8 @@ setHugePages()
 		shmMaxNeeded=$((HUGE_PAGES_COUNT*hugePageSizeKb*1024))
 	fi
 	sudo ssh $node "echo $shmMaxNeeded > /proc/sys/kernel/shmmax; echo $HUGE_PAGES_COUNT > /proc/sys/vm/nr_hugepages"
-	newHugePageCount=`ssh $node $showHugePagesCmd | awk '{print $2}'`
-	newShmMax=`ssh $node $showShmMaxCmd`
+	local newHugePageCount=`ssh $node $showHugePagesCmd | awk '{print $2}'`
+	local newShmMax=`ssh $node $showShmMaxCmd`
 	echo "$echoPrefix: huge pages are $newHugePageCount, shmmax is $newShmMax"
 	
 	echo "sudo echo $lastHugePagesCount > /proc/sys/vm/nr_hugepages;
@@ -121,14 +122,13 @@ setHugePages()
 
 patchToVanilla()
 {	
-	vanillaHadoop=$1
-	patchFile=$2
-	pOption=$3
+	local vanillaHadoop=$1
+	local patchFile=$2
+	local pOption=$3
 
 	echo "$echoPrefix: patching hadoop"
 	getUda "$DEFAULT_GIT_MASTER_DIR" "$GIT_BRANCH" "$udaBaseDir"
-	#getMaster
-	patchFilePath=$getUdaRetVal/$MASTER_PLUGINS_RELATIVE_PATH/$patchFile
+	local patchFilePath=$getUdaRetVal/$MASTER_PLUGINS_RELATIVE_PATH/$patchFile
 
 	cd $vanillaHadoop
 	patch $pOption < $patchFilePath
@@ -152,7 +152,7 @@ editBuildFile()
 	
 	newBuildLine=`grep 'target name="package"' $vanillaBuildFile | awk -v fieldSup="$fs" 'BEGIN {FS=fieldSup} {print $1 $2}'`
 	
-	#insertRowIntoFile "target name=\"package\"" "$newBuildLine" "$vanillaBuildFile"
+	insertRowIntoFile "target name=\"package\"" "$newBuildLine" "$vanillaBuildFile"
 	
 	sed "/target name=\"package\"/ c $newBuildLine" $vanillaBuildFile > $tempBuildFile
 	cat $tempBuildFile > $vanillaBuildFile
@@ -171,9 +171,9 @@ manageHadoop()
 
 manageLzoResources()
 {
-	node=$1
-	missingResources=""
-	checkIncludeResources=`ssh $node "if [[ ! -d $LZO_USR_INCLUDE_DIR ]];then echo MISS;fi"`
+	local node=$1
+	local missingResources=""
+	local checkIncludeResources=`ssh $node "if [[ ! -d $LZO_USR_INCLUDE_DIR ]];then echo MISS;fi"`
 	if [[ -n $checkIncludeResources ]];then
 		missingResources="$missingResources $LZO_USR_INCLUDE_DIR"
 	else
@@ -197,14 +197,14 @@ manageLzoResources()
 
 insertRowIntoFile()
 {
-	row="$1"
-	indicator="$2"
-	destFile="$3"
-	forceNewRow="$4"
+	local row="$1"
+	local indicator="$2"
+	local destFile="$3"
+	local forceNewRow="$4"
 	
-	tmpFile=$TMP_DIR/$TEMP_SUFFIX
-	
-	if [[ -n "$forceNewRow" ]] || [ ! -e $destFile ];then
+	local tmpFile=$TMP_DIR/$TEMP_SUFFIX
+
+	if [[ -n "$forceNewRow" ]] || [ ! -e $destFile ] || ((`grep -c "$indicator" $destFile` == 0));then
 		echo "$row" >> "$destFile"
 	else
 		sed "/$indicator/ c $row" $destFile > $tmpFile
@@ -214,7 +214,7 @@ insertRowIntoFile()
 	
 manageUdaJarLinking()
 {
-	machine=$1
+	local machine=$1
 	if (($YARN_HADOOP_FLAG == 1));then
 		udaJarLinkDir=$myHadoopHome/$HADOOP_RESOURCES_DIR
 		links=`ssh $machine find $udaJarLinkDir -name $RPM_JAR`
@@ -223,6 +223,34 @@ manageUdaJarLinking()
 		fi
 		echo "$echoPrefix: ssh $machine ln -s $UDA_RESOURCES_DIR/$RPM_JAR $udaJarLinkDir"
 		ssh $machine ln -s $UDA_RESOURCES_DIR/$RPM_JAR $udaJarLinkDir
+	fi
+}
+
+manageRpmInstallation()
+{
+	local machine=$1
+	local rpm=$2
+	if ssh $machine rpm -qa | grep -q libuda; then
+		echo "$echoPrefix: uninstalling the existing RPM"
+		sudo ssh $machine rpm -e libuda;
+	fi		
+	echo "$echoPrefix: installing RPM: $rpm"
+	sudo ssh $machine rpm -ivh $rpm
+	if (($? != 0)); then
+			echo "$echoPrefix: error occured when installing RPM on $machine" | tee $ERROR_LOG
+			exit $EEC1
+	fi
+	installedRpm=`sudo ssh $machine rpm -iq libuda`
+	echo "$echoPrefix: the installed RPM is $installedRpm"	
+}
+
+getLinkRealPath()
+{
+	local link=$1
+	getLinkRealPath_retVal=$link
+	local realPath=`ls -l $link | awk -v fieldSup="$LINK_INDICATOR" 'BEGIN{FS=fieldSup};{print $2}'`
+	if [[ -n $realPath ]];then
+		getLinkRealPath_retVal=$realPath	
 	fi
 }
 
@@ -245,14 +273,26 @@ echo -n "" > $slavesExitScript
 
 # preparing the master
 
-if (($CO_FLAG==1));then
-	getBranchFromGit "$DEFAULT_GIT_HADOOPS_DIR" "$HADOOP_DIRNAME" "$setupEnvDir"
-	hadoopHome=$getBranchFromGitRetVal
-else  # in case we're running a totaly-build and ready hadoop from NFS
-	getHadoopFromLocal
-	hadoopHome=$getHadoopRetVal
+if (($BUILD_SERVER_FLAG==1));then
+	hadoopHome=$setupEnvDir/${HADOOP_HOME_DIR_PREFIX}${HADOOP_VERSION}
+	mkdir -p $hadoopHome
+	echo "$echoPrefix: tar -xf $LOCAL_HADOOP_DIR -C $hadoopHome"
+	tar -xf $LOCAL_HADOOP_DIR -C $hadoopHome
+	filesCount=`ls $hadoopHome | grep -c ""`
+	if (($filesCount==1));then
+		nestedDir="$hadoopHome/*"
+		mv $nestedDir/* $hadoopHome
+	fi
+else
+	if (($CO_FLAG==1));then
+		getBranchFromGit "$DEFAULT_GIT_HADOOPS_DIR" "$HADOOP_DIRNAME" "$setupEnvDir"
+		hadoopHome=$getBranchFromGitRetVal
+	else  # in case we're running a totaly-build and ready hadoop from NFS
+		getHadoopFromLocal
+		hadoopHome=$getHadoopRetVal
+	fi
+	manageHadoop
 fi
-manageHadoop
 
 if (($PATCH_FLAG==1));then
 	patchToVanilla $hadoopHome $PATCH_NAME "-p0 -s"
@@ -263,16 +303,12 @@ fi
 
 if (($BUILD_FLAG==1)) || (($PATCH_FLAG==1))
 then
-	buildOptions="-Dcompile.native=true"
-	echo "$echoPrefix: Compiling with native!"
-
-	#if [[ $COMPRESSION == "Snappy" ]];then
-	#	echo "$echoPrefix: using Snappy"
-	#	buildOptions="-Dcompile.native=true"
-	#fi		
+	buildOptions="-D${ANT_NATIVE_PROP}=true"
+	echo "$echoPrefix: Compiling with native!"	
 
 	cd $hadoopHome
-	buildCmd="/usr/local/ant-1.8.2/bin/ant -Djava5.home=$JAVA_HOME $buildOptions clean package"
+	buildCmd="$ANT_PATH -D${ANT_JAVA_PROP}=$JAVA_HOME $buildOptions $ANT_OPTIONS"
+
 	echo "$echoPrefix: $buildCmd" 
 	eval $buildCmd > $STATUS_DIR/buildHadoop.txt	
 	buildStatus=`cat $STATUS_DIR/buildHadoop.txt | grep -c "BUILD SUCCESSFUL"`
@@ -308,7 +344,7 @@ fi
 
 hadoopConfDir=$myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH
 hadoopEnv=$hadoopConfDir/$HADOOP_ENVS_SCRIPT_NAME
-hadoopClasspathLine="export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}"
+
 javaHomeLine="export JAVA_HOME=$JAVA_HOME"
 insertRowIntoFile "$javaHomeLine" "export JAVA_HOME=" "$hadoopEnv"
 if (($YARN_HADOOP_FLAG == 1));then
@@ -325,14 +361,8 @@ else
 	hadoopOptsLine="export HADOOP_OPTS=\"\${HADOOP_OPTS} -Djava.net.preferIPv4Stack=true -DudaHostName=\`hostname\`-${INTERFACE} \""
 	insertRowIntoFile "$hadoopOptsLine" "export HADOOP_OPTS=" "$hadoopEnv"
 fi
+hadoopClasspathLine="export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}"
 insertRowIntoFile "$hadoopClasspathLine" "export HADOOP_CLASSPATH=" "$hadoopEnv" "$forcingNewRowClasspath"
-
-#hadoopEnvTemp=$myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh
-#sed "/export JAVA_HOME=/ c $javaHomeLine" $hadoopEnv > $hadoopEnvTemp
-#sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $hadoopEnvTemp > $hadoopEnv
-#sed "/export HADOOP_OPTS=/ c export HADOOP_OPTS=\"\${HADOOP_OPTS} -Djava.net.preferIPv4Stack=true -DudaHostName=\`hostname\`-${INTERFACE} \"" $hadoopEnv > $hadoopEnvTemp
-#cat $hadoopEnvTemp > $hadoopEnv
-#rm -f $hadoopEnvTemp
 
 if [[ $COMPRESSION == "Lzo" ]]; then
 	manageLzoResources $MASTER
@@ -352,28 +382,30 @@ if [[ $COMPRESSION == "Lzo" ]]; then
 		echo "$echoPrefix: there's no JAVA_LIBRARY_PATH exported in hadoop-env.sh "
 		echo "export JAVA_LIBRARY_PATH=$lzoLocalResourcesDir" >> $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh
 	fi
-#else
-	#sed "/export HADOOP_CLASSPATH=/ c export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}" $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh > $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh
-	#mv $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh  $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh
-	#rm -f $myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env2.sh
 elif [[ $COMPRESSION == "Snappy" ]]
 then
 	for machine in $ENV_MACHINES_BY_SPACES
 	do
 		if ((`ssh $machine rpm -qa | grep -c snappy` == 0));then
-			echo "$echoPrefix: installing snappy: sudo yum -y install snappy snappy-devel snappy.i386 snappy-devel.i386"
-			ssh $machine sudo yum -y install snappy snappy-devel snappy.i386 snappy-devel.i386	
+			echo "$echoPrefix: installing snappy: ssh $machine sudo yum -y install $SNAPPY_PACKAGES"
+			ssh $machine sudo yum -y install $SNAPPY_PACKAGES	
 		else 
 			echo "$echoPrefix: snappy is installed on $machine";
 		fi
 	done
-	echo "$echoPrefix: scp /usr/lib64/libsnappy.so* $hadoopHome/build/native/*/lib/"
-	scp /usr/lib64/libsnappy.so* $hadoopHome/build/native/*/lib/
+
+	if [[ -n $HADOOP_NATIVE_RELATIVE_DIR ]]
+	then
+		hadoopRelativeDir=$hadoopHome/$HADOOP_NATIVE_RELATIVE_DIR
+		for dir in `ls $hadoopRelativeDir`;do
+			echo "$echoPrefix: scp ${SNAPPY_LIB_PATH}* $hadoopRelativeDir/$dir/"
+			scp ${SNAPPY_LIB_PATH}* $hadoopRelativeDir/$dir/
+		done
+	fi
 fi	
 
 if (($CODE_COVE_FLAG==1)); then
 	# setting COVFILE in hadoop-env
-	covfileForBuildName=${CODE_COVERAGE_TEMPLATE_COVFILE_FILE_NAME}${CODE_COVERAGE_FILE_SUFFIX}
 	covfileForTestsName=${ENV_FIXED_NAME}${CODE_COVERAGE_FILE_SUFFIX}
 	covfileForTests=$covfileDirForTests/$covfileForTestsName
 	envFile="$myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH/hadoop-env.sh"
@@ -385,19 +417,19 @@ fi
 echo -e \\n
 echo "$echoPrefix: MY_HADOOP_HOME is $myHadoopHome"
 sudo chown -R $USER $myHadoopHome
-#confDir=$myHadoopHome/$HADOOP_CONF_DIR_RELATIVE_PATH
-#scp $TESTS_DIR/slaves $confDir # copy the general slaves file, whick contains all of the slaves in the configuration-csv file, for setting-up the cluster 
+if (($? != 0));then
+	echo "$echoPrefix: error occured when setting the hadoop-directory" | tee $ERROR_LOG
+	exit $EEC1
+fi
+
 echo -e \\n
 
-if (($RPM_FLAG==1));then
-	if rpm -qa | grep -q libuda; then
-		echo "$echoPrefix: uninstalling the existing RPM"
-		sudo rpm -e libuda;
-	fi
-	
+if (($RPM_FLAG==1))
+then	
 	if (($UDA_PLACE_TYPE==0));then # getting a local and built rpm
 		echo "$echoPrefix: installing the rpm locally from $LOCAL_UDA_DIR"
-		currentRpm=$UDA_PLACE_VALUE
+		getLinkRealPath $UDA_PLACE_VALUE
+		currentRpm=$getLinkRealPath_retVal
 	else # needs to build the rpm
 		if (($UDA_PLACE_TYPE==1));then # getting branch from git
 			# getting the master dir from git if needed
@@ -412,12 +444,15 @@ if (($RPM_FLAG==1));then
 		echo "$echoPrefix: start building the rpm from $currentUdaDir"
 		
 		if (($CODE_COVE_FLAG==1)); then
+			covfileForBuildName=${CODE_COVERAGE_TEMPLATE_COVFILE_FILE_NAME}${CODE_COVERAGE_FILE_SUFFIX}
 			covfileForBuild=$currentUdaDir/$covfileForBuildName
 			export COVFILE=$covfileForBuild # different path from the hadoop-env's COVFILE
 			echo "$echoPrefix: tunring  on: cov01 -1"
 			cov01 --on
 			echo "$echoPrefix: tunring Bullseye flag stat on: cov01 -s"
 			cov01 --status
+		else
+			cov01 --off # for case that the bullseye left turned-on on the machine 
 		fi
 		
 		buildRpmGit $currentUdaDir
@@ -437,14 +472,8 @@ if (($RPM_FLAG==1));then
 	currentRpmVersion=`echo $currentRpm | awk 'BEGIN{FS="libuda-"} {print $2}' | awk 'BEGIN{FS="."} {if ($4 ~ /[a-zA-Z]+/){print $1 "." $2 "." $3 "." $4 "." $5}else{print $1 "." $2 "." $3 "." $4}}'` # according to the format in BUILD.README file
 	shortFormatVersion=`echo $currentRpmVersion | awk 'BEGIN{FS="."} {print $1 "." $2 "." $3}' | awk 'BEGIN{FS="-"} {print $1}'`
 	echo "$echoPrefix: installing the rpm $currentRpm. parsed version is: $currentRpmVersion, short version is: $shortFormatVersion"
-	sudo rpm -ivh $currentRpm
-	installedRpm=`sudo rpm -iq libuda`
-	echo "$echoPrefix: the installed RPM is $installedRpm"
-	#if [[ $currentRpm != "${installedRpm}.rpm" ]];then
-	if ! echo $currentRpm | grep $installedRpm ;then
-		echo "$echoPrefix: error occured when installing RPM on $MASTER" | tee $ERROR_LOG
-		exit $EEC1
-	fi
+	
+	manageRpmInstallation $MASTER $currentRpm
 fi	
 
 manageUdaJarLinking $MASTER
@@ -461,16 +490,23 @@ echo "$echoPrefix: killing all java processes"
 sudo pkill -9 java
 
 if (($CODE_COVE_FLAG==1)); then
-	echo "$echoPrefix: cp $CODE_COVERAGE_TEMPLATE_COVFILE_DIR/$covfileForBuildName $covfileDirForTests"
-	cp $CODE_COVERAGE_TEMPLATE_COVFILE_DIR/$covfileForBuildName $covfileDirForTests
-	echo "$echoPrefix: mv $covfileDirForTests/$covfileForBuildName $covfileForTests"
-	mv $covfileDirForTests/$covfileForBuildName $covfileForTests
+	if (($BUILD_SERVER_FLAG==1));then
+		covfileDir=$BUILD_SERVER_PRODUCTS_DIR
+		covfileName=$BUILD_SERVER_COVFILE_NAME
+	else
+		covfileDir=$CODE_COVERAGE_TEMPLATE_COVFILE_DIR
+		covfileName=$covfileForBuildName
+	fi
+	
+	echo "$echoPrefix: cp $covfileDir/$covfileName $covfileDirForTests"
+	cp $covfileDir/$covfileName $covfileDirForTests
+	echo "$echoPrefix: mv $covfileDirForTests/$covfileName $covfileForTests"
+	mv $covfileDirForTests/$covfileName $covfileForTests
 fi
 
 setCoreDir $MASTER
 
 # preparing the slaves
-# pdsh -w $SLAVES_BY_COMMAS setupSlave.sh
 for slave in $SLAVES_BY_SPACES
 do
 	echo -e \\n\\n
@@ -490,19 +526,7 @@ do
 	sudo ssh $slave sudo chown -R $USER $myHadoopHome
 	
 	if (($RPM_FLAG==1));then
-		if ssh $slave rpm -qa | grep -q libuda; then
-			echo "$echoPrefix: uninstalling the existing RPM"
-			sudo ssh $slave rpm -e libuda;
-		fi
-		echo "$echoPrefix: installing RPM: $currentRpm"
-		sudo ssh $slave rpm -ivh $currentRpm
-		installedRpm=`sudo ssh $slave rpm -iq libuda`
-		echo "$echoPrefix: the installed RPM is $installedRpm"
-
-		if ! echo $currentRpm | grep $installedRpm ;then
-			echo "$echoPrefix: error occured when installing RPM on `ssh $slave hostname`" | tee $ERROR_LOG # for avoiding printing the slave name with the interface prefix
-			exit $EEC1
-		fi
+		manageRpmInstallation $slave $currentRpm
 	fi
 
 	manageUdaJarLinking $slave
@@ -522,13 +546,6 @@ do
 	fi			
 done
 echo -e \\n\\n
-
-#sourceRpmDir=$TMP_DIR/$CURRENT_DATE
-#destRpmDir=$RELEASE_DIR/$RELEASE_RPM_RELATIVE_DIR
-#echo "$echoPrefix: copying the rpm to $destRpmDir"
-#mkdir $sourceRpmDir
-#cp $currentRpm $sourceRpmDir
-#mv -r $sourceRpmDir $destRpmDir
 
 echo "$echoPrefix: finishing setting-up the cluster, under $myHadoopHome"
 

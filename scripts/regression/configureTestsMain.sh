@@ -43,6 +43,8 @@ awk -v seed=$RANDOM \
  -v disableUda="$DISABLE_UDA_FLAG" \
  -v compressionDParams="$COMPRESSION_D_PARAMETERS" \
  -v userlogsRelativeDir="$CDH_USERLOGS_RELATIVE_DIR" \
+ -v softModeFlag=$SOFT_MODE_FLAG \
+ -v preReqFlagsDefaults=$DEFAULT_PRE_REQ_TEST_FLAGS \
  -f $SCRIPTS_DIR/parseTests.awk "$TEST_CONF_FILE"
 if (($?!=0));then
 	echo "$echoPrefix: error during executing the parser script" | tee $ERROR_LOG

@@ -267,7 +267,13 @@ function exportMenager()
 		print "export " exportName "_BY_COMMAS='" tmpValue "'" >> exportsFile
 	}
 	
-	print "export PRE_REQ_TEST_FLAGS='-" execParams["pre_req_flags"] "'" >> exportsFile # this minus is to avoid input of "-" in the csv file
+	preReqFlags=execParams["pre_req_flags"]
+	if (preReqFlags == "")
+	{
+		preReqFlags= preReqFlagsDefaults
+	}
+	print "export PRE_REQ_TEST_FLAGS='" preReqFlags "'" >> exportsFile # this minus is to avoid input of "-" in the csv file
+	
 	print "export PROGRAM='"execParams["program"] "'" >> exportsFile 
 	print "export NSAMPLES="execParams["samples"] >> exportsFile
 	print "export SLAVES_COUNT="execParams["slaves"] >> exportsFile
@@ -286,7 +292,7 @@ function exportMenager()
 		print "export COMPRESSION_TEST_LEVEL='"compressionDParams "'" >> exportsFile
 	}
 	
-	manageSpecialHadoopExports()
+	manageSpecificHadoopExports()
 }
 
 function manageAddParams()
@@ -363,7 +369,7 @@ function manageAddParams()
 	split("", params)
 }
 
-function manageSpecialHadoopExports()
+function manageSpecificHadoopExports()
 {
 	dfsDirsList=""
 	if (yarnFlag == 1)
@@ -709,7 +715,7 @@ BEGIN{
 	if (execParams["slaves"] > maxSlaves)
 		maxSlaves=execParams["slaves"]
 
-		# managing special properties	
+		# managing specific properties	
 	manageCommaDelimitedProps(commaDelimitedProps)
 	manageMinusPrefixProps(minusPrefixProps)
 	manageBooleanValueProps(booleanValueProps)
@@ -810,23 +816,31 @@ BEGIN{
 	print "export FORMAT_DFS=" formatDfs >> exportsFile
 	
 	exportMenager()
+
 	if (resetSetupFlag==1)
 	{
-		print "export RESTART_HADOOP=1" >> exportsFile
+		restartHadoop=1
 		resetSetupHandler()
 	}
 	else
 	{
 		if (restartHadoopFlag==1)
 		{
-			print "export RESTART_HADOOP=1" >> exportsFile
+			restartHadoop=1
 			restartHadoopHandler()
 		}
 		else
-			print "export RESTART_HADOOP=0" >> exportsFile
-			
+		{
+			restartHadoop=0
+		}	
 		system("mv " execDir " " setupDir)
 	}
+	if (softModeFlag==1)
+	{
+		restartHadoop=0
+	}
+	print "export RESTART_HADOOP=" restartHadoop >> exportsFile	
+		
 		
 	# check for errors
 	#if (execParams["mapred.tasktracker.map.tasks.maximum"] < execParams["mapred.tasktracker.reduce.tasks.maximum"])

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echoPrefix=`eval $ECHO_PATTERN`
+
  # control flags
 	# user-defined:
 configureFlag=0
@@ -7,8 +9,8 @@ executeFlag=0
 distributeFlag=0
 analizeFlag=0
 setupClusterFlag=0
+softModeFlag=0
 	# not user-defined"
-setupTestsFlag=1
 controlFlag=1
 collectFlag=1
 viewFlag=1
@@ -50,11 +52,10 @@ hugePagesCount=""
 currentRpmDir=""
 logNumMtt=""
 logMttsPerSeg=""
-
-###########################
-
+bullseyeDryrun=""
 clusterConfFile=""
 interfaceName=""
+preReqSessionFlags=""
 
 # the defalut for logs.server is the master
 
@@ -98,7 +99,7 @@ usage $0
 "
 }
 
-while getopts ":beadstzihD:" Option
+while getopts ":beadstzihfD:" Option
 do
 	case ${Option} in
     		"b"     ) configureFlag=1 ;;
@@ -106,6 +107,7 @@ do
 	    	"e"     ) executeFlag=1 ;; 
 			"a"		) analizeFlag=1 ;; 
 			"d"		) distributeFlag=1 ;;
+			"f"		) softModeFlag=1 ;; 
 			"t"     ) testRunFlag=1 ;; 
 			"z"		) zipFlag=1 ;;
 			"i"     ) codeCoverageFlag=1 ;;
@@ -147,13 +149,14 @@ do
 				git.master.dir	) gitMasterDir=$value;;
 				hugepages.count	) hugePagesCount=$value;;
 				lzo.jar			) lzoJar=$value ;;
-				#############################
 				cluster.csv			) clusterConfFile=$value ;;
 				interface	) interfaceName=$value ;;
-				*     		) echo "Unknown parameter chosen. enter -h for help"; exit $SEC ;;   # Default.	
+				bullseye.dryrun	) bullseyeDryrun=$value ;;
+				preReq.session.flags	) preReqSessionFlags=$value ;;
+				*     		) echo "$echoPrefix: unknown parameter ($param) chosen. enter -h for help"; exit $SEC ;;   # Default.	
 			esac
 			;;
-		*     	) usage;  exit $SEC ;;   # Default.
+		*     	) echo "$echoPrefix: unknown flag ($Option) chosen. enter -h for help"; usage;  exit $SEC ;;   # Default.
 	esac
 done
 
@@ -269,14 +272,16 @@ if [ -z "$lzoJar" ];then
     lzoJar=$DEFAULT_LZO_JAR
 fi
 
-#####################################
-
 if [ -z "$clusterConfFile" ];then
     clusterConfFile=$DEFAULT_CLUSTER_CONF_FILE
 fi
 
 if [ -z "$interfaceName" ];then
     interfaceName=$DEFAULT_INTERFACE
+fi
+
+if [ -z "$preReqSessionFlags" ];then
+    preReqSessionFlags=$DEFAULT_PRE_REQ_SESSION_FLAGS
 fi
 
 echo "
@@ -286,8 +291,9 @@ echo "
 	export CONTROL_FLAG=$controlFlag
 	export CONFIGURE_FLAG=$configureFlag
 	export SETUP_CLUSTER_FLAG=$setupClusterFlag
-	export SETUP_TESTS_FLAG=$setupTestsFlag
+	export SETUP_TESTS_FLAG=$setupClusterFlag # for correlating between the setups' flags
 	export EXECUTE_FLAG=$executeFlag
+	export SOFT_MODE_FLAG=$softModeFlag
 	export COLLECT_FLAG=$collectFlag
 	export VIEW_FLAG=$viewFlag	
 	export ANALIZE_FLAG=$analizeFlag
@@ -322,11 +328,10 @@ echo "
 	export GIT_MASTER_DIR='$gitMasterDir'
 	export HUGE_PAGES_COUNT='$hugePagesCount'
 	export CURRENT_RPM_DIR='$currentRpmDir'
-	export LZO_JAR='$lzoJar'
-	
-	##################################
-	
+	export LZO_JAR='$lzoJar'	
 	export CLUSTER_CONF_FILE='$clusterConfFile'
 	export INTERFACE='$interfaceName'
 	export CORES_DIR='$coresDir'
+	export BULLSEYE_DRYRUN='$bullseyeDryrun'
+	export PRE_REQ_SESSION_FLAGS='$preReqSessionFlags'
 " > $SOURCES_DIR/inputExports.sh

@@ -12,12 +12,15 @@ sourcing()
 
 errorHandler ()
 {	
+	local exitStatus=$1
+	local phaseName=$2
 	phaseError=1
-	if (($1 == $SEC));then
+	if (($exitStatus == $SEC));then
 		exit 0
-	elif (($1 == $EEC1)) || (($1 == $EEC2)) || (($1 == $EEC3)); then
+	elif (($exitStatus == $EEC1)) || (($exitStatus == $EEC2)) || (($exitStatus == $EEC3)); then
 	    echo "$echoPrefix: exiting during the $2 phase"
 			# in any case
+		PREPARE_FLAG=0
 		INPUT_FLAG=0
 		CONTROL_FLAG=0
 		CONFIGURE_FLAG=0
@@ -30,23 +33,22 @@ errorHandler ()
 		EXIT_FLAG=0
 		# COLLECT_FLAG and DISTRIBUTE)FLAG are not changed
 		
-		if (($1 == $EEC1));then
+		if (($exitStatus == $EEC1));then
 			export REPORT_SUBJECT="Daily regression runtime failure"
 			export REPORT_MESSAGE="$REPORT_MESSAGE <html><body> `cat $ERROR_LOG` </body></html>"
 			export REPORT_MAILING_LIST="$USER"
 		fi
 		
-		case $2 in
+		case $phaseName in
 			prepare		) 
-				if (($1 == $EEC1));then
+				if (($exitStatus == $EEC1));then
 					export REPORT_SUBJECT="Daily regression runtime failure"
 					export REPORT_MESSAGE="<html><body> during $2 phase: error creating $TMP_DIR </body></html>"
 					export REPORT_MAILING_LIST="${USER}@mellanox.com"
 				fi
 			;;
-			prepare-setup|prepare-cluster	)
-				PREPARE_FLAG=0				
-				if (($1 == $EEC3));then
+			prepare-setup|prepare-cluster	)			
+				if (($exitStatus == $EEC3));then
 						export REPORT_SUBJECT="Daily regression runtime failure"
 						export REPORT_MESSAGE="<html><body> during $2 phase: setup-preReq's error occured </body></html>"
 						export REPORT_MAILING_LIST="${USER}@mellanox.com"
@@ -65,7 +67,7 @@ errorHandler ()
 			execute		) 
 			;;
 			collect		)  
-				if (($1 == $EEC1));then # this lines are for double error - both in execute and collect phases
+				if (($exitStatus == $EEC1));then # this lines are for double error - both in execute and collect phases
 					export REPORT_SUBJECT="Daily regression runtime failure"
 					export REPORT_MESSAGE="<html><body> during $2 phase: `cat $ERROR_LOG` </body></html>"
 					export REPORT_MAILING_LIST="${USER}@mellanox.com"
@@ -79,7 +81,8 @@ errorHandler ()
 			;;
 		esac	
 		exit_status=1
-	elif (($1 != 0)) && (($1 != $CEC));then
+		export SESSION_EXCEPTION=$exitStatus
+	elif (($exitStatus != 0)) && (($exitStatus != $CEC));then
 		echo "$echoPrefix: exiting during the $2 phase according to unknown runtime error. exit code was $1"
 		exit 1
     else
@@ -89,8 +92,9 @@ errorHandler ()
 
 flowManager()
 {
+	local phaseName=$1
 	controlVal=1
-	case $1 in
+	case $phaseName in
 		prepare-setup|prepare-cluster	)  
 			if (($PREPARE_FLAG==0));then
 				controlVal=0
@@ -171,7 +175,6 @@ if [[ -z $BASE_DIR ]];then
 	exit 1
 fi
 
-source $SCRIPTS_DIR/defaultsConf.sh
 source $SCRIPTS_DIR/reportConf.sh
 source $SCRIPTS_DIR/namesConf.sh
 source $SCRIPTS_DIR/preReqConfiguration.sh

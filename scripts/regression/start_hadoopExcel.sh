@@ -72,7 +72,7 @@ do
 		echo "$echoPrefix: FATAL ERROR - reset_all returned with rc"
 		exit 1
 	fi
-	
+
 	echo "$echoPrefix: Starting Hadoop - try $curr_try"
 	echo "$echoPrefix: Starting DFS (Namenodes[secondary&primary] and Datanodes)"
 	startDfsOutput=`eval $DFS_START`

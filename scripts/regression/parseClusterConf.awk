@@ -39,10 +39,11 @@ function formatNumber(num,digits)
 }
 
 function manageFlags()
-{
+{	
 	build=0
 	rpm=0
 	unspreadConf=0
+	buildServer=0
 	disableUda=0
 	
 	split(values["flags"],params,/[[:space:]]*/)
@@ -54,17 +55,33 @@ function manageFlags()
 			rpm=1
 		if (params[p] == unspreadConfFlag)
 			unspreadConf=1
+		if (params[p] == buildServerFlag)
+			buildServer=1
 		if (params[p] == disableUdaFlag)
 			disableUda=1
 	}
 	
+	manageAdditionalFlagsLogic()
+	
 	print "export BUILD_FLAG=" build >> envExports
 	print "export RPM_FLAG=" rpm >> envExports
 	print "export UNSPREAD_CONF_FLAG=" unspreadConf >> envExports	
+	print "export BUILD_SERVER_FLAG=" buildServer >> envExports
 	print "export DISABLE_UDA_FLAG=" disableUda >> envExports	
 		
 		# cleanning the array	
-	split("", params)	
+	split("", params)
+}
+
+function manageAdditionalFlagsLogic()
+{
+	if (softModeFlag == 1)
+	{
+		unspreadConf=1
+		# those line are safety measurements - the setupCluster scripts shouldn't be called by the regression when (softModeFlag == 1)
+		build=0
+		rpm=0
+	}
 }
 
 function buildPreReqFile()
@@ -77,10 +94,73 @@ function buildPreReqFile()
 	}
 }
 
+function buildServerHadoopDirnameParser(dirname,debug)
+{
+	# for instance - dirname="cdh_hadoop-2.0.0-cdh4.4.0"
+	
+	split(dirname,tmp,"_")
+	distribution_type=tmp[1]	# distribution_type="cdh"
+	hadoopFullVersion=tmp[2]	# hadoopFullVersion="hadoop-2.0.0-cdh4.4.0"
+	split(hadoopFullVersion,tmp,"-")		
+	hadoopVersion=tmp[2]		# hadoopVersion="2.0.0"
+	split(hadoopVersion,tmp,".")
+	hadoopPrimeVersion=tmp[1]			# hadoopPrimeVersion="2"
+	if (distribution_type ~ cdhMark)
+	{
+		split(hadoopFullVersion,tmp,cdhMark)
+		cdhFullVersion=tmp[2]	# cdhFullVersion="4.4.0"
+		split(cdhFullVersion,tmp,".")
+		cdhVersion=tmp[1]"."tmp[2]	# cdhVersion="4.4"
+		print "export CDH_VERSION='" cdhVersion "'" >> envExports
+		hadoopPrimeVersion=cdhMark cdhVersion
+	}
+	print "export DISTRIBUTION_TYPE='" distribution_type "'" >> envExports
+	
+	if (debug == 1)
+	{
+		print "distribution_type=" distribution_type " hadoopFullVersion=" hadoopFullVersion " hadoopVersion=" hadoopVersion " hadoopPrimeVersion=" hadoopPrimeVersion " cdhFullVersion=" cdhFullVersion " cdhVersion=" cdhVersion 
+	}
+}
+
+function generalHadoopDirnameParser(dirname,debug)
+{
+	### parsing dirname from hadoop-x.y.z to x ###
+	split(dirname,tmp,"-")
+	hadoopVersion=tmp[2]			# hadoopVersion="x.y.z"
+	split(hadoopVersion,tmp,".") 
+	hadoopPrimeVersion=tmp[1]		# hadoopPrimeVersion="x"
+	
+	if (debug == 1)
+	{
+		print "hadoopVersion=" hadoopVersion " hadoopPrimeVersion=" hadoopPrimeVersion
+	}
+}
+
+function hadoopDirnameParser(dirname,debug)
+{
+	hadoopVersion=""
+	hadoopPrimeVersion=""
+	
+	if (buildServer==1)
+	{
+		buildServerHadoopDirnameParser(dirname,debug)
+	}
+	else
+	{
+		generalHadoopDirnameParser(dirname,debug)
+	}
+	
+	print "export HADOOP_VERSION='" hadoopVersion "'" >> envExports
+	print "export HADOOP_TYPE='" hadoopPrimeVersion "'" >> envExports
+	
+	return hadoopPrimeVersion
+}
+
 BEGIN{
 	FS=","
 	
 	preReqIndicator="#"
+	envExports=""
 	
 	compressionCodecPropHadoop1="mapred.map.output.compression.codec"	
 	compressionCodecPropYarn="mapreduce.map.output.compress.codec"
@@ -93,17 +173,20 @@ BEGIN{
 	compressionEnablerPropYarn="mapreduce.map.output.compress"
 	compressionEnablerValue="true"
 
+	build=0
+	rpm=0
+	unspreadConf=0
+	buildServer=0
+	disableUda=0
+	
 	buildFlag="b"
 	rpmFlag="r"
 	unspreadConfFlag="u"
+	buildServerFlag="s"
 	disableUdaFlag="disableUDA"
 	commaDelimitedPropsDelimiter=";"
-	
-	hadoopSpecialScripts["1"]="commandsOfHadoop1.sh"
-	hadoopSpecialScripts["2"]="commandsOfHadoop2.sh"
-	hadoopSpecialScripts["3"]="commandsOfHadoop2.sh" # got the same one as 2
-	hadoopSpecialScripts[cdhMark]="commandsOfHadoopCDH.sh"
-	
+	bashScriptSuffix=".sh"
+	 	
 	totalEnvs=0
 	digitsCount=2 # that means thet the execution folders will contains 2 digits number. 2 -> 02 for instance
 	errorDesc=""
@@ -126,7 +209,7 @@ BEGIN{
 	# ELSE:
 	totalEnvs++
 	getValues()
-
+	
 	envName=values["environment_name"]
 	
 	envCountFormatted=formatNumber(totalEnvs,digitsCount)
@@ -139,9 +222,15 @@ BEGIN{
 	envExports=envDir"/"envExportFileName
 	system("mkdir " envDir " ; echo '"bashScriptsHeadline "' > " envExports)
 	
+	manageFlags()	
 	buildPreReqFile()
-	system("echo '"bashScriptsHeadline "' > " envExports)
-	print "export PRE_REQ_SETUP_FLAGS='-" values["pre_req_flags"] "'" >> envExports # this minus is to avoid input of "-" in the csv file
+	
+	preReqFlags=values["pre_req_flags"]
+	if (preReqFlags == "")
+	{
+		preReqFlags= preReqFlagsDefaults
+	}
+	print "export PRE_REQ_SETUP_FLAGS='"  preReqFlags "'" >> envExports # this minus is to avoid input of "-" in the csv file
 	
 	print "export ENV_NAME='" envName "'" >> envExports
 	print "export ENV_NUMBER='" totalEnvs "'" >> envExports 
@@ -170,15 +259,7 @@ BEGIN{
 		print "export CO_FLAG=0" >> envExports
 	}
 
-	### parsing hadoopDirname from hadoop-x.y.z to x ###
-	splitsCount=split(hadoopDirname,tmp,"-")
-	splitsCount=split(tmp[2],tmp,".")
-	hadoopType=tmp[1]
-	
-	#splitsCount=split(hadoopDirname,tmp,"-")
-	#vanilla_hadoop-1.1.2-with-HADOOP-1.x.y.patch_native
-	
-	print "export HADOOP_TYPE='" hadoopType "'" >> envExports
+	hadoopType=hadoopDirnameParser(hadoopDirname,1)
 	
 	yarnFlag=0
 	cdhFlag=0
@@ -187,7 +268,7 @@ BEGIN{
 	if (hadoopType == "1")
 	{
 	}
-	else if (hadoopType ~ cdhMark)
+	else if (hadoopType ~ cdhMark"4.4")
 	{
 		cdhFlag=1
 	}
@@ -204,7 +285,8 @@ BEGIN{
 	print "export YARN_HADOOP_FLAG='" yarnFlag "'" >> envExports
 	print "export CDH_HADOOP_FLAG='" cdhFlag "'" >> envExports
 	print "export CHANGE_MACHINE_NAME_FLAG='" changeMachineNameFlag "'" >> envExports
-	print "export HADOOP_SPECIAL_SCRIPT_NAME='" hadoopSpecialScripts[hadoopType] "'" >> envExports
+	specificScriptsName=specificExportsScriptPrefix hadoopType bashScriptSuffix	
+	print "export HADOOP_SPECIFIC_SCRIPT_NAME='" specificScriptsName "'" >> envExports
 	
 	print "export RPM_JAR='" values["rpm_jar"] "'" >> envExports
 	udaPlaceValue=values["rpm_dir"]
@@ -218,11 +300,18 @@ BEGIN{
 		gitBranch = udaPlaceValue
 	}
 	else if (dots[dotsDev] == "rpm") # there are no slashes in this field - the input is built-rpm
+	{
 		udaPlaceType = 0
+	}
 	else # the input is local branch 
 	{
 		udaPlaceType = 2
 		gitBranch = slashes[slashesDevs]
+	}
+	
+	if (buildServer==1)
+	{
+		gitBranch=buildServerDefaultBranch
 	}
 	
 	print "export UDA_PLACE_TYPE=" udaPlaceType >> envExports
@@ -288,8 +377,6 @@ BEGIN{
 		print "export HUGE_PAGES_FLAG=1" >> envExports
 	else
 		print "export HUGE_PAGES_FLAG=0" >> envExports
-	
-	manageFlags()
 }
 
 END{

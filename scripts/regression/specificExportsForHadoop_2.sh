@@ -2,6 +2,7 @@
 
 export HADOOP_LOGS_RELATIVE_DIR="logs"
 export USERLOGS_RELATIVE_DIR="$HADOOP_LOGS_RELATIVE_DIR/userlogs"
+export HADOOP_HOME_RELATIVE_DIR=""
 export LOGS_HISTORY_RELATIVE_PATH="$HADOOP_LOGS_RELATIVE_DIR/history"
 export EXEC_JOB="bin/hadoop jar"
 export EXEC_SLAVES="sbin/slaves.sh"
