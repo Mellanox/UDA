@@ -77,5 +77,27 @@ public class Utils {
 		    } catch (Exception e) {
 		    	throw new UdaRuntimeException("Could not create constructor instance", e);
 		    }
-	 }
+	   }
+
+	   /**
+	    * create new instance of a class using a constructor that receives 1 argument
+	    * @param classToInvoke
+	    * @param argClass the class of the argument to pass the constructor
+	    * @param argInst instance of the outer class to pass to the constructor of the inner
+	    * @return new instance or null on failure
+	    */
+	   public static Object invokeCtorWithArg (Class classToInvoke, Class argClass,  Object argInst) {
+		   try {
+				Constructor ctor = classToInvoke.getDeclaredConstructor(argClass);
+				try {
+					ctor.setAccessible(true);
+					return ctor.newInstance(argInst);
+				} catch (Exception e) {
+					throw new UdaRuntimeException("Could not create inner constructor instance", e);
+				}
+			} catch (Exception e) {
+				UdaShuffleConsumerPluginShared.LOG.trace("Could not find constructor of class "+classToInvoke.getName()+" that recieves arg of type "+argClass.getName());
+			}
+		   return null;
+	   }
 }

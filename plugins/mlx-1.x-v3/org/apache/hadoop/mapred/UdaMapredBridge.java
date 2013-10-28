@@ -38,15 +38,30 @@ public class UdaMapredBridge {
 	public static ShuffleConsumerPlugin getShuffleConsumerPlugin(Class<? extends ShuffleConsumerPlugin> clazz, ReduceTask reduceTask,
 			TaskUmbilicalProtocol umbilical, JobConf conf, Reporter reporter) throws ClassNotFoundException, IOException  {
 
-		String type="vanilla";
+		ShuffleConsumerPlugin plugin = null;
 
 		if (clazz == null) {
 			clazz = ReduceTask.ReduceCopier.class;
 		}
-		ShuffleConsumerPlugin plugin = ReflectionUtils.newInstance(clazz, conf);
+
+		if (clazz == ReduceTask.ReduceCopier.class) {
+			// look for ctor that takes one argument => this is the non static inner ctor that accepts the outer obj (v2 plugin)
+			plugin = (ShuffleConsumerPlugin)Utils.invokeCtorWithArg(ReduceTask.ReduceCopier.class, ReduceTask.class, reduceTask);
+		}
+
+		if(plugin != null) {
+			// v2 plugin
+			LOG.info("creating ReduceTask.ReduceCopier as non-static inner class - v2 plugin");
+		} else {
+			// this is not v2 - look for ctor without arguments => this is the static inner ctor (v3 plugin)
+			plugin = ReflectionUtils.newInstance(clazz, conf);
+			LOG.info("creating ReduceTask.ReduceCopier as static inner class - v3 plugin");
+		}
+
 		ShuffleConsumerPlugin.Context context;
 
 		// 1st - try loading the method according to its vanilla signature
+		String type="vanilla";
 		context = (ShuffleConsumerPlugin.Context)Utils.invokeConstructorReflection(ShuffleConsumerPlugin.Context.class,
 						new Class[] {ReduceTask.class, TaskUmbilicalProtocol.class, JobConf.class, TaskReporter.class}, new Object[] {reduceTask, umbilical, conf, (TaskReporter) reporter});
 		// if failed - this is probably CDH => try loading the method according to its CDH signature
@@ -58,7 +73,8 @@ public class UdaMapredBridge {
 
 		// still failed => we can't help
 		if( context == null) {
-			throw new UdaRuntimeException("could not create new instance of ShuffleConsumerPlugin.Context, not when ising its vanilla signature neither when using its CDH signature");
+			type="";
+			throw new UdaRuntimeException("could not create new instance of ShuffleConsumerPlugin.Context, not when using its vanilla signature neither when using its CDH signature");
 		}
 
 		LOG.info("creating ShuffleConsumerPlugin.Context with "+type+" signature");
