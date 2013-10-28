@@ -52,13 +52,12 @@ import org.apache.hadoop.yarn.util.Records;
 import org.apache.hadoop.mapred.JobID;
 import org.apache.hadoop.mapreduce.security.token.JobTokenIdentifier;
 
-import org.apache.hadoop.yarn.server.api.ApplicationInitializationContext;
-import org.apache.hadoop.yarn.server.api.ApplicationTerminationContext;
-import org.apache.hadoop.yarn.server.api.AuxiliaryService;
+import org.apache.hadoop.yarn.service.AbstractService;
+import org.apache.hadoop.yarn.service.Service.STATE;
 
-public class UdaShuffleHandler extends AuxiliaryService {
+public class UdaShuffleHandler extends AbstractService implements AuxServices.AuxiliaryService {
 
-	private static final Log LOG = LogFactory.getLog(UdaShuffleHandler.class.getCanonicalName());
+  private static final Log LOG = LogFactory.getLog(UdaShuffleHandler.class.getCanonicalName());
  
   private UdaPluginSH rdmaChannel;
 
@@ -78,26 +77,19 @@ public class UdaShuffleHandler extends AuxiliaryService {
 
 
   @Override
-  public void initializeApplication(ApplicationInitializationContext context) {
-	  LOG.info("starting initializeApplication of UdaShuffleHandler");
-
-    String user = context.getUser();
-    ApplicationId appId = context.getApplicationId();
-
-    JobID jobId = new JobID(Long.toString(appId.getClusterTimestamp()), appId.getId());
+  public void initApp(String user, ApplicationId appId, ByteBuffer secret) {
+	  JobID jobId = new JobID(Long.toString(appId.getClusterTimestamp()), appId.getId());
 //	  rdmaChannel = new UdaPluginSH(conf, user, jobId);	  
 	  rdmaChannel.addJob(user, jobId);
 	  LOG.info("finished initializeApplication of UdaShuffleHandler");
   }
 
   @Override
-  public void stopApplication(ApplicationTerminationContext context) {
-    ApplicationId appId = context.getApplicationId();
-   LOG.info("stopApplication of UdaShuffleHandler");
+  public void stopApp(ApplicationId appId) {
+   LOG.info("stopApp of UdaShuffleHandler");
    JobID jobId = new JobID(Long.toString(appId.getClusterTimestamp()), appId.getId());
    rdmaChannel.removeJob(jobId);
    LOG.info("stopApplication of UdaShuffleHandler is done");
-		
   }
 
  //method of AbstractService
@@ -136,18 +128,14 @@ public class UdaShuffleHandler extends AuxiliaryService {
   }
  
   @Override
-  public synchronized ByteBuffer getMetaData() {
-/*		
-    try {
-      return serializeMetaData(port);
-    } catch (IOException e) {
-      LOG.error("Error during getMeta", e);
-      // TODO add API to AuxiliaryServices to report failures
+  public synchronized ByteBuffer getMeta() {
+  //  try {
+   //   return serializeMetaData(port); 
+//    } catch (IOException e) {
+//      LOG.error("Error during getMeta", e);
+//      // TODO add API to AuxiliaryServices to report failures
       return null;
     }
-//*/		
-    return ByteBuffer.allocate(0); // Avoid 'return null' here because of https://issues.apache.org/jira/browse/YARN-1256
   }
- }
 
   

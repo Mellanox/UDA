@@ -102,46 +102,39 @@ class UdaPluginSH extends UdaPlugin {
 	public void close() {
 		UdaShuffleProviderPluginShared.close(LOG);
 	}
-	
+
 	//this code is copied from ShuffleHandler.sendMapOutput
 	static IndexRecordBridge getPathIndex(String jobIDStr, String mapId, int reduce){
 		 String user = userRsrc.get(jobIDStr);
+
+	     IndexRecordBridge data = null;
 	        
-///////////////////////
-     JobID jobID = JobID.forName(jobIDStr);
-      ApplicationId appID = ApplicationId.newInstance(
-          Long.parseLong(jobID.getJtIdentifier()), jobID.getId());
-      final String base =
-          ContainerLocalizer.USERCACHE + "/" + user + "/"
-              + ContainerLocalizer.APPCACHE + "/"
-              + ConverterUtils.toString(appID) + "/output" + "/" + mapId;
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("DEBUG0 " + base);
-      }
-      // Index file
-	 IndexRecordBridge data = null;
-     try{
-      Path indexFileName = lDirAlloc.getLocalPathToRead(
-          base + "/file.out.index", mjobConf);
-      // Map-output file
-      Path mapOutputFileName = lDirAlloc.getLocalPathToRead(
-          base + "/file.out", mjobConf);
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("DEBUG1 " + base + " : " + mapOutputFileName + " : "
-            + indexFileName);
-      }
-			
-///////////////////////
-			 // TODO: is this correct ?? - why user and not runAsUserName like in hadoop-1 ?? 
-			 // on 2nd thought, this sounds correct, because probably we registered the runAsUser and not the "user"
+	     JobID jobID = JobID.forName(jobIDStr);
+	     ApplicationId appID = Records.newRecord(ApplicationId.class);
+	     appID.setClusterTimestamp(Long.parseLong(jobID.getJtIdentifier()));
+	     appID.setId(jobID.getId());
+  
+	     final String base =
+	         ContainerLocalizer.USERCACHE + "/" + user + "/"
+	            + ContainerLocalizer.APPCACHE + "/"
+	            + ConverterUtils.toString(appID) + "/output" + "/" + mapId;
+         if (LOG.isDebugEnabled()) {
+           LOG.debug("DEBUG0 " + base);
+         }
+	     // Index file
+	     try{
+	        Path indexFileName = lDirAlloc.getLocalPathToRead(
+	            base + "/file.out.index", mjobConf);
+	        // Map-output file
+	        Path mapOutputFileName = lDirAlloc.getLocalPathToRead(
+	            base + "/file.out", mjobConf);
+	        LOG.debug("DEBUG1 " + base + " : " + mapOutputFileName + " : " +
+	            indexFileName);
+			 // TODO: is this correct ?? - why user and not runAsUserName like in hadoop-1 ??
 		   data = indexCache.getIndexInformationBridge(mapId, reduce, indexFileName, user);
 		   data.pathMOF = mapOutputFileName.toString();
 	     }catch (IOException e){
-	        	LOG.error("got an exception while retrieving the Index Info");}
-	    
-		return data;	
-		
+	        	LOG.error("got an exception while retrieving the Index Info");}	    
+		return data;			
 	}
-
 }
-
