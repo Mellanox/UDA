@@ -16,16 +16,13 @@
 #
 #
 
-#CBASE=../hadoop-dist/target/hadoop-3.0.0-SNAPSHOT/share/hadoop/
-#CPATH=.:$(CBASE)/common/hadoop-common-3.0.0-SNAPSHOT.jar:$(CBASE)/common/lib/commons-logging-1.1.1.jar:$(CBASE)/mapreduce/hadoop-mapreduce-client-core-3.0.0-SNAPSHOT.jar:$(CBASE)/mapreduce/hadoop-yarn-server-nodemanager-3.0.0-SNAPSHOT.jar:$(CBASE)/mapreduce/hadoop-yarn-common-3.0.0-SNAPSHOT.jar:$(CBASE)/mapreduce/hadoop-yarn-api-3.0.0-SNAPSHOT.jar:$(CBASE)/mapreduce/hadoop-mapreduce-client-core-3.0.0-SNAPSHOT.jar
 CPATH=.
-CPATH := $(CPATH):hadoop-mapreduce-client-core-3.0.0-SNAPSHOT.jar
-CPATH := $(CPATH):hadoop-common-3.0.0-SNAPSHOT.jar
 CPATH := $(CPATH):commons-logging-1.1.1.jar
-CPATH := $(CPATH):hadoop-mapreduce-client-core-3.0.0-SNAPSHOT.jar
-CPATH := $(CPATH):hadoop-yarn-server-nodemanager-3.0.0-SNAPSHOT.jar
-CPATH := $(CPATH):hadoop-yarn-common-3.0.0-SNAPSHOT.jar
-CPATH := $(CPATH):hadoop-yarn-api-3.0.0-SNAPSHOT.jar
+CPATH := $(CPATH):hadoop-common-2.2.0.jar
+CPATH := $(CPATH):hadoop-mapreduce-client-core-2.2.0.jar
+CPATH := $(CPATH):hadoop-yarn-api-2.2.0.jar
+CPATH := $(CPATH):hadoop-yarn-common-2.2.0.jar
+CPATH := $(CPATH):hadoop-yarn-server-nodemanager-2.2.0.jar
 
 TARGET=uda-hadoop-2.x.jar
 
