@@ -16,10 +16,15 @@ cd $TMP_CLONE_DIR
 # Hadoops fetch phase
 echo -e "\n${CYAN}---------- Step 1. Fetching Hadoops... ----------${NONE}"
 ls -p ${HADOOPS_STORAGE_PATH} | grep "/" | grep -v "old"
-echo -e "\n${YELLOW}--- Fetching latest vanilla hadoop! ---${NONE}"
-svn export ${HADOOP_LATEST_TRUNK} > ${HADOOPS_STORAGE_PATH}/${HADOOP_LATEST_NAME}/revision
-tar -pczf ${HADOOPS_STORAGE_PATH}/${HADOOP_LATEST_NAME}/${HADOOP_LATEST_NAME}.tar.gz ./trunk/*
-rm -rf ./trunk/
+echo -e "\n${YELLOW}--- Fetching latest vanilla hadoops from SVN repositories! ---${NONE}"
+getKeySet "hsMap"
+for hadoop in $keySet; do
+	echo -e "\n${PURPLE}--- Fetching latest $hadoop from SVN... ---${NONE}"
+	get "hsMap" "$hadoop"
+	svn export ${value} ${hadoop} > ${HADOOPS_STORAGE_PATH}/${hadoop}/revision 
+	tar -pczf ${HADOOPS_STORAGE_PATH}/${hadoop}/${hadoop}.tar.gz ./${hadoop}/
+	rm -rf ./${hadoop}/
+done
 mkdir ${HADOOP_DIR}
 echo -e "\n${GREEN}Step 1 Done!${NONE}"
 
@@ -36,9 +41,8 @@ echo -e "\n${GREEN}Step 2 Done!${NONE}"
 # Check for changes
 echo -e "\n${CYAN}---------- Step 3. Checking for latest changes... ----------${NONE}"
 source ${BUILD_DIR}/changes_check.sh
-if [ $CHANGED_HADOOPS == 0 ] && [ $CHANGED_UDA == 0 ]; then
-	echo -e "\n${GREEN}No changes made since last build.${NONE}"
-	
+if ([ $CHANGED_HADOOPS == 0 ] && [ $CHANGED_UDA == 0 ]) || ([ $CHANGED_HADOOPS != 0 ] && [ $BUILD_HADOOPS == "FALSE" ] && [ $CHANGED_UDA == 0 ]) || ([ $CHANGED_HADOOPS == 0 ] && [ $CHANGED_UDA != 0 ] && [ $BUILD_RPM == "FALSE" ]); then
+	echo -e "\n${GREEN}No changes made since last build.${NONE}"	
 	touch BUILD_SUCCESSFUL
 	echo -e "\n${GREEN}******************* All DONE! *******************${NONE}"
 	exit 0
@@ -104,10 +108,11 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 
 			# Store built patched hadoop to target directory in tar.gz form
 			echo -e "\nSaving the patched hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
-			SNAPSHOT_DIR=`ls -l ./build/ | egrep '^d' | grep "SNAPSHOT" | cut -d " " -f 12`
+			SNAPSHOT_DIR=`ls -l ./build/ | egrep '^d' | grep "SNAPSHOT" | tr -s ' ' | cut -d " " -f 12`
 			cd ./build/$SNAPSHOT_DIR/
 			tar -pczf ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}.tar.gz ./*
 			echo "Saved!"
+			cd $PATCHED_HADOOP_DIR
 
 			if [ $NATIVE_BUILD == "TRUE" ]; then
 				ANT_BUILD_PARAMS="$ANT_BUILD_PARAMS -Dcompile.native=true"
@@ -120,13 +125,16 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 
 				# Store built patched native hadoop to target directory in tar.gz form
 				echo -e "\nSaving the patched native hadoop as a tar.gz file in ${BUILD_TARGET_DESTINATION}..."
-				SNAPSHOT_DIR=`ls -l ./build/ | egrep '^d' | grep "SNAPSHOT" | cut -d " " -f 12`
+				SNAPSHOT_DIR=`ls -l ./build/ | egrep '^d' | grep "SNAPSHOT" | tr -s ' ' | cut -d " " -f 12`
 				cd ./build/$SNAPSHOT_DIR/
 				tar -pczf ${BUILD_TARGET_DESTINATION}/${version}${DELIMITER}${patch_name}_native.tar.gz ./*
 				echo "Saved!"
 			fi
 
 		elif [[ "$version" == *vanilla_hadoop-2* ]] || [[ "$version" == *vanilla_hadoop-3* ]]; then
+			
+			# Parsing parameters
+			MAVEN_BUILD_PARAMS=`echo $MAVEN_BUILD_PARAMS | sed 's/|/ /g'`
 
 			${MAVEN_PATH} package $MAVEN_BUILD_PARAMS > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}.txt
 			echo -e "\n${GREEN}$version built!${NONE}"

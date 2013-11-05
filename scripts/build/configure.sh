@@ -17,7 +17,7 @@ if [ ! -r ${INI_FILE} ]; then
 fi
 
 # Parse all parameters in the first section of the .ini configuration file
-for parameter in `sed -e 's/[[:space:]]*\=[[:space:]]*/=/g' -e 's/;.*$//' -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' -e "s/^\(.*\)=\([^\"']*\)$/\1=\"\2\"/" < $INI_FILE | sed -n -e "/^\[.*\]/,/^\s*\[/{/^[^;].*\=.*/p;}" | grep -v HADOOPS_PATCHES_MAP`; do
+for parameter in `sed -e 's/[[:space:]]*\=[[:space:]]*/=/g' -e 's/;.*$//' -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' -e "s/^\(.*\)=\([^\"']*\)$/\1=\"\2\"/" < $INI_FILE | sed -n -e "/^\[.*\]/,/^\s*\[/{/^[^;].*\=.*/p;}" | grep -v HADOOPS_PATCHES_MAP | grep -v HADOOP_LATEST_SVN_MAP`; do
         eval "export $parameter"
 done
 
@@ -28,6 +28,15 @@ do
 	hadoop=`echo $pair | cut -d "|" -f 1`
 	patch=`echo $pair | cut -d "|" -f 2`
 	put "hpMap" "$hadoop" "$patch"
+done
+
+# Configure mapping between latest hadoop versions and there SVN repositories
+eval `cat $INI_FILE | grep "HADOOP_LATEST_SVN_MAP"`
+for pair in ${HADOOP_LATEST_SVN_MAP[*]}
+do
+        hadoop=`echo $pair | cut -d "|" -f 1`
+        svn_repo=`echo $pair | cut -d "|" -f 2`
+        put "hsMap" "$hadoop" "$svn_repo"
 done
 
 # Configure MAVEN path

@@ -30,14 +30,14 @@ for patch in `ls *.patch | sort`;do
 done
 
 # Find changes and filter ignored versions
-diff ${DB_DIR}/new_latest_hadoops ${DB_DIR}/latest_hadoops | grep "<" | egrep -v ${IGNORE_LIST} | cut -d " " -f 9 | cut -d / -f 1 > ${DB_DIR}/changes_hadoops_temp
+diff ${DB_DIR}/new_latest_hadoops ${DB_DIR}/latest_hadoops | grep "<" | egrep -v ${IGNORE_LIST} | tr -s ' ' | cut -d " " -f 9 | cut -d / -f 1 > ${DB_DIR}/changes_hadoops_temp
 diff ${DB_DIR}/new_latest_uda ${DB_DIR}/latest_uda > /dev/null 2>&1
 if [ $? != 0 ]; then
 	echo $UDA_BRANCH > ${DB_DIR}/changes_uda
 else
 	touch ${DB_DIR}/changes_uda
 fi
-diff ${DB_DIR}/new_latest_patches ${DB_DIR}/latest_patches | grep "<" | cut -d / -f 2 > ${DB_DIR}/changes_patches
+diff ${DB_DIR}/new_latest_patches ${DB_DIR}/latest_patches | grep "<" | tr -s ' ' | cut -d / -f 2 > ${DB_DIR}/changes_patches
 
 #Add hadoops based on patch change
 getKeySet "hpMap"

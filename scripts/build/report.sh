@@ -23,7 +23,7 @@ export CHANGED_HADOOPS=$NUM_OF_CHANGED_HADOOPS
 export CHANGED_UDA=$NUM_OF_CHANGED_UDA
 
 # Update mail message according to changes
-if [ $CHANGED_HADOOPS == 0 ] && [ $CHANGED_UDA == 0 ]; then
+if ([ $CHANGED_HADOOPS == 0 ] && [ $CHANGED_UDA == 0 ]) || ([ $CHANGED_HADOOPS != 0 ] && [ $BUILD_HADOOPS == "FALSE" ] && [ $CHANGED_UDA == 0 ]) || ([ $CHANGED_HADOOPS == 0 ] && [ $CHANGED_UDA != 0 ] && [ $BUILD_RPM == "FALSE" ]); then
 	MAIL_MESSAGE=${MAIL_MESSAGE}"No changes made since last build.<br> Nothing new was built.<br>"
 else
 	# Products
