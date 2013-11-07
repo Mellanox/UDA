@@ -21,7 +21,7 @@ esac
 flags="-"$flags
 echo "$echoPrefix: control-flags are: $flags $additionalFlags" 
 
-export BASE_DIR="/tmp/tests_ori_soft-mode_setup"
+export BASE_DIR="/tmp/regression_tests"
 bash $SCRIPTS_DIR/autoTester.sh $flags $additionalFlags \
 -Dcluster.csv="/.autodirect/mtrswgwork/oriz/docs/cluster_conf.csv" \
 -Dreport.mailing.list="oriz"

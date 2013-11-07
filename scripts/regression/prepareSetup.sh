@@ -38,8 +38,8 @@ echo -n "" >  $errorLog
 
 for machine in $ENV_MACHINES_BY_SPACES
 do
-	ssh $machine mkdir -p $tmpDir $statusDir $codeCoverageIntermediateDir
-	#ssh $machine chown -R $USER $tmpDir $statusDir $codeCoverageIntermediateDir
+	sudo ssh $machine mkdir -p $tmpDir $statusDir $codeCoverageIntermediateDir
+	sudo ssh $machine chown -R $USER $tmpDir $statusDir $codeCoverageIntermediateDir
 	# makeing and checking the swapoff
 	echo "$echoPrefix: disabling swapiness on $machine"
 	sudo ssh $machine sudo $SWAPOFF_PATH -a

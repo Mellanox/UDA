@@ -1,14 +1,16 @@
 #!/bin/bash
+
 export SCRIPTS_DIR=`pwd`
 source $SCRIPTS_DIR/defaultsConf.sh
 echoPrefix=`eval $ECHO_PATTERN`	
 
 flagsCase=$1
 additionalFlags=$2
-setupFlags="-bsetad"
-testFlags="-fbetad"
-defaultFlags="-bseadz"
-userFlags="-bsead"
+setupFlags="bsetad"
+testFlags="fbetad"
+defaultFlags="bseadz"
+
+userFlags="bsead"
 
 case ${flagsCase} in
 	"setup"		) flags="$setupFlags" ;;
@@ -16,7 +18,7 @@ case ${flagsCase} in
 	"user"		) flags="$userFlags" ;; 
 	*	     	)  flags="$defaultFlags" ;;   # Default.
 esac
-
+flags="-"$flags
 echo "$echoPrefix: control-flags are: $flags $additionalFlags" 
 
 if [[ "$USER" == "$VERIFICATION_USER" ]]; then

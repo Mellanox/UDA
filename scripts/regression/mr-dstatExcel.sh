@@ -480,7 +480,7 @@ fi
 bash $SCRIPTS_DIR/logsCollector.sh $collect_dir $local_dir $applicationId
 
 echo "$echoPrefix: checking if the test passed"
-bash -x $SCRIPTS_DIR/testStatusAnalyzer.sh $collect_dir | tee $collect_dir/testAnalyzing.txt
+bash -x $SCRIPTS_DIR/testStatusAnalyzer.sh $collect_dir 2>&1 | tee $collect_dir/testAnalyzing.txt
 #bash -x $SCRIPTS_DIR/testStatusAnalyzer.sh $collect_dir 2>&1 | tee $collect_dir/testAnalyzing.txt
 
 if [[ -n $TMP_DIR ]]; then
