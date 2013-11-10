@@ -17,6 +17,9 @@
 **
 */
 
+#ifndef __UDA_IO_UTILITY_H__
+#define __UDA_IO_UTILITY_H__
+
 #include <string>
 #include <cstring>
 #include <cstdlib>
@@ -219,6 +222,7 @@ public:
 private:
     int socket;
 };
+#endif
 
 
 /*******************************************
@@ -249,8 +253,8 @@ private:
   FILE *mFile;
 };
 
-#endif
 
+#endif//! __UDA_IO_UTILITY_H__
 
 /*
  * Local variables:

@@ -115,7 +115,6 @@ void merge_lpq_to_aio_file(reduce_task* task, MergeQueue<BaseSegment*> *records,
 
 #endif
 
-#if LCOV_HYBRID_MERGE_DEAD_CODE
 /* The following is for class SuperSegment */
 //
 // SuperSegment is built of several Segments that were all merged into one
@@ -155,6 +154,7 @@ public:
     std::string  path;
 };
 
+#if LCOV_HYBRID_MERGE_DEAD_CODE
 class AioSegment : public BaseSegment {
 protected:
 	AIOHandler* aio;

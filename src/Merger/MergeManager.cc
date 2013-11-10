@@ -201,6 +201,70 @@ void *merge_online (reduce_task_t *task)
     return NULL;
 }
 
+void *merge_hybrid (reduce_task_t *task)
+{
+	if (task->num_maps < task->merge_man->num_lpqs) return merge_online(task);
+
+	bool b = true;
+	int32_t total_write;
+
+	// all lpqs but the 1st will have same number of segments
+	const int regular_lpqs = task->merge_man->num_lpqs > 1 ?  task->merge_man->num_lpqs - 1 : task->merge_man->num_lpqs;
+	int num_to_fetch = 0;
+	int subsequent_fetch = 0;
+	if (task->num_maps % regular_lpqs) {
+		num_to_fetch = task->num_maps % regular_lpqs; //1st lpq will be smaller than all others
+		subsequent_fetch = task->num_maps / regular_lpqs;
+	}
+	else {
+		subsequent_fetch = task->num_maps / task->merge_man->num_lpqs; // can't use previous attitude
+		num_to_fetch = subsequent_fetch + task->num_maps % task->merge_man->num_lpqs; // put the extra segments in 1st lpq
+	}
+
+	MergeQueue<BaseSegment*>* merge_lpq[task->merge_man->num_lpqs];
+	char temp_file[PATH_MAX];
+	static int lpq_shared_counter = -1; // shared between all reducers of all threads
+	for (int i = 0; task->merge_man->total_count < task->num_maps; ++i)
+	{
+		log(lsINFO, "====== [%d] Creating LPQ for %d segments (already fetched=%d; num_maps=%d)", i, num_to_fetch, task->merge_man->total_count, task->num_maps);
+
+		int local_counter = ++lpq_shared_counter; // not critical to sync between threads here
+		local_counter %= task->local_dirs.size();
+		const string & dir = task->local_dirs[local_counter]; //just ref - no copy
+		sprintf(temp_file, "%s/NetMerger.%s.lpq-%d", dir.c_str(), task->reduce_task_id, i);
+		merge_lpq[i] = new MergeQueue<BaseSegment*>(num_to_fetch, NULL, temp_file);
+		merge_do_fetching_phase(task, merge_lpq[i], num_to_fetch);
+
+		log(lsINFO, "[%d] === going to merge LPQ using file: %s", i, merge_lpq[i]->filename.c_str());
+		b = write_kv_to_file(merge_lpq[i], merge_lpq[i]->filename.c_str(), total_write);
+		log(lsINFO, "=== after merge of LPQ b=%d, total_write=%d", (int)b, total_write);
+
+		num_to_fetch = subsequent_fetch;
+	}
+	log(lsINFO, "=== ALL LPQs completed  building RPQ...");
+
+	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
+	{
+		log(lsINFO, "[%d] === inserting LPQ using file: %s", i, merge_lpq[i]->filename.c_str());
+		task->merge_man->merge_queue->insert(new SuperSegment(task, merge_lpq[i]->filename.c_str()));
+		log(lsINFO, "[%d] === after insert LPQ into RPQ", i);
+		num_to_fetch = subsequent_fetch;
+	}
+
+	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
+	{
+		merge_lpq[i]->core_queue.clear();
+		delete merge_lpq[i];
+	}
+
+	log(lsINFO, "RPQ phase: going to merge all LPQs...");
+	merge_do_merging_phase(task, task->merge_man->merge_queue);
+	log(lsINFO, "after ALL merge");
+	// merge_queue will be deleted in DTOR of MergeManager
+
+	write_log(task->reduce_log, DBG_CLIENT, "merge thread exit");
+    return NULL;
+}
 
 //COVERITY: UNCAUGHT_EXCEPT, RM#189300. false alarm
 void *merge_thread_main (void *context) throw (UdaException*)
@@ -221,7 +285,7 @@ void *merge_thread_main (void *context) throw (UdaException*)
 		break;
 	case 2: default:
 		log(lsINFO, "using hybrid merge");
-//		merge_hybrid (task); //commenting: for now it is dead code
+		merge_hybrid (task);
 		break;
 	}
 
@@ -282,7 +346,7 @@ int32_t KVOutput::getFreeBytes()
 
 MapOutput::~MapOutput()
 {
-	log(lsDEBUG, "d-tor of mop");
+	log(lsDEBUG, "in DTOR");
     part_req->mop = NULL;
     free_hadoop_cmd(*(part_req->info));
     free(part_req->info);
@@ -291,7 +355,7 @@ MapOutput::~MapOutput()
 
 KVOutput::~KVOutput() 
 {
-	log(lsTRACE, "d-tor of KVOutput");
+	log(lsTRACE, "in DTOR");
     
     pthread_mutex_destroy(&this->lock);
     pthread_cond_destroy(&this->cond);	
@@ -318,7 +382,7 @@ MergeManager::MergeManager(int threads, int online, struct reduce_task *task, in
     		merge_queue = new MergeQueue<BaseSegment*>(task->num_maps);
     	}
     	else { //online == 2
-    		log(lsDEBUG, "hybrid merge will use %d lpqs", num_lpqs);
+    		log(lsINFO, "hybrid merge will use %d lpqs", num_lpqs);
     		merge_queue = new MergeQueue<BaseSegment*>(num_lpqs);
     	}
 

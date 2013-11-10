@@ -602,6 +602,7 @@ size_t NetStream::write(const void *buf, size_t len)
     }
     return result;
 }
+#endif
 
 /******************************************************************
  * The following is for FileStream
@@ -617,21 +618,22 @@ size_t FileStream::read(void *des, const size_t len,
                         const char *extrasrc, size_t size,
                         int &idx)
 {
-  fprintf(stderr, "FileStream: read from two srcs not supported\n");
+  throw new UdaException("FileStream: read from two srcs not supported");
   return -1;
 }
 
 
 bool FileStream::hasMore(size_t nbytes)
 {
-  fprintf(stderr, "FileStream: hasMore not supported\n");
+  if (nbytes == 1) return !feof(this->mFile);
+  throw new UdaException("FileStream: hasMore not supported");
   return false;
 }
 
 
 size_t FileStream::rewind(size_t nbytes)
 {
-  fprintf(stderr, "FileStream: rewind not supported\n");
+  throw new UdaException("FileStream: rewind not supported");
   return -1;
 }
 
@@ -641,9 +643,9 @@ size_t FileStream::read(void *buf, size_t len)
   size_t result = fread(buf, len, 1, this->mFile);
   if (result == 0) {
     if (feof(mFile)) {
-      output_stderr("FileStream: read EOF on file");
+    	throw new UdaException("FileStream: read EOF on file");
      } else {
-         output_stderr("FileStream: read ERROR on file");
+    	 throw new UdaException("FileStream: read ERROR on file");
      }
   }
   return result;
@@ -667,7 +669,7 @@ size_t FileStream::write(const void *buf, size_t len)
 {
   size_t result = fwrite(buf, len, 1, this->mFile);
   if (result != 1) {
-    fprintf(stderr,"FileOutStream: write error\n");
+	  throw new UdaException("FileOutStream: write error");
     return 0;
   }
   return result;
@@ -684,7 +686,6 @@ FileStream::~FileStream()
 
 
 
-#endif
 
 
 

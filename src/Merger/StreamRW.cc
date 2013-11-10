@@ -700,6 +700,7 @@ AioSegment::~AioSegment() {
 	::close(this->fd);
 	log(lsDEBUG, "AioSegment DTOR this=%llu", (uint64_t)this)
 ;}
+#endif
 
 SuperSegment::SuperSegment(reduce_task *_task, const std::string &_path) :
 	Segment(NULL), task(_task), path(_path) {
@@ -751,9 +752,6 @@ int SuperSegment::nextKV() {
     return 1;
 }
 
-#endif
-
-#if LCOV_AUBURN_DEAD_CODE
 bool write_kv_to_file(MergeQueue<BaseSegment*> *records, FILE *f,
 		int32_t &total_write) {
     FileStream *stream = new FileStream(f);
@@ -779,7 +777,6 @@ bool write_kv_to_file(MergeQueue<BaseSegment*> *records, const char *file_name,
     fclose(file);
     return ret;
 }
-#endif
 
 
 
