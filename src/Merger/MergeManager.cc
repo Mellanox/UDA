@@ -195,9 +195,9 @@ void *merge_online (reduce_task_t *task)
 	log(lsINFO, "Merge online"); 
 	merge_do_fetching_phase(task, task->merge_man->merge_queue, task->num_maps);
 
-	write_log(task->reduce_log, DBG_CLIENT, "Enter into merging phase");
+	log(lsDEBUG, "Enter into merging phase");
 	merge_do_merging_phase(task, task->merge_man->merge_queue);
-	write_log(task->reduce_log, DBG_CLIENT, "merge thread exit");
+	log(lsDEBUG, "merge thread exit");
     return NULL;
 }
 
@@ -207,48 +207,38 @@ void *merge_hybrid (reduce_task_t *task)
 
 	bool b = true;
 	int32_t total_write;
-
-	// all lpqs but the 1st will have same number of segments
-	const int regular_lpqs = task->merge_man->num_lpqs > 1 ?  task->merge_man->num_lpqs - 1 : task->merge_man->num_lpqs;
-	int num_to_fetch = 0;
-	int subsequent_fetch = 0;
-	if (task->num_maps % regular_lpqs) {
-		num_to_fetch = task->num_maps % regular_lpqs; //1st lpq will be smaller than all others
-		subsequent_fetch = task->num_maps / regular_lpqs;
-	}
-	else {
-		subsequent_fetch = task->num_maps / task->merge_man->num_lpqs; // can't use previous attitude
-		num_to_fetch = subsequent_fetch + task->num_maps % task->merge_man->num_lpqs; // put the extra segments in 1st lpq
-	}
+	const int num_mofs_in_lpq = task->num_maps / task->merge_man->num_lpqs;
+	const int num_regular_lpqs = task->merge_man->num_lpqs - (task->num_maps % task->merge_man->num_lpqs); // rest lpqs will have one more mof
+	log(lsINFO, "====== num_maps=%d; num_lpqs=%d; num_mofs_in_lpq=%d, num_regular_lpqs=%d", task->num_maps, task->merge_man->num_lpqs, num_mofs_in_lpq, num_regular_lpqs);
 
 	MergeQueue<BaseSegment*>* merge_lpq[task->merge_man->num_lpqs];
 	char temp_file[PATH_MAX];
-	static int lpq_shared_counter = -1; // shared between all reducers of all threads
+	static int lpq_shared_counter = -1; // placeholder - supposed to be shared between all reducers of all threads
 	for (int i = 0; task->merge_man->total_count < task->num_maps; ++i)
 	{
-		log(lsINFO, "====== [%d] Creating LPQ for %d segments (already fetched=%d; num_maps=%d)", i, num_to_fetch, task->merge_man->total_count, task->num_maps);
+		int num_to_fetch = (i < num_regular_lpqs) ? num_mofs_in_lpq : num_mofs_in_lpq + 1;
+		log(lsINFO, "====== [%d/%d] Creating LPQ for %d segments (already fetched=%d; num_maps=%d)", i, task->merge_man->num_lpqs, num_to_fetch, task->merge_man->total_count, task->num_maps);
 
 		int local_counter = ++lpq_shared_counter; // not critical to sync between threads here
 		local_counter %= task->local_dirs.size();
 		const string & dir = task->local_dirs[local_counter]; //just ref - no copy
-		sprintf(temp_file, "%s/NetMerger.%s.lpq-%d", dir.c_str(), task->reduce_task_id, i);
+		sprintf(temp_file, "%s/uda.%s.lpq-%03d", dir.c_str(), task->reduce_task_id, i);
 		merge_lpq[i] = new MergeQueue<BaseSegment*>(num_to_fetch, NULL, temp_file);
 		merge_do_fetching_phase(task, merge_lpq[i], num_to_fetch);
 
 		log(lsINFO, "[%d] === going to merge LPQ using file: %s", i, merge_lpq[i]->filename.c_str());
 		b = write_kv_to_file(merge_lpq[i], merge_lpq[i]->filename.c_str(), total_write);
 		log(lsINFO, "=== after merge of LPQ b=%d, total_write=%d", (int)b, total_write);
-
-		num_to_fetch = subsequent_fetch;
 	}
-	log(lsINFO, "=== ALL LPQs completed  building RPQ...");
 
+	// TODO: here we can free RDMA memory (and release threads/memory of other objects)
+	log(lsINFO, "=== ALL LPQs completed  building RPQ...");
+	task->resetCompression(); // turn compression off in case it was on, since RPQ is always without compression
 	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
 	{
-		log(lsINFO, "[%d] === inserting LPQ using file: %s", i, merge_lpq[i]->filename.c_str());
+		log(lsINFO, "[%d] === inserting LPQ to RPQ using file: %s", i, merge_lpq[i]->filename.c_str());
 		task->merge_man->merge_queue->insert(new SuperSegment(task, merge_lpq[i]->filename.c_str()));
-		log(lsINFO, "[%d] === after insert LPQ into RPQ", i);
-		num_to_fetch = subsequent_fetch;
+		log(lsINFO, "[%d] === after insertion of LPQ into RPQ", i);
 	}
 
 	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
@@ -262,7 +252,7 @@ void *merge_hybrid (reduce_task_t *task)
 	log(lsINFO, "after ALL merge");
 	// merge_queue will be deleted in DTOR of MergeManager
 
-	write_log(task->reduce_log, DBG_CLIENT, "merge thread exit");
+	log(lsDEBUG, "merge thread exit");
     return NULL;
 }
 
@@ -477,14 +467,14 @@ void MergeManager::start_fetch_req(client_part_req_t *req)
 
     if ( ret == 0 ) {
         if (req->mop->fetch_count == 0) {
-            write_log(task->reduce_log, DBG_CLIENT,
+        	log(lsDEBUG,
                      "First time fetch: %d destination: %s",
                       task->total_first_fetch,
                       req->info->params[0]);
         }
     } else if(ret == -2) {
         if (req->mop->fetch_count == 0) {
-            write_log(task->reduce_log, DBG_CLIENT,
+        	log(lsDEBUG,
                      "First time fetch request is in backlog: %d",
                      task->total_first_fetch);
         }

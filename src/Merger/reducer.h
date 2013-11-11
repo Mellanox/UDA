@@ -108,6 +108,10 @@ typedef struct reduce_task {
     	return comp_alg;
     }
 
+    void resetCompression(){
+    	comp_alg = compOff;
+    }
+
 } reduce_task_t;
 
 void reduce_exit_msg_handler();
