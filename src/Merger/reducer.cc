@@ -58,36 +58,52 @@ reduce_task_t * g_task;
 
 void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 {
-	static const int DIRS_START = 9;
+	static const int DIRS_START = 10;
 
-	log(lsDEBUG, "handle_init_msg: got params from java  num_maps=%s, job_id=%s, reduce_task_id=%s, lpq_size=%s, buffer_size_from_java=%s, minBuffer=%s, cmp_func=%s, comp_alg=%s, comp_block_size=%s", hadoop_cmd->params[0],hadoop_cmd->params[1],
-			hadoop_cmd->params[2],hadoop_cmd->params[3],hadoop_cmd->params[4],hadoop_cmd->params[5],hadoop_cmd->params[6],hadoop_cmd->params[7],hadoop_cmd->params[8]);
+	log(lsINFO, "got params from java: hadoop_cmd->count=%d,  num_maps=%s, job_id=%s, reduce_task_id=%s, lpq_size=%s, "
+			"rdma.buf.size=%sB, minBuffer=%sB, cmp_func=%s, comp_alg=%s, comp_block_size=%s, shuffleMemorySize=%sB",
+			hadoop_cmd->count,
+			hadoop_cmd->params[0], hadoop_cmd->params[1], hadoop_cmd->params[2], hadoop_cmd->params[3],
+			hadoop_cmd->params[4], hadoop_cmd->params[5], hadoop_cmd->params[6], hadoop_cmd->params[7],
+			hadoop_cmd->params[8], hadoop_cmd->params[9]);
 
-	assert (hadoop_cmd->count -1 > 2); // sanity under debug
+	assert (hadoop_cmd->count -1 > DIRS_START); // sanity under debug
 	g_task->num_maps = atoi(hadoop_cmd->params[0]);
 	g_task->job_id = strdup(hadoop_cmd->params[1]);
 	g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
 	g_task->lpq_size = atoi(hadoop_cmd->params[3]);
 
-	int buffer_size_from_java = atoi(hadoop_cmd->params[4]); // unaligned to pagesize
+/////////////////
+	int maxRdmaBufferSize = atoi(hadoop_cmd->params[4]);  // raw value as came from XML file with only conversion to bytes
+	int minRdmaBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
+	long shuffleMemorySize = atol(hadoop_cmd->params[9]);
+
+	if (shuffleMemorySize <  (long)g_task->num_maps * maxRdmaBufferSize * 2) { // 2 for double buffer
+		int maxRdmaBufferSizeOrig = maxRdmaBufferSize;
+		maxRdmaBufferSize = shuffleMemorySize / (g_task->num_maps * 2);
+		// we still need alignment to pagesize...
+
+		if (maxRdmaBufferSize < minRdmaBuffer) {
+			log(lsERROR, "Not enough memory for rdma buffers: shuffleMemorySize=%ldB; mapred.rdma.buf.size.min=%dKB",shuffleMemorySize, minRdmaBuffer);
+			throw new UdaException("Not enough memory for rdma buffers");
+		}
+		log(lsWARN, "UDA: using calculated RDMA buffer size=%ldB (not aligned yet) instead of max size=%ldB", maxRdmaBufferSize, maxRdmaBufferSizeOrig);
+	}
+/////////////////
 
 //
-	g_task->buffer_size = buffer_size_from_java - buffer_size_from_java % getpagesize(); // alignment to pagesize
-	int minRdmaBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
+	g_task->buffer_size = maxRdmaBufferSize - maxRdmaBufferSize % getpagesize(); // alignment to pagesize
 	log(lsDEBUG, "minRdmaBuffer %d,  g_task->buffer_size*2=%d",minRdmaBuffer,g_task->buffer_size*2 );
 	if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minRdmaBuffer) ) {
-		log(lsERROR, "RDMA Buffer is too small: buffer_size_from_java=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", buffer_size_from_java, getpagesize(), g_task->buffer_size, minRdmaBuffer);
+		log(lsERROR, "RDMA Buffer is too small: maxRdmaBufferSize=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", maxRdmaBufferSize, getpagesize(), g_task->buffer_size, minRdmaBuffer);
 		throw new UdaException("RDMA Buffer is too small");
 	}
 
 	g_cmp_func = get_compare_func(hadoop_cmd->params[6]); // set compare func using Java's key type name
-
 	g_task->comp_alg = getCompAlg(hadoop_cmd->params[7]);
-
 	g_task->comp_block_size = atoi(hadoop_cmd->params[8]);
 
 	createInputClient();
-
 	g_task->client->start_client();
 
 	log(lsDEBUG, " AFTER INPUT CLIENT CREATION");

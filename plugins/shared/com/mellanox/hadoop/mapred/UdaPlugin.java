@@ -247,23 +247,11 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		LOG.info("UDA: user prefer rdma.buf.size=" + maxRdmaBufferSize + "KB");
 		LOG.info("UDA: minimum rdma.buf.size=" + minRdmaBufferSize + "KB");
 
-		long rdmaBufferSize=maxRdmaBufferSize * 1024; // for comparing rdmaBuffSize to shuffleMemorySize in Bytes
-		if (shuffleMemorySize <  numMaps * rdmaBufferSize * 2) { // 2 for double buffer
-			rdmaBufferSize= shuffleMemorySize / (numMaps * 2);
-			//*** Can't get pagesize from java, avoid using hardcoded pagesize, c will make the alignment */ 
-		
-			if (rdmaBufferSize < minRdmaBufferSize * 1024) {
-				throw new OutOfMemoryError("UDA: Not enough memory for rdma buffers: shuffleMemorySize=" + shuffleMemorySize + "B, mapred.rdma.buf.size.min=" + minRdmaBufferSize + "KB");
-			}
-			LOG.warn("UDA: using calulated RDMA buffer size=" + rdmaBufferSize + "B (not aligned yet) instead of max size=" + maxRdmaBufferSize + "KB");
-		}
-		
 		if(jobConf.getSpeculativeExecution()) { // (getMapSpeculativeExecution() || getReduceSpeculativeExecution())
 			LOG.info("UDA has limited support for map task speculative execution");
 		}
 		
 		LOG.info("UDA: number of segments to fetch: " + numMaps);
-		LOG.info("UDA: Passing to C rdma.buf.size=" + rdmaBufferSize + "B  (before alignment to pagesize)");
 		
 		/* init variables */
 		init_kv_bufs(); 
@@ -283,7 +271,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
 		mParams.add(reduceId.getJobID().toString());
 		mParams.add(reduceId.toString());
 		mParams.add(jobConf.get("mapred.netmerger.hybrid.lpq.size", "0"));
-		mParams.add(Long.toString(rdmaBufferSize)); // in Bytes
+		mParams.add(Long.toString(maxRdmaBufferSize * 1024)); // in Bytes - pass the raw value we got from xml file (with only conversion to bytes)
 		mParams.add(Long.toString(minRdmaBufferSize * 1024)); // in Bytes . passed for checking if rdmaBuffer is still larger than minRdmaBuffer after alignment			 
 		mParams.add(jobConf.getOutputKeyClass().getName());
 		
@@ -303,6 +291,7 @@ class UdaPluginRT<K,V> extends UdaPlugin implements UdaCallable {
             }
         }		
 		mParams.add(bufferSize);
+		mParams.add(Long.toString(shuffleMemorySize));
 	
 		String [] dirs = jobConf.getLocalDirs();
 		ArrayList<String> dirsCanBeCreated = new ArrayList<String>();
