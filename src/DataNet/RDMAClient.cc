@@ -558,7 +558,7 @@ void RdmaClient::stop_client()
 
 int RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf_len)
 {
-	int             msg_len;
+	size_t          msg_len;
 	uint64_t        addr;
 	netlev_conn_t  *conn;
 
@@ -571,18 +571,22 @@ int RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf
 
 	netlev_msg_t h;
 
-	/* jobid:mapid:mop_offset:reduceid:mem_addr:req_prt:chunk_size */
-	msg_len = sprintf(h.msg,"%s:%s:%ld:%s:%lu:%lu:%d",
+	/* jobid:mapid:mop_offset:reduceid:mem_addr:req_prt:chunk_size:offset_in_file:mof_path */
+	msg_len = snprintf(h.msg, sizeof(h.msg), "%s:%s:%lld:%s:%lu:%lu:%d:%lld:%s:%lld:%lld",
 			freq->info->params[1],
 			freq->info->params[2],
-			freq->mop->fetched_len_rdma,
+			(long long)freq->mop->fetched_len_rdma,
 			freq->info->params[3],
 			addr,
 			(uint64_t) freq,
-			buf_len);
+			buf_len,
+			(long long)freq->mop->mofOffset,
+			freq->mop->mofPath.c_str(),
+			(long long)freq->mop->total_len_uncompress,
+			(long long)freq->mop->total_len_rdma);
 
-	if (msg_len >= NETLEV_FETCH_REQSIZE) {
-	    	log(lsERROR, "trying to fetch a message too big. msg_len=%d, max=%d",msg_len,NETLEV_FETCH_REQSIZE);
+	if (msg_len >= sizeof(h.msg)) {
+	    	log(lsERROR, "trying to fetch a message too big. msg_len=%d, max=%d",msg_len, sizeof(h.msg));
 	    	throw new UdaException("trying to fetch a message too big");
 	}
 
@@ -591,8 +595,7 @@ int RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf
 		log(lsERROR, "could not connect to host %s on port %d", freq->info->params[0], svc_port);
 		throw new UdaException("trying to fetch a message too big");
 	}
-	log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%lld, qp=%d, hostname=%s, buf_len=%d, msg len=%d", freq->info->params[2], freq->info->params[3], freq->mop->fetched_len_rdma, conn->qp_hndl->qp_num,freq->info->params[0],buf_len, msg_len);
-
+	log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%lld, qp=%d, hostname=%s, buf_len=%d, msg len=%d, offset=%lld", freq->info->params[2], freq->info->params[3], freq->mop->fetched_len_rdma, conn->qp_hndl->qp_num,freq->info->params[0],buf_len, msg_len, freq->mop->mofOffset);
 	return netlev_post_send(&h,  msg_len, 0, freq, conn, MSG_RTS);
 }
 

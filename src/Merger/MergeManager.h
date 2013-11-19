@@ -25,6 +25,7 @@
 #include <list>
 #include <vector>
 
+#include <limits.h> // for PATH_MAX
 #include "MergeQueue.h"
 #include "C2JNexus.h"
 #include "StreamRW.h"
@@ -45,6 +46,10 @@ enum MERGE_FLAG    {INIT_FLAG, NEW_MOP, FINAL_MERGE};
 #define MERGE_AIOHANDLER_NR				(50)
 #define MERGE_AIOHANDLER_TIMEOUT_IN_NSEC	(300000000)
 #define MERGE_AIOHANDLER_CTX_MAXEVENTS         (100)
+
+#ifndef PATH_MAX  // normally defined in limits.h
+#define PATH_MAX 4096
+#endif
 
 // callback for aio completions of LPQ output write submits
 int aio_lpq_write_handler(void* data);
@@ -102,7 +107,7 @@ typedef struct client_part_req
     struct host_list *host;
     hadoop_cmd_t     *info; /* [0]:hostname,[1]:jobid,[2]:mapid,[3]:reduceid*/
     MapOutput        *mop;         /* A pointer to mop */
-    char             recvd_msg[64];
+    char             recvd_msg[PATH_MAX+128];
 
     bool 				request_in_queue;
 } client_part_req_t;

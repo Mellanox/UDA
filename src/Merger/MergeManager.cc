@@ -21,7 +21,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/time.h>
-#include <limits.h> // for PATH_MAX
 #include "MergeQueue.h"
 #include "MergeManager.h"
 #include "StreamRW.h"
@@ -32,11 +31,6 @@
 #include "AIOHandler.h"
 #include "bullseye.h"
 
-
-
-#ifndef PATH_MAX  // normally defined in limits.h
-#define PATH_MAX 4096
-#endif
 
 #define LPQ_STAGE_MEM_SIZE (1<<20)
 #define LCOV_HYBRID_MERGE_DEAD_CODE 0
@@ -376,16 +370,22 @@ int MergeManager::update_fetch_req(client_part_req_t *req)
      * 1. mark memory available again
      * 2. increase MOF offset and set length
      */
-    uint64_t recvd_data[3];
+    uint64_t recvd_data[4];
     int i = 0;
+    int j = 0;
 
-
-    /* format: "rawlength:partlength:recv_data" */
+    /* format: "rawlength:partlength:recv_data:mofoffset:mofpath" */
     recvd_data[0] = atoll(req->recvd_msg);
     while (req->recvd_msg[i] != ':' ) { ++i; }
     recvd_data[1] = atoll(req->recvd_msg + (++i));
     while (req->recvd_msg[i] != ':' ) { ++i; }
     recvd_data[2] = atoll(req->recvd_msg + (++i));
+    while (req->recvd_msg[i] != ':' ) { ++i; }
+    recvd_data[3] = atoll(req->recvd_msg + (++i));
+    while (req->recvd_msg[i] != ':' ) { ++i; }
+    j = i+1;
+    while (req->recvd_msg[j] != ':' ) { ++j; }
+    int size = j-i-1;
 
     pthread_mutex_lock(&req->mop->lock);
     /* set variables in map output */
@@ -393,11 +393,17 @@ int MergeManager::update_fetch_req(client_part_req_t *req)
     req->mop->total_len_rdma = recvd_data[1];
     req->mop->total_len_uncompress = recvd_data[0];
     req->mop->fetched_len_rdma += recvd_data[2];
+    req->mop->mofOffset = recvd_data[3];
+    req->mop->mofPath.assign((req->recvd_msg + (++i)), size);
 
     pthread_mutex_unlock(&req->mop->lock);
 
-    log(lsTRACE, "update_fetch_req total_len_part=%d total_len_raw=%d req->mop->total_fetched_compressed=%d req->last_fetched=%d req->mop->mop_id=%d",
-       		req->mop->total_len_rdma, req->mop->total_len_uncompress, req->mop->fetched_len_rdma, recvd_data[2], req->mop->mop_id);
+    if (req->mop->mofPath.compare("MOF_PATH_SIZE_TOO_LONG") == 0) {
+    	throw new UdaException("Mof path is too long, UDA supports path of max 600 chars");
+    }
+
+    log(lsTRACE, "update_fetch_req total_len_part=%lld total_len_raw=%lld req->mop->total_fetched_compressed=%lld req->last_fetched=%lld req->mop->mop_id=%d, req->mop->mofOffset=%lld, req->mop->mofPath=%s",
+    		(long long)req->mop->total_len_rdma, (long long)req->mop->total_len_uncompress, (long long)req->mop->fetched_len_rdma, (long long)recvd_data[2], req->mop->mop_id, (long long)req->mop->mofOffset, req->mop->mofPath.c_str());
 
     return 1;
 }

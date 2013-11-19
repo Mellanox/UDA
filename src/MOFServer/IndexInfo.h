@@ -66,13 +66,14 @@ typedef struct shuffle_req
     struct list_head    list;
     struct netlev_conn *conn;
 
-    string    m_jobid;
-    string    m_map;
-    int32_t   reduceID;
-    int64_t   map_offset;
-    int64_t   remote_addr;
-    uint64_t  freq; //saving pointer to client's request
-    int32_t	  chunk_size;
+    string    	  m_jobid;
+    string   	  m_map;
+    int32_t   	  reduceID;
+    int64_t  	  map_offset; //how much of the mof relevant data have we read so far
+    int64_t  	  remote_addr;
+    uint64_t 	  freq; //saving pointer to client's request
+    int32_t		  chunk_size;
+    index_record* record;
 } shuffle_req_t;
 
 typedef struct comp_mof_info
@@ -99,7 +100,7 @@ typedef struct index_record
     int64_t   offset;     /* Offset in the index file */
     int64_t   rawLength;  /* decompressed length of MOF */
     int64_t   partLength; /* compressed size of MOF partition */
-    jstring   path; /* path to MOF */
+    string    path; /* path to MOF */
 } index_record_t;
 
 
@@ -208,7 +209,7 @@ private:
      * 3) prepare suitable callback argument for aio
      * 4) _aioHandler->prepare_read
      */
-    int aio_read_chunk_data(shuffle_req_t* req , index_record_t* record, const string &out_path, chunk_t* chunk, uint64_t map_offset);
+    int aio_read_chunk_data(shuffle_req_t* req, chunk_t* chunk, uint64_t map_offset);
 
     // consumes chunk buffer from pool
     // WAIT on condition if no chunks available

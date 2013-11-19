@@ -107,6 +107,9 @@ public:
 //    int64_t                 total_len;
     int64_t                 total_len_rdma; //represents raw size of MOF partition (either with compression, or uncompressed size without compression)
     int64_t                 total_len_uncompress; //represents decompressed length of MOF
+    
+    int64_t					mofOffset; //offset of this reducer data in the mof
+    string			 		mofPath;
 
     KVOutput(struct reduce_task *task);
 	virtual ~KVOutput();

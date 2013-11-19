@@ -100,7 +100,7 @@ static void server_comp_ibv_recv(netlev_wqe_t *wqe)
 		if (!data_req) {
 			log(lsERROR, "Error in parsing request, request %s will not be processed", param.c_str());
 		} else {
-			log(lsTRACE, "request as received by server: jobid=%s, map_id=%s, reduceID=%d, map_offset=%d, qpnum=%d",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, data_req->map_offset, conn->qp_hndl->qp_num);
+			log(lsTRACE, "request as received by server: jobid=%s, map_id=%s, reduceID=%d, map_offset=%lld, qpnum=%d, offset=%lld, path=%s",data_req->m_jobid.c_str(), data_req->m_map.c_str(), data_req->reduceID, (long long)data_req->map_offset, conn->qp_hndl->qp_num, (long long)data_req->record->offset, data_req->record->path.c_str());
 			data_req->conn = conn;
 			conn->received_counter ++;
 
@@ -537,24 +537,30 @@ int RdmaServer::destroy_listener()
 int RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req, uintptr_t laddr,
 		uint64_t req_size, void* chunk,struct index_record *record)
 {
-	netlev_dev_t         *dev;
-	int32_t               rdma_send_size, ack_msg_len, total_ack_len, lkey;
+	netlev_dev_t       *dev;
+	int32_t             rdma_send_size, total_ack_len, lkey;
+	size_t              ack_msg_len;
 	int rc;
-	struct ibv_send_wr send_wr_rdma, send_wr_ack;
-	struct ibv_sge sge_rdma, sge_ack;
+	struct ibv_send_wr  send_wr_rdma, send_wr_ack;
+	struct ibv_sge      sge_rdma, sge_ack;
 	struct ibv_send_wr *bad_wr;
-	netlev_msg_t h;
+	netlev_msg_t        h;
 
 	netlev_conn_t *conn = req->conn;
 	dev = conn->dev;
 
 	lkey = dev->rdma_mem->mr->lkey;
 	rdma_send_size = this->rdma_chunk_len > req_size ? req_size : this->rdma_chunk_len;
-
-	ack_msg_len = sprintf(h.msg, "%ld:%ld:%d:",
-			record->rawLength,
-			record->partLength,
-			rdma_send_size);
+	ack_msg_len = snprintf(h.msg, sizeof(h.msg), "%lld:%lld:%d:%lld:%s:",
+			(long long)record->rawLength,
+			(long long)record->partLength,
+			rdma_send_size,
+			(long long)record->offset,
+			record->path.c_str());
+	if (ack_msg_len >= sizeof(h.msg)) {
+	    	log(lsERROR, "trying to send a message too big. msg_len=%d, max=%d",ack_msg_len, sizeof(h.msg));
+	    	throw new UdaException("trying to send a message too big");
+	}
 	conn->received_counter--;
 
 	if (!conn->bad_conn){

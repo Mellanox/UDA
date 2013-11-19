@@ -69,6 +69,7 @@ KVOutput::KVOutput(struct reduce_task *task)
     this->fetched_len_rdma = 0;
     this->fetched_len_uncompress = 0;
     this->last_fetched = 0;
+    this->mofOffset = 0;
     pthread_mutex_init(&this->lock, NULL);
     pthread_cond_init(&this->cond, NULL);
 

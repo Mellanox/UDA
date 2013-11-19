@@ -410,11 +410,11 @@ struct netlev_conn *netlev_conn_alloc(netlev_dev_t *dev, struct rdma_cm_id *cm_i
 	}
 
 	if (rdma_create_qp(conn->cm_id, dev->pd, &qp_init_attr) != 0) {
-		log(lsERROR, "rdma_create_qp failed");
+		log(lsERROR, "rdma_create_qp failed %m");
 		pthread_mutex_destroy(&conn->lock);
 		netlev_dealloc_conn_mem(conn->mem);
 		if (rdma_destroy_id(cm_id)){
-			log(lsERROR, "rdma_destroy_qp failed (errno=%d)", errno);
+			log(lsERROR, "rdma_destroy_qp failed %m");
 		}
 		free(conn);
 		throw new UdaException("rdma_create_qp failed");

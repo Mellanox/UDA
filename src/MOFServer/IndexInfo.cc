@@ -238,11 +238,16 @@ int
 DataEngine::process_shuffle_request(shuffle_req_t* req) {
     chunk_t* chunk;
     int rc=0;
+    index_record_t *index_rec;
 
-    index_record_t *index_rec =  UdaBridge_invoke_getPathUda_callback(this->jniEnv, req->m_jobid.c_str(), req->m_map.c_str(), req->reduceID);
-    if (!index_rec){
-    	log(lsERROR, "UDA bridge failed!");
-		return -1;
+    //first time fetch - need to go to java and get mof path and other data
+    if (req->record->path.empty()) {
+		index_rec =  UdaBridge_invoke_getPathUda_callback(this->jniEnv, req->m_jobid.c_str(), req->m_map.c_str(), req->reduceID);
+		if (!index_rec){
+			log(lsERROR, "UDA bridge failed!");
+			return -1;
+		}
+		req->record = index_rec;
 	}
 
     // in case we have no more chunks to occupy , then we should submit current aio waiting requests before WAITing for a chunk.
@@ -253,20 +258,18 @@ DataEngine::process_shuffle_request(shuffle_req_t* req) {
 	chunk = occupy_chunk();
     if (chunk == NULL) {
         log(lsERROR, "occupy_chunk failed: jobid=%s, map=%s", req->m_jobid.c_str(), req->m_map.c_str());
-        free(index_rec);
+        delete(req->record);
         return -1;
     }
 
-    const char *path = jniEnv->GetStringUTFChars(index_rec->path, NULL);
-    if (!path){
-    	free(index_rec);
-    	return -1;
+    if (req->record->path.length() > NETLEV_MOF_PATH_MAX_SIZE) {
+    	 req->record->path = "MOF_PATH_SIZE_TOO_LONG";
+    	 state_mac->mover->start_outgoing_req(req, req->record, chunk, req->chunk_size, 0);
+    	 delete(req);
+    	 return 0;
     }
 
-    rc= aio_read_chunk_data(req, index_rec, path, chunk, req->map_offset);
-
-    jniEnv->ReleaseStringUTFChars(index_rec->path, path);
-
+    rc = aio_read_chunk_data(req, chunk, req->map_offset);
     return rc;
 }
 
@@ -298,23 +301,18 @@ DataEngine::release_chunk(chunk_t* chunk) {
 }
 
 
-int DataEngine::aio_read_chunk_data(shuffle_req_t* req , index_record_t* record, const string& outPath, chunk_t* chunk, uint64_t map_offset)
+int DataEngine::aio_read_chunk_data(shuffle_req_t* req , chunk_t* chunk, uint64_t map_offset)
 {
     int rc=0;
 
-    int64_t offset = record->offset + map_offset;
-    size_t read_length = record->partLength - map_offset;
+    int64_t offset = req->record->offset + map_offset;
+    size_t read_length = req->record->partLength - map_offset;
    	read_length = (read_length < (size_t)req->chunk_size ) ? read_length : req->chunk_size ;
     log (lsDEBUG, "this->rdma_buf_size inside aio_read_chunk_data is %d\n", this->rdma_buf_size);
 
-    fd_counter_t* fdc=getFdCounter(outPath);
+    fd_counter_t* fdc=getFdCounter(req->record->path);
     if (!fdc) {
-    	const char *path_for_error = jniEnv->GetStringUTFChars(record->path, NULL);
-    	if (!path_for_error){
-    	   return -1;
-    	}
-    	log(lsERROR, "fail to get fd counter jobid=%s out_path=%s", req->m_jobid.c_str(), path_for_error);
-    	jniEnv->ReleaseStringUTFChars(record->path, path_for_error);
+    	log(lsERROR, "fail to get fd counter jobid=%s out_path=%s", req->m_jobid.c_str(), req->record->path.c_str());
     	return -1;
     }
 
@@ -323,14 +321,14 @@ int DataEngine::aio_read_chunk_data(shuffle_req_t* req , index_record_t* record,
     cb_arg->shreq=req;
     cb_arg->state_mac = this->state_mac;
     cb_arg->readLength=read_length;
-    cb_arg->record=record;
+    cb_arg->record=req->record;
     cb_arg->offsetAligment= (offset & _aioHandler->ALIGMENT_MASK);
     cb_arg->fdc=fdc;
-    cb_arg->fdc_key = outPath;
+    cb_arg->fdc_key = req->record->path;
     size_t length_for_aio = read_length + 2*AIO_ALIGNMENT - (read_length & _aioHandler->ALIGMENT_MASK);
 
     long new_offset=offset - cb_arg->offsetAligment;
-    log(lsTRACE,"Preparing AIO READ: MOF=%s OFFSET=%d ALIGNED_OFFSET=%lld LENGTH=%lld ALIGNED_LENGTH=%lld", outPath.c_str(), offset, new_offset,read_length, length_for_aio );
+    log(lsTRACE,"Preparing AIO READ: MOF=%s OFFSET=%d ALIGNED_OFFSET=%lld LENGTH=%lld ALIGNED_LENGTH=%lld", req->record->path.c_str(), offset, new_offset,read_length, length_for_aio );
     rc = _aioHandler->prepare_read(fdc->fd, new_offset, length_for_aio, chunk->buff, cb_arg);
 
     return rc;

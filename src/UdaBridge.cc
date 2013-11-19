@@ -401,11 +401,14 @@ index_record* UdaBridge_invoke_getPathUda_callback(JNIEnv * jniEnv, const char* 
 		 }
 	 }
 
-	index_record *data = (index_record*) malloc(sizeof(index_record));
+	index_record *data = new index_record();
 	data->offset = (int64_t) jniEnv->GetLongField(jdata, fidOffset);
 	data->rawLength = (int64_t) jniEnv->GetLongField(jdata, fidRawLength);
 	data->partLength = (int64_t) jniEnv->GetLongField(jdata, fidPartLength);
-	data->path = (jstring)jniEnv->GetObjectField(jdata, fidPathMOF);
+	jstring jpath = (jstring)jniEnv->GetObjectField(jdata, fidPathMOF);
+	const char *nativeString = jniEnv->GetStringUTFChars(jpath, NULL);
+	data->path.assign(nativeString);
+	jniEnv->ReleaseStringUTFChars(jpath, nativeString);
 
 	log(lsDEBUG, "after  jniEnv->CallStaticVoidMethod... ");
 	return data;

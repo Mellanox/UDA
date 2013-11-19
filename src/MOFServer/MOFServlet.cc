@@ -29,17 +29,18 @@ shuffle_req_t* get_shuffle_req(const string &param)
 {
     size_t start, end;
     shuffle_req_t *sreq = new shuffle_req_t();
+    sreq->record = new index_record();
     auto_ptr<shuffle_req_t> my_auto_ptr ( sreq );
 
     end = param.find(':');
     if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
-    sreq->m_jobid = param.substr(0, end);
+    sreq->m_jobid.assign(param, 0, end);
 
     //COVERITY: RM#189303 NEGATIVE_RETURNS. false alarm
     start = ++end;
     end = param.find(':', start);
     if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
-    sreq->m_map = param.substr(start, end - start);
+    sreq->m_map.assign(param, start, end - start);
 
     //COVERITY: RM#189303 NEGATIVE_RETURNS. false alarm
     start = ++end;
@@ -67,8 +68,28 @@ shuffle_req_t* get_shuffle_req(const string &param)
 
     //COVERITY: RM#189303 NEGATIVE_RETURNS. false alarm
     start = ++end;
-    int param_length = param.length();
-    sreq->chunk_size = atoi(param.substr(start, param_length - start).c_str());
+    end = param.find(':', start);
+    if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
+    sreq->chunk_size = atoi(param.substr(start, end - start).c_str());
+
+    start = ++end;
+	end = param.find(':', start);
+	if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
+	sreq->record->offset = atoll(param.substr(start, end - start).c_str());
+
+	start = ++end;
+	end = param.find(':', start);
+	if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
+	sreq->record->path.assign(param, start, end - start);
+
+	start = ++end;
+	end = param.find(':', start);
+	if(end == param.npos) return NULL; /* if no ':' is found in shuffle request,  return NULL to calling request. */
+	sreq->record->rawLength = atoll(param.substr(start, end - start).c_str());
+
+	start = ++end;
+	int param_length = param.length(); /* if no ':' is found in shuffle request,  return NULL to calling request. */
+	sreq->record->partLength = atoll(param.substr(start, param_length - start).c_str());
 
     my_auto_ptr.release();
     return sreq;
@@ -154,31 +175,8 @@ void OutputServer::insert_incoming_req(shuffle_req_t *req)
 
 void OutputServer::start_outgoing_req(shuffle_req_t *req, index_record_t* record,  chunk_t *chunk, uint64_t length, int offsetAligment)
 {
-    uintptr_t local_addr = (uintptr_t)(chunk->buff + offsetAligment);
-
-    /* bool prefetch = req_size > send_bytes; */
-//    shuffle_req_t *prefetch_req = NULL;
-    /* if (prefetch) {
-        prefetch_req = req;
-        prefetch_req->prefetch = true;
-    } */
-
-    this->rdma->rdma_write_mof_send_ack(req, local_addr, length,(void*)chunk, record);
-
-
-    /* testing section */
-    /* if (req->map_offset == 0) {
-        int reduceid = req->reduceID;
-        map<int, int>::iterator iter =
-            out_stat.find(reduceid);
-        if (iter != out_stat.end()) {
-            out_stat[reduceid] = (*iter).second + 1;
-        } else {
-            out_stat[reduceid] = 1;
-        }
-        output_stdout("reducer : %d, First mop return: %d",
-                      reduceid, out_stat[reduceid]);
-    } */
+	uintptr_t local_addr = (uintptr_t)(chunk->buff + offsetAligment);
+	this->rdma->rdma_write_mof_send_ack(req, local_addr, length,(void*)chunk, record);
 }
 
 

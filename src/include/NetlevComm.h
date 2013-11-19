@@ -22,11 +22,13 @@
 
 #include "LinkList.h"
 #include "UdaBridge.h"  //avnerb - TEMP - will be removed
+#include <limits.h> // for PATH_MAX
 
 #define NETLEV 1
 
 #define NETLEV_TIMEOUT_MS        (5000)
-#define NETLEV_FETCH_REQSIZE     (256)
+#define NETLEV_FETCH_REQSIZE     (800)
+#define NETLEV_MOF_PATH_MAX_SIZE     (600)
 
 #define NETLEV_KV_POOL_EXPO         (20)
 
