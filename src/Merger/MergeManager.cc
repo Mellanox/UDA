@@ -52,7 +52,7 @@ static JNIEnv *s_jniEnv;
 /* report progress every 256 map outputs*/
 #define PROGRESS_REPORT_LIMIT 20
 
-void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *merge_queue, int num_maps)
+void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *merge_queue, int num_maps/*-to-fetch*/)
 {
     MergeManager *manager = task->merge_man;
     int target_maps_count = manager->total_count + num_maps;
@@ -62,39 +62,35 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 	do {
 		//sending fetch requests
 		log(lsDEBUG, "sending first chunk fetch requests");
-		while (manager->fetch_list.size() > 0) {
+		while (manager->fetch_list.size() > 0 && maps_sent_to_fetch < num_maps) {
+
 			if (mem_pool->free_descs.next != &mem_pool->free_descs) { // the list represents a pair of buffers && (mem_pool->free_descs.next->next != &mem_pool->free_descs)){
 				log(lsTRACE, "there are free RDMA buffers");
 				client_part_req *fetch_req = NULL;
 				 pthread_mutex_lock(&manager->lock);
 				 fetch_req = manager->fetch_list.front();
-
-				 log(lsDEBUG, "request as received from java jobid=%s, mapid=%s, reduceid=%s, hostname=%s", fetch_req->info->params[1], fetch_req->info->params[2], fetch_req->info->params[3], fetch_req->info->params[0]);
-
 				 manager->fetch_list.pop_front();
 				 pthread_mutex_unlock(&manager->lock);
-				 maps_sent_to_fetch ++;
 				if (fetch_req) {
-
 					log(lsDEBUG, "request as received from java jobid=%s, mapid=%s, reduceid=%s, hostname=%s", fetch_req->info->params[1], fetch_req->info->params[2], fetch_req->info->params[3], fetch_req->info->params[0]);
-
 					manager->allocate_rdma_buffers(fetch_req);
 					manager->start_fetch_req(fetch_req);
-					log(lsDEBUG, "request as received from java jobid=%s, mapid=%s, reduceid=%s, hostname=%s", fetch_req->info->params[1], fetch_req->info->params[2], fetch_req->info->params[3], fetch_req->info->params[0]);
+					maps_sent_to_fetch ++;
 				}
 				else {
 					log(lsERROR, "no fetch request, although there should be");
 				}
 			}else{
-				log(lsDEBUG, "there are no free RDMA buffers");
 				if (maps_sent_to_fetch < num_maps){
-					//there are not enough maps sent to fetch to start a LPQ - can not continue and must wait for buffers
-					log(lsERROR, "there are not enough buffers to start an LPQ");
+					//there are not enough bufers for fetch to start a LPQ - can not continue and must wait for buffers
+					log(lsERROR, "there are not enough free RDMA buffers to start an LPQ");
 					return NULL;
-					//in case the reducer is running several LPQs simultaneously: wait here
+					//TODO: in case the reducer is running several LPQs simultaneously: wait here
+					//TODO: in some cases, consider throw exception
 				}
 				else {
-					log(lsDEBUG, "there are enough fetches sent to start an LPQ");
+					log(lsINFO, "there are no free RDMA buffers; however, there are enough fetches sent to start an LPQ");
+					// TODO: should not reach here with new code
 					break;
 				}
 			}
