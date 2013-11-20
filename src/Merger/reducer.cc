@@ -52,7 +52,8 @@ using namespace std;
 extern merging_state_t merging_sm;
 extern void *merge_thread_main (void *context)  throw (UdaException*);
 
-static void init_reduce_task(struct reduce_task *task);
+static void  init_reduce_task(struct reduce_task *task);
+static void start_reduce_task(struct reduce_task *task);
 
 reduce_task_t * g_task;
 
@@ -103,13 +104,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 	g_task->comp_alg = getCompAlg(hadoop_cmd->params[7]);
 	g_task->comp_block_size = atoi(hadoop_cmd->params[8]);
 
-	createInputClient();
-	g_task->client->start_client();
-
-	log(lsDEBUG, " AFTER INPUT CLIENT CREATION");
-	log(lsDEBUG, "1 minRdmaBuffer %d,  g_task->buffer_size*2=%d, g_task->comp_block_size=%d",minRdmaBuffer,g_task->buffer_size*2,g_task->comp_block_size );
 	int num_dirs = 0;
-
 	if (hadoop_cmd->count -1  > DIRS_START) {
 		assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
 		if (hadoop_cmd->params[DIRS_START] != NULL) {
@@ -126,12 +121,20 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 			}
 		}
 	}
+    // resolved conflict 1
+	init_reduce_task(g_task); // just initialization and calculation without starting a thread
+
+	createInputClient();
+	g_task->client->start_client();
+	log(lsDEBUG, " AFTER INPUT CLIENT CREATION");
+	log(lsDEBUG, "1 minRdmaBuffer %d,  g_task->buffer_size*2=%d, g_task->comp_block_size=%d",minRdmaBuffer,g_task->buffer_size*2,g_task->comp_block_size );
+
 
 	double_buffer_t buffers = calculateMemPool(minRdmaBuffer);
 	// Allocating memory and register RDMA buffers
 	g_task->client->getRdmaClient()->register_mem(&merging_sm.mop_pool, buffers);
 
-	init_reduce_task(g_task);
+	start_reduce_task(g_task); // start a thread for fetch/merge
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -254,6 +257,7 @@ int create_mem_pool(int size, int num, memory_pool_t *pool) //similar to the old
     return 0;
 }
 
+// resolved conflict 2
 static void init_reduce_task(struct reduce_task *task)
 {
 
@@ -278,7 +282,11 @@ static void init_reduce_task(struct reduce_task *task)
 
     /* Initialize a merge manager thread */
     task->merge_man = new MergeManager(1, merging_sm.online, task, num_lpqs);
+}
 
+////////////////////////////////////////////////////////////////////////////////
+static void start_reduce_task(struct reduce_task *task)
+{
     memset(&task->merge_thread, 0, sizeof(netlev_thread_t));
     task->merge_thread.stop = 0;
     task->merge_thread.context = task;
@@ -290,6 +298,8 @@ static void init_reduce_task(struct reduce_task *task)
                    merge_thread_main, task);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// called by main since we have just 1 reducer (no need to know num maps for this function)
 void spawn_reduce_task()
 {
     int netlev_kv_pool_size;
@@ -363,7 +373,7 @@ void finalize_reduce_task(reduce_task_t *task)
 
     delete task->merge_man;
    
-    /* free large pool */
+    // free large pool of ~ 2 * 1MB
 	int rc=0;
     log(lsTRACE, ">> before free pool loop");
     while (!list_empty(&task->kv_pool.free_descs)) {
@@ -382,7 +392,7 @@ void finalize_reduce_task(reduce_task_t *task)
 	log(lsTRACE, "<< after  free pool loop");
     pthread_mutex_destroy(&task->kv_pool.lock);
     free(task->kv_pool.mem);
-    write_log(task->reduce_log, DBG_CLIENT, "kv pool is freed");
+	log(lsTRACE, "-- after free kv pool of 2 staging buffers (at task level)");
 
     if ((rc=pthread_cond_destroy(&task->cond))) {
     	log(lsERROR, "Failed to destroy pthread_cond - rc=%d", rc);

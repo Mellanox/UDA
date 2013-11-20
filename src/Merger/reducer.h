@@ -75,7 +75,7 @@ typedef struct reduce_task {
     MergeManager      *merge_man;  
     netlev_thread_t    merge_thread;
 
-    memory_pool_t      kv_pool; 
+    memory_pool_t      kv_pool; // size will be: NUM_STAGE_MEM * netlev_kv_pool_size (currently, 2 * 1MB)
 
     /* for measurement */
     int           total_wait_mem_time;
