@@ -209,7 +209,11 @@ void *merge_hybrid (reduce_task_t *task)
 
 	MergeQueue<BaseSegment*>* merge_lpq[task->merge_man->num_lpqs];
 	char temp_file[PATH_MAX];
-	static int lpq_shared_counter = -1; // placeholder - supposed to be shared between all reducers of all threads
+	// counter is not really shared between reducers since - with JNI - UDA is instantiated per RT. Hence init with random.
+    timeval tv;
+    gettimeofday(&tv, NULL);
+    srand(tv.tv_usec);
+	static int lpq_shared_counter = rand() % task->local_dirs.size();
 	for (int i = 0; task->merge_man->total_count < task->num_maps; ++i)
 	{
 		int num_to_fetch = (i < num_regular_lpqs) ? num_mofs_in_lpq : num_mofs_in_lpq + 1;
