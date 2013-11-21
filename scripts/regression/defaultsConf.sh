@@ -34,6 +34,7 @@ export CEC=6  # Continue Exit Code - using when need to skip the exiting-script 
 export EEC1=10 # Error Exit Code 1
 export EEC2=11 # Error Exit Code 2
 export EEC3=12 # Error Exit Code 3
+export EEC4=13 # Error Exit Code 4 - Indicates a failed test
 export SLEEPING_FOR_READING=5 # time to sleep that the user will see the printed message
 export EXECUTION_MAX_ATTEMPTS=1 
 export RESTART_HADOOP_MAX_ATTEMPTS=10

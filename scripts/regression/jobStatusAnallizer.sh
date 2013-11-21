@@ -6,6 +6,7 @@ testName=$1
 #successCriteria=$2
 totalTests=0
 succeededTests=0
+job_exit_status=0
 
 for exec in `find $REPORT_INPUT_DIR -type d -name ${EXEC_DIR_PREFIX}\*${testName}`
 do
@@ -27,9 +28,10 @@ do
 		totalTests=$((totalTests+1)) 
 		
 		#eval successCriteriaValue=\$$successCriteria # getting the value of the variable with "inside" successCriteria
-		if (($TEST_STATUS == 1));then
+		if [[ -n $TEST_STATUS ]] && (($TEST_STATUS == 1));then
 			succeededTests=$((succeededTests+1))
 		else
+			job_exit_status=1
 			echo -n "Test name: ${testName}. $ROW_BREAKER " >> $TESTLINK_TESTS_ERRORS
 			if [ -n "$TEST_ERROR" ];then
 				echo "description: ${TEST_ERROR}. $ROW_BREAKER  " >> $TESTLINK_TESTS_ERRORS
@@ -43,3 +45,5 @@ done
 if (($totalTests != 0));then
 	echo "$testName $succeededTests $totalTests" >> $TESTLINK_TESTS_OUTCOME
 fi
+
+exit $job_exit_status

@@ -86,6 +86,9 @@ echo "$echoPrefix: the analyzed tests are: $ALL_TESTS_NAMES"
 for i in $ALL_TESTS_NAMES;do
 	echo "$echoPrefix: current test: $i"
 	bash $SCRIPTS_DIR/jobStatusAnallizer.sh $i
+	if (($? != 0)); then
+		exit_status=$EEC4
+	fi
 done
 
 echo "#!/bin/sh
@@ -96,3 +99,5 @@ echo "#!/bin/sh
 	export TOTAL_TESTS=$totalTests
 	export SUCCEEDED_TESTS=$succeededTests
 " > $SOURCES_DIR/analyzeEnvExports.sh
+
+exit $exit_status

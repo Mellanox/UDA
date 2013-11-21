@@ -82,10 +82,13 @@ errorHandler ()
 		esac	
 		exit_status=1
 		export SESSION_EXCEPTION=$exitStatus
+	elif (($exitStatus == $EEC4));then
+		export GOT_FAILED_JOBS=1
+		phaseError=0
 	elif (($exitStatus != 0)) && (($exitStatus != $CEC));then
-		echo "$echoPrefix: exiting during the $2 phase according to unknown runtime error. exit code was $1"
-		exit 1
-    else
+                echo "$echoPrefix: exiting during the $2 phase according to unknown runtime error. exit code was $1"
+                exit 1
+    	else
 		phaseError=0
 	fi
 }
@@ -256,6 +259,7 @@ do
 	fi
 
 	for testsSetup in $ALL_TESTS_SETUPS_NAMES
+	#for testsSetup in `ls $CURRENT_CONFS_DIR | grep $SETUP_DIR_PREFIX`
 	do
 		setupConfsDir=$TESTS_CONF_DIR/$clusterEnv/$testsSetup
 		
@@ -343,5 +347,5 @@ fi
 
 echo "$echoPrefix: *** Finish ***"
 echo -e \\n\\n\\n\\n\\n
-exit $exit_status
+exit $((exit_status || GOT_FAILED_JOBS))
 
