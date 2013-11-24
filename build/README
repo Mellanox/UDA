@@ -28,195 +28,186 @@
 
 #in order to run UDA, you'll need:
 #1. add line containing jar name matching your hadoop version to the end of your hadoop-env.sh.
-	For Hadoop 1.x.y (including HDP) add:
-	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-1.x.jar
-	OR (in case you need the older version):
-	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-1.x-v1.jar
-	For Hadoop-2.0.5-alpha add:
-	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-2.x.jar
-	For Hadoop-3.0 (community svn trunk) add:
-	export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-3.x.jar
+  For Hadoop 1.x.y add:
+  export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-1.x.jar
+  For Hadoop-2.2.x add:
+  export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-2.x.jar
+  For Hadoop-3.0 (community svn trunk) add:
+  export HADOOP_CLASSPATH=$HADOOP_CLASSPATH:/usr/lib64/uda/uda-hadoop-3.x.jar
 
-#2. OPTIONAL: in case your IB interface is not the default one on your machine:
-#             run script set_hadoop_slave_property.sh located in /usr/lib64/uda on your slave nodes and on master node.
-This script edits property "slave.host.name" located in mapred-site.xml. This property is used to represent 
-the interface you want to run hadoop on. There are two ways to configure it:
-		a. it can contain `hostname`-suffix (for example eagle1-ib). In this case in /etc/hosts should contain 
-		an entry spesifying ip for 'eagle1-ib'.
-		b. if you do not wish to edit /etc/hosts you can work with ip address of specific interface. 
-		In this case, ip should appear in conf dir in slaves file, and in all xml properties where master's name is used.
-Parameters to be passed to the script:
-Required options:
-		--hadoop-conf-dir=DIR  	path to conf dir of existing hadoop installation
-	AND one of the following options:
-		--interface=INTERFACE_NAME	interface name as it appears in 'ifconfig'
-		--host-suffix=HOST_SUFFIX  	suffix to be added to hostname	
-		
-3. OPTIONAL: in case your IB interface is not the default one on your machine:
-#            HDFS settings:
+    
+#2. hadoop-1.x.y TaskTracker level settings (In case you have YARN, you can skip this step):
+#   Merge the following lines into your mapred-site.xml
+#   NOTE: this must be in mapred-site.xml, because it must be considered in TaskTracker initialization
+#         hence, it can't be just given per job
+  <?xml version="1.0"?>
+  <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+  <configuration>
+
+    <property>
+      <name>mapreduce.shuffle.provider.plugin.classes</name>
+      <value>com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin,org.apache.hadoop.mapred.TaskTracker$DefaultShuffleProvider</value>              
+      <description>A comma-separated list of classes that should be loaded as ShuffleProviderPlugin(s).
+       A ShuffleProviderPlugin can serve shuffle requests from reducetasks.
+       Each class in the list must be an instance of org.apache.hadoop.mapred.ShuffleProviderPlugin.
+      </description>
+    </property>
+
+  </configuration>
+
+#3. YARN settings (In case you DON'T have YARN, you can skip this step):
+#### merge the following to your yarn-site.xml
+
+      <!-- IMPORTANT: it is possible that you already have entry with this name.  In such a case you'll need to merge its values -->
+      <property>
+          <name>yarn.nodemanager.aux-services</name>
+          <value>mapreduce_shuffle,uda_shuffle</value>
+      </property>
+
+      <property>
+            <name>yarn.nodemanager.aux-services.uda_shuffle.class</name>
+            <value>com.mellanox.hadoop.mapred.UdaShuffleHandler</value>
+      </property>
+
+#### add the following to your mapred-site.xml
+    <property>
+      <name>mapreduce.job.shuffle.provider.services</name>
+      <value>uda_shuffle</value>
+      <description>A comma-separated list of classes that should be loaded as additional ShuffleProviderPlugin(s).
+        A ShuffleProviderPlugin can serve shuffle requests from reducetasks.
+      </description>
+    </property>
+
+#### add the following to your hadoop/yarn command line (OR ln -s this jar to the folder with hadoop jars)
+ -libjars /usr/lib64/uda/uda-hadoop-2.x.jar 
+
+
+
+#4. Job level settings:
+#   The following are ADDITIONAL setting that must be given to any UDA job (relevant for both yarn and MRv1 cases).
+#   it can be provided either in command line or in mapred-site.xml
+  <?xml version="1.0"?>
+  <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+  <configuration>
+
+    <property>
+      <name>mapreduce.job.reduce.shuffle.consumer.plugin.class</name>
+      <value>com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin</value>
+      <description>
+        Represents plugin for shuffle at ReduceTask side 
+      </description>
+    </property>
+
+  </configuration>
+
+
+5. OPTIONAL: in case your IB interface is not the default one on your machine * - NOTE this works only for hadoop-1.x.y*:
+# HDFS settings:
 #Merge the following lines into your hdfs-site.xml
 <?xml version="1.0"?>
-	<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
-	<configuration>
-		<property>
-			<name>dfs.datanode.dns.interface</name>
-			<value>ib0</value>
-			<description>The name of the Network Interface from which a
-				data node should report its IP address.
-			</description>
-			</property>
-	</configuration>
-#4. TaskTracker level settings:
-#   Merge the following lines into your mapred-site.xml
-#   NOTE: this must be in mapred-*.xml, because it must be considered in TaskTracker initialization
-#         hence, it can't be just given per job
-	<?xml version="1.0"?>
-	<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
-	<configuration>
+  <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+  <configuration>
+    <property>
+      <name>dfs.datanode.dns.interface</name>
+      <value>ib0</value>
+      <description>The name of the Network Interface from which a
+        data node should report its IP address.
+      </description>
+      </property>
+  </configuration>
 
-	
-		 
-		<property>
-		  <name>mapreduce.shuffle.provider.plugin.classes</name>
-		  <value>com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin,org.apache.hadoop.mapred.TaskTracker$DefaultShuffleProvider</value>              
-		  <description>A comma-separated list of classes that should be loaded as ShuffleProviderPlugin(s).
-		   A ShuffleProviderPlugin can serve shuffle requests from reducetasks.
-		   Each class in the list must be an instance of org.apache.hadoop.mapred.ShuffleProviderPlugin.
-		  </description>
-		</property>
-		 
-			
-		<property>
-		<name>mapred.tasktracker.shuffle.provider.plugin</name>
-			<value>com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin</value>	
-			<description> This is if you want support for the older version: uda-hadoop-1.x-v1.jar
-				represents plugin for shuffle at TaskTracker side 
-				default value is: 
-				(empty string)
-				You can also try: 
-				com.mellanox.hadoop.mapred.UdaShuffleProviderPlugin
-			</description>
-		</property>
-			
-		<!-- this one is OPTIONAL, needed: in case your IB interface is not the default one on your machine -->
-		<property>
-			<name>mapred.tasktracker.dns.interface</name>
-			<value>ib0</value>
-		</property>
-		
-	</configuration>
+# MapRed settings:
+#Merge the following lines into your mapred-site.xml
+  <?xml version="1.0"?>
+  <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+  <configuration>
+    <property>
+      <name>mapred.tasktracker.dns.interface</name>
+      <value>ib0</value>
+    </property>
+  </configuration>
 
 
-#5. Job level settings:
-#   The following are ADDITIONAL setting that must be given to any UDA job.
-#   it can be provided either in command line or in mapred-*.xml
-	<?xml version="1.0"?>
-	<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
-	<configuration>
-
-		
-		<property>
-			<name>mapreduce.job.reduce.shuffle.consumer.plugin.class</name>
-			<value>com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin</value>
-			<description>
-				represents plugin for shuffle at ReduceTask side 
-				default value is: 
-				org.apache.hadoop.mapred.ReduceCopier
-				You can also try: 
-				com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin
-			</description>
-		</property>
-
-	
-		<property>
-			<name>mapred.reducetask.shuffle.consumer.plugin</name>
-			<value>com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin</value>
-			<description> This is if you want support for the older version: uda-hadoop-1.x-v1.jar
-				represents plugin for shuffle at ReduceTask side 
-				default value is: 
-				org.apache.hadoop.mapred.ReduceCopier
-				You can also try: 
-				com.mellanox.hadoop.mapred.UdaShuffleConsumerPlugin
-			</description>
-		</property>
-		
-		
-		
-	</configuration>
 
 #6 . OPTIONAL: 
 #   The following are optional parameters for UDA with their defaults
 #   Users may decide to change defaults in their environment
-	<?xml version="1.0"?>
-	<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
-	<configuration>
-				
-		<property>
-			<name>mapred.rdma.cma.port</name>
-			<description>Port number to be used for the RDMA connection</description>
-			<value>9011</value>
-		</property>
-		
-		<property>
-			<name>mapred.rdma.wqe.per.conn</name>
-			<description>Number of allocated Work Queue Elements (WQEs) for Receive
-					Queue per connection
-			</description>
-			<value>256</value>
-		</property>
-		
-		<property>
-			<name>mapred.rdma.buf.size</name>
-			<value>1024</value>
-			<description>
-				Used by both UdaShuffleProvider and UdaShuffleConsumer:
-				- UdaShuffleProvider (TaskTracker): determines the RDMA&AIO Buffers size to satify Map Output's RDMA fetch requests
-				- UdaShuffleConsumer (Reducer): user prefered RDMA buffer size for fetching  map outputs
-				Size in KB and must be alligned to page size.
-			</description>
-		</property>
-		
-		<property>
-			<name>mapred.rdma.buf.size.min</name>
-			<value>32</value>
-			<description>
-				UDA reducer allocates RDMA buffers according to 'mapred.rdma.buf.size'
-				If the buffer size is too big then a smaller buffer will be used while 'mapred.rdma.buf.size.min' is the limit.
-				Bigger RDMA buffers improves the shuffle performance. 
-				Too small buffer size can sagnificantly reduce the perfomance.
-				Task will fail in case the redcuer need to use smaller buffer size than 'mapred.rdma.buf.size.min'.
-			</description>
-		</property>
+  <?xml version="1.0"?>
+  <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+  <configuration>
+        
+    <property>
+      <name>mapred.rdma.cma.port</name>
+      <description>Port number to be used for the RDMA connection</description>
+      <value>9011</value>
+    </property>
+    
+    <property>
+      <name>mapred.rdma.wqe.per.conn</name>
+      <description>Number of allocated Work Queue Elements (WQEs) for Receive
+          Queue per connection
+      </description>
+      <value>256</value>
+    </property>
+    
+    <property>
+      <name>mapred.rdma.buf.size</name>
+      <value>1024</value>
+      <description>
+        Used by both UdaShuffleProvider and UdaShuffleConsumer:
+        - UdaShuffleProvider (TaskTracker): determines the RDMA&AIO Buffers size to satify Map Output's RDMA fetch requests
+        - UdaShuffleConsumer (Reducer): user prefered RDMA buffer size for fetching map outputs
+        Size in KB and must be alligned to page size.
+      </description>
+    </property>
+    
+    <property>
+      <name>mapred.rdma.buf.size.min</name>
+      <value>32</value>
+      <description>
+        UDA reducer allocates RDMA buffers according to 'mapred.rdma.buf.size'
+        If the buffer size is too big then a smaller buffer will be used while 'mapred.rdma.buf.size.min' is the limit.
+        Bigger RDMA buffers improves the shuffle performance. 
+        Too small buffer size can sagnificantly reduce the perfomance.
+        Task will fail in case the redcuer need to use smaller buffer size than 'mapred.rdma.buf.size.min'.
+      </description>
+    </property>
 
-                <property>
-                        <name>mapred.rdma.shuffle.total.size</name>
-                        <value>2g</value>
-                        <description>
-				The total amount of memory per reducer allocated for UDA's RDMA shuffle phase and levitated merge algorithm.
-				The value is a long number or human readable format. You can used the following suffix (case insensitive):
-					k(kilo), m(mega), g(giga)
-				For example: use '2g' for 2GB , or '2048m' as well, also possible using '2097152k' or just '2147483648'
-				If value is not set for this parameter or value is set to 0, then the total amount of memory for RDMA will be calculated using combination of:
-					1. -Xmx on JAVA_OPTS for reducer. ( mapred.reduce.child.java.opts)
-					2. mapred.job.shuffle.input.buffer.percent
-					* total amount of RDMA memory per reducer will be (1)*(2)
-                        </description>
-                </property>	
-		
-		<property>
-			<name>mapred.rdma.compression.buffer.ratio</name>
-			<description>The ratio in which memory is divided between RDMA buffer and decompression buffer (used only with intermediate data compression)</description>
-			<value>0.20</value>
-		</property>
-	
-	</configuration>
+    <property>
+      <name>mapred.rdma.shuffle.total.size</name>
+      <value>2g</value>
+      <description>
+        The total amount of memory per reducer allocated for UDA's RDMA shuffle phase and levitated merge algorithm.
+        The value is a long number or human readable format. You can used the following suffix (case insensitive):
+          k(kilo), m(mega), g(giga)
+        For example: use '2g' for 2GB , or '2048m' as well, also possible using '2097152k' or just '2147483648'
+        If value is not set for this parameter or value is set to 0, then the total amount of memory for RDMA will be calculated using combination of:
+          1. -Xmx on JAVA_OPTS for reducer. ( mapred.reduce.child.java.opts)
+          2. mapred.job.shuffle.input.buffer.percent
+          * total amount of RDMA memory per reducer will be (1)*(2)
+      </description>
+    </property>  
+    
+    <property>
+      <name>mapred.rdma.compression.buffer.ratio</name>
+      <description>The ratio in which memory is divided between RDMA buffer and decompression buffer (used only with intermediate data compression)</description>
+      <value>0.20</value>
+    </property>
+  
+  </configuration>
 
 7. OPTIONAL - debug logs:
 UDA debug logs configuration and output are available thru Hadoop standard log configuration and log files.
 For example to debug the client side (NetMerger) at TRACE level and the server side (MofSupplier) at DEBUG level, add the following 2 lines to your log4j.properties file:
 
-	log4j.logger.org.apache.hadoop.mapred.ShuffleConsumerPlugin=TRACE
-	log4j.logger.org.apache.hadoop.mapred.ShuffleProviderPlugin=DEBUG
+  log4j.logger.org.apache.hadoop.mapred.ShuffleConsumerPlugin=TRACE
+  log4j.logger.org.apache.hadoop.mapred.ShuffleProviderPlugin=DEBUG
 
 The log output from UDA client will be in the log file of the appropriate Reduce Task.
 The log output from UDA server will be in the log file of the appropriate Task Tracker.
+
+8. Verifying that UDA is being used:
+   In case UDA was loaded in a reducer and it successfully used the UDA provider you will see a log line like this towards the end of the reducer log file:
+        ====XXX Successfully closed UdaShuffleConsumerPlugin XXX====
+   Such a line should be in each reducer log file of the job.
+   NOTE: this line comes at INFO log level (the default level).  No need to turn on DEBUG level for it.
