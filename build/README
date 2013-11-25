@@ -78,9 +78,9 @@
       </description>
     </property>
 
-#### add the following to your hadoop/yarn command line (OR ln -s this jar to the folder with hadoop jars)
- -libjars /usr/lib64/uda/uda-hadoop-2.x.jar 
-
+#### Perform the following command on each of your slaves:
+  ln -s  /usr/lib64/uda/uda-hadoop-2.x.jar <YOUR-HADOOP-HOME>/share/hadoop/common/lib/
+  (NOTE: just specifying the jar thru -libjar is not enough for YARN’s auxiliary services)
 
 
 #4. Job level settings:
