@@ -203,9 +203,9 @@ void *merge_hybrid (reduce_task_t *task)
 
 	bool b = true;
 	int32_t total_write;
-	const int num_mofs_in_lpq = task->num_maps / task->merge_man->num_lpqs;
-	const int num_regular_lpqs = task->merge_man->num_lpqs - (task->num_maps % task->merge_man->num_lpqs); // rest lpqs will have one more mof
-	log(lsINFO, "====== num_maps=%d; num_lpqs=%d; num_mofs_in_lpq=%d, num_regular_lpqs=%d", task->num_maps, task->merge_man->num_lpqs, num_mofs_in_lpq, num_regular_lpqs);
+
+	const int num_mofs_in_lpq = task->merge_man->num_mofs_in_lpq;
+	const int num_regular_lpqs = task->merge_man->num_regular_lpqs;
 
 	MergeQueue<BaseSegment*>* merge_lpq[task->merge_man->num_lpqs];
 	char temp_file[PATH_MAX];
@@ -354,7 +354,11 @@ KVOutput::~KVOutput()
 }
 
 /* The following is for MergeManager */
-MergeManager::MergeManager(int threads, int online, struct reduce_task *task, int _num_lpqs) : num_lpqs(_num_lpqs)
+MergeManager::MergeManager(int threads, int online, struct reduce_task *task, int _num_lpqs) :
+		num_lpqs(_num_lpqs),
+		num_mofs_in_lpq(task->num_maps/num_lpqs),
+		num_regular_lpqs(num_lpqs - task->num_maps%num_lpqs) // rest lpqs will have one more mof
+
 {
     this->task = task;
     this->online = online;
@@ -376,6 +380,7 @@ MergeManager::MergeManager(int threads, int online, struct reduce_task *task, in
     	else { //online == 2
     		log(lsINFO, "hybrid merge will use %d lpqs", num_lpqs);
     		merge_queue = new MergeQueue<BaseSegment*>(num_lpqs);
+    		log(lsINFO, "====== num_maps=%d; num_lpqs=%d; num_mofs_in_lpq=%d, num_regular_lpqs=%d", task->num_maps, num_lpqs, num_mofs_in_lpq, num_regular_lpqs);
     	}
 
         /* get staging mem from memory_pool*/

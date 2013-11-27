@@ -190,10 +190,13 @@ public:
     set<int>             mops_in_queue;
     list<MapOutput *>    fetched_mops;
 
-    int total_count;
-	int progress_count;
+    int                  total_count;
+    int                  progress_count;
 public:
     const int            num_lpqs;
+    const int            num_mofs_in_lpq;
+    const int            num_regular_lpqs;
+
 };
 
 #endif
