@@ -10,14 +10,21 @@ setupFlags="bsetad"
 testFlags="fbetad"
 defaultFlags="bseadz"
 
-userFlags="bsead"
+userFlags="bead"
 
 case ${flagsCase} in
 	"setup"		) flags="$setupFlags" ;;
 	"test"		) flags="$testFlags" ;; 
 	"user"		) flags="$userFlags" ;; 
-	*	     	)  flags="$defaultFlags" ;;   # Default.
+	*	     	) flags="$defaultFlags" ;;   # Default.
 esac
+
+today=`date +"%w"`
+if (($today == $CODE_COVERAGE_DAY));then
+	echo "$echoPrefix: RUNNING WITH BULLSEYE" 
+	additionalFlags="$additionalFlags -i"
+fi
+
 flags="-"$flags
 echo "$echoPrefix: control-flags are: $flags $additionalFlags" 
 

@@ -122,3 +122,4 @@ export BUILD_SERVER_COVFILE_NAME="UDA_master_cov"
 export BUILD_SERVER_DEFAULT_BRANCH="master"
 export LINK_INDICATOR="->"
 export VERIFICATION_USER="web2ver"
+export CODE_COVERAGE_DAY=4 # 4=Thursday - the count starts from 0
