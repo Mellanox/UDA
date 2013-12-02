@@ -9,10 +9,10 @@ export DEFAULT_GIT_MASTER_DIR='ssh://r-webdev02:29418/accl/uda.git' #'/.autodire
 export DEFAULT_RPM_JAR='uda-hadoop-1.x.jar'
 #export DEFAULT_LZO_JAR='/.autodirect/mtrswgwork/UDA/daily_regressions/resources/hortonworks-hadoop-lzo-cf4e7cb/build/hadoop-lzo-0.4.15.jar'
 	# --
-export DEFAULT_CONF_FOLDER_DIR='/.autodirect/udagwork/uda_regression/tests_confs'
+export DEFAULT_CONF_FOLDER_DIR='/.autodirect/acclgwork/uda/uda_regression/tests_confs'
 export DEFAULT_MY_HADOOP_HOME='/hadoop-1.0.1'
 export DEFAULT_DATA_SET_TYPE='node'
-export DEFAULT_NFS_RESULTS_DIR='/.autodirect/udagwork/uda_regression/results'                #'/.autodirect/mtrswgwork/UDA/daily_regressions/results'
+export DEFAULT_NFS_RESULTS_DIR='/.autodirect/acclgwork/uda/uda_regression/results'                #'/.autodirect/mtrswgwork/UDA/daily_regressions/results'
 export DEFAULT_SVN_REVISION=''
 export DEFAULT_REPORT_MAILING_LIST='alexr,avnerb,idanwe,dinal,eladi,alongr,yuriya,oriz,sreevathsa'
 export DEFAULT_REPORT_NAME='regression'
@@ -23,7 +23,7 @@ export DEFAULT_REPORT_INPUT=""
 export DEFAULT_HUGE_PAGES_COUNT=-1
 export DEFAULT_CURRENT_RPM_DIR=""
 export DEFAULT_INTERFACE="ib0"
-export DEFAULT_CORES_DIR="/.autodirect/mtrswgwork/UDA/core_files_TEMP"
+export DEFAULT_CORES_DIR="/.autodirect/acclgwork/general/CORES/"
 export DEFAULT_ERROR_MAILING_LIST="oriz,eladi"
 
 	# not user defined variables
@@ -82,7 +82,7 @@ export TERAGEN_GIGA_MULTIPLIER=10000000
 export IB_MESSAGE_MULTIPLIER=1000000
 export RANDOM_WRITE_GIGA_MULTIPLIER=1000000000
 export RANDOM_TEXT_WRITE_GIGA_MULTIPLIER=$RANDOM_WRITE_GIGA_MULTIPLIER
-export PATH="/.autodirect/mtrswgwork/UDA/bullseye/bin/:$PATH"
+export PATH="/.autodirect/acclgwork/general/bullseye/bin/:$PATH"
 export DIRS_PERMISSIONS=777
 export OPENSM_PROCESS_REGISTRATION="/usr/sbin/opensm --daemon"
 export OPENSM_PATH="/etc/init.d/opensmd"
@@ -106,7 +106,7 @@ export LZO_USR_LIB_DIR="/usr/lib64"
 export LZO_USR_LIB_FILES="liblzo2.a liblzo2.la liblzo2.so liblzo2.so.2 liblzo2.so.2.0.0"
 export UDA_LOG_LEVELS="ALL TRACE DEBUG INFO WARN ERROR FATAL NONE"
 export PROC_CORE_PATTERN_PATH="/proc/sys/kernel/core_pattern"
-export CODE_COVERAGE_EXCLUDE_PATH="/.autodirect/udagwork/uda_regression/bullseye/exclude"
+export CODE_COVERAGE_EXCLUDE_PATH="/.autodirect/acclgwork/uda/bullseye/exclude"
 export DF_BLOCKSIZE_SCALE='--block-size=1m'
 export ECHO_BOLD=`tput bold`
 export ECHO_NORMAL=`tput sgr0`
