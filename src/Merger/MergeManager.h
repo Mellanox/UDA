@@ -34,7 +34,6 @@ class KVOutput;
 class FetchRequest;
 class RawKeyValueIterator;
 
-enum MEM_STATUS    {INIT, FETCH_READY, MERGE_READY, BUSY};
 enum MERGE_FLAG    {INIT_FLAG, NEW_MOP, FINAL_MERGE}; 
 
 #define MERGE_AIOHANDLER_MIN_NR			(1)
@@ -112,6 +111,63 @@ typedef struct host_list {
 //    struct list_head  todo_fetch_list;  /* those that need data */
 } host_list_t;
 
+////////////////////////////////////////////////////////////////////////////////
+/**
+ * this class takes care for housekeeping for object that were taken out from a
+ * pool that is based on the kernel list that we use in UDA.
+ *
+ * NOTE: at this moment we are not implementing locks around the pools we use.
+ * this should be changed if we use multiple LPQs in parallel
+ *
+ * NOTE: it is your responsibility to return only items that you were previously borrowed from this pool
+ */
+template <class T>
+class HouseKeepingPool {
+public:
+
+	//----------------------
+	// since the user doesn't maintain the original items they took from the base pool then we need
+	// the user help for building them again from userData as part of returnToPool
+	typedef void (*ItemBuildFunc) (void *item, void* userData);
+
+	//----------------------
+	HouseKeepingPool(struct list_head * basePool, ItemBuildFunc buildFunc, size_t initialCapacity = 10)
+	: m_basePool(basePool), m_buildFunc(buildFunc) {
+		m_houseKeepingPool.reserve(initialCapacity);
+	}
+
+	//----------------------
+	T * borrowFromPool(){
+	    T *item = list_entry(m_basePool->next, typeof(*item), list);
+	    list_del(&item->list);
+	    m_houseKeepingPool.push_back(item); // for house keeping
+	    return item;
+	}
+
+	//----------------------
+	void returnToPool(void* userData){
+		T *item = prepareReturnToPool();
+		m_buildFunc(item, userData);
+		completeReturnToPool(item);
+	}
+
+private:
+	T * prepareReturnToPool(){
+		T * item = m_houseKeepingPool.back();
+		m_houseKeepingPool.pop_back();
+		return item;
+	}
+
+	void completeReturnToPool(T * item){
+		list_add_tail(&item->list, m_basePool);
+	}
+
+	struct list_head * m_basePool;
+	std::vector<T *>   m_houseKeepingPool;
+	ItemBuildFunc      m_buildFunc;
+};
+
+////////////////////////////////////////////////////////////////////////////////
 class KVOutput  {
 public:
     pthread_mutex_t         lock; 
@@ -135,6 +191,11 @@ public:
     KVOutput(struct reduce_task *task);
 	virtual ~KVOutput();
 	int32_t getFreeBytes();
+	void borrowFromPool();
+	void returnToPool();
+private:
+    static void desc_pair_builder (void *desc_pair, void* data);
+    static HouseKeepingPool<mem_set_desc_t> *hkp;
 };
 
 /* MapOutput holds the data from one partition */
@@ -195,7 +256,9 @@ public:
 public:
     const int            num_lpqs;
     const int            num_mofs_in_lpq;
-    const int            num_regular_lpqs;
+    const int            max_mofs_in_lpqs; // for the case num_mofs % num_lpq is not zero
+    const int            num_regular_lpqs; // lpqs of size = num_mofs / num_lpq
+    int                  num_kv_bufs;      // num kv buffers that we need to hold in parallel
 
 };
 

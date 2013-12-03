@@ -197,6 +197,7 @@ Segment::Segment(const string &path)
 }
 #endif
 
+// called by adjustPriorityQueue when reaching end of a segment
 BaseSegment::~BaseSegment() {
 	log(lsDEBUG, "BaseSegment DTOR this=%llu", (uint64_t)this);
 	BULLSEYE_EXCLUDE_BLOCK_START

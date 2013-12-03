@@ -34,7 +34,23 @@
 
 class RawKeyValueIterator;
 
+enum MEM_STATUS    {INIT, FETCH_READY, MERGE_READY, BUSY};
+
 typedef struct mem_desc {
+
+    void init(){
+    	this->status = INIT;
+    	this->start = 0;
+    	this->end = 0;
+    }
+
+    void init(char *addr, int32_t buf_len){
+    	init();
+    	this->buff  = addr;
+    	this->buf_len = buf_len;
+    	pthread_mutex_init(&this->lock, NULL);
+    	pthread_cond_init(&this->cond, NULL);
+    }
 
 	uint32_t getFreeBytes()
 	{
@@ -99,10 +115,8 @@ typedef struct mem_set_desc {
 } mem_set_desc_t;
 
 
+typedef void (*ResetElemFunc)(void*);
 
-
-//#include "StreamRW.h"
-//#include "MergeManager.h"
 
 /****************************************************************************
  * A PriorityQueue maintains a partial ordering of its elements such that the
@@ -112,14 +126,17 @@ typedef struct mem_set_desc {
 template <class T>
 class PriorityQueue
 {
+public:
+
 private:
     std::vector<T> m_heap;
     int            m_size;
     int            m_maxSize;
-
+    ResetElemFunc  m_resetElemFunc;
 public:
 
-    PriorityQueue<T>(int maxSize) {
+    PriorityQueue<T>(int maxSize, ResetElemFunc  resetElemFunc) {
+    	m_resetElemFunc = resetElemFunc;
         m_size = 0;
         int heapSize = maxSize + 1;
         m_maxSize = maxSize;
@@ -207,8 +224,12 @@ public:
 
     /*reset the priority queue*/
     void clear() {
-        for (int i = 0; i <= m_size; i++)
-            m_heap[i] = NULL;
+        for (int i = 0; i <= m_size; i++) {
+        	if (m_heap[i] != NULL) {
+				m_resetElemFunc(m_heap[i]);
+				m_heap[i] = NULL;
+        	}
+        }
         m_size = 0;
     }
 
@@ -330,7 +351,8 @@ public:
     int32_t get_key_bytes(){return this->min_segment->kbytes;}
     int32_t get_val_bytes() {return this->min_segment->vbytes;}
 
-      MergeQueue(int numMaps, mem_desc_t* staging_descs = NULL ,const char*fname = "") : filename(fname), core_queue(numMaps)
+      MergeQueue(int numMaps, mem_desc_t* staging_descs = NULL ,const char*fname = "", ResetElemFunc  resetElemFunc = NULL)
+      	  	  	  : filename(fname), core_queue(numMaps, resetElemFunc)
 {
     	this->num_of_segments=0;
         this->mSegments = NULL;
@@ -347,9 +369,6 @@ public:
         	for (int i=0;i < NUM_STAGE_MEM; i++)  
 		        this->staging_bufs[i] = NULL;
 		}
-        
-        core_queue.clear();
-        
     }
 
 #if _BullseyeCoverage

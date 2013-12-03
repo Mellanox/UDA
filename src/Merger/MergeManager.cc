@@ -41,6 +41,7 @@
 #define LPQ_STAGE_MEM_SIZE (1<<20)
 #define LCOV_HYBRID_MERGE_DEAD_CODE 0
 
+#define MIN_PARALLEL_LPQS 3 //TODO: tune
 
 extern merging_state_t merging_sm;
 static JNIEnv *s_jniEnv;
@@ -82,11 +83,9 @@ void *merge_do_fetching_phase (reduce_task_t *task, MergeQueue<BaseSegment*> *me
 				}
 			}else{
 				if (maps_sent_to_fetch < num_maps){
-					//there are not enough bufers for fetch to start a LPQ - can not continue and must wait for buffers
-					log(lsERROR, "there are not enough free RDMA buffers to start an LPQ");
+					throw new UdaException("there are not enough free RDMA buffers to start an LPQ");
 					return NULL;
-					//TODO: in case the reducer is running several LPQs simultaneously: wait here
-					//TODO: in some cases, consider throw exception
+					// TODO: wait for buffers
 				}
 				else {
 					log(lsINFO, "there are no free RDMA buffers; however, there are enough fetches sent to start an LPQ");
@@ -197,6 +196,13 @@ void *merge_online (reduce_task_t *task)
     return NULL;
 }
 
+void resetBaseSegment(void * _segment){
+	log(lsDEBUG, "resetBaseSegment started");
+	BaseSegment * segment = (BaseSegment*) _segment;
+	segment->getKVOUutput()->returnToPool();
+	log(lsDEBUG, "resetBaseSegment finished");
+}
+
 void *merge_hybrid (reduce_task_t *task)
 {
 	if (task->num_maps < task->merge_man->num_lpqs) return merge_online(task);
@@ -205,30 +211,35 @@ void *merge_hybrid (reduce_task_t *task)
 	int32_t total_write;
 
 	const int num_mofs_in_lpq = task->merge_man->num_mofs_in_lpq;
+	const int max_mofs_in_lpqs = task->merge_man->max_mofs_in_lpqs;
 	const int num_regular_lpqs = task->merge_man->num_regular_lpqs;
 
 	MergeQueue<BaseSegment*>* merge_lpq[task->merge_man->num_lpqs];
 	char temp_file[PATH_MAX];
-	// counter is not really shared between reducers since - with JNI - UDA is instantiated per RT. Hence init with random.
+	// counter is not really shared between reducers since - with JNI - UDA is instantiated per RT.
+    // Hence we init with random with seed from clock.
     timeval tv;
     gettimeofday(&tv, NULL);
     srand(tv.tv_usec);
 	static int lpq_shared_counter = rand() % task->local_dirs.size();
 	for (int i = 0; task->merge_man->total_count < task->num_maps; ++i)
 	{
-		int num_to_fetch = (i < num_regular_lpqs) ? num_mofs_in_lpq : num_mofs_in_lpq + 1;
+		int num_to_fetch = (i < num_regular_lpqs) ? num_mofs_in_lpq : max_mofs_in_lpqs;
 		log(lsINFO, "====== [%d/%d] Creating LPQ for %d segments (already fetched=%d; num_maps=%d)", i, task->merge_man->num_lpqs, num_to_fetch, task->merge_man->total_count, task->num_maps);
 
 		int local_counter = ++lpq_shared_counter; // not critical to sync between threads here
 		local_counter %= task->local_dirs.size();
 		const string & dir = task->local_dirs[local_counter]; //just ref - no copy
 		sprintf(temp_file, "%s/uda.%s.lpq-%03d", dir.c_str(), task->reduce_task_id, i);
-		merge_lpq[i] = new MergeQueue<BaseSegment*>(num_to_fetch, NULL, temp_file);
+		merge_lpq[i] = new MergeQueue<BaseSegment*>(num_to_fetch, NULL, temp_file, resetBaseSegment);
 		merge_do_fetching_phase(task, merge_lpq[i], num_to_fetch);
 
 		log(lsINFO, "[%d] === going to merge LPQ using file: %s", i, merge_lpq[i]->filename.c_str());
 		b = write_kv_to_file(merge_lpq[i], merge_lpq[i]->filename.c_str(), total_write);
 		log(lsINFO, "=== after merge of LPQ b=%d, total_write=%d", (int)b, total_write);
+
+		// sanity return RDMA buffers to pool (actually the segments were already released)
+		merge_lpq[i]->core_queue.clear();
 	}
 
 	// TODO: here we can free RDMA memory (and release threads/memory of other objects)
@@ -244,7 +255,6 @@ void *merge_hybrid (reduce_task_t *task)
 
 	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
 	{
-		merge_lpq[i]->core_queue.clear();
 		delete merge_lpq[i];
 	}
 
@@ -299,8 +309,6 @@ MapOutput::MapOutput(struct reduce_task *task) : KVOutput(task)
 
 KVOutput::KVOutput(struct reduce_task *task)
 {
-    memory_pool_t *mem_pool;
-
     this->task = task;
     if (task->isCompressionOff()) {
     	this->staging_mem_idx = 0;
@@ -315,20 +323,56 @@ KVOutput::KVOutput(struct reduce_task *task)
     this->last_fetched = 0;
     pthread_mutex_init(&this->lock, NULL);
     pthread_cond_init(&this->cond, NULL);
-    
-    mem_pool = &(merging_sm.mop_pool);
-    /*lock of mop_pool should be done in the calling function in case the reducer is running several LPQs simultaneously  */
-    log(lsTRACE, "Going to retrieve desc_pair from pool");
-    mem_set_desc_t *desc_pair = list_entry(merging_sm.mop_pool.free_descs.next, typeof(*desc_pair), list);
-    log(lsTRACE, "After retrieving desc_pair from pool");
+
+    borrowFromPool();
+}
+
+//----------------------
+// static member initialization
+HouseKeepingPool<mem_set_desc_t> * KVOutput::hkp = NULL;
+
+//----------------------
+void KVOutput::borrowFromPool(){
+	if (!hkp) {
+		// lazy initialization after other globals are initialized
+		static HouseKeepingPool<mem_set_desc_t> static_hkp(
+				&merging_sm.mop_pool.free_descs,
+				KVOutput::desc_pair_builder,
+				g_task->merge_man->num_kv_bufs);
+		hkp = &static_hkp;
+	}
+
+	static int i = 0;
+	log(lsDEBUG, "borrowFromPool - started %d", ++i);
+    mem_set_desc_t *desc_pair = hkp->borrowFromPool();
     for (int i=0; i<NUM_STAGE_MEM; i++){
     	mop_bufs[i] = desc_pair->buffer_unit[i];
     	mop_bufs[i]->status = FETCH_READY;
     }
-
-    list_del(&desc_pair->list);
+	log(lsDEBUG, "borrowFromPool - finished");
 }
 
+//----------------------
+/*static*/void KVOutput::desc_pair_builder (void *_desc_pair, void* data) {
+	mem_set_desc_t *desc_pair = (mem_set_desc_t *)_desc_pair;
+	KVOutput *_this = (KVOutput*)data;
+
+	for (int i=0; i<NUM_STAGE_MEM; i++){
+		desc_pair->buffer_unit[i] = _this->mop_bufs[i];
+		desc_pair->buffer_unit[i]->init();
+		_this->mop_bufs[i] = NULL; // sanity
+	}
+}
+
+//----------------------
+void KVOutput::returnToPool(){
+	static int i = 0;
+	log(lsDEBUG, "returnToPool - started %d", ++i);
+	hkp->returnToPool(this);
+	log(lsDEBUG, "returnToPool - finished");
+}
+
+//----------------------
 int32_t KVOutput::getFreeBytes()
 {
 	mem_desc_t* p_mop_buf = mop_bufs[staging_mem_idx];
@@ -348,7 +392,8 @@ MapOutput::~MapOutput()
 KVOutput::~KVOutput() 
 {
 	log(lsTRACE, "in DTOR");
-    
+	returnToPool();
+
     pthread_mutex_destroy(&this->lock);
     pthread_cond_destroy(&this->cond);	
 }
@@ -357,9 +402,10 @@ KVOutput::~KVOutput()
 MergeManager::MergeManager(int threads, int online, struct reduce_task *task, int _num_lpqs) :
 		num_lpqs(_num_lpqs),
 		num_mofs_in_lpq(task->num_maps/num_lpqs),
+		max_mofs_in_lpqs(num_mofs_in_lpq+1),
 		num_regular_lpqs(num_lpqs - task->num_maps%num_lpqs) // rest lpqs will have one more mof
-
 {
+
     this->task = task;
     this->online = online;
     this->flag = INIT_FLAG;
@@ -368,6 +414,12 @@ MergeManager::MergeManager(int threads, int online, struct reduce_task *task, in
     this->progress_count = 0;
 
     this->merge_queue = NULL;
+
+    string value = UdaBridge_invoke_getConfData_callback("mapred.rdma.num.parallel.lpqs", "0");
+    int num_parallel_lpqs = atoi(value.c_str());
+    if (num_parallel_lpqs < MIN_PARALLEL_LPQS) num_parallel_lpqs = MIN_PARALLEL_LPQS;
+    num_kv_bufs = this->online == 2 ? // 2 is hybrid_merge
+			this->max_mofs_in_lpqs * num_parallel_lpqs : this->task->num_maps;
 
     pthread_mutex_init(&this->lock, NULL);
     pthread_cond_init(&this->cond, NULL); 
@@ -380,7 +432,8 @@ MergeManager::MergeManager(int threads, int online, struct reduce_task *task, in
     	else { //online == 2
     		log(lsINFO, "hybrid merge will use %d lpqs", num_lpqs);
     		merge_queue = new MergeQueue<BaseSegment*>(num_lpqs);
-    		log(lsINFO, "====== num_maps=%d; num_lpqs=%d; num_mofs_in_lpq=%d, num_regular_lpqs=%d", task->num_maps, num_lpqs, num_mofs_in_lpq, num_regular_lpqs);
+    		log(lsINFO, "====== num_maps=%d; num_lpqs=%d; num_mofs_in_lpq=%d, max_mofs_in_lpqs=%d, num_regular_lpqs=%d",
+    				task->num_maps, num_lpqs, num_mofs_in_lpq, max_mofs_in_lpqs, num_regular_lpqs);
     	}
 
         /* get staging mem from memory_pool*/

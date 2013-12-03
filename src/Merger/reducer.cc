@@ -249,7 +249,7 @@ int create_mem_pool(int size, int num, memory_pool_t *pool) //similar to the old
 
     for (int i = 0; i < num; ++i) {
         mem_desc_t *desc = (mem_desc_t *) malloc(sizeof(mem_desc_t));
-        init_mem_desc(desc, pool->mem + i * buf_len, buf_len);
+        desc->init(pool->mem + i * buf_len, buf_len);
         pthread_mutex_lock(&pool->lock);
         list_add_tail(&desc->list, &pool->free_descs);
         pthread_mutex_unlock(&pool->lock);
@@ -321,8 +321,6 @@ void spawn_reduce_task()
     	throw new UdaException("failed to create memory pool for reduce g_task for merged kv buffer");
     }
     BULLSEYE_EXCLUDE_BLOCK_END
-    // report success spawn to java
-//    g_task->nexus->send_int((int)RT_LAUNCHED);
 }
 
 
@@ -454,7 +452,11 @@ compressionType getCompAlg(char* comp){
 
 double_buffer_t calculateMemPool(int minRdmaBuffer){
 	memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
-	int numBuffers = g_task->num_maps + EXTRA_RDMA_BUFFERS; //the buffers will be allocated in pairs
+
+	//the buffers will be allocated in pairs
+	int numBuffers = g_task->merge_man->num_kv_bufs + EXTRA_RDMA_BUFFERS;
+
+	log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
 
 	merging_sm.mop_pool.num = numBuffers;
 	merging_sm.mop_pool.total_size = (int64_t)g_task->buffer_size * numBuffers * 2;

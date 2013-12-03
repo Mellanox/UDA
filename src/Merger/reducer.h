@@ -89,7 +89,6 @@ typedef struct reduce_task {
     int           total_first_return;
     int			  lpq_size;
     int			  buffer_size;
-    int			  num_parallel_mofs;
     std::vector<std::string>   local_dirs; // local dirs will serve for lpq temp files
 
     /*for compression*/
