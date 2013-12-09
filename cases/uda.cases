@@ -7,13 +7,13 @@
 		</Test>
 		<Case>
 			<wrapper>./uda_wrapper.py</wrapper>
-			<tout>36000</tout>
+			<tout>82800</tout>
 		</Case>
 	</global>
 	<case>
 		<info>uda test</info>
 		<name>run regression</name>
-		<tout>36000</tout>
+		<tout>82800</tout>
 		<cmd>
 			<params>
 				<static_args>--param1 a --param2 b </static_args>
