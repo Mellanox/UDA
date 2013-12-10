@@ -115,12 +115,12 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 			cd $PATCHED_HADOOP_DIR
 
 			if [ $NATIVE_BUILD == "TRUE" ]; then
-				ANT_BUILD_PARAMS="$ANT_BUILD_PARAMS -Dcompile.native=true"
+				ANT_BUILD_PARAMS_NATIVE="$ANT_BUILD_PARAMS -Dcompile.native=true"
 				echo -e "\n${YELLOW}--- Building $version as native---${NONE}"
 				# Remove old build
 				rm -rf ./build/
 				echo -e "\nBuild in progress! If needed, see ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}_native.txt for details."
-				${ANT_PATH} $ANT_BUILD_PARAMS clean package > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}_native.txt
+				${ANT_PATH} $ANT_BUILD_PARAMS_NATIVE clean package > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}_native.txt
 				echo -e "\n${GREEN}$version built as native!${NONE}"
 
 				# Store built patched native hadoop to target directory in tar.gz form
@@ -145,12 +145,12 @@ if [ $BUILD_HADOOPS == "TRUE" ] && [ $CHANGED_HADOOPS != 0 ]; then
 			echo "Saved!"
 
 			if [ $NATIVE_BUILD == "TRUE" ]; then
-				MAVEN_BUILD_PARAMS="$MAVEN_BUILD_PARAMS -Pnative"
+				MAVEN_BUILD_PARAMS_NATIVE="$MAVEN_BUILD_PARAMS -Pnative"
                                 echo -e "\n${YELLOW}--- Building $version as native---${NONE}"
 				# Remove old build
                                 rm -rf ./hadoop-dist/target/
                                 echo -e "\nBuild in progress! If needed, see ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}_native.txt for details."
-				${MAVEN_PATH} package $MAVEN_BUILD_PARAMS > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}_native.txt
+				${MAVEN_PATH} package $MAVEN_BUILD_PARAMS_NATIVE > ${LOG_DIR}/${LOG_FILE}.${version}${DELIMITER}${patch_name}_native.txt
                                 echo -e "\n${GREEN}$version built as native!${NONE}"
 
                                 # Store built patched native hadoop to target directory in tar.gz form
