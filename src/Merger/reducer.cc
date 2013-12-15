@@ -52,9 +52,6 @@ using namespace std;
 extern merging_state_t merging_sm;
 extern void *merge_thread_main (void *context)  throw (UdaException*);
 
-static void  init_reduce_task(struct reduce_task *task);
-static void start_reduce_task(struct reduce_task *task);
-
 reduce_task_t * g_task;
 
 void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
@@ -121,8 +118,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 			}
 		}
 	}
-    // resolved conflict 1
-	init_reduce_task(g_task); // just initialization and calculation without starting a thread
+	g_task->init(); // just initialization and calculation without starting a thread
 
 	createInputClient();
 	g_task->client->start_client();
@@ -134,7 +130,7 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 	// Allocating memory and register RDMA buffers
 	g_task->client->getRdmaClient()->register_mem(&merging_sm.mop_pool, buffers);
 
-	start_reduce_task(g_task); // start a thread for fetch/merge
+	g_task->start(); // start a thread for fetch/merge
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -257,45 +253,50 @@ int create_mem_pool(int size, int num, memory_pool_t *pool) //similar to the old
     return 0;
 }
 
-// resolved conflict 2
-static void init_reduce_task(struct reduce_task *task)
+////////////////////////////////////////////////////////////////////////////////
+extern merging_state_t merging_sm;
+
+////////////////////////////////////////////////////////////////////////////////
+// just initialization and calculation without starting a thread
+void reduce_task::init()
 {
-
-    write_log(task->reduce_log, DBG_CLIENT, 
+    write_log(this->reduce_log, DBG_CLIENT,
               "%s launched", 
-              task->reduce_task_id); 
+              this->reduce_task_id);
 
-    write_log(task->reduce_log, DBG_CLIENT, 
+    write_log(this->reduce_log, DBG_CLIENT,
              "Total Map is %d", 
-             task->num_maps);     
+             this->num_maps);
     
     int num_lpqs;
-    if (task->lpq_size > 0) {
-    	num_lpqs = (task->num_maps / task->lpq_size);
+    if (this->lpq_size > 0) {
+    	num_lpqs = (this->num_maps / this->lpq_size);
     	// if more than one segment left then additional lpq added
     	// if only one segment left then the first will be larger
-    	if ((task->num_maps % task->lpq_size) > 1) 
+    	if ((this->num_maps % this->lpq_size) > 1)
     		num_lpqs++;
     } else {
-        num_lpqs = (int) sqrt(task->num_maps);
+        num_lpqs = (int) sqrt(this->num_maps);
     }
 
     /* Initialize a merge manager thread */
-    task->merge_man = new MergeManager(1, merging_sm.online, task, num_lpqs);
+    this->merge_man = new MergeManager(1, merging_sm.online, this, num_lpqs);
+    this->the_merging_sm = &merging_sm;
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-static void start_reduce_task(struct reduce_task *task)
+void reduce_task::start()
 {
-    memset(&task->merge_thread, 0, sizeof(netlev_thread_t));
-    task->merge_thread.stop = 0;
-    task->merge_thread.context = task;
-    pthread_attr_init(&task->merge_thread.attr);
-    pthread_attr_setdetachstate(&task->merge_thread.attr, 
+    memset(&this->merge_thread, 0, sizeof(netlev_thread_t));
+    this->merge_thread.stop = 0;
+    this->merge_thread.context = this;
+    pthread_attr_init(&this->merge_thread.attr);
+    pthread_attr_setdetachstate(&this->merge_thread.attr,
                                 PTHREAD_CREATE_JOINABLE); 
-    uda_thread_create(&task->merge_thread.thread,
-                   &task->merge_thread.attr, 
-                   merge_thread_main, task);
+    uda_thread_create(&this->merge_thread.thread,
+                   &this->merge_thread.attr,
+                   merge_thread_main, this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -26,6 +26,7 @@
 
 #include "MergeQueue.h"
 #include "C2JNexus.h"
+#include "StreamRW.h"
 class BaseSegment;
 class AioSegment;
 
@@ -112,111 +113,9 @@ typedef struct host_list {
 } host_list_t;
 
 ////////////////////////////////////////////////////////////////////////////////
-/**
- * this class takes care for housekeeping for object that were taken out from a
- * pool that is based on the kernel list that we use in UDA.
- *
- * NOTE: at this moment we are not implementing locks around the pools we use.
- * this should be changed if we use multiple LPQs in parallel
- *
- * NOTE: it is your responsibility to return only items that you were previously borrowed from this pool
- */
-template <class T>
-class HouseKeepingPool {
-public:
-
-	//----------------------
-	// since the user doesn't maintain the original items they took from the base pool then we need
-	// the user help for building them again from userData as part of returnToPool
-	typedef void (*ItemBuildFunc) (void *item, void* userData);
-
-	//----------------------
-	HouseKeepingPool(struct list_head * basePool, ItemBuildFunc buildFunc, size_t initialCapacity = 10)
-	: m_basePool(basePool), m_buildFunc(buildFunc) {
-		m_houseKeepingPool.reserve(initialCapacity);
-	}
-
-	//----------------------
-	T * borrowFromPool(){
-	    T *item = list_entry(m_basePool->next, typeof(*item), list);
-	    list_del(&item->list);
-	    m_houseKeepingPool.push_back(item); // for house keeping
-	    return item;
-	}
-
-	//----------------------
-	void returnToPool(void* userData){
-		T *item = prepareReturnToPool();
-		m_buildFunc(item, userData);
-		completeReturnToPool(item);
-	}
-
-private:
-	T * prepareReturnToPool(){
-		T * item = m_houseKeepingPool.back();
-		m_houseKeepingPool.pop_back();
-		return item;
-	}
-
-	void completeReturnToPool(T * item){
-		list_add_tail(&item->list, m_basePool);
-	}
-
-	struct list_head * m_basePool;
-	std::vector<T *>   m_houseKeepingPool;
-	ItemBuildFunc      m_buildFunc;
-};
+#define MIN_PARALLEL_LPQS 3 //TODO: tune
 
 ////////////////////////////////////////////////////////////////////////////////
-class KVOutput  {
-public:
-    pthread_mutex_t         lock; 
-    pthread_cond_t          cond;
-    mem_desc_t             *mop_bufs[NUM_STAGE_MEM];
-    struct reduce_task     *task;
-    
-    /* indicate which mem_desc should be filled by fetcher*/
-    volatile int            staging_mem_idx;  
-    
-    int64_t          		last_fetched;  /*represents how many bytes were fetched in the last time */
-//    int64_t                 total_fetched;
-
-    int64_t                 fetched_len_rdma; //represents #bytes fetched (current offset)
-    int64_t                 fetched_len_uncompress; //represents total #bytes ready to read
-
-//    int64_t                 total_len;
-    int64_t                 total_len_rdma; //represents raw size of MOF partition (either with compression, or uncompressed size without compression)
-    int64_t                 total_len_uncompress; //represents decompressed length of MOF
-    
-    KVOutput(struct reduce_task *task);
-	virtual ~KVOutput();
-	int32_t getFreeBytes();
-	void borrowFromPool();
-	void returnToPool();
-private:
-    static void desc_pair_builder (void *desc_pair, void* data);
-    static HouseKeepingPool<mem_set_desc_t> *hkp;
-};
-
-/* MapOutput holds the data from one partition */
-class MapOutput : public KVOutput 
-{
-public:
-     MapOutput(struct reduce_task *task);
-     MapOutput(); 
-    ~MapOutput();
-
-    /* fetch request to get data */
-    struct client_part_req *part_req;   
-    
-    int                     mop_id; 
-
-    /* used for testing */
-    volatile uint64_t  fetch_count;
-};
-
-
-
 class MergeManager 
 {
 public:
@@ -247,7 +146,7 @@ public:
      * -- a tree set of segments (ordered by size)
      * -- a priority queue of segments (ordered by first key)
      */
-    MergeQueue<BaseSegment*> *merge_queue;
+    SegmentMergeQueue   *merge_queue;
     set<int>             mops_in_queue;
     list<MapOutput *>    fetched_mops;
 

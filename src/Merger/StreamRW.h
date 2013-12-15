@@ -31,6 +31,111 @@ class RawKeyValueIterator;
 #include "AIOHandler.h"
 #include "CompareFunc.h"
 
+////////////////////////////////////////////////////////////////////////////////
+/**
+ * this class takes care for housekeeping for object that were taken out from a
+ * pool that is based on the kernel list that we use in UDA.
+ *
+ * NOTE: at this moment we are not implementing locks around the pools we use.
+ * this should be changed if we use multiple LPQs in parallel
+ *
+ * NOTE: it is your responsibility to return only items that you were previously borrowed from this pool
+ */
+template <class T>
+class HouseKeepingPool {
+public:
+
+	//----------------------
+	// since the user doesn't maintain the original items they took from the base pool then we need
+	// the user help for building them again from userData as part of returnToPool
+	typedef void (*ItemBuildFunc) (void *item, void* userData);
+
+	//----------------------
+	HouseKeepingPool(struct list_head * basePool, ItemBuildFunc buildFunc, size_t initialCapacity = 10)
+	: m_basePool(basePool), m_buildFunc(buildFunc) {
+		m_houseKeepingPool.reserve(initialCapacity);
+	}
+
+	//----------------------
+	T * borrowFromPool(){
+	    T *item = list_entry(m_basePool->next, typeof(*item), list);
+	    list_del(&item->list);
+	    m_houseKeepingPool.push_back(item); // for house keeping
+	    return item;
+	}
+
+	//----------------------
+	void returnToPool(void* userData){
+		T *item = prepareReturnToPool();
+		m_buildFunc(item, userData);
+		completeReturnToPool(item);
+	}
+
+private:
+	T * prepareReturnToPool(){
+		T * item = m_houseKeepingPool.back();
+		m_houseKeepingPool.pop_back();
+		return item;
+	}
+
+	void completeReturnToPool(T * item){
+		list_add_tail(&item->list, m_basePool);
+	}
+
+	struct list_head * m_basePool;
+	std::vector<T *>   m_houseKeepingPool;
+	ItemBuildFunc      m_buildFunc;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class KVOutput  {
+public:
+    pthread_mutex_t         lock;
+    pthread_cond_t          cond;
+    mem_desc_t             *mop_bufs[NUM_STAGE_MEM];
+    struct reduce_task     *task;
+
+    /* indicate which mem_desc should be filled by fetcher*/
+    volatile int            staging_mem_idx;
+
+    int64_t          		last_fetched;  /*represents how many bytes were fetched in the last time */
+//    int64_t                 total_fetched;
+
+    int64_t                 fetched_len_rdma; //represents #bytes fetched (current offset)
+    int64_t                 fetched_len_uncompress; //represents total #bytes ready to read
+
+//    int64_t                 total_len;
+    int64_t                 total_len_rdma; //represents raw size of MOF partition (either with compression, or uncompressed size without compression)
+    int64_t                 total_len_uncompress; //represents decompressed length of MOF
+
+    KVOutput(struct reduce_task *task);
+	virtual ~KVOutput();
+	int32_t getFreeBytes();
+	void borrowFromPool();
+	void returnToPool();
+private:
+    static void desc_pair_builder (void *desc_pair, void* data);
+    static HouseKeepingPool<mem_set_desc_t> *hkp;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+/* MapOutput holds the data from one partition */
+class MapOutput : public KVOutput
+{
+public:
+     MapOutput(struct reduce_task *task);
+     MapOutput();
+    ~MapOutput();
+
+    /* fetch request to get data */
+    struct client_part_req *part_req;
+
+    int                     mop_id;
+
+    /* used for testing */
+    volatile uint64_t  fetch_count;
+};
+
 class BaseSegment
 {
 public:
@@ -77,7 +182,9 @@ public:
     int64_t      byte_read;
     DataStream  *in_mem_data;
 };
-	
+
+typedef MergeQueue<BaseSegment*> SegmentMergeQueue;
+
 
 /* The following is for class Segment */
 class Segment : public BaseSegment
@@ -103,17 +210,16 @@ protected:
 
 
 
-bool write_kv_to_mem (MergeQueue<BaseSegment*> *records, char *src,
+bool write_kv_to_mem (SegmentMergeQueue *records, char *src,
                       int32_t len, int32_t &total_write);
 
-bool write_kv_to_file(MergeQueue<BaseSegment*> *records, const char *file_name, int32_t &total_write);
+bool write_kv_to_file(SegmentMergeQueue *records, const char *file_name, int32_t &total_write);
 
 void write_kv_to_disk(RawKeyValueIterator *records, const char *file_name);
 
-void merge_lpq_to_aio_file(reduce_task* task, MergeQueue<BaseSegment*> *records, const char *file_name, AIOHandler* aio, int32_t &total_write, int32_t& mem_desc_idx);
+void merge_lpq_to_aio_file(reduce_task* task, SegmentMergeQueue *records, const char *file_name, AIOHandler* aio, int32_t &total_write, int32_t& mem_desc_idx);
 
 
-#endif
 
 /* The following is for class SuperSegment */
 //
@@ -166,6 +272,8 @@ public:
 };
 #endif
 
+
+#endif
 
 /*
  * Local variables:

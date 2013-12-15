@@ -118,6 +118,13 @@ typedef struct reduce_task {
     	return _comp_alg;
     }
 
+public:
+    void                 init(); // just initialization and calculation without starting a thread
+    void                 start();// start a thread for fetch/merge
+    merging_state_t     *getMergingSm() {return the_merging_sm;}
+private:
+    merging_state_t     *the_merging_sm; //pointer to the global merging_sm
+
 } reduce_task_t;
 
 typedef struct double_buffer {

@@ -41,7 +41,113 @@
 
 using namespace std;
 
-bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
+
+////////////////////////////////////////////////////////////////////////////////
+/* in-memory map output */
+MapOutput::MapOutput(struct reduce_task *task) : KVOutput(task)
+{
+    this->part_req = NULL;
+    this->fetch_count = 0;
+
+   	pthread_mutex_lock(&task->lock);
+  	mop_id = this->task->mop_index++;
+   	pthread_mutex_unlock(&task->lock);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+KVOutput::KVOutput(struct reduce_task *task)
+{
+    this->task = task;
+    if (task->isCompressionOff()) {
+    	this->staging_mem_idx = 0;
+    } else {
+    	this->staging_mem_idx = 1;
+    }
+
+    this->total_len_rdma = 0;
+    this->total_len_uncompress = 0;
+    this->fetched_len_rdma = 0;
+    this->fetched_len_uncompress = 0;
+    this->last_fetched = 0;
+    pthread_mutex_init(&this->lock, NULL);
+    pthread_cond_init(&this->cond, NULL);
+
+    borrowFromPool();
+}
+
+//----------------------
+// static member initialization
+HouseKeepingPool<mem_set_desc_t> * KVOutput::hkp = NULL;
+
+//----------------------
+void KVOutput::borrowFromPool(){
+	if (!hkp) {
+		// lazy initialization after other globals are initialized
+		static HouseKeepingPool<mem_set_desc_t> static_hkp(
+				&g_task->getMergingSm()->mop_pool.free_descs,
+				KVOutput::desc_pair_builder,
+				g_task->merge_man->num_kv_bufs);
+		hkp = &static_hkp;
+	}
+
+	static int i = 0;
+	log(lsDEBUG, "borrowFromPool - started %d", ++i);
+    mem_set_desc_t *desc_pair = hkp->borrowFromPool();
+    for (int i=0; i<NUM_STAGE_MEM; i++){
+    	mop_bufs[i] = desc_pair->buffer_unit[i];
+    	mop_bufs[i]->status = FETCH_READY;
+    }
+	log(lsDEBUG, "borrowFromPool - finished");
+}
+
+//----------------------
+/*static*/void KVOutput::desc_pair_builder (void *_desc_pair, void* data) {
+	mem_set_desc_t *desc_pair = (mem_set_desc_t *)_desc_pair;
+	KVOutput *_this = (KVOutput*)data;
+
+	for (int i=0; i<NUM_STAGE_MEM; i++){
+		desc_pair->buffer_unit[i] = _this->mop_bufs[i];
+		desc_pair->buffer_unit[i]->init();
+		_this->mop_bufs[i] = NULL; // sanity
+	}
+}
+
+//----------------------
+void KVOutput::returnToPool(){
+	static int i = 0;
+	log(lsDEBUG, "returnToPool - started %d", ++i);
+	hkp->returnToPool(this);
+	log(lsDEBUG, "returnToPool - finished");
+}
+
+//----------------------
+int32_t KVOutput::getFreeBytes()
+{
+	mem_desc_t* p_mop_buf = mop_bufs[staging_mem_idx];
+	return p_mop_buf->getFreeBytes();
+}
+
+
+MapOutput::~MapOutput()
+{
+	log(lsDEBUG, "in DTOR");
+    part_req->mop = NULL;
+    free_hadoop_cmd(*(part_req->info));
+    free(part_req->info);
+    free(part_req);
+}
+
+KVOutput::~KVOutput()
+{
+	log(lsTRACE, "in DTOR");
+	returnToPool();
+
+    pthread_mutex_destroy(&this->lock);
+    pthread_cond_destroy(&this->cond);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool write_kv_to_stream(SegmentMergeQueue *records, int32_t len,
 		OutStream *stream, int32_t &total_write) {
     int32_t key_len, val_len, bytes_write;
     int32_t kbytes, vbytes;
@@ -120,7 +226,7 @@ bool write_kv_to_stream(MergeQueue<BaseSegment*> *records, int32_t len,
 
 
 
-bool write_kv_to_mem(MergeQueue<BaseSegment*> *records, char *src, int32_t len,
+bool write_kv_to_mem(SegmentMergeQueue *records, char *src, int32_t len,
 		int32_t &total_write) {
     DataStream *stream = new DataStream(src, len);
 
@@ -557,7 +663,7 @@ bool BaseSegment::join(char *src, const int32_t src_len) {
 
 #if LCOV_HYBRID_MERGE_DEAD_CODE
 
-void merge_lpq_to_aio_file(reduce_task* task, MergeQueue<BaseSegment*> *records,
+void merge_lpq_to_aio_file(reduce_task* task, SegmentMergeQueue *records,
 		const char *file_name, AIOHandler* aio, int32_t &total_write,
 		int32_t& mem_desc_idx) {
 
@@ -753,7 +859,7 @@ int SuperSegment::nextKV() {
     return 1;
 }
 
-bool write_kv_to_file(MergeQueue<BaseSegment*> *records, FILE *f,
+bool write_kv_to_file(SegmentMergeQueue *records, FILE *f,
 		int32_t &total_write) {
     FileStream *stream = new FileStream(f);
     int32_t len = INT32_MAX; //1<<30; //TODO: consider 64 bit - AVNER
@@ -765,7 +871,7 @@ bool write_kv_to_file(MergeQueue<BaseSegment*> *records, FILE *f,
     return ret;
 }
 
-bool write_kv_to_file(MergeQueue<BaseSegment*> *records, const char *file_name,
+bool write_kv_to_file(SegmentMergeQueue *records, const char *file_name,
 		int32_t &total_write) {
     FILE *file = fopen(file_name, "wb");
     if (!file) {
