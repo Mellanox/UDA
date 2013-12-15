@@ -123,3 +123,4 @@ export BUILD_SERVER_DEFAULT_BRANCH="master"
 export LINK_INDICATOR="->"
 export VERIFICATION_USER="web2ver"
 export CODE_COVERAGE_DAY=4 # 4=Thursday - the count starts from 0
+export SSH_MAX_ATTEMPTS=4

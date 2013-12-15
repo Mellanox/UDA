@@ -36,8 +36,11 @@ fi
 
 export BASE_DIR="/data1/web2ver"
 
-bash $SCRIPTS_DIR/autoTester.sh $flags $additionalFlags \-Dcluster.csv="/.autodirect/mtrswgwork/eladi/regression/csvs/cluster_conf_2.csv"
-#\-Dreport.mailing.list="eladi" 
+if [[ -z "$CLUSTER_CSV" ]]; then
+	export CLUSTER_CSV="/.autodirect/mtrswgwork/eladi/regression/csvs/cluster_conf_2.csv"
+fi
+
+bash $SCRIPTS_DIR/autoTester.sh $flags $additionalFlags \-Dcluster.csv="$CLUSTER_CSV"
 
 exit_status=$?
 if (($exit_status != 0)); then

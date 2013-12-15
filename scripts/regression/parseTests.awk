@@ -602,8 +602,8 @@ BEGIN{
 	minusPrefixProps[1]="mapred.map.child.java.opts" 	# for hadoop 1.x
 	minusPrefixProps[2]="mapred.reduce.child.java.opts" # for hadoop 1.x
 	minusPrefixProps[3]="mapred.child.java.opts"		# for hadoop 0.20.2
-    minusPrefixProps[4]="mapreduce.map.java.opts"       # for hadoop 2                                                             
-    minusPrefixProps[5]="mapreduce.reduce.java.opts"    # for hadoop 2                                                     
+        minusPrefixProps[4]="mapreduce.map.java.opts"       # for hadoop 2                                                             
+        minusPrefixProps[5]="mapreduce.reduce.java.opts"    # for hadoop 2                                                     
 	
 	booleanValueProps[1]="mapred.map.tasks.speculative.execution"
 	booleanValueProps[2]="mapred.reduce.tasks.speculative.execution"

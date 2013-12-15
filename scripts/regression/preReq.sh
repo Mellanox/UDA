@@ -101,31 +101,33 @@ checkPermissionsOnMachineDir()
 		echo "$echoPrefix: ${bold}ERROR:${normal} No such folder $i on $machine - Exiting"
 		errorFlag=1
 	else
-		currentDirPermissions=`ssh $machine ls -ld $i | cut --delimiter=" " -f 1`
-		currentDirOwner=`ssh $machine ls -ld $i | cut --delimiter=" " -f 3`
+		currentDirOutput=`ssh $machine ls -ld $i`
+		local attempt=0
+		while [[ -z "$currentDirOutput" ]] && (($attempt < $SSH_MAX_ATTEMPTS));
+                do
+                        attempt=$((attempt+1))
+                	currentDirOutput=`ssh $machine ls -ld $i`
+		done
+		
+		currentDirPermissions=`echo "$currentDirOutput" | cut --delimiter=" " -f 1`
+		currentDirOwner=`echo "$currentDirOutput" | cut --delimiter=" " -f 3`
 		othersPermissions=`echo "$currentDirPermissions" | cut -c 8-10`
 		ownerPermissions=`echo "$currentDirPermissions" | cut -c 2-4`
 		groupPermissions=`echo "$currentDirPermissions" | cut -c 5-7`
 		checkIfUserInGroup $i
-		if [ "$currentDirOwner" == "$USER" ]; then
+		if [[ -z "$currentDirOutput" ]]; then
+			errorFlag=1
+			echo "$echoPrefix: ${bold}ERROR:${normal} Could not retrieve dir permission info."
+		elif [ "$currentDirOwner" == "$USER" ]; then
 			if [ "$ownerPermissions" != "$OWNER_PERMISSIONS" ]; then
-				echo "$echoPrefix: ${bold}WARNING:${normal} $USER is owner of $i but has insufficient permissions."
-			else
-				errorFlag=0
-			fi
-		elif [ "$retVal_UserInGroup" == "1" ]; then
-			if [ "$groupPermissions" != "$GROUP_PERMISSIONS" ]; then
-				echo "$echoPrefix: ${bold}WARNING:${normal} $USER is in the group of $i but the group has insufficient permissions."
+				echo "$echoPrefix: ${bold}ERROR:${normal} $USER is owner of $i but has insufficient permissions."
+				errorFlag=1
 			else
 				errorFlag=0
 			fi
 		else
-			if [ "$othersPermissions" == "$OTHERS_PERMISSIONS" ]; then
-				errorFlag=0
-			else
-				echo "$echoPrefix: ${bold}ERROR:${normal} $USER has insufficient permissions for dir $i"
-				errorFlag=1
-			fi
+			echo "$echoPrefix: ${bold}ERROR:${normal} $USER needs to be owner of dir $i"
+			errorFlag=1
 		fi
 	fi
 	retVal_checkPermissionsOnMachine=$errorFlag
@@ -135,7 +137,13 @@ checkIfUserInGroup()
 {
 	userGroupsArr=`id -G`
 	local dir=$1
-	dirGroup=`ssh $machine ls -ldn $dir | awk '{print $4 }'`
+	dirGroup=`ssh $machine ls -ldn $dir | awk '{print $4}'`
+	local attempt=0
+        while [[ -z "$dirGroup" ]] && (($attempt < $SSH_MAX_ATTEMPTS));
+        do
+                attempt=$((attempt+1))
+        	dirGroup=`ssh $machine ls -ldn $dir | awk '{print $4}'`
+	done	
 	retVal_UserInGroup="0"
 	for j in $userGroupsArr; do
 		if [ "$retVal_UserInGroup" == "0" ] && [ "$dirGroup" == "$j" ]; then
@@ -180,10 +188,21 @@ checkSpaceOnDir()
 		fieldIndex=4
 	fi
 	
-	for i in $directories;do
+	for i in $directories
+	do
 		echo "$echoPrefix: checking directory $i on $machine"
 		currentDiskSpace=`ssh $machine df $DF_BLOCKSIZE_SCALE $i | grep / | awk -v ind=$fieldIndex '{print $ind}'`
-		if (( $currentDiskSpace < $threshold )); then
+		local attempt=0
+                while [[ -z "$currentDiskSpace" ]] && (($attempt < $SSH_MAX_ATTEMPTS));
+                do
+                        attempt=$((attempt+1))
+                        currentDiskSpace=`ssh $machine df $DF_BLOCKSIZE_SCALE $i | grep / | awk -v ind=$fieldIndex '{print $ind}'`
+                done
+		
+		if [[ -z "$currentDiskSpace" ]]; then
+			errorFlag=1
+			echo "$echoPrefix: ${bold}ERROR:${normal} Could not retrieve diskspace from $machine"
+		elif (($currentDiskSpace<$threshold)); then
 			errorFlag=1
 			echo "$echoPrefix: ${bold}ERROR:${normal} Not enough space on $machine on dir $i. Need $threshold got $currentDiskSpace"
 		fi
@@ -205,6 +224,21 @@ setDirsValues()
 
 	setVarValue $DFS_DATA_DIR_MIN_SPACE $DEFAULT_DFS_DATA_DIR_MIN_SPACE
 	DFS_DATA_DIR_MIN_SPACE=$retVal_setVarValue
+
+	setVarValue $MASTER_DFS_DIRS_MIN_SPACE $DEFAULT_MASTER_DFS_DIRS_MIN_SPACE
+	MASTER_DFS_DIRS_MIN_SPACE=$retVal_setVarValue
+
+	if [[ -z "$DFS_DATA_DIR_BY_SPACES" ]]; then
+		DFS_DATA_DIR_BY_SPACES=$DFS_DATANODE_DATA_DIR_BY_SPACES
+	fi
+	
+	if [[ -z "$MAPRED_LOCAL_DIR_BY_SPACES" ]]; then
+		MAPRED_LOCAL_DIR_BY_SPACES=$MAPREDUCE_CLUSTER_LOCAL_DIR_BY_SPACES
+	fi
+
+	if [[ -z "$DFS_NAME_DIR_BY_SPACES" ]]; then
+		DFS_NAME_DIR_BY_SPACES=$DFS_NAMENODE_NAME_DIR_BY_SPACES
+	fi
 }
 
 checkHdfsSpace()
@@ -215,12 +249,15 @@ checkHdfsSpace()
 
 	echo "$echoPrefix: ~~~ Checking minimal disk space on hdfs directories ~~~"
 	
-	checkSpaceOnDir "$MASTER" "$HADOOP_TMP_DIR_BY_SPACES" "$HADOOP_TMP_DIR_MIN_SPACE"
+	checkSpaceOnDir "$MASTER" "$MASTER_DFS_DIRS_BY_SPACES" "$MASTER_DFS_DIRS_MIN_SPACE"
 	errorFlag=$((errorFlag+retVal_checkSpaceOnDir))
 	
-	checkSpaceOnDir "$MASTER" "$DFS_NAME_DIR_BY_SPACES" "$DFS_NAME_DIR_MIN_SPACE"
-	errorFlag=$((errorFlag+retVal_checkSpaceOnDir))
+	#checkSpaceOnDir "$MASTER" "$HADOOP_TMP_DIR_BY_SPACES" "$HADOOP_TMP_DIR_MIN_SPACE"
+	#errorFlag=$((errorFlag+retVal_checkSpaceOnDir))
 	
+	#checkSpaceOnDir "$MASTER" "$DFS_NAME_DIR_BY_SPACES" "$DFS_NAME_DIR_MIN_SPACE"
+	#errorFlag=$((errorFlag+retVal_checkSpaceOnDir))
+
 	for s in $SLAVES_BY_SPACES
 	do
 		checkSpaceOnDir "$s" "$MAPRED_LOCAL_DIR_BY_SPACES" "$MAPRED_LOCAL_DIR_MIN_SPACE"
@@ -249,12 +286,22 @@ checkRamUsage()
 	do
 		echo "$echoPrefix: ~~~ Checking free RAM on $s"
 		availableRam=`ssh $s cat /proc/meminfo | grep MemFree | awk '{print $2}'` # Get available ram in KB
-		if (( $availableRam<$MIN_RAM_REQUIRED )); then
+		local attempt=0
+		while [[ -z "$availableRam" ]] && (($attempt < $SSH_MAX_ATTEMPTS));
+                do
+                       attempt=$((attempt+1))
+	               availableRam=`ssh $s cat /proc/meminfo | grep MemFree | awk '{print $2}'`
+	
+		if  [[ -z "$availableRam" ]]; then
+			echo "$echoPrefix: ${bold}ERROR:${normal} Could not retrieve free memory from $s"
+			errorFlag=1
+		elif (( $availableRam<$MIN_RAM_REQUIRED )); then
 			echo "$echoPrefix: ${bold}ERROR:${normal} Not enough free RAM on $s -  Need at least $MIN_RAM_REQUIRED KB but got only $availableRam KB"
 			errorFlag=1
 		else
 			echo "$echoPrefix:RAM check OK on $s"
 		fi
+		done
 	done
 	
 	checkFinish $errorFlag
@@ -274,6 +321,16 @@ checkCpuUsage()
 		for i in {1..$CPU_USAGE_SAMPLES_TO_AVERAGE_COUNT};
 		do
 			CPUTMP=`ssh $s /usr/bin/top -b -n1 | grep "Cpu(s)" | awk '{ split($5,a,"%") ; print (100-a[1])/100'}`
+	                local attempt=0
+	                while [[ -z "$CPUTMP" ]] && (($attempt < $SSH_MAX_ATTEMPTS));
+        	        do
+                	        attempt=$((attempt+1))
+	                	CPUTMP=`ssh $s /usr/bin/top -b -n1 | grep "Cpu(s)" | awk '{ split($5,a,"%") ; print (100-a[1])/100'}`
+			done
+			if [[ -z "$CPUTMP" ]]; then
+				echo "$echoPrefix: ${bold}ERROR:${normal} Could not retrieve CPU usage on $s"
+				errorFlag=1
+			fi
 			CPU=$(awk -v n1="$CPU" -v n2="$CPUTMP" 'BEGIN{print n1+n2}')
 		done
 		CPU=$(awk -v n1="$CPU" 'BEGIN{print n1/5}')
@@ -298,7 +355,15 @@ checkInodes()
 		for i in {$HADOOP_TMP_DIR_BY_SPACES,$DFS_NAME_DIR_BY_SPACES,$MAPRED_LOCAL_DIR_BY_SPACES,$DFS_DATA_DIR_BY_SPACES}
 		do
 			currentInodesRatio=`ssh $j df -i $i | tail -1 | awk -v def=$DEFAULT_MIN_INODES_PERCENT '{ print ((100-$5)<def)?1:0 }'`
-			if [ "$currentInodesRatio" == "1" ]; then
+			local attempt=0
+			while [[ -z "$currentInodesRatio" ]] && (($attempt < $SSH_MAX_ATTEMPTS));
+                        do
+                                attempt=$((attempt+1))
+                        	currentInodesRatio=`ssh $j df -i $i | tail -1 | awk -v def=$DEFAULT_MIN_INODES_PERCENT '{ print ((100-$5)<def)?1:0 }'`
+			done	
+			if [[ -z "$currentInodesRatio" ]]; then
+				echo "$echoPrefix: ${bold}ERROR:${normal} Could not retrieve current inodes ratio on $j"
+			elif [ "$currentInodesRatio" == "1" ]; then
 				echo "$echoPrefix: ${bold}ERROR:${normal} Not enough free INODES on dir $i on slave $j"
 				errorFlag=1
 			fi
@@ -339,6 +404,7 @@ osFreeSpaceMasterInitFlag=0
 permissionsFlag=0
 hdfsSpaceFlag=0
 
+
 while getopts ":rlncwbiphd" Option
 do
 	case ${Option} in
@@ -351,7 +417,7 @@ do
 			"i"	) checkBaseFreeSpaceInit ;; # baseFreeSpaceMasterInitFlag=1 ;;
 			"p"	) checkPermissions ;; #permissionsFlag=1 ;; 
 			"h"	) checkHdfsSpace ;; #hdfsSpaceFlag=1 ;;
-			"d" ) checkInodes ;; 
+			"d" 	) checkInodes ;; 
 			*	) echo "$echoPrefix: wrong input" ;  exit $SEC ;;   # Default.
 	esac
 done
