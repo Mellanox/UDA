@@ -23,10 +23,14 @@
 #include <set>
 #include <map>
 #include <list>
+#include <vector>
 
 #include "MergeQueue.h"
 #include "C2JNexus.h"
 #include "StreamRW.h"
+#include <UdaUtil.h>
+#include <concurrent_queue.h>
+
 class BaseSegment;
 class AioSegment;
 
@@ -146,19 +150,26 @@ public:
      * -- a tree set of segments (ordered by size)
      * -- a priority queue of segments (ordered by first key)
      */
-    SegmentMergeQueue   *merge_queue;
-    set<int>             mops_in_queue;
-    list<MapOutput *>    fetched_mops;
+    SegmentMergeQueue           *merge_queue;
+    set<int>                     mops_in_queue;
+    list<MapOutput *>            fetched_mops;
 
-    int                  total_count;
-    int                  progress_count;
+    int                          total_count;
+    int                          progress_count;
 public:
-    const int            num_lpqs;
-    const int            num_mofs_in_lpq;
-    const int            max_mofs_in_lpqs; // for the case num_mofs % num_lpq is not zero
-    const int            num_regular_lpqs; // lpqs of size = num_mofs / num_lpq
-    int                  num_kv_bufs;      // num kv buffers that we need to hold in parallel
+    const int                    num_lpqs;
+    const int                    num_mofs_in_lpq;
+    const int                    max_mofs_in_lpqs; // for the case num_mofs % num_lpq is not zero
+    const int                    num_regular_lpqs; // lpqs of size = num_mofs / num_lpq
+    int                          num_kv_bufs;      // num kv buffers that we need to hold in parallel
 
+    static void *merge_thread_main (void *context) throw (UdaException*);
+private:
+    void *merge_hybrid ();
+    static void *lpq_fetcher_start (void *context) throw (UdaException*);
+    void fetch_lpqs();
+    int num_parallel_lpqs;
+    concurrent_external_quota_queue <SegmentMergeQueue*> *pendingMerge;
 };
 
 #endif

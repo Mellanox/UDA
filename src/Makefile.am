@@ -23,7 +23,7 @@ ACLOCAL_AMFLAGS = -I ./build/utils/m4
 AM_LDFLAGS = -rdynamic
 JDK = $(JAVA_HOME)
 AM_CPPFLAGS = $(INCLUDE_DIR) -I$(top_srcdir) -I. -I$(top_srcdir)/include \
-			  -I$(JDK)/include -I$(JDK)/include/linux \
+			  -I$(JDK)/include -I$(JDK)/include/linux -std=gnu++0x \
 			  -Wall -Werror -Wno-invalid-offsetof -O3 -g -D_GNU_SOURCE
 
 # Specify the source files for a library

@@ -155,7 +155,7 @@
       <value>1024</value>
       <description>
         Used by both UdaShuffleProvider and UdaShuffleConsumer:
-        - UdaShuffleProvider (TaskTracker): determines the RDMA&AIO Buffers size to satify Map Output's RDMA fetch requests
+        - UdaShuffleProvider (TaskTracker): determines the RDMA and AIO Buffers size to satify Map Output's RDMA fetch requests
         - UdaShuffleConsumer (Reducer): user prefered RDMA buffer size for fetching map outputs
         Size in KB and must be alligned to page size.
       </description>

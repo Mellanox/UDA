@@ -41,7 +41,6 @@
 #define LPQ_STAGE_MEM_SIZE (1<<20)
 #define LCOV_HYBRID_MERGE_DEAD_CODE 0
 
-static JNIEnv *s_jniEnv;
 
         
 
@@ -57,6 +56,9 @@ void *merge_do_fetching_phase (reduce_task_t *task, SegmentMergeQueue *merge_que
     int maps_sent_to_fetch = 0;
     memory_pool_t *mem_pool = &(task->getMergingSm()->mop_pool);
     log(lsDEBUG, ">> function started task->num_maps=%d target_maps_count=%d", task->num_maps, target_maps_count);
+
+    static JNIEnv *s_fetcherJniEnv = UdaBridge_threadGetEnv();
+
 	do {
 		//sending fetch requests
 		log(lsDEBUG, "sending first chunk fetch requests");
@@ -121,12 +123,12 @@ void *merge_do_fetching_phase (reduce_task_t *task, SegmentMergeQueue *merge_que
 				/* report */
 				manager->total_count++;
 				manager->progress_count++;
-				log(lsDEBUG, "segment was inserted: manager->total_count=%d, task->num_maps=%d", manager->total_count, task->num_maps);
+				log(lsINFO, "   === F segment was inserted: manager->total_count=%d, task->num_maps=%d", manager->total_count, task->num_maps);
 
 				if (manager->progress_count == PROGRESS_REPORT_LIMIT
 				 || manager->total_count == task->num_maps) {
 					log(lsDEBUG, "JNI sending fetchOverMessage...");
-					UdaBridge_invoke_fetchOverMessage_callback(s_jniEnv);
+					UdaBridge_invoke_fetchOverMessage_callback(s_fetcherJniEnv);
 
 					manager->progress_count = 0;
 				}
@@ -157,25 +159,26 @@ void *merge_do_fetching_phase (reduce_task_t *task, SegmentMergeQueue *merge_que
 void *merge_do_merging_phase (reduce_task_t *task, SegmentMergeQueue *merge_queue)
 {
 	/* merging phase */
+	JNIEnv *mergerJniEnv = UdaBridge_threadGetEnv();
+
 	// register our staging_buf as DirectByteBuffer for sharing with Java
 	mem_desc_t  *desc = merge_queue->staging_bufs[0];  // we only need 1 staging_bufs: TODO: remove the array
-	jobject jbuf = UdaBridge_registerDirectByteBuffer(s_jniEnv, desc->buff, desc->buf_len);
+	jobject jbuf = UdaBridge_registerDirectByteBuffer(mergerJniEnv, desc->buff, desc->buf_len);
 	log(lsDEBUG, "GOT: desc=%p, jbuf=%p, address=%p, capacity=%d", desc, jbuf, desc->buff, desc->buf_len);
 
 
 	bool b = false;
-
 	while (!task->merge_thread.stop && !b) {
 
 		log(lsDEBUG, "calling write_kv_to_mem desc->buf_len=%d", desc->buf_len);
 		b = write_kv_to_mem(merge_queue, desc->buff, desc->buf_len, desc->act_len);
 
     	log(lsDEBUG, "MERGER: invoking java callback: desc=%p, desc->jbuf=%p, address=%p, capacity=%d act_len=%d", desc, jbuf, desc->buff, desc->buf_len, desc->act_len);
-		UdaBridge_invoke_dataFromUda_callback(s_jniEnv, jbuf, desc->act_len);
+		UdaBridge_invoke_dataFromUda_callback(mergerJniEnv, jbuf, desc->act_len);
 	}
 
 	log(lsDEBUG, "invoking DeleteWeakGlobalRef: desc=%p, jbuf=%p, address=%p, capacity=%d", desc, jbuf, desc->buff, desc->buf_len);
-	s_jniEnv->DeleteWeakGlobalRef((jweak)jbuf);
+	mergerJniEnv->DeleteWeakGlobalRef((jweak)jbuf);
 	log(lsDEBUG, "After DeleteWeakGlobalRef");
 
 	log(lsINFO, "----- merger thread completed ------");
@@ -200,79 +203,102 @@ void resetBaseSegment(void * _segment){
 	log(lsDEBUG, "resetBaseSegment finished");
 }
 
-void *merge_hybrid (reduce_task_t *task)
-{
-	if (task->num_maps < task->merge_man->num_lpqs) return merge_online(task);
+void MergeManager::fetch_lpqs (){
 
-	bool b = true;
-	int32_t total_write;
-
-	const int num_mofs_in_lpq = task->merge_man->num_mofs_in_lpq;
-	const int max_mofs_in_lpqs = task->merge_man->max_mofs_in_lpqs;
-	const int num_regular_lpqs = task->merge_man->num_regular_lpqs;
-
-	SegmentMergeQueue* merge_lpq[task->merge_man->num_lpqs];
-	char temp_file[PATH_MAX];
-	// counter is not really shared between reducers since - with JNI - UDA is instantiated per RT.
-    // Hence we init with random with seed from clock.
+	// lpq_shared_counter is not really shared between reducers since - with JNI - UDA is instantiated per RT. Hence, we use random
     timeval tv;
     gettimeofday(&tv, NULL);
     srand(tv.tv_usec);
 	static int lpq_shared_counter = rand() % task->local_dirs.size();
+
+	char temp_file[PATH_MAX];
 	for (int i = 0; task->merge_man->total_count < task->num_maps; ++i)
 	{
 		int num_to_fetch = (i < num_regular_lpqs) ? num_mofs_in_lpq : max_mofs_in_lpqs;
-		log(lsINFO, "====== [%d/%d] Creating LPQ for %d segments (already fetched=%d; num_maps=%d)", i, task->merge_man->num_lpqs, num_to_fetch, task->merge_man->total_count, task->num_maps);
+		log(lsINFO, "====== [F %d/%d] Creating LPQ for %d segments (already fetched=%d; num_maps=%d)", i, task->merge_man->num_lpqs, num_to_fetch, task->merge_man->total_count, task->num_maps);
 
 		int local_counter = ++lpq_shared_counter; // not critical to sync between threads here
 		local_counter %= task->local_dirs.size();
 		const string & dir = task->local_dirs[local_counter]; //just ref - no copy
 		sprintf(temp_file, "%s/uda.%s.lpq-%03d", dir.c_str(), task->reduce_task_id, i);
-		merge_lpq[i] = new SegmentMergeQueue(num_to_fetch, NULL, temp_file, resetBaseSegment);
-		merge_do_fetching_phase(task, merge_lpq[i], num_to_fetch);
+		SegmentMergeQueue *lpq = new SegmentMergeQueue(num_to_fetch, NULL, temp_file, resetBaseSegment);
 
-		log(lsINFO, "[%d] === going to merge LPQ using file: %s", i, merge_lpq[i]->filename.c_str());
-		b = write_kv_to_file(merge_lpq[i], merge_lpq[i]->filename.c_str(), total_write);
-		log(lsINFO, "=== after merge of LPQ b=%d, total_write=%d", (int)b, total_write);
-
-		// sanity return RDMA buffers to pool (actually the segments were already released)
-		merge_lpq[i]->core_queue.clear();
+		log(lsINFO, "   === [F %d/%d] wait on reserve quota for LPQ with %d segments ", i, this->num_lpqs, num_to_fetch);
+		pendingMerge->wait_and_reserve();
+		log(lsINFO, "   === [F %d/%d] after wait", i, this->num_lpqs);
+		merge_do_fetching_phase(task, lpq, num_to_fetch);
+		pendingMerge->push_reserved(lpq);
+		log(lsINFO, "   === [F %d/%d] after reserving and pushing LPQ", i, this->num_lpqs);
 	}
 
 	// TODO: here we can free RDMA memory (and release threads/memory of other objects)
-	log(lsINFO, "=== ALL LPQs completed  building RPQ...");
-	// turn compression off in case it was on, since currently RPQ is always without compression
-	compressionType _comp_alg = task->resetCompression();
-	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
-	{
-		log(lsINFO, "[%d] === inserting LPQ to RPQ using file: %s", i, merge_lpq[i]->filename.c_str());
-		task->merge_man->merge_queue->insert(new SuperSegment(task, merge_lpq[i]->filename.c_str()));
-		log(lsINFO, "[%d] === after insertion of LPQ into RPQ", i);
+	log(lsINFO, "   === F ALL LPQs completed their fetching phase");
+
+}
+
+/*static*/void *MergeManager::lpq_fetcher_start (void *context) throw (UdaException*){
+	MergeManager *_this = (MergeManager*)context;
+	_this->fetch_lpqs();
+	return NULL;
+}
+
+void *MergeManager::merge_hybrid ()
+{
+	if (task->num_maps < this->num_lpqs) return merge_online(task);
+	this->pendingMerge = new concurrent_external_quota_queue <SegmentMergeQueue*>(this->num_parallel_lpqs);
+	pthread_t thr;
+	uda_thread_create(&thr, NULL, lpq_fetcher_start, this);
+
+	SegmentMergeQueue* merge_lpq[this->num_lpqs];
+	bool b = true;
+	int32_t total_write;
+
+	for (int i = 0; i < this->num_lpqs; ++i) {
+		log(lsINFO, "[M %d] ====== waiting on pop for LPQ", i);
+		pendingMerge->wait_and_pop_without_dereserve(merge_lpq[i]);
+		log(lsINFO, "[M %d]    === after  pop - going to merge LPQ using file: %s", i, merge_lpq[i]->filename.c_str());
+
+		b = write_kv_to_file(merge_lpq[i], merge_lpq[i]->filename.c_str(), total_write);
+		log(lsINFO, "[M %d]   === after merge of LPQ b=%d, total_write=%d; clearing and de-reserving...", i, (int)b, total_write);
+		merge_lpq[i]->core_queue.clear(); // sanity return RDMA buffers to pool (actually the segments were already released)
+
+		pendingMerge->dereserve();
+		log(lsINFO, "[M %d]    === after dereserve", i);
 	}
 
-	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
+	log(lsINFO, "=== MM ALL LPQs entirely completed.  Building RPQ...");
+	// turn compression off in case it was on, since currently RPQ is always without compression
+	compressionType _comp_alg = task->resetCompression();
+	for (int i = 0; i < this->num_lpqs ; ++i)
+	{
+		log(lsINFO, "[M %d] === inserting LPQ to RPQ using file: %s", i, merge_lpq[i]->filename.c_str());
+		task->merge_man->merge_queue->insert(new SuperSegment(task, merge_lpq[i]->filename.c_str()));
+		log(lsINFO, "[M %d] === after insertion of LPQ into RPQ", i);
+	}
+
+	//TODO: probably can be joined with previous loop
+	for (int i = 0; i < this->num_lpqs ; ++i)
 	{
 		delete merge_lpq[i];
 	}
 
-	log(lsINFO, "RPQ phase: going to merge all LPQs...");
-	merge_do_merging_phase(task, task->merge_man->merge_queue);
-	log(lsINFO, "after ALL merge");
+	log(lsINFO, "MM RPQ phase: going to merge all LPQs...");
+	merge_do_merging_phase(task, this->merge_queue);
+	log(lsINFO, "MM after ALL merge");
 	// merge_queue will be deleted in DTOR of MergeManager
 
 	task->setCompressionType(_comp_alg);
-	log(lsINFO, "compression state was restored");
+	log(lsINFO, "MM compression state was restored");
     return NULL;
 }
 
 //COVERITY: UNCAUGHT_EXCEPT, RM#189300. false alarm
-void *merge_thread_main (void *context) throw (UdaException*)
+void *MergeManager::merge_thread_main (void *context) throw (UdaException*)
 {
-	s_jniEnv = UdaBridge_threadGetEnv();
 	reduce_task_t *task = (reduce_task_t *) context;
-	MergeManager *manager = task->merge_man;
+	MergeManager *_this = task->merge_man;
 
-	int online = manager->online;
+	int online = _this->online;
 	log(lsDEBUG, "online=%d; task->num_maps=%d", online, task->num_maps);
 
 	switch (online) {
@@ -284,7 +310,7 @@ void *merge_thread_main (void *context) throw (UdaException*)
 		break;
 	case 2: default:
 		log(lsINFO, "using hybrid merge");
-		merge_hybrid (task);
+		_this->merge_hybrid ();
 		break;
 	}
 
@@ -297,7 +323,8 @@ MergeManager::MergeManager(int threads, int online, struct reduce_task *task, in
 		num_lpqs(_num_lpqs),
 		num_mofs_in_lpq(task->num_maps/num_lpqs),
 		max_mofs_in_lpqs(num_mofs_in_lpq+1),
-		num_regular_lpqs(num_lpqs - task->num_maps%num_lpqs) // rest lpqs will have one more mof
+		num_regular_lpqs(num_lpqs - task->num_maps%num_lpqs), // rest lpqs will have one more mof
+		pendingMerge(NULL)
 {
 
     this->task = task;
@@ -306,14 +333,14 @@ MergeManager::MergeManager(int threads, int online, struct reduce_task *task, in
 
     this->total_count = 0;
     this->progress_count = 0;
-
     this->merge_queue = NULL;
 
     string value = UdaBridge_invoke_getConfData_callback("mapred.rdma.num.parallel.lpqs", "0");
     int num_parallel_lpqs = atoi(value.c_str());
-    if (num_parallel_lpqs < MIN_PARALLEL_LPQS) num_parallel_lpqs = MIN_PARALLEL_LPQS;
+    this->num_parallel_lpqs = (num_parallel_lpqs < MIN_PARALLEL_LPQS) ? MIN_PARALLEL_LPQS : num_parallel_lpqs;
+
     num_kv_bufs = this->online == 2 ? // 2 is hybrid_merge
-			this->max_mofs_in_lpqs * num_parallel_lpqs : this->task->num_maps;
+			this->max_mofs_in_lpqs * this->num_parallel_lpqs : this->task->num_maps;
 
     pthread_mutex_init(&this->lock, NULL);
     pthread_cond_init(&this->cond, NULL); 
@@ -326,8 +353,8 @@ MergeManager::MergeManager(int threads, int online, struct reduce_task *task, in
     	else { //online == 2
     		log(lsINFO, "hybrid merge will use %d lpqs", num_lpqs);
     		merge_queue = new SegmentMergeQueue(num_lpqs);
-    		log(lsINFO, "====== num_maps=%d; num_lpqs=%d; num_mofs_in_lpq=%d, max_mofs_in_lpqs=%d, num_regular_lpqs=%d",
-    				task->num_maps, num_lpqs, num_mofs_in_lpq, max_mofs_in_lpqs, num_regular_lpqs);
+    		log(lsINFO, "====== num_maps=%d; num_lpqs=%d; num_mofs_in_lpq=%d, max_mofs_in_lpqs=%d, num_regular_lpqs=%d, num_kv_bufs=%d, this->num_parallel_lpqs=%d",
+    				task->num_maps, num_lpqs, num_mofs_in_lpq, max_mofs_in_lpqs, num_regular_lpqs, num_kv_bufs, this->num_parallel_lpqs);
     	}
 
         /* get staging mem from memory_pool*/
@@ -462,6 +489,7 @@ MergeManager::~MergeManager()
         merge_queue->core_queue.clear(); //TODO: this should be moved into ~MergeQueue()
         delete merge_queue; 
     }
+    delete pendingMerge;
     BULLSEYE_EXCLUDE_BLOCK_END
 }
 

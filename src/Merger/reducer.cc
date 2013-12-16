@@ -50,7 +50,6 @@ using namespace std;
 #define EXTRA_RDMA_BUFFERS (10)
 
 extern merging_state_t merging_sm;
-extern void *merge_thread_main (void *context)  throw (UdaException*);
 
 reduce_task_t * g_task;
 
@@ -76,16 +75,18 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 	int minRdmaBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
 	long shuffleMemorySize = atol(hadoop_cmd->params[9]);
 
-	if (shuffleMemorySize <  (long)g_task->num_maps * maxRdmaBufferSize * 2) { // 2 for double buffer
+	g_task->init(); // just initialization and calculation without starting a thread
+
+	if (shuffleMemorySize <  (long)g_task->merge_man->num_kv_bufs * maxRdmaBufferSize * 2) { // 2 for double buffer
 		int maxRdmaBufferSizeOrig = maxRdmaBufferSize;
-		maxRdmaBufferSize = shuffleMemorySize / (g_task->num_maps * 2);
+		maxRdmaBufferSize = shuffleMemorySize / (g_task->merge_man->num_kv_bufs * 2);
 		// we still need alignment to pagesize...
 
 		if (maxRdmaBufferSize < minRdmaBuffer) {
 			log(lsERROR, "Not enough memory for rdma buffers: shuffleMemorySize=%ldB; mapred.rdma.buf.size.min=%dKB",shuffleMemorySize, minRdmaBuffer);
 			throw new UdaException("Not enough memory for rdma buffers");
 		}
-		log(lsWARN, "UDA: using calculated RDMA buffer size=%ldB (not aligned yet) instead of max size=%ldB", maxRdmaBufferSize, maxRdmaBufferSizeOrig);
+		log(lsWARN, "UDA: using calculated RDMA buffer size=%dB (not aligned yet) instead of max size=%dB", maxRdmaBufferSize, maxRdmaBufferSizeOrig);
 	}
 /////////////////
 
@@ -118,7 +119,6 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 			}
 		}
 	}
-	g_task->init(); // just initialization and calculation without starting a thread
 
 	createInputClient();
 	g_task->client->start_client();
@@ -296,7 +296,7 @@ void reduce_task::start()
                                 PTHREAD_CREATE_JOINABLE); 
     uda_thread_create(&this->merge_thread.thread,
                    &this->merge_thread.attr,
-                   merge_thread_main, this);
+                   MergeManager::merge_thread_main, this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

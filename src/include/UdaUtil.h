@@ -21,6 +21,7 @@
 
 #include <pthread.h>
 
+
 /**
  * wrapper around pthread_create! has same interface but does additional actions
  * ALL UDA Threads must use it!
@@ -34,8 +35,6 @@ int uda_thread_create_func (pthread_t *__restrict __newthread,
 			   void *__restrict __arg,
 //			   const char * __caller_func) __THROW __nonnull ((1, 3));
 			   const char * __caller_func) throw (UdaException*) __nonnull ((1, 3));
-
-
 #endif /// ! __UDA_UTIL_H__
 /*
  * Local variables:
