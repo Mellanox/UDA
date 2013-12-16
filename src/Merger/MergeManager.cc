@@ -233,7 +233,8 @@ void *merge_hybrid (reduce_task_t *task)
 
 	// TODO: here we can free RDMA memory (and release threads/memory of other objects)
 	log(lsINFO, "=== ALL LPQs completed  building RPQ...");
-	task->resetCompression(); // turn compression off in case it was on, since RPQ is always without compression
+	// turn compression off in case it was on, since currently RPQ is always without compression
+	compressionType _comp_alg = task->resetCompression();
 	for (int i = 0; i < task->merge_man->num_lpqs ; ++i)
 	{
 		log(lsINFO, "[%d] === inserting LPQ to RPQ using file: %s", i, merge_lpq[i]->filename.c_str());
@@ -252,7 +253,8 @@ void *merge_hybrid (reduce_task_t *task)
 	log(lsINFO, "after ALL merge");
 	// merge_queue will be deleted in DTOR of MergeManager
 
-	log(lsDEBUG, "merge thread exit");
+	task->setCompressionType(_comp_alg);
+	log(lsINFO, "compression state was restored");
     return NULL;
 }
 

@@ -108,8 +108,14 @@ typedef struct reduce_task {
     	return comp_alg;
     }
 
-    void resetCompression(){
+    void setCompressionType(compressionType _comp_alg){
+    	comp_alg = _comp_alg;
+    }
+
+    compressionType resetCompression(){
+    	compressionType _comp_alg = comp_alg;
     	comp_alg = compOff;
+    	return _comp_alg;
     }
 
 } reduce_task_t;
