@@ -25,6 +25,7 @@
 #include "../Merger/reducer.h"
 #include "../Merger/InputClient.h"
 
+void init_mem_desc(mem_desc_t *desc, char *addr, int32_t buf_len);
 
 class RdmaClient : public InputClient
 {
@@ -34,7 +35,13 @@ public:
 
 	netlev_conn_t* connect(const char *host, int port);
 	//    void disconnect(netlev_conn_t *conn); //LCOV_AUBURN_DEAD_CODE
-	void register_mem(struct memory_pool *mem_pool);
+
+	netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port, netlev_ctx_t *ctx, list_head_t *registered_mem);
+
+	void register_mem(struct memory_pool *mem_pool, double_buffer_t buffers);
+
+	int split_mem_pool_to_pairs(memory_pool_t *pool, double_buffer_t buffers);
+
 	unsigned long get_hostip(const char *host);
 
 	void start_client();

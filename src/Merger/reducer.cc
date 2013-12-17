@@ -127,7 +127,9 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 		}
 	}
 
-	initMemPool(minRdmaBuffer);
+	double_buffer_t buffers = calculateMemPool(minRdmaBuffer);
+	// Allocating memory and register RDMA buffers
+	g_task->client->getRdmaClient()->register_mem(&merging_sm.mop_pool, buffers);
 
 	init_reduce_task(g_task);
 }
@@ -216,18 +218,7 @@ void reduce_downcall_handler(const string & msg)
 	log(lsDEBUG, "<<<=== HANDLED COMMAND FROM JAVA SIDE");
 }
 
-
-void init_mem_desc(mem_desc_t *desc, char *addr, int32_t buf_len){
-	desc->buff  = addr;
-	desc->buf_len = buf_len;
-	desc->status = INIT;
-	desc->start = 0;
-	desc->end = 0;
-	pthread_mutex_init(&desc->lock, NULL);
-	pthread_cond_init(&desc->cond, NULL);
-}
-
-int  create_mem_pool(int size, int num, memory_pool_t *pool) //similar to the old one
+int create_mem_pool(int size, int num, memory_pool_t *pool) //similar to the old one
 //buffers come in pair and might be of different size
 {
     int pagesize = getpagesize();
@@ -263,61 +254,9 @@ int  create_mem_pool(int size, int num, memory_pool_t *pool) //similar to the ol
     return 0;
 }
 
-int  create_mem_pool_pair(int size1, int size2, int num, memory_pool_t *pool)
-//TODO: merge this with create_mem_pool method
-//buffers come in pair and might be of different size
-{
-	log (lsTRACE, "Going to create memory pool: %d X (buff1_size=%d buff2_size=%d)", num, size1, size2);
-    int pagesize = getpagesize();
-
-    pthread_mutex_init(&pool->lock, NULL);
-    INIT_LIST_HEAD(&pool->free_descs);
-
-    uint64_t num_buf_pairs = num;
-    pool->num = num;
-    pool->total_size = num_buf_pairs*(size1 + size2);
-
-    log (lsDEBUG, "buffer length1  is %d, buffer length2  is %d pool->total_size is %d\n", size1, size2, pool->total_size);
-
-    int rc = posix_memalign((void**)&pool->mem,  pagesize, pool->total_size);
-    BULLSEYE_EXCLUDE_BLOCK_START
-    if (rc) {
-    	log(lsERROR, "Failed to memalign. aligment=%d size=%lld, rc=%d", pagesize ,pool->total_size, rc );
-        throw new UdaException("memalign failed");
-    }
-    BULLSEYE_EXCLUDE_BLOCK_END
-
-    log(lsDEBUG,"memalign successed - %lld bytes", pool->total_size);
-
-    mem_desc_t *desc_arr =  new mem_desc_t[num*2];
-    mem_set_desc_t* pair_desc_arr = new mem_set_desc_t[num];
-
-    log(lsTRACE, "sizeof(mem_desc_t)=%lld", sizeof(mem_desc_t));
-
-    pthread_mutex_lock(&pool->lock);
-    pool->desc_arr = desc_arr;
-    pool->pair_desc_arr = pair_desc_arr;
-
-    for (int i = 0; i < num; i++) {
-    	//init mem_desc of the pair
-    	mem_desc_t *desc1 = &(desc_arr[2*i]);
-    	mem_desc_t *desc2 = &(desc_arr[2*i+1]);
-        init_mem_desc(desc1, pool->mem + i * (size1+size2), size1);
-        init_mem_desc(desc2, pool->mem + i * (size1+size2)+size1, size2);
-
-        pair_desc_arr[i].buffer_unit[0] = desc1;
-        pair_desc_arr[i].buffer_unit[1] = desc2;
-
-        list_add_tail(&(pair_desc_arr[i].list), &pool->free_descs);
-    }
-    pthread_mutex_unlock(&pool->lock);
-	log (lsTRACE, "After memory pool creation: %d X (buff1_size=%d buff2_size=%d)", num, size1, size2);
-
-    return 0;
-}
-
 static void init_reduce_task(struct reduce_task *task)
 {
+
     write_log(task->reduce_log, DBG_CLIENT, 
               "%s launched", 
               task->reduce_task_id); 
@@ -362,7 +301,7 @@ void spawn_reduce_task()
 
     g_task->mop_index = 0;
 
-    /* init large memory pool for merged kv buffer */
+    // init large memory pool for merged kv buffer
     memset(&g_task->kv_pool, 0, sizeof(memory_pool_t));
     netlev_kv_pool_size  = 1 << NETLEV_KV_POOL_EXPO;
 
@@ -372,7 +311,7 @@ void spawn_reduce_task()
     	throw new UdaException("failed to create memory pool for reduce g_task for merged kv buffer");
     }
     BULLSEYE_EXCLUDE_BLOCK_END
-    /* report success spawn to java */
+    // report success spawn to java
 //    g_task->nexus->send_int((int)RT_LAUNCHED);
 }
 
@@ -387,9 +326,12 @@ void final_cleanup()
 	delete [] merging_sm.mop_pool.desc_arr;
 	delete [] merging_sm.mop_pool.pair_desc_arr;
     pthread_mutex_destroy(&merging_sm.mop_pool.lock);
-    free(merging_sm.mop_pool.mem);
-    log (lsDEBUG, "mop pool is freed");
 
+	int contigPagesEnabler =  ::atoi(UdaBridge_invoke_getConfData_callback ("mapred.rdma.mem.use.contig.pages", "0").c_str());
+	if (!contigPagesEnabler)
+	{
+		free(merging_sm.mop_pool.mem);
+	}
     g_task->client->stop_client();
     log (lsDEBUG, "INPUT client is stopped");
 
@@ -499,21 +441,24 @@ compressionType getCompAlg(char* comp){
 	}
 }
 
-//XXXXXXXXXXXXX
 
-void initMemPool(int minRdmaBuffer){
-
-	int rc=0;
-	// init map output memory pool
+double_buffer_t calculateMemPool(int minRdmaBuffer){
 	memset(&merging_sm.mop_pool, 0, sizeof(memory_pool_t));
 	int numBuffers = g_task->num_maps + EXTRA_RDMA_BUFFERS; //the buffers will be allocated in pairs
-	log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
+
+	merging_sm.mop_pool.num = numBuffers;
+	merging_sm.mop_pool.total_size = (int64_t)g_task->buffer_size * numBuffers * 2;
+
+	log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize). Total size of RDMA buffers: %ldB", g_task->buffer_size, merging_sm.mop_pool.total_size);
+
+	double_buffer_t buffers;
 
 	if (g_task->isCompressionOff()) {//if not compression
-		log(lsINFO, "compression not configured: allocating 2 buffers of same size = %d",g_task->buffer_size);
-		rc = create_mem_pool_pair(g_task->buffer_size, g_task->buffer_size,numBuffers,&merging_sm.mop_pool);
-
+		log(lsDEBUG, "compression isn't configured: allocating 2 buffers of same size = %d",g_task->buffer_size);
+		buffers.buffer1 = g_task->buffer_size;
+		buffers.buffer2 = g_task->buffer_size;
 	} else{
+		log(lsDEBUG, "compression is configured");
 		float splitPercentRdmaComp =  ::atof(UdaBridge_invoke_getConfData_callback ("mapred.rdma.compression.buffer.ratio", "0.20").c_str());
 		int maxRdmaSize =  ::atof(UdaBridge_invoke_getConfData_callback ("mapred.rdma.buf.size", "1024").c_str())*1024;
 		int uncompBufferHardMin = g_task->comp_block_size + minRdmaBuffer;
@@ -534,24 +479,12 @@ void initMemPool(int minRdmaBuffer){
 		rdmaBufferUsed -= spare;
 		uncompBufferUsed += spare;
 
-		log(lsTRACE, " initMemPool2. uncompBufferUsed = %d, rdmaBufferUsed=%d",uncompBufferUsed,rdmaBufferUsed);
-
-		rc = create_mem_pool_pair(rdmaBufferUsed, uncompBufferUsed, numBuffers, &merging_sm.mop_pool);
-
-		/* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
-		log(lsINFO, "init compression done. allocating rdmaBufferUsed = %d uncompBufferUsed = %d totalBufferPerMof = %d ", rdmaBufferUsed, uncompBufferUsed, totalBufferPerMof);
+		buffers.buffer1 = uncompBufferUsed;
+		buffers.buffer2 = rdmaBufferUsed;
 	}
+	log(lsDEBUG, "Calculated RDMA buffers: buffer1 = %dB buffer2 = %dB . Total RDMA memory =  %dMB", buffers.buffer1, buffers.buffer2, merging_sm.mop_pool.total_size / (1024 * 1024));
 
-	if(rc){
-		log(lsERROR, "failed to create Map Output memory pool");
-		throw new UdaException("failed to create Map Output memory pool");
-	}
-
-	// register RDMA buffers
-	g_task->client->getRdmaClient()->register_mem(&merging_sm.mop_pool);
-	/* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
-	log(lsINFO, " After RDMA buffers registration (%d buffers X %d bytes = total %lld bytes)", numBuffers, g_task->buffer_size, merging_sm.mop_pool.total_size);
-
+	return buffers;
 }
 
 /*

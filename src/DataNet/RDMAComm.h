@@ -211,7 +211,10 @@ int netlev_post_send(netlev_msg_t *h, int bytes,
 		uint64_t srcreq, void* context,
 		netlev_conn_t *conn, uint8_t msg_type);
 
-int netlev_init_rdma_mem(void *, unsigned long total_size, netlev_dev_t *dev);
+int map_ib_devices(netlev_ctx_t* net_ctx, event_handler_t cq_handler, void** rdma_mem_ptr, int64_t rdma_total_len);
+int netlev_init_rdma_mem(void **mem, uint64_t total_size, netlev_dev_t *dev, int access);
+
+netlev_dev_t* create_dev(struct ibv_context* ibv_ctx, netlev_ctx_t* net_ctx, event_handler_t cq_handler, void** rdma_mem_ptr, int64_t rdma_total_len);
 
 const char* netlev_stropcode(int opcode);
 

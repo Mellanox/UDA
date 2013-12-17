@@ -260,7 +260,6 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 	ctx    = &(server->ctx);
 
 	struct rdma_event_channel *cm_channel = ctx->cm_channel;
-	RdmaServer *rdma_server = (RdmaServer *)pevent->data;
 
 	if (rdma_get_cm_event(cm_channel, &cm_event)) {
 		output_stderr("[%s:%d] rdma_get_cm_event err", __FILE__, __LINE__);
@@ -275,8 +274,9 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 			dev = netlev_dev_find(cm_event->id, &ctx->hdr_dev_list);
 
 			if (!dev) {
-				log(lsDEBUG, "dev not found, creating a new one");
-				dev = rdma_server->create_dev(cm_event->id->verbs);
+				log(lsERROR, "device not found");
+				//TODO: replace this exception with (verbs) rdma_reject();
+				throw new UdaException("device not found");
 			}
 			else {
 				log(lsDEBUG, "found dev=%x", dev);
@@ -380,17 +380,10 @@ RdmaServer::RdmaServer(int port, int rdma_buf_size, void *state)
 	this->data_mac = smac->data_mac;
 	memset(&this->helper, 0, sizeof(this->helper));
 
-	int rdma_align = getpagesize();
 	this->rdma_total_len = NETLEV_RDMA_MEM_CHUNKS_NUM * ((unsigned long)rdma_buf_size + 2*AIO_ALIGNMENT);
 	this->rdma_chunk_len = rdma_buf_size + 2*AIO_ALIGNMENT;
 	log(lsDEBUG, "rdma_buf_size inside RdmaServer is %d", rdma_buf_size);
-
-	// Server memory allocation
-	this->rdma_mem = (void *) memalign(rdma_align, this->rdma_total_len);
-	if (!this->rdma_mem) {
-		log(lsERROR, "memalign failed");
-		throw new UdaException("memalign failed");
-	}
+	this->rdma_mem = NULL;
 	log(lsDEBUG, "memalign successed - %llu bytes", this->rdma_total_len);
 }
 
@@ -400,7 +393,11 @@ RdmaServer::~RdmaServer()
 	pthread_mutex_destroy(&this->ctx.lock);
 	this->parent  = NULL;
 	this->data_mac = NULL;
-	free(this->rdma_mem);
+	int contigPagesEnabler =  ::atoi(UdaBridge_invoke_getConfData_callback ("mapred.rdma.mem.use.contig.pages", "0").c_str());
+	if (!contigPagesEnabler)
+	{
+		free(this->rdma_mem);
+	}
 }
 
 void RdmaServer::start_server()
@@ -426,7 +423,7 @@ void RdmaServer::start_server()
 	uda_thread_create(&th->thread, &th->attr, event_processor, th);
 
 	// mapping and registering memory for all RDMA capable device
-	map_ib_devices();
+	map_ib_devices(&ctx, server_cq_handler, &rdma_mem, rdma_total_len);
 }
 
 void RdmaServer::stop_server()
@@ -535,70 +532,6 @@ int RdmaServer::destroy_listener()
 	rdma_destroy_event_channel(this->ctx.cm_channel);
 	pthread_mutex_unlock(&this->ctx.lock);
 	return 0;
-}
-
-int RdmaServer::map_ib_devices()
-{
-	int n_num_devices = 0;
-	struct ibv_context** pp_ibv_context_list = rdma_get_devices(&n_num_devices);
-	if (!pp_ibv_context_list) {
-		log(lsERROR, "No RDMA capable devices found!");
-		throw new UdaException("No capable RDMA devices found");
-	}
-	if (!n_num_devices) {
-		rdma_free_devices(pp_ibv_context_list);
-		log(lsERROR, "No RDMA capable devices found!");
-		throw new UdaException("No capable RDMA devices found");
-	}
-	log(lsDEBUG, "Mapping %d ibv devices", n_num_devices);
-	for (int i = 0; i < n_num_devices; i++) {
-		create_dev(pp_ibv_context_list[i]);
-	}
-
-	rdma_free_devices(pp_ibv_context_list);
-	return n_num_devices;
-}
-
-struct netlev_dev* RdmaServer::create_dev(struct ibv_context* ibv_ctx)
-{
-	int ret = 0;
-	struct netlev_dev* dev = (struct netlev_dev *) malloc(sizeof(struct netlev_dev));
-	if (dev == NULL) {
-		log(lsERROR, "alloc dev failed (errno=%d %m)", errno);
-		//TODO: consider throw exception
-		return NULL;
-	}
-	memset(dev, 0, sizeof(struct netlev_dev));
-	dev->ibv_ctx = ibv_ctx;
-	dev->ctx = &ctx;
-	if (netlev_dev_init(dev) != 0) {
-		log(lsWARN, "netlev_dev_init failed");
-		free(dev);
-		return NULL;
-	}
-
-	ret = netlev_init_rdma_mem(rdma_mem, rdma_total_len, dev);
-	if (ret) {
-		log(lsWARN, "netlev_init_rdma_mem failed");
-		free(dev);
-		return NULL;
-	}
-
-	ret = netlev_event_add(ctx.epoll_fd,
-			dev->cq_channel->fd,
-			EPOLLIN, server_cq_handler,
-			dev, &ctx.hdr_event_list);
-	if (ret) {
-		log(lsWARN, "netlev_event_add failed");
-		free(dev);
-		return NULL;
-	}
-
-	pthread_mutex_lock(&ctx.lock);
-	list_add_tail(&dev->list, &ctx.hdr_dev_list);
-	pthread_mutex_unlock(&ctx.lock);
-
-	return dev;
 }
 
 int RdmaServer::rdma_write_mof_send_ack(struct shuffle_req *req, uintptr_t laddr,

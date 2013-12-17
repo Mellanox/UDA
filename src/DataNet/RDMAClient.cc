@@ -212,7 +212,7 @@ error_event:
 	return;
 }
 
-netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
+netlev_conn_t* RdmaClient::netlev_get_conn(unsigned long ipaddr, int port,
 		netlev_ctx_t *ctx,
 		list_head_t *registered_mem)
 {
@@ -223,7 +223,7 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 	struct sockaddr_in     sin;
 	struct rdma_conn_param conn_param;
 	struct connreq_data    xdata;
-	int rc=0;
+
 	errno = 0;
 	int retryCount=1;
 	bool connected = false;
@@ -238,19 +238,16 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 			throw new UdaException("rdma_create_id failed");
 			return NULL;
 		}
-
 		if (rdma_resolve_addr(cm_id, NULL, (struct sockaddr*)&sin, NETLEV_TIMEOUT_MS)) {
 			log(lsERROR, "rdma_resolve_addr failed, (errno=%d %m)",errno);
 			throw new UdaException("rdma_resolve_addr failed");
 			return NULL;
 		}
-
 		if (rdma_get_cm_event(ctx->cm_channel, &cm_event)) {
 			log(lsERROR, "rdma_get_cm_event failed, (errno=%d %m)",errno);
 			throw new UdaException("rdma_get_cm_event failed");
 			return NULL;
 		}
-
 		if (cm_event->event != RDMA_CM_EVENT_ADDR_RESOLVED) {
 			rdma_ack_cm_event(cm_event);
 			log(lsERROR, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
@@ -258,19 +255,16 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 			return NULL;
 		}
 		rdma_ack_cm_event(cm_event);
-
 		if (rdma_resolve_route(cm_id, NETLEV_TIMEOUT_MS)) {
 			log(lsERROR, "rdma_resolve_route failed, (errno=%d %m)",errno);
 			throw new UdaException("rdma_resolve_route failed");
 			return NULL;
 		}
-
 		if (rdma_get_cm_event(ctx->cm_channel, &cm_event)) {
 			log(lsERROR, "rdma_get_cm_event failed, (errno=%d %m)",errno);
 			throw new UdaException("rdma_get_cm_event failed");
 			return NULL;
 		}
-
 		if (cm_event->event != RDMA_CM_EVENT_ROUTE_RESOLVED) {
 			rdma_ack_cm_event(cm_event);
 			log(lsWARN, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
@@ -278,37 +272,13 @@ netlev_conn_t* netlev_get_conn(unsigned long ipaddr, int port,
 			return NULL;
 		}
 		rdma_ack_cm_event(cm_event);
-
 		dev = netlev_dev_find(cm_id, &ctx->hdr_dev_list);
 		if (!dev) {
-			dev = (netlev_dev_t*) malloc(sizeof(netlev_dev_t));
-			if (dev == NULL) {
-				log(lsERROR, "failed to allocate memory for netlev_dev");
-				throw new UdaException("failed to allocate memory for netlev_dev");
-				return NULL;
-			}
-			dev->ibv_ctx = cm_id->verbs;
-			if ( netlev_dev_init(dev) != 0) {
-				free(dev);
-				return NULL;
-			}
-
-			struct memory_pool *mem_pool = NULL;
-			list_for_each_entry(mem_pool, registered_mem, register_mem_list) {
-				rc = netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
-				if (rc) {
-					log(lsERROR, "UDA critical error: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
-					throw new UdaException("failure in netlev_init_rdma_mem");
-				}
-			}
-
-			netlev_event_add(ctx->epoll_fd, dev->cq_channel->fd,
-					EPOLLIN, client_cq_handler,
-					dev, &ctx->hdr_event_list);
-
-			list_add_tail(&dev->list, &ctx->hdr_dev_list);
-		} else {
-			log(lsDEBUG, "device found");
+			log(lsERROR, "device not found");
+			throw new UdaException("device not found");
+		}
+		else {
+			log(lsDEBUG, "found dev=%x", dev);
 		}
 
 		conn = netlev_conn_alloc(dev, cm_id);
@@ -464,18 +434,65 @@ RdmaClient::~RdmaClient()
 	pthread_mutex_destroy(&this->ctx.lock);
 }
 
-void RdmaClient::register_mem(struct memory_pool *mem_pool)
+void RdmaClient::register_mem(struct memory_pool *mem_pool, double_buffer_t buffers)
 {
-	int rc = 0;
-	struct netlev_dev *dev = NULL;
-	list_for_each_entry(dev, &this->ctx.hdr_dev_list, list) {
-		rc = netlev_init_rdma_mem(mem_pool->mem, mem_pool->total_size, dev);
-		if (rc) {
-			log(lsERROR, "UDA critical error: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
-			throw new UdaException("failure in netlev_init_rdma_mem");
-		}
+	map_ib_devices(&ctx, client_cq_handler, (void**)&mem_pool->mem, mem_pool->total_size);
+
+	int rc = split_mem_pool_to_pairs(mem_pool, buffers);
+	if (rc) {
+		log(lsERROR, "UDA critical error: failed on split_mem_pool_to_pairs , rc=%d ==> exit process", rc);
+		throw new UdaException("failure in split_mem_pool_to_pairs");
 	}
-	list_add_tail(&mem_pool->register_mem_list, &this->register_mems_head);
+
+	/* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
+	log(lsINFO, " After RDMA buffers registration: buffers1 = %d bytes , buffer2 = %d bytes , buffers count = %d , total = %lld bytes)", mem_pool->num, buffers.buffer1, buffers.buffer2, mem_pool->total_size);
+}
+
+void init_mem_desc(mem_desc_t *desc, char *addr, int32_t buf_len){
+	desc->buff  = addr;
+	desc->buf_len = buf_len;
+	desc->status = INIT;
+	desc->start = 0;
+	desc->end = 0;
+	pthread_mutex_init(&desc->lock, NULL);
+	pthread_cond_init(&desc->cond, NULL);
+}
+
+int RdmaClient::split_mem_pool_to_pairs(memory_pool_t *pool, double_buffer_t buffers)
+{
+    pthread_mutex_init(&pool->lock, NULL);
+    INIT_LIST_HEAD(&pool->free_descs);
+
+    int num = pool->num;
+    int size1 = buffers.buffer1;
+    int size2 = buffers.buffer2;
+
+    log (lsDEBUG, "buffer length1  is %d, buffer length2  is %d pool->total_size is %d\n", size1, size2, pool->total_size);
+
+    mem_desc_t *desc_arr =  new mem_desc_t[num*2];
+    mem_set_desc_t* pair_desc_arr = new mem_set_desc_t[num];
+
+    log(lsTRACE, "sizeof(mem_desc_t)=%lld", sizeof(mem_desc_t));
+
+    pthread_mutex_lock(&pool->lock);
+    pool->desc_arr = desc_arr;
+    pool->pair_desc_arr = pair_desc_arr;
+
+    for (int i = 0; i < num; i++) {
+    	//init mem_desc of the pair
+		mem_desc_t *desc1 = &(desc_arr[2*i]);
+		mem_desc_t *desc2 = &(desc_arr[2*i+1]);
+		init_mem_desc(desc1, pool->mem + i * (size1 + size2), size1);
+		init_mem_desc(desc2, pool->mem + i * (size1 + size2) + size1, size2);
+
+		pair_desc_arr[i].buffer_unit[0] = desc1;
+		pair_desc_arr[i].buffer_unit[1] = desc2;
+
+        list_add_tail(&(pair_desc_arr[i].list), &pool->free_descs);
+    }
+    pthread_mutex_unlock(&pool->lock);
+	log (lsTRACE, "After memory pool creation: %d X (buff1_size=%d buff2_size=%d)", num, size1, size2);
+    return 0;
 }
 
 netlev_conn_t* RdmaClient::connect(const char *host, int port)
@@ -575,6 +592,7 @@ int RdmaClient::start_fetch_req(client_part_req_t *freq, char *buff, int32_t buf
 		throw new UdaException("trying to fetch a message too big");
 	}
 	log(lsTRACE, "calling to netlev_post_send: mapid=%s, reduceid=%s, mapp_offset=%lld, qp=%d, hostname=%s, buf_len=%d, msg len=%d", freq->info->params[2], freq->info->params[3], freq->mop->fetched_len_rdma, conn->qp_hndl->qp_num,freq->info->params[0],buf_len, msg_len);
+
 	return netlev_post_send(&h,  msg_len, 0, freq, conn, MSG_RTS);
 }
 

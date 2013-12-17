@@ -120,16 +120,20 @@ typedef struct reduce_task {
 
 } reduce_task_t;
 
+typedef struct double_buffer {
+    int		buffer1;
+    int		buffer2;
+} double_buffer_t;
+
 void reduce_exit_msg_handler();
 void reduce_downcall_handler(const std::string & msg);
 extern reduce_task_t * g_task; // we only support 1 reducer per process
 void spawn_reduce_task();
 void finalize_reduce_task(reduce_task_t *task);
 int  create_mem_pool(int logsize, int num, memory_pool_t *pool);
-int  create_mem_pool_pair(int size1, int size2,  int num, memory_pool_t *pool);
 void createInputClient();
 compressionType getCompAlg(char* comp);
-void initMemPool(int minRdmaBuffer);
+double_buffer_t calculateMemPool(int minRdmaBuffer);
 
 #endif
 

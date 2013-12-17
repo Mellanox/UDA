@@ -44,6 +44,7 @@ int netlev_dealloc_conn_mem(netlev_mem_t *mem)
 	free(mem->wqe_start);
 	free(mem->wqe_buff_start);
 	free(mem);
+
 	return 0;
 }
 
@@ -57,11 +58,11 @@ int netlev_dealloc_rdma_mem(struct netlev_dev *dev)
 	return 0;
 }
 
-int netlev_init_rdma_mem(void *mem, uint64_t total_size, netlev_dev_t *dev)
+int netlev_init_rdma_mem(void **mem, uint64_t total_size, netlev_dev_t *dev, int access)
 {
-	netlev_rdma_mem_t *rdma_mem;
-
 	log(lsINFO,"Going to register RDMA memory. size=%llu", total_size);
+
+	netlev_rdma_mem_t *rdma_mem;
 
 	rdma_mem = (netlev_rdma_mem_t *) malloc(sizeof(netlev_rdma_mem_t));
 	if (!rdma_mem) {
@@ -69,23 +70,124 @@ int netlev_init_rdma_mem(void *mem, uint64_t total_size, netlev_dev_t *dev)
 		throw new UdaException("malloc failure");
 		return -1;
 	}
-
 	log(lsTRACE, "After malloc");
 
-	rdma_mem->total_size = total_size;
-	rdma_mem->mr = ibv_reg_mr(dev->pd, mem, total_size, NETLEV_MEM_ACCESS_PERMISSION);
-	if (!rdma_mem->mr) {
+	ibv_mr *mr = ibv_reg_mr(dev->pd, *mem, total_size, access);
+	if (!mr){
+		log(lsERROR,"ibv_reg_mr failed for memory of total_size=%llu , MSG=%m (errno=%d), memory-pointer=%lld", total_size, errno, mem);
 		free(rdma_mem);
-		log(lsERROR,"ibv_reg_mr failed for memory of total_size=%llu  , MSG=%m (errno=%d)", total_size, errno);
 		throw new UdaException("ibv_reg_mr failure");
 		return -1;
 	}
+	if (!(*mem)) // for contig-pages
+	{
+		*mem = (char*)mr->addr;
+	}
 	log(lsINFO, "After RDMA memory registration. size=%llu", total_size);
 
+	rdma_mem->mr = mr;
 	dev->rdma_mem = rdma_mem;
 	return 0;
 }
 
+int rdma_mem_manager(void **mem, uint64_t total_size, netlev_dev_t *dev)
+{
+	int rc;
+	int access = NETLEV_MEM_ACCESS_PERMISSION;
+
+	int contigPagesEnabler =  ::atoi(UdaBridge_invoke_getConfData_callback ("mapred.rdma.mem.use.contig.pages", "0").c_str());
+	if (contigPagesEnabler)
+	{
+		log(lsDEBUG, "Going to register memory with contig-pages");
+		access |= IBV_ACCESS_ALLOCATE_MR; // for contiguous pages use only
+	}
+	else
+	{
+		int pagesize=getpagesize();
+		log(lsDEBUG, "Going to register memory with %dB pages", pagesize);
+		access &= ~IBV_ACCESS_ALLOCATE_MR;
+		if (!(*mem))
+		{
+			log(lsDEBUG, "Going to allocate memory before registration");
+			int rc = posix_memalign(mem, pagesize, total_size);
+			if (rc) {
+				log(lsERROR, "Failed to memalign. aligment=%d size=%ll , rc=%d", pagesize ,total_size, rc);
+				throw new UdaException("memalign failed");
+			}
+		}
+	}
+
+	rc = netlev_init_rdma_mem(mem, total_size, dev, access);
+	if (rc) {
+		log(lsERROR, "UDA critical error: failed on netlev_init_rdma_mem , rc=%d ==> exit process", rc);
+		throw new UdaException("failure in netlev_init_rdma_mem");
+    }
+	return 0;
+}
+
+int map_ib_devices(netlev_ctx_t* net_ctx, event_handler_t cq_handler, void** rdma_mem_ptr, int64_t rdma_total_len)
+{
+	int n_num_devices = 0;
+	struct ibv_context** pp_ibv_context_list = rdma_get_devices(&n_num_devices);
+	if (!pp_ibv_context_list) {
+		log(lsERROR, "No RDMA capable devices found!");
+		throw new UdaException("No capable RDMA devices found");
+	}
+	if (!n_num_devices) {
+		rdma_free_devices(pp_ibv_context_list);
+		log(lsERROR, "No RDMA capable devices found!");
+		throw new UdaException("No capable RDMA devices found");
+	}
+	log(lsDEBUG, "Mapping %d ibv devices", n_num_devices);
+	for (int i = 0; i < n_num_devices; i++) {
+		create_dev(pp_ibv_context_list[i], net_ctx, cq_handler,rdma_mem_ptr, rdma_total_len);
+	}
+
+	rdma_free_devices(pp_ibv_context_list);
+	return n_num_devices;
+}
+
+netlev_dev_t* create_dev(struct ibv_context* ibv_ctx, netlev_ctx_t* net_ctx, event_handler_t cq_handler, void** rdma_mem_ptr, int64_t rdma_total_len)
+{
+	int ret = 0;
+	struct netlev_dev* dev = (struct netlev_dev *) malloc(sizeof(struct netlev_dev));
+	if (dev == NULL) {
+		log(lsERROR, "alloc dev failed (errno=%d %m)", errno);
+		//TODO: consider throw exception
+		return NULL;
+	}
+	memset(dev, 0, sizeof(struct netlev_dev));
+	dev->ibv_ctx = ibv_ctx;
+	dev->ctx = net_ctx;
+	if (netlev_dev_init(dev) != 0) {
+		log(lsWARN, "netlev_dev_init failed");
+		free(dev);
+		return NULL;
+	}
+
+	ret = rdma_mem_manager(rdma_mem_ptr, rdma_total_len, dev);
+	if (ret) {
+		log(lsWARN, "netlev_init_rdma_mem failed");
+		free(dev);
+		return NULL;
+	}
+
+	ret = netlev_event_add(net_ctx->epoll_fd,
+			dev->cq_channel->fd,
+			EPOLLIN, cq_handler,
+			dev, &net_ctx->hdr_event_list);
+	if (ret) {
+		log(lsWARN, "netlev_event_add failed");
+		free(dev);
+		return NULL;
+	}
+
+	pthread_mutex_lock(&net_ctx->lock);
+	list_add_tail(&dev->list, &net_ctx->hdr_dev_list);
+	pthread_mutex_unlock(&net_ctx->lock);
+
+	return dev;
+}
 
 int netlev_init_conn_mem(struct netlev_conn *conn)
 {
