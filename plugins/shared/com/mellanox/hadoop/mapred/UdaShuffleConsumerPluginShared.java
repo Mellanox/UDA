@@ -206,6 +206,16 @@ class UdaShuffleConsumerPluginShared<K, V> implements UdaConsumerPluginCallable{
 		if (fallbackPlugin != null)
 			return;  // already done
 		
+    exitGetMapEvents = true; //sanity
+    String devModeProperty = "mapred.rdma.developer.mode";
+    LOG.info("checking "+ devModeProperty + "...");
+    if ( jobConf.getBoolean(devModeProperty, false) ) {
+      LOG.fatal("Got UDA Fatal Error and cannot fallback to Vanilla since I am under " + devModeProperty + ". Aborting...\n"
+                + StringUtils.stringifyException(t));
+      // throw( new UdaRuntimeException("Got UDA Fatal Error and cannot fallback to Vanilla since I am under " + devModeProperty, t) );
+      System.exit(1);
+    }
+
 		if (t != null) {
 			LOG.error("Critical failure has occured in UdaPlugin - We'll try to use vanilla as fallbackPlugin. \n\tException is:" + StringUtils.stringifyException(t));
 		}
