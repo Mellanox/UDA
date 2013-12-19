@@ -35,9 +35,9 @@ fi
 if (( $CODE_COVE_FLAG==1 )) && [[ -z $SESSION_EXCEPTION ]];then 
 	echo "$echoPrefix: covselect --file $CODE_COVERAGE_AGGREIGATED_COVFILE -i $CODE_COVERAGE_EXCLUDE_PATH"
 	covselect --file $CODE_COVERAGE_AGGREIGATED_COVFILE -i $CODE_COVERAGE_EXCLUDE_PATH
-	echo "$echoPrefix: eval $CODE_COVERAGE_COMMIT_SCRIPT_PATH --branch $GIT_BRANCH --product $PRODUCT_NAME --team $TEAM_NAME --version $VERSION_SHORT_FORMAT --path $CODE_COVERAGE_COMMIT_DIR"
+	echo "$echoPrefix: eval $CODE_COVERAGE_COMMIT_SCRIPT_PATH --branch $BULLSEYE_BRANCH_NAME --product $PRODUCT_NAME --team $TEAM_NAME --version $VERSION_SHORT_FORMAT --path $CODE_COVERAGE_COMMIT_DIR"
 	if [[ -z $BULLSEYE_DRYRUN ]];then
-		eval $CODE_COVERAGE_COMMIT_SCRIPT_PATH --branch $GIT_BRANCH --product $PRODUCT_NAME --team $TEAM_NAME --version $VERSION_SHORT_FORMAT --path $CODE_COVERAGE_COMMIT_DIR 
+		eval $CODE_COVERAGE_COMMIT_SCRIPT_PATH --branch $BULLSEYE_BRANCH_NAME --product $PRODUCT_NAME --team $TEAM_NAME --version $VERSION_SHORT_FORMAT --path $CODE_COVERAGE_COMMIT_DIR 
 	else
 		echo "$echoPrefix: dry-run mode - the coverage-report won't be sent"
 	fi

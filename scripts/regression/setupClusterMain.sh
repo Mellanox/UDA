@@ -430,6 +430,12 @@ then
 		echo "$echoPrefix: installing the rpm locally from $LOCAL_UDA_DIR"
 		getLinkRealPath $UDA_PLACE_VALUE
 		currentRpm=$getLinkRealPath_retVal
+		if (($CODE_COVE_FLAG==1)) && (($BUILD_SERVER_FLAG==1)); then
+			echo "$echoPrefix: cp $BUILD_SERVER_PRODUCTS_DIR/$BUILD_SERVER_COVFILE_NAME $CODE_COVERAGE_TEMPLATE_COVFILE_DIR"
+			cp $BUILD_SERVER_PRODUCTS_DIR/$BUILD_SERVER_COVFILE_NAME $CODE_COVERAGE_TEMPLATE_COVFILE_DIR
+			
+			codeCoverageMasterDir=$BUILD_SERVER_DEFAULT_BRANCH
+		fi
 	else # needs to build the rpm
 		if (($UDA_PLACE_TYPE==1));then # getting branch from git
 			# getting the master dir from git if needed
@@ -451,6 +457,8 @@ then
 			cov01 --on
 			echo "$echoPrefix: tunring Bullseye flag stat on: cov01 -s"
 			cov01 --status
+			
+			codeCoverageMasterDir=$GIT_BRANCH # GIT_BRANCH eqaul to git branch name or to BUILD_SERVER_DEFAULT_BRANCH (look at parseCluster.awk)
 		else
 			cov01 --off # for case that the bullseye left turned-on on the machine 
 		fi
@@ -489,18 +497,8 @@ echo "$echoPrefix: killing all java processes"
 sudo pkill -9 java
 
 if (($CODE_COVE_FLAG==1)); then
-	if (($BUILD_SERVER_FLAG==1));then
-		covfileDir=$BUILD_SERVER_PRODUCTS_DIR
-		covfileName=$BUILD_SERVER_COVFILE_NAME
-	else
-		covfileDir=$CODE_COVERAGE_TEMPLATE_COVFILE_DIR
-		covfileName=$covfileForBuildName
-	fi
-	
-	echo "$echoPrefix: cp $covfileDir/$covfileName $covfileDirForTests"
-	cp $covfileDir/$covfileName $covfileDirForTests
-	echo "$echoPrefix: mv $covfileDirForTests/$covfileName $covfileForTests"
-	mv $covfileDirForTests/$covfileName $covfileForTests
+	echo "$echoPrefix: cp $CODE_COVERAGE_TEMPLATE_COVFILE_DIR/*$CODE_COVERAGE_FILE_SUFFIX $covfileForTests"
+	cp $CODE_COVERAGE_TEMPLATE_COVFILE_DIR/*$CODE_COVERAGE_FILE_SUFFIX $covfileForTests
 fi
 
 setCoreDir $MASTER
@@ -558,6 +556,9 @@ echo "
 		export INSTALLED_RPM='$currentRpm'
 		export RPM_VERSION='$currentRpmVersion'
 		export VERSION_SHORT_FORMAT='$shortFormatVersion'
+	fi
+	if [[ -n '$codeCoverageMasterDir' ]];then
+		export BULLSEYE_BRANCH_NAME='$codeCoverageMasterDir'
 	fi
 	#if [[ -n '$hadoopConfDir' ]];then
 		export HADOOP_CONF_DIR='$hadoopConfDir'
