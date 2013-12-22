@@ -231,7 +231,6 @@ void MergeManager::fetch_lpqs (){
 		log(lsINFO, "   === [F %d/%d] after reserving and pushing LPQ", i, this->num_lpqs);
 	}
 
-	// TODO: here we can free RDMA memory (and release threads/memory of other objects)
 	log(lsINFO, "   === F ALL LPQs completed their fetching phase");
 
 }

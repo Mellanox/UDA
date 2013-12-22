@@ -65,43 +65,6 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 			hadoop_cmd->params[8], hadoop_cmd->params[9]);
 
 	assert (hadoop_cmd->count -1 > DIRS_START); // sanity under debug
-	g_task->num_maps = atoi(hadoop_cmd->params[0]);
-	g_task->job_id = strdup(hadoop_cmd->params[1]);
-	g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
-	g_task->lpq_size = atoi(hadoop_cmd->params[3]);
-
-/////////////////
-	int maxRdmaBufferSize = atoi(hadoop_cmd->params[4]);  // raw value as came from XML file with only conversion to bytes
-	int minRdmaBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
-	long shuffleMemorySize = atol(hadoop_cmd->params[9]);
-
-	g_task->init(); // just initialization and calculation without starting a thread
-
-	if (shuffleMemorySize <  (long)g_task->merge_man->num_kv_bufs * maxRdmaBufferSize * 2) { // 2 for double buffer
-		int maxRdmaBufferSizeOrig = maxRdmaBufferSize;
-		maxRdmaBufferSize = shuffleMemorySize / (g_task->merge_man->num_kv_bufs * 2);
-		// we still need alignment to pagesize...
-
-		if (maxRdmaBufferSize < minRdmaBuffer) {
-			log(lsERROR, "Not enough memory for rdma buffers: shuffleMemorySize=%ldB; mapred.rdma.buf.size.min=%dKB",shuffleMemorySize, minRdmaBuffer);
-			throw new UdaException("Not enough memory for rdma buffers");
-		}
-		log(lsWARN, "UDA: using calculated RDMA buffer size=%dB (not aligned yet) instead of max size=%dB", maxRdmaBufferSize, maxRdmaBufferSizeOrig);
-	}
-/////////////////
-
-//
-	g_task->buffer_size = maxRdmaBufferSize - maxRdmaBufferSize % getpagesize(); // alignment to pagesize
-	log(lsDEBUG, "minRdmaBuffer %d,  g_task->buffer_size*2=%d",minRdmaBuffer,g_task->buffer_size*2 );
-	if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minRdmaBuffer) ) {
-		log(lsERROR, "RDMA Buffer is too small: maxRdmaBufferSize=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", maxRdmaBufferSize, getpagesize(), g_task->buffer_size, minRdmaBuffer);
-		throw new UdaException("RDMA Buffer is too small");
-	}
-
-	g_cmp_func = get_compare_func(hadoop_cmd->params[6]); // set compare func using Java's key type name
-	g_task->comp_alg = getCompAlg(hadoop_cmd->params[7]);
-	g_task->comp_block_size = atoi(hadoop_cmd->params[8]);
-
 	int num_dirs = 0;
 	if (hadoop_cmd->count -1  > DIRS_START) {
 		assert (hadoop_cmd->params[DIRS_START] != NULL); // sanity under debug
@@ -118,6 +81,42 @@ void handle_init_msg(hadoop_cmd_t *hadoop_cmd)
 				}
 			}
 		}
+	}
+
+
+	g_task->num_maps = atoi(hadoop_cmd->params[0]);
+	g_task->job_id = strdup(hadoop_cmd->params[1]);
+	g_task->reduce_task_id = strdup(hadoop_cmd->params[2]);
+	g_task->lpq_size = atoi(hadoop_cmd->params[3]);
+
+	int maxRdmaBufferSize = atoi(hadoop_cmd->params[4]);  // raw value as came from XML file with only conversion to bytes
+	int minRdmaBuffer = atoi(hadoop_cmd->params[5]); // java passes it in Bytes
+	long shuffleMemorySize = atol(hadoop_cmd->params[9]);
+
+	g_cmp_func = get_compare_func(hadoop_cmd->params[6]); // set compare func using Java's key type name
+	g_task->comp_alg = getCompAlg(hadoop_cmd->params[7]);
+	g_task->comp_block_size = atoi(hadoop_cmd->params[8]);
+
+	g_task->init(); // just initialization and calculation without starting a thread
+
+	if (shuffleMemorySize <  (long)g_task->merge_man->num_kv_bufs * maxRdmaBufferSize * 2) { // 2 for double buffer
+		int maxRdmaBufferSizeOrig = maxRdmaBufferSize;
+		maxRdmaBufferSize = shuffleMemorySize / (g_task->merge_man->num_kv_bufs * 2);
+		// we still need alignment to pagesize...
+
+		if (maxRdmaBufferSize < minRdmaBuffer) {
+			log(lsERROR, "Not enough memory for rdma buffers: shuffleMemorySize=%ldB; mapred.rdma.buf.size.min=%dKB",shuffleMemorySize, minRdmaBuffer);
+			throw new UdaException("Not enough memory for rdma buffers");
+		}
+		log(lsWARN, "UDA: using calculated RDMA buffer size=%dB (not aligned yet) instead of max size=%dB", maxRdmaBufferSize, maxRdmaBufferSizeOrig);
+	}
+
+	/////////////////
+	g_task->buffer_size = maxRdmaBufferSize - maxRdmaBufferSize % getpagesize(); // alignment to pagesize
+	log(lsDEBUG, "minRdmaBuffer %d,  g_task->buffer_size*2=%d",minRdmaBuffer,g_task->buffer_size*2 );
+	if ( (g_task->buffer_size <= 0) || (g_task->buffer_size < minRdmaBuffer) ) {
+		log(lsERROR, "RDMA Buffer is too small: maxRdmaBufferSize=%dB, pagesize=%d, aligned_buffer_size=%dB, min_buffer=%dB", maxRdmaBufferSize, getpagesize(), g_task->buffer_size, minRdmaBuffer);
+		throw new UdaException("RDMA Buffer is too small");
 	}
 
 	createInputClient();
