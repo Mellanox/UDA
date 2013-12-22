@@ -49,6 +49,7 @@
 /* report progress every 256 map outputs*/
 #define PROGRESS_REPORT_LIMIT 20
 
+// -----------------------------------------------------------------------------
 void *merge_do_fetching_phase (reduce_task_t *task, SegmentMergeQueue *merge_queue, int num_maps/*-to-fetch*/)
 {
     MergeManager *manager = task->merge_man;
@@ -58,19 +59,20 @@ void *merge_do_fetching_phase (reduce_task_t *task, SegmentMergeQueue *merge_que
     log(lsDEBUG, ">> function started task->num_maps=%d target_maps_count=%d", task->num_maps, target_maps_count);
 
     static JNIEnv *s_fetcherJniEnv = UdaBridge_threadGetEnv();
+    static std::vector<client_part_req *> fetch_vector;
 
 	do {
 		//sending fetch requests
 		log(lsDEBUG, "sending first chunk fetch requests");
-		while (manager->fetch_list.size() > 0 && maps_sent_to_fetch < num_maps) {
+		list_shuffle_in_vector<client_part_req *>(fetch_vector, manager->fetch_list,
+			&manager->lock); // move list items to back of vector and shuffle vector
+		size_t n = fetch_vector.size();
+		for (size_t i = 0; i < n && maps_sent_to_fetch < num_maps; ++i) {
 
 			if (mem_pool->free_descs.next != &mem_pool->free_descs) { // the list represents a pair of buffers && (mem_pool->free_descs.next->next != &mem_pool->free_descs)){
 				log(lsTRACE, "there are free RDMA buffers");
-				client_part_req *fetch_req = NULL;
-				 pthread_mutex_lock(&manager->lock);
-				 fetch_req = manager->fetch_list.front();
-				 manager->fetch_list.pop_front();
-				 pthread_mutex_unlock(&manager->lock);
+				client_part_req *fetch_req = fetch_vector.back();
+				 fetch_vector.pop_back();
 				if (fetch_req) {
 					log(lsDEBUG, "request as received from java jobid=%s, mapid=%s, reduceid=%s, hostname=%s", fetch_req->info->params[1], fetch_req->info->params[2], fetch_req->info->params[3], fetch_req->info->params[0]);
 					manager->allocate_rdma_buffers(fetch_req);
@@ -142,7 +144,7 @@ void *merge_do_fetching_phase (reduce_task_t *task, SegmentMergeQueue *merge_que
 		if (manager->total_count == target_maps_count) break;
 
 		pthread_mutex_lock(&manager->lock);
-		if (! manager->fetched_mops.empty()) {
+		if (! manager->fetched_mops.empty() || ! manager->fetch_list.empty()) {
 			pthread_mutex_unlock(&manager->lock);
 			continue;
 		}
