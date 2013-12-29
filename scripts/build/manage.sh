@@ -85,7 +85,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
                 mv -f ${BUILD_TARGET_DESTINATION}/$product ${BUILD_POOL}/uda/
                 # Create a softlink
                 filename=`echo $product | sed 's/.deb//g'`
-                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/UDA_${UDA_BRANCH}_deb
+                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/UDA_${UDA_BRANCH}.deb
 		continue
         fi
 
@@ -102,7 +102,7 @@ for product in `ls -p ${BUILD_TARGET_DESTINATION} | grep -v "/"`; do
                 mv -f ${BUILD_TARGET_DESTINATION}/$product ${BUILD_POOL}/uda/
                 # Create a softlink
                 filename=`echo $product | sed 's/.cov//g'`
-                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/UDA_${UDA_BRANCH}_cov
+                ln -fs ${BUILD_POOL}/uda/${product} ${BUILD_POOL}/UDA_${UDA_BRANCH}.cov
 		continue
         fi
 done

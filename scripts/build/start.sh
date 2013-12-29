@@ -74,6 +74,9 @@ else
 	# Remove temporary build target destination
 	rm -rf ${BUILD_TARGET_DESTINATION}
 
+	# Run static code analysis
+	source ./codeAnalysis.sh
+
 	# Finished
 	exit 0
 fi
