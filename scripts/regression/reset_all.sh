@@ -24,7 +24,7 @@ then
 	echo LIVE PROCESSES ARE: $live_processes
 	echo "$echoPrefix: process are still alive after kill --> using kill -9"
 	sudo pkill -9 '(java|python|NetMerger|MOFSupplier)'
-	eval sudo $EXEC_SLAVES pkill -9 \'\(java\|python\|NetMerger\|MOFSupplier\)\'
+	sudo $EXEC_SLAVES pkill -9 \'\(java\|python\|NetMerger\|MOFSupplier\)\'
 fi
 
 sleep 2

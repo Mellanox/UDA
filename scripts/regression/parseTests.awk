@@ -842,7 +842,8 @@ BEGIN{
 	}
 	if (softModeFlag==1)
 	{
-		restartHadoop=0
+		#restartHadoop=userRestart
+        	restartHadoop=1
 	}
 	print "export RESTART_HADOOP=" restartHadoop >> exportsFile	
 		

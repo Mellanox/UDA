@@ -183,7 +183,7 @@ do
 	if (($RESTART_HADOOP==1))
 	then
 		if (($UNSPREAD_CONF_FLAG == 0));then
-			cp $testDir/*.xml ${HADOOP_CONF_DIR}/
+            cp $testDir/*.xml ${HADOOP_CONF_DIR}/
 			cp $testDir/masters ${HADOOP_CONF_DIR}/
 			cp $testDir/slaves ${HADOOP_CONF_DIR}/
 		fi

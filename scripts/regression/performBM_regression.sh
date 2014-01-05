@@ -4,13 +4,12 @@ export SCRIPTS_DIR=`pwd`
 source $SCRIPTS_DIR/defaultsConf.sh
 echoPrefix=`eval $ECHO_PATTERN`	
 
-flagsCase=$1
+flagsCase=$RUN_MODE # Environment variable instead of command line argument
 additionalFlags=$2
 setupFlags="bsetad"
-testFlags="fbetad"
+testFlags="bftead"
 defaultFlags="bseadz"
-
-userFlags="bead"
+userFlags="bsead"
 
 case ${flagsCase} in
 	"setup"		) flags="$setupFlags" ;;
@@ -34,7 +33,8 @@ else
         export ERROR_MAILING_LIST="$USER"
 fi
 
-export BASE_DIR="/common/web2ver"
+export BASE_DIR="/data1/web2ver/${RUN_MODE}"
+
 
 if [[ -z "$CLUSTER_CSV" ]]; then
 	export CLUSTER_CSV="/.autodirect/mtrswgwork/eladi/regression/csvs/cluster_conf_2.csv"

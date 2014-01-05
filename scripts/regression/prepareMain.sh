@@ -25,7 +25,7 @@ if ! sudo mkdir -p $TMP_DIR_LOCAL_DISK;then
 fi
 rm -rf $TMP_DIR_LOCAL_DISK/*
 
-sudo chown -R $USER $BASE_DIR
+sudo chown -R $USER $BASE_DIR $TMP_DIR_LOCAL_DISK
 
 errorLog=$BASE_DIR/$ERROR_LOG_FILE_NAME
 echo -n "" >  $errorLog

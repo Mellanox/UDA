@@ -77,7 +77,7 @@ function manageAdditionalFlagsLogic()
 {
 	if (softModeFlag == 1)
 	{
-		unspreadConf=1
+		#unspreadConf=1
 		# those line are safety measurements - the setupCluster scripts shouldn't be called by the regression when (softModeFlag == 1)
 		build=0
 		rpm=0

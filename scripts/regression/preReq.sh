@@ -53,13 +53,19 @@ checkBaseFreeSpace()
 
 checkNfsLoggerSpace()
 {
+	local errorFlag=0
 	setVarValue $NFS_LOG_DIR_MIN_SPACE $DEFAULT_NFS_LOG_DIR_MIN_SPACE
 	NFS_LOG_DIR_MIN_SPACE=$retVal_setVarValue
 
 	echo "$echoPrefix:  ~~~ Checking minimal disk space on NFS log dir ~~~"
 	echo "$echoPrefix:  checking $NFS_RESULTS_DIR"
-	checkSpaceOnDir `hostname` $NFS_RESULTS_DIR $NFS_LOG_DIR_MIN_SPACE "NFS"
-	checkFinish $retVal_checkSpaceOnDir
+	if [[ ! -e $NFS_RESULTS_DIR ]];then
+		echo "$echoPrefix: $NFS_RESULTS_DIR doesn't exist!"
+	else
+		checkSpaceOnDir `hostname` $NFS_RESULTS_DIR $NFS_LOG_DIR_MIN_SPACE "NFS"
+		errorFlag=$retVal_checkSpaceOnDir
+	fi
+	checkFinish $errorFlag
 }
 
 checkLocalLoggerSpace()

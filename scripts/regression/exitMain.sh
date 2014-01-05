@@ -36,10 +36,11 @@ if (($ZIP_FLAG==1));then
 	rm -rf $CURRENT_NFS_RESULTS_DIR/
 fi
 
-for machine in $ALL_MACHINES_BY_SPACES;do
-	bash $SCRIPTS_DIR/functionsLib.sh "set_hostnames" "$machine" "$machine" 
-done
-
+if (($SOFT_MODE_FLAG==0));then
+	for machine in $ALL_MACHINES_BY_SPACES;do
+		bash $SCRIPTS_DIR/functionsLib.sh "set_hostnames" "$machine" "$machine" 
+	done
+fi
 #failFlag=0
 
 #echo "$echoPrefix: deleting HDFS"
