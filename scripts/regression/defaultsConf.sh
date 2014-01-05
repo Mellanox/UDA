@@ -49,7 +49,7 @@ export UDA_RESOURCES_DIR="/usr/lib64/uda"
 export HADOOP_CLASSPATH='${HADOOP_CLASSPATH}:'"${UDA_RESOURCES_DIR}/"
 export RELEASE_DIR='/.autodirect/mswg/release/uda/daily'
 export RELEASE_RPM_RELATIVE_DIR='rpm'
-export LOCAL_RESULTS_DIR='/data1/regression.collect'
+export LOCAL_RESULTS_DIR='/common/regression.collect'
 export CORES_PATTERN="core.%p.%h.%t.%e"
 export KERNEL_CORE_PATTERN_PROPERTY='kernel.core_pattern'
 export JAVA_HOME='/usr/java/latest' #export JAVA_HOME='/usr/lib64/java/jdk1.6.0_25'
@@ -71,7 +71,7 @@ export PI_NUMERIC_ERROR="0.1"
 export PI_HDFS_TEMP_DIR="/user/$USER"
 export PI_REAL_VALUE="3.141592654"
 export RANDOM_TEXT_WRITER_OUTPUT_SIZE=10
-export TMP_DIR_LOCAL_DISK="/data1/regression_temps"
+export TMP_DIR_LOCAL_DISK="/common/regression_temps"
 export SYSTEM_DEFAULT_SHM_MAX_SIZE=33554432
 export DEFAULT_LOG_NUM_MTT=24
 export DEFAULT_LOG_MTTS_PER_SEG=0

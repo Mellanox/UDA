@@ -34,7 +34,7 @@ else
         export ERROR_MAILING_LIST="$USER"
 fi
 
-export BASE_DIR="/data1/web2ver"
+export BASE_DIR="/common/web2ver"
 
 if [[ -z "$CLUSTER_CSV" ]]; then
 	export CLUSTER_CSV="/.autodirect/mtrswgwork/eladi/regression/csvs/cluster_conf_2.csv"

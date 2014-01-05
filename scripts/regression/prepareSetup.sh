@@ -43,6 +43,7 @@ do
 	# makeing and checking the swapoff
 	echo "$echoPrefix: disabling swapiness on $machine"
 	sudo ssh $machine sudo $SWAPOFF_PATH -a
+	sudo ssh $machine "echo 0 > /proc/sys/vm/swappiness"
 done
 
 echo "$echoPrefix: cheching pre-requests: bash $SCRIPTS_DIR/preReq.sh $PRE_REQ_SETUP_FLAGS"
