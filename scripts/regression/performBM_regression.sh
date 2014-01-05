@@ -33,7 +33,7 @@ else
         export ERROR_MAILING_LIST="$USER"
 fi
 
-export BASE_DIR="/data1/web2ver/${RUN_MODE}"
+export BASE_DIR="/common/web2ver/${RUN_MODE}"
 
 
 if [[ -z "$CLUSTER_CSV" ]]; then
