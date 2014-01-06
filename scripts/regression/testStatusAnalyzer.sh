@@ -17,7 +17,8 @@ getBufferSizes()
 	bufferSizes=""
 	for i in $reducersLogs;
 	do
-		newSize=`$sshPrefix cat $i | grep -h "compression not configured: allocating" | awk '{ split($0,a," = "); split(a[2],a," "); print a[1]}'`
+		newSize=`$sshPrefix cat $i | grep -h "After RDMA buffers" | awk '{ split($0,a,"buffer2 = "); split(a[2],a," "); print a[1] }'`
+		#newSize=`$sshPrefix cat $i | grep -h "compression not configured: allocating" | awk '{ split($0,a," = "); split(a[2],a," "); print a[1]}'`
 		bufferSizes="$bufferSizes $newSize"
 	done
 	bufferSizes=`echo $bufferSizes | tr ' ' '\n' | sort -u`
