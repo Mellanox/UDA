@@ -445,7 +445,7 @@ void RdmaClient::register_mem(struct memory_pool *mem_pool, double_buffer_t buff
 	}
 
 	/* PLEASE DON'T CHANGE THE FOLLOWING LINE - THE AUTOMATION PARSE IT */
-	log(lsINFO, " After RDMA buffers registration: buffers1 = %d bytes , buffer2 = %d bytes , buffers count = %d , total = %lld bytes)", mem_pool->num, buffers.buffer1, buffers.buffer2, mem_pool->total_size);
+	log(lsINFO, " After RDMA buffers registration: buffer1 = %d bytes , buffer2 = %d bytes , buffers count = %d , total = %lld bytes)", buffers.buffer1, buffers.buffer2, mem_pool->num, mem_pool->total_size);
 }
 
 void init_mem_desc(mem_desc_t *desc, char *addr, int32_t buf_len){
