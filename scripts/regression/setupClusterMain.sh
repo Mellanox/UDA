@@ -364,6 +364,9 @@ fi
 hadoopClasspathLine="export HADOOP_CLASSPATH=${HADOOP_CLASSPATH}${RPM_JAR}"
 insertRowIntoFile "$hadoopClasspathLine" "export HADOOP_CLASSPATH=" "$hadoopEnv" "$forcingNewRowClasspath"
 
+maxProcLimitLine="ulimit -u 32000"
+insertRowIntoFile "$maxProcLimitLine" "export HADOOP_CLASSPATH=" "$hadoopEnv" "$forcingNewRowClasspath"
+
 if [[ $COMPRESSION == "Lzo" ]]; then
 	manageLzoResources $MASTER
 	manageLzoResourcesFlag=1	
