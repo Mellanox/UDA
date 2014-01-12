@@ -18,6 +18,8 @@ if [[ $@ == *rmr* ]] && ((`$HADOOP_FS -ls $dataDir | grep -c $dataLabel*` != 0))
 	eval $HADOOP_FS_RMR $dataDir/$dataLabel*
 fi
 
+failedGenerations=0
+
 for i in `seq 1 $generateCount`; do
 	outputDir=$dataDir/${dataLabel}.${i}
 	if ((`$HADOOP_FS -ls / | grep -c $outputDir` == 1));then
@@ -27,6 +29,9 @@ for i in `seq 1 $generateCount`; do
 	cmd="$cmdBase $outputDir"
 	echo $cmd
 	eval $cmd
+	if (($? != 0)); then
+		failedGenerations=1
+	fi
 	if (($TEST_RUN_FLAG == 1));then
 		break
 	fi
@@ -35,3 +40,5 @@ done
 if [[ $@ == *clear* ]];then
 	eval $HADOOP_FS_RMR $dataDir/$dataLabel*
 fi
+
+exit $failedGenerations
