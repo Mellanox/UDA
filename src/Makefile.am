@@ -51,6 +51,9 @@ libuda_la_SOURCES =		MOFServer/IndexInfo.cc \
 						Merger/CompareFunc.cc \
 						Merger/LzoDecompressor.cc \
 						Merger/SnappyDecompressor.cc \
+						AsyncIO/AbstractReader.cc \
+						AsyncIO/AsyncReaderManager.cc \
+						AsyncIO/AsyncReaderThread.cc \
 						UdaBridge.cc
 						
 libuda_la_LIBADD =  -lpthread -libverbs -lrdmacm -laio
