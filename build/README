@@ -168,8 +168,8 @@
         UDA reducer allocates RDMA buffers according to 'mapred.rdma.buf.size'
         If the buffer size is too big then a smaller buffer will be used while 'mapred.rdma.buf.size.min' is the limit.
         Bigger RDMA buffers improves the shuffle performance. 
-        Too small buffer size can sagnificantly reduce the perfomance.
-        Task will fail in case the redcuer need to use smaller buffer size than 'mapred.rdma.buf.size.min'.
+        Too small buffer size can significantly reduce the perfomance.
+        Task will fail in case the reducer need to use smaller buffer size than 'mapred.rdma.buf.size.min'.
       </description>
     </property>
 
