@@ -5,7 +5,7 @@ source $SCRIPTS_DIR/defaultsConf.sh
 echoPrefix=`eval $ECHO_PATTERN`	
 
 flagsCase=$RUN_MODE # Environment variable instead of command line argument
-additionalFlags=$2
+additionalFlags=$1
 setupFlags="bsetad"
 testFlags="bftead"
 defaultFlags="bseadz"

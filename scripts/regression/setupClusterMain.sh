@@ -280,7 +280,7 @@ if (($BUILD_SERVER_FLAG==1));then
 	tar -xf $LOCAL_HADOOP_DIR -C $hadoopHome
 	filesCount=`ls $hadoopHome | grep -c ""`
 	if (($filesCount==1));then
-		nestedDir="$hadoopHome/*"
+		nestedDir="$hadoopHome"
 		mv $nestedDir/* $hadoopHome
 	fi
 else
