@@ -39,8 +39,8 @@ all: $(TARGET)
 $(TARGET):$(FILES)
 	rm -rf out
 	mkdir -p out
-	CLASSPATH=$(CPATH) javac -d out -sourcepath ../shared/:. $(FILES)
-	jar -cvf $(TARGET) -C out com -C out org
+	CLASSPATH=$(CPATH) $(JAVA_HOME)/bin/javac -d out -sourcepath ../shared/:. $(FILES)
+	$(JAVA_HOME)/bin/jar -cvf $(TARGET) -C out com -C out org
 	rm -rf out
 
 clean:
