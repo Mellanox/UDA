@@ -45,11 +45,11 @@ if [ $? != 0 ]; then
 fi
 echo -e "\n${GREEN}Step 2 Done!${NONE}"
 
-# Calculate number of errors
-let "C_ERRORS = `grep "C/C++ error" ${RUNNING_DIR}/${C_REPORT_FILE} | head -n 1 | cut -d " " -f 2`"
-
 # Config Report
 cp cov-build/c/output/errors/index.html ${RUNNING_DIR}/${C_REPORT_FILE}
+
+# Calculate number of errors
+let "C_ERRORS = `grep "error" ${RUNNING_DIR}/${C_REPORT_FILE} | wc -l`"
 
 #################
 # Store Reports #
@@ -78,7 +78,7 @@ echo -e "\n${GREEN}Step 3 Done!${NONE}"
 # Send Reports #
 ################
 
-echo -e "\n${CYAN}---------- Step 3. Sending report... ----------${NONE}"
+echo -e "\n${CYAN}---------- Step 4. Sending report... ----------${NONE}"
 
 # Move back to running directory
 cd $RUNNING_DIR
@@ -91,7 +91,6 @@ if ([ $C_ERRORS == 0 ]); then
 else
 	subject="${subject} - found $C_ERRORS issue(s)"
 fi
-#recipients="alongr@mellanox.com" # idanwe@mellanox.com alexr@mellanox.com dinal@mellanox.com"
 for recipient in `echo ${CODE_ANALYSIS_MAILING_LIST} | sed 's/,/ /g'`; do
         MAIL_RECIPIENTS="${recipient}@mellanox.com ${MAIL_RECIPIENTS}"
 done
