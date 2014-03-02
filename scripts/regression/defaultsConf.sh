@@ -24,7 +24,7 @@ export DEFAULT_HUGE_PAGES_COUNT=-1
 export DEFAULT_CURRENT_RPM_DIR=""
 export DEFAULT_INTERFACE="ib0"
 export DEFAULT_CORES_DIR="/.autodirect/acclgwork/general/CORES/"
-export DEFAULT_ERROR_MAILING_LIST="oriz,eladi"
+export DEFAULT_ERROR_MAILING_LIST="eladi"
 
 	# not user defined variables
 export CURRENT_DATE_PATTERN='date +"%Y-%m-%d_%H.%M.%S"'
