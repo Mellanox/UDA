@@ -40,7 +40,7 @@ if [[ -z "$CLUSTER_CSV" ]]; then
 	export CLUSTER_CSV="/.autodirect/mtrswgwork/eladi/regression/csvs/cluster_conf_2.csv"
 fi
 
-bash $SCRIPTS_DIR/autoTester.sh $flags $additionalFlags \-Dcluster.csv="$CLUSTER_CSV"
+bash $SCRIPTS_DIR/autoTester.sh $flags $additionalFlags \-Dcluster.csv="$CLUSTER_CSV" #\-Dreport.mailing.list="eladi"
 
 exit_status=$?
 if (($exit_status != 0)); then
