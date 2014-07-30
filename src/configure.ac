@@ -60,7 +60,7 @@ AC_CANONICAL_HOST
 #	)
 #AC_SUBST([RDMA_INCPATH])
 #
-#AC_CHECK_HEADERS([infiniband/verbs.h])
+AC_CHECK_HEADERS([infiniband/verbs_exp.h],AC_MSG_NOTICE([infiniband/verbs_exp.h exists]),AC_MSG_NOTICE([infiniband/verbs_exp.h doesnt exist]))
 #AC_CHECK_HEADERS([rdma/rdma_cma.h])
 #
 #AC_CHECK_LIB (libibverbs, ibv_post_send, ,

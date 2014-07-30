@@ -17,6 +17,7 @@
  **
  */
 
+#include <config.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
@@ -25,12 +26,17 @@
 #include <netdb.h>
 #include <errno.h>
 #include <stdarg.h>
-
-#include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
-
 #include "RDMAComm.h"
 #include "IOUtility.h"
+
+#ifdef HAVE_INFINIBAND_VERBS_EXP_H
+#include <infiniband/verbs_exp.h>
+#define UDA_ACCESS_ALLOCATE_MR IBV_EXP_ACCESS_ALLOCATE_MR
+#else
+#include <infiniband/verbs.h>
+#define UDA_ACCESS_ALLOCATE_MR IBV_ACCESS_ALLOCATE_MR
+#endif
 
 
 int rdma_debug_flag = 0x0;
@@ -58,7 +64,7 @@ int netlev_dealloc_rdma_mem(struct netlev_dev *dev)
 	return 0;
 }
 
-int netlev_init_rdma_mem(void **mem, uint64_t total_size, netlev_dev_t *dev, int access)
+int netlev_init_rdma_mem(void **mem, uint64_t total_size, netlev_dev_t *dev, uint64_t access)
 {
 	log(lsINFO,"Going to register RDMA memory. size=%llu", total_size);
 
@@ -72,7 +78,20 @@ int netlev_init_rdma_mem(void **mem, uint64_t total_size, netlev_dev_t *dev, int
 	}
 	log(lsTRACE, "After malloc");
 
+
+#ifdef HAVE_INFINIBAND_VERBS_EXP_H
+	log(lsDEBUG,"*** Calling ibv_exp_reg_mr with total_size=%llu , memory-pointer=%lld, access=%lld ****", total_size, *mem, access);
+	struct ibv_exp_reg_mr_in in;
+	memset(&in, 0, sizeof(in));
+	in.exp_access = access;
+	in.addr = *mem;
+	in.length = total_size;
+	in.pd = dev->pd;
+	ibv_mr *mr = ibv_exp_reg_mr(&in);
+#else
 	ibv_mr *mr = ibv_reg_mr(dev->pd, *mem, total_size, access);
+#endif
+
 	if (!mr){
 		log(lsERROR,"ibv_reg_mr failed for memory of total_size=%llu , MSG=%m (errno=%d), memory-pointer=%lld", total_size, errno, mem);
 		free(rdma_mem);
@@ -93,19 +112,22 @@ int netlev_init_rdma_mem(void **mem, uint64_t total_size, netlev_dev_t *dev, int
 int rdma_mem_manager(void **mem, uint64_t total_size, netlev_dev_t *dev)
 {
 	int rc;
-	int access = NETLEV_MEM_ACCESS_PERMISSION;
+	uint64_t access = NETLEV_MEM_ACCESS_PERMISSION;
 
 	int contigPagesEnabler =  ::atoi(UdaBridge_invoke_getConfData_callback ("mapred.rdma.mem.use.contig.pages", "0").c_str());
 	if (contigPagesEnabler)
 	{
-		log(lsDEBUG, "Going to register memory with contig-pages");
-		access |= IBV_ACCESS_ALLOCATE_MR; // for contiguous pages use only
+		log(lsINFO, "Going to register memory with contig-pages");
+		access |= UDA_ACCESS_ALLOCATE_MR; // for contiguous pages use only
 	}
 	else
 	{
 		int pagesize=getpagesize();
 		log(lsDEBUG, "Going to register memory with %dB pages", pagesize);
-		access &= ~IBV_ACCESS_ALLOCATE_MR;
+
+		access &= ~UDA_ACCESS_ALLOCATE_MR;
+
+
 		if (!(*mem))
 		{
 			log(lsDEBUG, "Going to allocate memory before registration");
@@ -229,7 +251,20 @@ int netlev_init_conn_mem(struct netlev_conn *conn)
 
 	dev_mem->wqe_start = (netlev_wqe_t *)wqe_mem;
 	dev_mem->wqe_buff_start = dma_mem;
+
+#ifdef HAVE_INFINIBAND_VERBS_EXP_H
+	struct ibv_exp_reg_mr_in in;
+	memset(&in, 0, sizeof(in));
+	in.exp_access = NETLEV_MEM_ACCESS_PERMISSION;
+	in.addr = dma_mem;
+	in.length = data_size;
+	in.pd = conn->dev->pd;
+	dev_mem->mr = ibv_exp_reg_mr(&in);
+#else
 	dev_mem->mr = ibv_reg_mr(conn->dev->pd, dma_mem, data_size, NETLEV_MEM_ACCESS_PERMISSION);
+#endif
+
+
 	if (!dev_mem->mr) {
 		log(lsERROR, "register mem failed");
 		goto error_register;
