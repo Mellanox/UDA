@@ -24,6 +24,7 @@ echo "	<p><h2><font color=$FONT_COLOR_1>$ENV_NAME</font></h2></p>
 		<p><h3><font>Master: $MASTER</font></h3></p>
 		<p><h3><font>Slaves: $SLAVES_BY_COMMAS</font></h3></p>
 		<p><h3><font>Interface: $INTERFACE</font></h3></p>
+		<p><h3><font>OFED: $(ofed_info | egrep OFED -m 1 | cut -d ' ' -f 1)</font></h3></p>
 		<br>
 	" >> "$envReport"
 

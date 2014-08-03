@@ -61,7 +61,7 @@ setIbMessage ()
 		
 		local existIbMessagesPID=`ssh $node ps -ef | grep ib_write_bw | grep -v "grep" | awk 'BEGIN{};{print $2}'`
 		echo "$echoPrefix: killing the exist ib-message (PID $existIbMessagesPID) "
-		ssh $node kill -9 $existIbMessagesPID
+		sudo ssh $node kill -9 $existIbMessagesPID
 		if (($? != 0));then
 			echo "$echoPrefix: failing terminating ib_message" | tee $ERROR_LOG
 			exit $EEC1
