@@ -33,7 +33,7 @@
 #ifdef HAVE_INFINIBAND_VERBS_EXP_H
 #include <infiniband/verbs_exp.h>
 #define UDA_ACCESS_ALLOCATE_MR IBV_EXP_ACCESS_ALLOCATE_MR
-#else
+#elif HAVE_IBV_ACCESS_ALLOCATE_MR
 #include <infiniband/verbs.h>
 #define UDA_ACCESS_ALLOCATE_MR IBV_ACCESS_ALLOCATE_MR
 #endif
@@ -117,17 +117,23 @@ int rdma_mem_manager(void **mem, uint64_t total_size, netlev_dev_t *dev)
 	int contigPagesEnabler =  ::atoi(UdaBridge_invoke_getConfData_callback ("mapred.rdma.mem.use.contig.pages", "0").c_str());
 	if (contigPagesEnabler)
 	{
+#ifdef UDA_ACCESS_ALLOCATE_MR 
 		log(lsINFO, "Going to register memory with contig-pages");
 		access |= UDA_ACCESS_ALLOCATE_MR; // for contiguous pages use only
+#else
+		log(lsDEBUG, "Registering memory with contig-pages not possible with installed ibverbs");
+		goto default_allocation;
+#endif
 	}
 	else
 	{
+#ifndef UDA_ACCESS_ALLOCATE_MR
+	default_allocation:
+#else
+		access &= ~UDA_ACCESS_ALLOCATE_MR;
+#endif
 		int pagesize=getpagesize();
 		log(lsDEBUG, "Going to register memory with %dB pages", pagesize);
-
-		access &= ~UDA_ACCESS_ALLOCATE_MR;
-
-
 		if (!(*mem))
 		{
 			log(lsDEBUG, "Going to allocate memory before registration");

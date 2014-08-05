@@ -95,4 +95,22 @@ AC_HEADER_STDBOOL
 
 
 AC_CHECK_HEADERS([snappy-c.h], AC_COMPUTE_NEEDED_DSO(snappy,HADOOP_SNAPPY_LIBRARY), AC_MSG_WARN(Snappy headers were not found... building without snappy.))
+
+AC_MSG_CHECKING([for IBV_ACCESS_ALLOCATE_MR])
+AC_TRY_LINK(
+	[
+	#include <infiniband/verbs.h>
+	],
+	[
+	int access = IBV_ACCESS_ALLOCATE_MR;
+	return access;
+	],
+        [ac_ibv_access_allocate_mr=yes],
+        [ac_ibv_access_allocate_mr=no])
+AC_MSG_RESULT([${ac_ibv_access_allocate_mr}])
+
+if test x"${ac_ibv_access_allocate_mr}" = "xyes"; then
+   AC_DEFINE([HAVE_IBV_ACCESS_ALLOCATE_MR], [1], [Define if you have IBV_ACCESS_ALLOCATE_MR])
+fi
+
 AC_OUTPUT
