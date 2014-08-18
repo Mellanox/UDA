@@ -647,7 +647,7 @@ struct netlev_conn* netlev_conn_established(struct rdma_cm_event *event, struct 
 	}
 
 	conn->state = NETLEV_CONN_READY;
-	output_stdout("A connection is fully ready conn (%p)", conn);
+	output_stdout("A connection is fully ready conn (%p), ip(%x)", conn, conn->peerIPAddr);
 	return conn;
 }
 

@@ -38,7 +38,7 @@ extern int netlev_dbg_flag;
 extern merging_state_t merging_sm; 
 extern uint32_t wqes_perconn;
 
-#define RECONNECT_TRIES 2
+#define RECONNECT_TRIES 5
 
 static void client_comp_ibv_recv(netlev_wqe_t *wqe)
 {
@@ -225,7 +225,7 @@ netlev_conn_t* RdmaClient::netlev_get_conn(unsigned long ipaddr, int port,
 	struct connreq_data    xdata;
 
 	errno = 0;
-	int retryCount=1;
+	int retryCount=0;
 	bool connected = false;
 
 	sin.sin_addr.s_addr = ipaddr;
@@ -339,7 +339,7 @@ netlev_conn_t* RdmaClient::netlev_get_conn(unsigned long ipaddr, int port,
 	}while(retryCount<=RECONNECT_TRIES && !connected);
 
 	if(retryCount>RECONNECT_TRIES){
-		log(lsERROR, "Failed to connect to server. Tried for %d times",RECONNECT_TRIES);
+		log(lsERROR, "Failed to connect to server %x. Tried for %d times",(int)ipaddr, RECONNECT_TRIES);
 		goto err_conn_alloc;
 	}
 
