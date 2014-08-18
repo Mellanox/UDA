@@ -119,7 +119,7 @@ void *merge_do_fetching_phase (reduce_task_t *task, SegmentMergeQueue *merge_que
 				/* report */
 				manager->total_count++;
 				manager->progress_count++;
-				log(lsINFO, "   === F segment was inserted: manager->total_count=%d, task->num_maps=%d", manager->total_count, task->num_maps);
+				log(lsDEBUG, "   === F segment was inserted: manager->total_count=%d, task->num_maps=%d", manager->total_count, task->num_maps);
 
 				if (manager->progress_count == PROGRESS_REPORT_LIMIT
 				 || manager->total_count == task->num_maps) {

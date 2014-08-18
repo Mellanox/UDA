@@ -250,7 +250,7 @@ netlev_conn_t* RdmaClient::netlev_get_conn(unsigned long ipaddr, int port,
 		}
 		if (cm_event->event != RDMA_CM_EVENT_ADDR_RESOLVED) {
 			rdma_ack_cm_event(cm_event);
-			log(lsERROR, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
+			log(lsERROR, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%x)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
 			throw new UdaException("unexpected CM event");
 			return NULL;
 		}
@@ -267,7 +267,7 @@ netlev_conn_t* RdmaClient::netlev_get_conn(unsigned long ipaddr, int port,
 		}
 		if (cm_event->event != RDMA_CM_EVENT_ROUTE_RESOLVED) {
 			rdma_ack_cm_event(cm_event);
-			log(lsWARN, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
+			log(lsWARN, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%x)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
 			//TODO: consider throw new UdaException("unexpected CM event");
 			return NULL;
 		}
@@ -311,7 +311,7 @@ netlev_conn_t* RdmaClient::netlev_get_conn(unsigned long ipaddr, int port,
 		}
 
 		if (cm_event->event != RDMA_CM_EVENT_ESTABLISHED) {
-			log(lsERROR, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
+			log(lsERROR, "Unexpected RDMA_CM event %s (%d), status=%d (on cma_id=%x)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
 			rdma_ack_cm_event(cm_event);
 			//goto err_rdma_connect;
 			netlev_conn_free(conn);
@@ -319,7 +319,7 @@ netlev_conn_t* RdmaClient::netlev_get_conn(unsigned long ipaddr, int port,
 			retryCount++;
 
 		}else{
-			log(lsINFO, "Successfully got RDMA_CM_EVENT_ESTABLISHED with peer %x:%d", (int)ipaddr, port);
+			log(lsINFO, "Successfully got RDMA_CM_EVENT_ESTABLISHED with peer %x:%d (on cma_id=%x)", (int)ipaddr, port, cm_event->id);
 			conn->peerIPAddr = ipaddr;
 			list_add_tail(&conn->list, &ctx->hdr_conn_list);
 

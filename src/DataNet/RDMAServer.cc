@@ -226,7 +226,7 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 					break;
 				case IBV_WC_RDMA_WRITE: // we send the RDAM_WRITE with flag=0 (not signaled)
 				default:
-					log(lsERROR, "got unhanled cq event: id %llx status %s (%d) opcode %s (%d)", desc.wr_id, ibv_wc_status_str(desc.status), desc.status, netlev_stropcode(desc.opcode), desc.opcode);
+					log(lsERROR, "got unhandled cq event: id %llx status %s (%d) opcode %s (%d)", desc.wr_id, ibv_wc_status_str(desc.status), desc.status, netlev_stropcode(desc.opcode), desc.opcode);
 					break;
 				}
 			}
@@ -270,7 +270,7 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 	switch (cm_event->event) {
 		case RDMA_CM_EVENT_CONNECT_REQUEST:
 		{
-			log(lsDEBUG, "got RDMA_CM_EVENT_CONNECT_REQUEST (on cma_id=%d)", cm_event->id);
+			log(lsDEBUG, "got RDMA_CM_EVENT_CONNECT_REQUEST (on cma_id=%x)", cm_event->id);
 			dev = netlev_dev_find(cm_event->id, &ctx->hdr_dev_list);
 
 			if (!dev) {
@@ -307,7 +307,7 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 
 		case RDMA_CM_EVENT_ESTABLISHED:
 		{
-			log(lsDEBUG,"got RDMA_CM_EVENT_ESTABLISHED (on cma_id=%d)", cm_event->id);
+			log(lsDEBUG,"got RDMA_CM_EVENT_ESTABLISHED (on cma_id=%x)", cm_event->id);
 			conn = netlev_conn_established(cm_event, &ctx->hdr_conn_list);
 			log(lsDEBUG,"netlev_conn_established returned conn=%p (QPN connection in server is %d)", conn, conn->qp_hndl->qp_num);
 		}
@@ -315,7 +315,7 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 
 		case RDMA_CM_EVENT_DISCONNECTED:
 		{
-			log(lsDEBUG, "got RDMA_CM_EVENT_DISCONNECTED (on cma_id=%d)", cm_event->id);
+			log(lsDEBUG, "got RDMA_CM_EVENT_DISCONNECTED (on cma_id=%x)", cm_event->id);
 			conn = netlev_conn_find_by_qp(cm_event->id->qp->qp_num, &ctx->hdr_conn_list);
 			log(lsTRACE, "calling rdma_ack_cm_event for event=%d", cm_event->event);
 			ret = rdma_ack_cm_event(cm_event);
@@ -332,7 +332,7 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 
 		case RDMA_CM_EVENT_TIMEWAIT_EXIT:
 		{
-			log(lsWARN, "got RDMA_CM_EVENT_TIMEWAIT_EXIT (on cma_id=%d)", cm_event->id);
+			log(lsWARN, "got RDMA_CM_EVENT_TIMEWAIT_EXIT (on cma_id=%x)", cm_event->id);
 			// avner: don't bail out
 			// TODO: consider cleanup
 		}
@@ -340,7 +340,7 @@ static void server_cm_handler(progress_event_t *pevent, void *data)
 
 		default:
 		{
-			log(lsERROR, "Unhandled RDMA_CM event %s (%d), status=%d (on cma_id=%d)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
+			log(lsERROR, "Unhandled RDMA_CM event %s (%d), status=%d (on cma_id=%x)", rdma_event_str(cm_event->event), cm_event->event, cm_event->status, cm_event->id);
 	#if 0
 			// Disregard the unknown event
 			// not the best but definitely not good to bail out

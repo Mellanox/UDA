@@ -640,14 +640,14 @@ struct netlev_conn* netlev_conn_established(struct rdma_cm_event *event, struct 
 	struct netlev_conn *conn;
 	conn = netlev_conn_find_by_cm_id(event->id, head);
 	if (!conn) {
-		log(lsERROR, "event=%p id=%p qp_num=%d not found",
-				event, event->id, event->id->qp->qp_num);
+		log(lsERROR, "cma_id=%x qp_num=%d not found",
+				event->id, event->id->qp->qp_num);
 		throw new UdaException("event-id was not found");
 		return NULL;
 	}
 
 	conn->state = NETLEV_CONN_READY;
-	output_stdout("A connection is fully ready conn (%p), ip(%x)", conn, conn->peerIPAddr);
+	output_stdout("A connection is fully ready conn (%p) on cma_id=%x), ip(%x)", conn, conn->cm_id, conn->peerIPAddr);
 	return conn;
 }
 
@@ -682,11 +682,11 @@ struct netlev_conn* netlev_conn_find_by_cm_id(struct rdma_cm_id *cm_id, struct l
 	struct netlev_conn *conn = NULL;
 	list_for_each_entry(conn, head, list) {
 		if (conn->cm_id == cm_id) {
-			log(lsDEBUG, "conn (%p) was found based on cm_id=%p", conn, cm_id);
+			log(lsDEBUG, "conn (%p) was found based on cm_id=%x", conn, cm_id);
 			return conn;
 		}
 	}
-	log(lsDEBUG, "conn was not found based on cm_id=%p", cm_id);
+	log(lsDEBUG, "conn was not found based on cm_id=%x", cm_id);
 	return NULL;
 }
 
