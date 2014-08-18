@@ -44,7 +44,7 @@ done
 if (( $jobSucceeded == 1 ));then
 	exit 8
 else 
-	echo "$echoPrefix: the job dad stuch - killing it" >> $testOutput
+	echo "$echoPrefix: the job dad stuck - killing it" >> $testOutput
 	exit 9
 fi
 
