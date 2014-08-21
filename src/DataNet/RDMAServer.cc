@@ -175,8 +175,8 @@ static void server_cq_handler(progress_event_t *pevent, void *data)
 					log(lsDEBUG, "Operation: %s (%d). Dev %p wr (0x%llx) flush err. quitting...",
 							netlev_stropcode(desc.opcode), desc.opcode, dev, (uint64_t)desc.wr_id);
 				} else {
-					log(lsERROR, "Operation: %s (%d). Dev %p, Bad WC status %d for wr_id 0x%llx",
-							netlev_stropcode(desc.opcode), desc.opcode, dev, desc.status, (uint64_t)desc.wr_id);
+					log(lsERROR, "Operation: %s (%d). Dev %p, Bad WC %s (%d) for wr_id 0x%llx",
+							netlev_stropcode(desc.opcode), desc.opcode, dev, ibv_wc_status_str(desc.status) ,desc.status, (uint64_t)desc.wr_id);
 					netlev_conn *conn = netlev_conn_find_by_qp((uint32_t) desc.qp_num, &dev->ctx->hdr_conn_list);
 					if (conn) {
 						conn->bad_conn = true;

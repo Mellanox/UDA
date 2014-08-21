@@ -155,8 +155,8 @@ static void client_cq_handler(progress_event_t *pevent, void *data)
 							netlev_stropcode(desc.opcode), desc.opcode, dev, (uint64_t)desc.wr_id);
 					goto error_event;
 				} else {
-					log(lsERROR,"Operation: %s (%d). Dev %p, Bad WC status %d for wr_id 0x%llx",
-							netlev_stropcode(desc.opcode), desc.opcode, dev, desc.status, (uint64_t)desc.wr_id);
+					log(lsERROR,"Operation: %s (%d). Dev %p, Bad WC %s (%d) for wr_id 0x%llx",
+							netlev_stropcode(desc.opcode), desc.opcode, dev, ibv_wc_status_str(desc.status) ,desc.status, (uint64_t)desc.wr_id);
 					goto error_event;
 				}
 			} else {
