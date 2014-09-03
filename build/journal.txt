@@ -3,6 +3,23 @@
 #
 
 ================================
+Version: 3.4.0-0 - 2014-09-03
+================================
+
+NEW FEATURES:
+  
+  Feature #347489 - Support contiguous pages allocation
+  
+  Feature #360710 - Create "mapred.rdma.developer.mode" parameter. If true, 
+  abort UDA on failure instead of falling back to built-in shuffle process
+  
+  Feature #375543 - Support MLNX_OFED 2.2
+
+  Feature #395013 - Support BytesWritable compare function used by the Sort example program
+
+  Feature #417802 - Support MLNX_OFED 2.3
+
+================================
 Version: 3.3.2-0 - 2013-11-24
 ================================
 

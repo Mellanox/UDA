@@ -211,3 +211,5 @@ The log output from UDA server will be in the log file of the appropriate Task T
         ====XXX Successfully closed UdaShuffleConsumerPlugin XXX====
    Such a line should be in each reducer log file of the job.
    NOTE: this line comes at INFO log level (the default level).  No need to turn on DEBUG level for it.
+   Alternatively, you can run the job with "mapred.rdma.developer.mode" set to "true", to prevent UDA from falling back to built-in
+   shuffle process in case of failure. Note that this parameter should not be used in production environment.
