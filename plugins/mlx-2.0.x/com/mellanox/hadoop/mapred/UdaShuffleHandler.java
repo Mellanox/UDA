@@ -71,7 +71,7 @@ public class UdaShuffleHandler extends AbstractService implements AuxServices.Au
     new ConcurrentHashMap<String,String>();
 
   public UdaShuffleHandler() {
-	  super("rdmashuffle");
+	  super("uda_shuffle");
 	  LOG.info("c-tor of UdaShuffleHandler");
   }
 

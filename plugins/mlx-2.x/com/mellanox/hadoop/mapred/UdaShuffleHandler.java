@@ -72,7 +72,7 @@ public class UdaShuffleHandler extends AuxiliaryService {
     new ConcurrentHashMap<String,String>();
 
   public UdaShuffleHandler() {
-	  super("rdmashuffle");
+	  super("uda_shuffle");
 	  LOG.info("c-tor of UdaShuffleHandler");
   }
 
