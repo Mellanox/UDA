@@ -114,7 +114,7 @@ int rdma_mem_manager(void **mem, uint64_t total_size, netlev_dev_t *dev)
 	int rc;
 	uint64_t access = NETLEV_MEM_ACCESS_PERMISSION;
 
-	int contigPagesEnabler =  ::atoi(UdaBridge_invoke_getConfData_callback ("mapred.rdma.mem.use.contig.pages", "0").c_str());
+	int contigPagesEnabler =  ::atoi(UdaBridge_invoke_getConfData_callback ("mapred.rdma.mem.use.contig.pages", "1").c_str());
 	if (contigPagesEnabler)
 	{
 #ifdef UDA_ACCESS_ALLOCATE_MR 

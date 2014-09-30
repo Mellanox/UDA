@@ -335,7 +335,7 @@ void final_cleanup()
 	delete [] merging_sm.mop_pool.pair_desc_arr;
     pthread_mutex_destroy(&merging_sm.mop_pool.lock);
 
-	int contigPagesEnabler =  ::atoi(UdaBridge_invoke_getConfData_callback ("mapred.rdma.mem.use.contig.pages", "0").c_str());
+	int contigPagesEnabler =  ::atoi(UdaBridge_invoke_getConfData_callback ("mapred.rdma.mem.use.contig.pages", "1").c_str());
 	if (!contigPagesEnabler)
 	{
 		free(merging_sm.mop_pool.mem);

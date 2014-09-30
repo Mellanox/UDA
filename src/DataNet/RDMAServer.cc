@@ -393,7 +393,7 @@ RdmaServer::~RdmaServer()
 	pthread_mutex_destroy(&this->ctx.lock);
 	this->parent  = NULL;
 	this->data_mac = NULL;
-	int contigPagesEnabler =  ::atoi(UdaBridge_invoke_getConfData_callback ("mapred.rdma.mem.use.contig.pages", "0").c_str());
+	int contigPagesEnabler =  ::atoi(UdaBridge_invoke_getConfData_callback ("mapred.rdma.mem.use.contig.pages", "1").c_str());
 	if (!contigPagesEnabler)
 	{
 		free(this->rdma_mem);
