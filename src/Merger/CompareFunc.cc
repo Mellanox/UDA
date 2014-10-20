@@ -38,6 +38,7 @@ const char * BYTE_COMPARABLE[] = {
 		NULL};
 const char * BYTES_COMPARABLE[] = {
 		"org.apache.hadoop.io.BytesWritable",
+		"org.apache.hadoop.hbase.io.ImmutableBytesWritable",
 		NULL};
 
 /*
