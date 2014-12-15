@@ -456,12 +456,8 @@ double_buffer_t calculateMemPool(int minRdmaBuffer){
 	//the buffers will be allocated in pairs
 	int numBuffers = g_task->merge_man->num_kv_bufs + EXTRA_RDMA_BUFFERS;
 
-	log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize)", g_task->buffer_size);
-
 	merging_sm.mop_pool.num = numBuffers;
 	merging_sm.mop_pool.total_size = (int64_t)g_task->buffer_size * numBuffers * 2;
-
-	log(lsINFO, "RDMA buffer size: %dB (aligned to pagesize). Total size of RDMA buffers: %ldB", g_task->buffer_size, merging_sm.mop_pool.total_size);
 
 	double_buffer_t buffers;
 
@@ -491,8 +487,8 @@ double_buffer_t calculateMemPool(int minRdmaBuffer){
 		rdmaBufferUsed -= spare;
 		uncompBufferUsed += spare;
 
-		buffers.buffer1 = uncompBufferUsed;
-		buffers.buffer2 = rdmaBufferUsed;
+		buffers.buffer1 = rdmaBufferUsed;
+		buffers.buffer2 = uncompBufferUsed;
 	}
 	log(lsDEBUG, "Calculated RDMA buffers: buffer1 = %dB buffer2 = %dB . Total RDMA memory =  %dMB", buffers.buffer1, buffers.buffer2, merging_sm.mop_pool.total_size / (1024 * 1024));
 
