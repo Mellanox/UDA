@@ -2,6 +2,20 @@
 # UDA Change Log
 #
 
+===============================
+Version: 3.4.1-0 - 2014-12-15
+===============================
+
+NEW FEATURES:
+  
+  Feature #425853 - Contiguous pages used by default
+
+  Feature #431064 - Added support for ImmutableBytesWritable compare function
+
+FIXED:
+
+  Issue #366011 - Reducers hang when there are a lot of MOFs with compression
+
 ================================
 Version: 3.4.0-0 - 2014-09-03
 ================================
